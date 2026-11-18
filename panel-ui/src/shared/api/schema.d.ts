@@ -1206,7 +1206,8 @@ export interface paths {
                 path: {
                     app: components["parameters"]["app"];
                     version: components["parameters"]["version"];
-                    action: "submit" | "approve" | "reject" | "publish";
+                    /** @description rollback: publish again a retired version (it was approved before); approvers and administrators */
+                    action: "submit" | "approve" | "reject" | "publish" | "rollback";
                 };
                 cookie?: never;
             };

@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api, unwrap } from "@/shared/api/client";
 
-export type MapAction = "submit" | "approve" | "reject" | "publish";
+export type MapAction = "submit" | "approve" | "reject" | "publish" | "rollback";
 
 export function useMapVersions(app: string) {
   return useQuery({

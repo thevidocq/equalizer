@@ -397,7 +397,10 @@
       "additionalProperties": false,
       "required": ["check"],
       "properties": {
-        "check": { "enum": ["owned_by_user", "always", "never"] },
+        "check": {
+          "enum": ["owned_by_user", "always", "never"],
+          "description": "owned_by_user: the value at target must have been shown to this session by the site itself (a link in a page, a redirect); always: no check; never: refused for the role"
+        },
         "target": { "type": "string" }
       }
     },
@@ -520,6 +523,11 @@
         "params": { "$ref": "#/$defs/fieldMap" },
         "query": { "$ref": "#/$defs/fieldMap" },
         "body": { "$ref": "#/$defs/fieldMap" },
+        "authz": {
+          "type": "object",
+          "propertyNames": { "$ref": "#/$defs/identifier" },
+          "additionalProperties": { "$ref": "#/$defs/authzRule" }
+        },
         "legacy_request": { "$ref": "#/$defs/legacyRequest" },
         "response": {
           "type": "object",

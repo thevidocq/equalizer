@@ -5,7 +5,7 @@ import { hasRole } from "@/features/auth";
 import { useMapAction, type MapAction } from "../hooks/useMaps";
 
 const done: Record<MapAction, string> = {
-  submit: "Sent for review", approve: "Approved", reject: "Rejected", publish: "Published",
+  submit: "Sent for review", approve: "Approved", reject: "Rejected", publish: "Published", rollback: "Published again",
 };
 
 /** The next step of a version, offered only to who may take it. */
@@ -33,6 +33,15 @@ export function VersionActions({ v, tenant, me }: { v: MapVersion; tenant: strin
       <div className="flex flex-col gap-2">
         <div><Button variant="primary" busy={action.isPending} onClick={() => run("publish")}>Publish</Button></div>
         <p className="text-sm text-ink-soft">The gateways pick it up within 15 seconds; the published version is retired.</p>
+      </div>
+    );
+  } else if (v.status === "retired" && v.published_at && decider) {
+    body = (
+      <div className="flex flex-col gap-2">
+        <div><Button busy={action.isPending} onClick={() => {
+          if (window.confirm(`Publish version ${v.version} again? The current version is retired.`)) run("rollback");
+        }}>Roll back to this version</Button></div>
+        <p className="text-sm text-ink-soft">For when a new version breaks the site: this one was approved before, it goes live at once.</p>
       </div>
     );
   }

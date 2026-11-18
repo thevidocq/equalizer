@@ -524,7 +524,7 @@ paths:
       parameters:
         - { $ref: "#/components/parameters/app" }
         - { $ref: "#/components/parameters/version" }
-        - { name: action, in: path, required: true, schema: { enum: [submit, approve, reject, publish] } }
+        - { name: action, in: path, required: true, schema: { enum: [submit, approve, reject, publish, rollback] }, description: "rollback: publish again a retired version (it was approved before); approvers and administrators" }
       responses:
         "200":
           description: Version after the action

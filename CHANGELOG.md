@@ -35,6 +35,29 @@ Add a section at the top of "Entries" for every commit:
 
 ## Entries
 
+### 2026-11-18 — Authorisation rules against IDOR, map rollback
+
+- **Branch:** `feat/authz-rollback` (on top of `feat/review-assistant`)
+- **What:**
+  - Contracts: `authz` on API routes, the meaning of `owned_by_user`;
+    `rollback` map action.
+  - gateway: rules per role on routes and APIs. `owned_by_user` lets a
+    session open only the values the legacy site showed it (rewritten links
+    and redirects issue them; stored in the session, bounded, cleared when
+    the legacy session ends); `never` refuses; checked after validation,
+    before the legacy request; refusals are `authz_not_owned` /
+    `authz_never` events. Map loading checks roles and targets.
+  - panel-api: `rollback` publishes again a retired signed version (approvers
+    and administrators), audited.
+  - panel-ui: "Roll back to this version" on retired versions.
+  - Docs: map format (authorisation, rollback), tenant manual, gateway README.
+- **Why:** an allowlist does not stop a user changing an id in the address
+  (IDOR); and a broken version must be undone in seconds.
+- **Status:** tests pass (issue and check, redirects, another session,
+  invalid targets; rollback flow). Values shown only inside JSON API
+  responses are not issued yet (only links and redirects).
+- **Next steps:** issue values from API responses; uploads; relay replicas.
+
 ### 2026-11-18 — Review aid for approvers (human in the loop)
 
 - **Branch:** `feat/review-assistant`

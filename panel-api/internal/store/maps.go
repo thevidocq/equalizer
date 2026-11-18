@@ -206,3 +206,30 @@ func (s *Store) AllPublished(ctx context.Context) ([]SignedVersion, error) {
 	}
 	return out, rows.Err()
 }
+
+// Rollback publishes again a version that was published before (retired,
+// still signed) and retires the current one. Its approval still holds: the
+// signed document is the one approved.
+func (s *Store) Rollback(ctx context.Context, app string, version int) error {
+	tx, err := s.DB.BeginTx(ctx, &sql.TxOptions{Isolation: sql.LevelSerializable})
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback() //nolint:errcheck
+	var status string
+	var signed bool
+	if err := tx.QueryRowContext(ctx, `SELECT status, signature IS NOT NULL FROM map_versions WHERE app_id = $1 AND version = $2 FOR UPDATE`,
+		app, version).Scan(&status, &signed); err != nil {
+		return translate(err)
+	}
+	if status != "retired" || !signed {
+		return ErrState
+	}
+	if _, err := tx.ExecContext(ctx, `UPDATE map_versions SET status = 'retired' WHERE app_id = $1 AND status = 'published'`, app); err != nil {
+		return err
+	}
+	if _, err := tx.ExecContext(ctx, `UPDATE map_versions SET status = 'published' WHERE app_id = $1 AND version = $2`, app, version); err != nil {
+		return err
+	}
+	return tx.Commit()
+}

@@ -23,6 +23,13 @@ email from the platform with a link to choose a password. Then **People →
 Invite a person** (name, email, role): the link works once and expires in 48
 hours; pending invitations can be revoked.
 
+**Authorisation and rollback** *(available)*: on pages that show one
+person's data (a permit, an invoice), the map can say `owned_by_user`: each
+user opens only the objects the site listed for them, and changing the
+number in the address gives 403. If a new version breaks the site, open the
+previous version and **Roll back to this version**: it is live again within
+15 seconds.
+
 **Review aid** *(available)*: every version shows what it changes against
 the published map and the risks found by fixed rules (a type widened, an
 admin or backup path, a page with personal data and no authorisation rule,

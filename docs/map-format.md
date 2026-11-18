@@ -276,6 +276,37 @@ api:
 - Writes (`POST`, `PUT`, `PATCH`, `DELETE`) are refused when the browser
   says they come from another site (`Origin`, `Sec-Fetch-Site`).
 
+## Authorisation: who may open which object
+
+An allowlist checks the shape of `/permits/43`, not whose permit it is. For
+pages and APIs that show one person's objects, add a rule per role:
+
+```yaml
+  - id: permit_detail
+    path: /permits/{id}
+    roles: [citizen]
+    params: { id: { type: permit_id } }
+    authz:
+      citizen: { check: owned_by_user, target: params.id }
+```
+
+- `owned_by_user`: the session may open only the values the legacy site
+  itself showed it, in links of its pages or in its redirects. If "My
+  permits" lists 5 and 7, `/permits/9` answers 403 (`authz_not_owned`), even
+  though 9 exists. The values live in the session (at most 2000 per target)
+  and go when the legacy session ends.
+- `never`: the role may not open the entry; `always`: no check.
+- Forms need no rule: their parameters travel sealed in the form token.
+- The review aid flags new pages with personal-looking paths and no rule,
+  and any rule removed.
+
+## Rollback
+
+A version that was published before can be published again at once (Map →
+the version → **Roll back to this version**, approvers and administrators):
+it was approved when it first went live, and its signed document is the
+same.
+
 ## Templates
 
 When a site is protected its CMS can be chosen (WordPress, Joomla, Drupal,

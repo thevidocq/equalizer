@@ -49,6 +49,9 @@ func (p *Public) serveRoute(w http.ResponseWriter, r *http.Request, st *site.Sit
 		return
 	}
 
+	if !p.authorize(w, r, st, route.ID, route.Authz, placeholder.Values{"params": params, "query": queryVals}, false) {
+		return
+	}
 	if !p.observe(w, r, st, route.ID, limits.Observation{Params: merge(params, queryVals)}, true) {
 		return
 	}
@@ -120,7 +123,7 @@ func (p *Public) writeLegacy(w http.ResponseWriter, r *http.Request, st *site.Si
 	}
 	if pipeline.IsHTML(resp.Header.Get("Content-Type")) {
 		forms := p.newBinder(r, st.Forms)
-		ctx := &pipeline.Context{PageURL: pageURL, URLs: st.URLs, Forms: forms.pipelineBinder()}
+		ctx := &pipeline.Context{PageURL: pageURL, URLs: p.issuing(st, sessionOf(r)), Forms: forms.pipelineBinder()}
 		out, err := st.Pipeline.Render(resp.Body, resp.Header.Get("Content-Type"), ctx)
 		if err != nil {
 			// Fail closed: an error is better than a badly rendered page.
@@ -166,6 +169,7 @@ func (p *Public) redirect(w http.ResponseWriter, r *http.Request, st *site.Site,
 		p.Log.InfoContext(r.Context(), "legacy redirect to an unmapped path",
 			slog.Group("detail", slog.String("route", routeID), slog.String("legacy_path", loc.Path)))
 	}
+	(&issuer{URLMapper: st.URLs, st: st, ss: sessionOf(r)}).note(target)
 	securityHeaders(w.Header())
 	w.Header().Set("Location", target)
 	w.WriteHeader(resp.Status)

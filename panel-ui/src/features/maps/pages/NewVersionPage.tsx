@@ -6,6 +6,7 @@ import { useCreateDraft, useMapVersion } from "../hooks/useMaps";
 import { MapEditor } from "../components/MapEditor";
 import { TemplatePicker } from "../components/TemplatePicker";
 import { toEditorYaml } from "../components/yaml";
+import { ImportFile } from "../components/ImportFile";
 
 /** A new draft: empty, from a template, or from an existing version (?from=N). */
 export function NewVersionPage() {
@@ -26,6 +27,9 @@ export function NewVersionPage() {
       {from === 0 ? (
         <TemplatePicker tenant={tenant} app={app} kind={site.data?.kind}
           onFill={(doc) => { setFilled((f) => ({ doc, n: (f?.n ?? 0) + 1 })); toast("Template loaded: review it, then save the draft"); }} />
+      ) : null}
+      {from === 0 ? (
+        <ImportFile onLoad={(doc, name) => { setFilled((f) => ({ doc, n: (f?.n ?? 0) + 1 })); toast(`${name} loaded: review it, then save the draft`); }} />
       ) : null}
       <MapEditor
         key={`${from}-${filled?.n ?? 0}`}

@@ -21,6 +21,7 @@ import (
 	"github.com/thevidocq/equalizer/gateway/internal/pipeline/rewrite"
 	"github.com/thevidocq/equalizer/gateway/internal/placeholder"
 	"github.com/thevidocq/equalizer/gateway/internal/router"
+	"github.com/thevidocq/equalizer/gateway/internal/session"
 	"github.com/thevidocq/equalizer/gateway/internal/transport"
 	"github.com/thevidocq/equalizer/gateway/internal/validate"
 )
@@ -143,6 +144,18 @@ func BuildWith(m *mapmodel.Model, opts Options) (*Site, error) {
 	}, nil
 }
 
+// SessionPolicy returns the map's session limits, with defaults.
+func (s *Site) SessionPolicy() session.Policy {
+	p := session.DefaultPolicy
+	if m := s.Model.Defaults.Session.IdleMinutes; m > 0 {
+		p.Idle = time.Duration(m) * time.Minute
+	}
+	if h := s.Model.Defaults.Session.AbsoluteHours; h > 0 {
+		p.Absolute = time.Duration(h) * time.Hour
+	}
+	return p
+}
+
 // FormUnsupported returns why a declared form cannot be served yet ("" if it can).
 func (s *Site) FormUnsupported(id string) string { return s.unsupported[id] }
 
@@ -155,6 +168,11 @@ func checkForm(m *mapmodel.Model, v *validate.Validator, f mapmodel.Form) error 
 	}
 	if err := checkTemplates(f.LegacyRequest); err != nil {
 		return err
+	}
+	if f.Session != nil && f.Session.Start != "" {
+		if _, ok := m.Roles.List[f.Session.Start]; !ok {
+			return fmt.Errorf("session.start: role %q is not in roles.list", f.Session.Start)
+		}
 	}
 	if f.OnSuccess != nil && f.OnSuccess.Redirect != "" {
 		if _, ok := m.RouteByID(f.OnSuccess.Redirect); !ok {

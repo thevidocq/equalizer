@@ -22,6 +22,7 @@ import (
 	"github.com/thevidocq/equalizer/gateway/internal/formtoken"
 	"github.com/thevidocq/equalizer/gateway/internal/mapstore"
 	"github.com/thevidocq/equalizer/gateway/internal/server"
+	"github.com/thevidocq/equalizer/gateway/internal/session"
 	"github.com/thevidocq/equalizer/gateway/internal/site"
 	"github.com/thevidocq/equalizer/gateway/internal/telemetry"
 	"github.com/thevidocq/equalizer/gateway/internal/transport"
@@ -91,12 +92,19 @@ func run() error {
 		return err
 	}
 
+	sessions, closeStore, err := sessionManager(ctx, cfg, formKey, log)
+	if err != nil {
+		return err
+	}
+	defer closeStore()
+
 	public := &server.Public{
-		Forms:  sealer,
-		Maps:   store,
-		IPs:    clientip.New(cfg.TrustedProxies),
-		Log:    telemetry.Logger(os.Stdout, cfg.Instance, level).With(slog.String("module", "server.public")),
-		Events: events,
+		Forms:    sealer,
+		Sessions: sessions,
+		Maps:     store,
+		IPs:      clientip.New(cfg.TrustedProxies),
+		Log:      telemetry.Logger(os.Stdout, cfg.Instance, level).With(slog.String("module", "server.public")),
+		Events:   events,
 	}
 	admin := &server.Admin{Maps: store, Version: version}
 
@@ -130,6 +138,32 @@ func run() error {
 	}
 	log.Info("gateway stopped")
 	return nil
+}
+
+// sessionManager builds the session store: Redis when configured (shared by
+// the replicas), otherwise in process. Sessions use a key derived from the
+// gateway secret (EQ_FORM_KEY).
+func sessionManager(ctx context.Context, cfg config.Config, key []byte, log *slog.Logger) (*session.Manager, func(), error) {
+	var store session.Store
+	closeStore := func() {}
+	if cfg.RedisURL == "" {
+		log.Warn("EQ_REDIS_URL not set: sessions in memory, single replica only")
+		store = session.NewMemory()
+	} else {
+		r, err := session.NewRedis(cfg.RedisURL)
+		if err != nil {
+			return nil, nil, fmt.Errorf("EQ_REDIS_URL: %w", err)
+		}
+		pingCtx, cancel := context.WithTimeout(ctx, 3*time.Second)
+		defer cancel()
+		if err := r.Ping(pingCtx); err != nil {
+			// Not fatal: anonymous pages keep working and Redis may come up later.
+			log.Error("session store unreachable", slog.String("error", err.Error()))
+		}
+		store, closeStore = r, func() { _ = r.Close() }
+	}
+	m, err := session.NewManager(store, key)
+	return m, closeStore, err
 }
 
 func logReload(log *slog.Logger, a *site.Site, err error) {

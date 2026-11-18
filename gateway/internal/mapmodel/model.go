@@ -39,10 +39,19 @@ type Meta struct {
 
 // Legacy describes how to reach the protected application.
 type Legacy struct {
-	BaseURL   string `json:"base_url"`
-	Reach     Reach  `json:"reach"`
-	UserAgent string `json:"user_agent"`
-	TimeoutMS int    `json:"timeout_ms"`
+	BaseURL        string          `json:"base_url"`
+	Reach          Reach           `json:"reach"`
+	UserAgent      string          `json:"user_agent"`
+	TimeoutMS      int             `json:"timeout_ms"`
+	SessionExpired *SessionExpired `json:"session_expired"`
+}
+
+// SessionExpired tells how the legacy application signals that its own
+// session ended (the gateway then drops the role granted at login).
+type SessionExpired struct {
+	RedirectTo   string `json:"redirect_to"`
+	Status       []int  `json:"status"`
+	BodyContains string `json:"body_contains"`
 }
 
 // Reach says whether the legacy application is reached through a connector or directly.
@@ -62,6 +71,13 @@ type Roles struct {
 type Defaults struct {
 	String       StringDefaults `json:"string"`
 	LegacyBudget LegacyBudget   `json:"legacy_budget"`
+	Session      SessionPolicy  `json:"session"`
+}
+
+// SessionPolicy limits the life of gateway sessions.
+type SessionPolicy struct {
+	IdleMinutes   int `json:"idle_minutes"`
+	AbsoluteHours int `json:"absolute_hours"`
 }
 
 // StringDefaults applies to string fields without constraints of their own.
@@ -122,6 +138,7 @@ type Route struct {
 	Query         map[string]FieldSpec `json:"query"`
 	LegacyRequest LegacyRequest        `json:"legacy_request"`
 	Links         []Link               `json:"links"`
+	Session       *SessionAction       `json:"session"`
 }
 
 // Link maps a legacy URL found in a page to a public route.
@@ -142,6 +159,14 @@ type Form struct {
 	LegacyRequest LegacyRequest        `json:"legacy_request"`
 	Success       *SuccessCheck        `json:"success"`
 	OnSuccess     *OnSuccess           `json:"on_success"`
+	Session       *SessionAction       `json:"session"`
+}
+
+// SessionAction starts (login: the role granted) or ends (logout) the
+// gateway session.
+type SessionAction struct {
+	Start string `json:"start"`
+	End   bool   `json:"end"`
 }
 
 // SuccessCheck tells whether the legacy application accepted a submission.

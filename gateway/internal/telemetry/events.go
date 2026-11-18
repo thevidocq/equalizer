@@ -21,6 +21,7 @@ type Event struct {
 	Route      *string        `json:"route"`
 	RequestID  string         `json:"request_id,omitempty"`
 	SrcIP      string         `json:"src_ip,omitempty"`
+	Session    *string        `json:"session,omitempty"` // hash, never the session id
 	Method     string         `json:"method,omitempty"`
 	Path       string         `json:"path,omitempty"`
 	Status     int            `json:"status,omitempty"`

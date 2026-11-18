@@ -34,13 +34,19 @@ func (p *Public) serveForm(w http.ResponseWriter, r *http.Request, st *site.Site
 		writePage(w, http.StatusInternalServerError, pageError)
 		return
 	}
-	if !site.RoleAllowed(st.Model.Roles.Anonymous, form.Roles) {
+	ss := sessionOf(r)
+	if !site.RoleAllowed(ss.role(st), form.Roles) {
 		p.block(w, r, st, http.StatusForbidden, "authz_denied")
 		return
 	}
 	if reason := st.FormUnsupported(form.ID); reason != "" {
 		p.Log.WarnContext(r.Context(), "form not served yet",
 			slog.Group("detail", slog.String("route", form.ID), slog.String("reason", reason)))
+		writePage(w, http.StatusServiceUnavailable, pageUnavailable)
+		return
+	}
+	if form.Session != nil && form.Session.Start != "" && ss.broken {
+		p.Log.ErrorContext(r.Context(), "login refused: no session store", slog.Group("detail", slog.String("route", form.ID)))
 		writePage(w, http.StatusServiceUnavailable, pageUnavailable)
 		return
 	}
@@ -89,6 +95,7 @@ func (p *Public) serveForm(w http.ResponseWriter, r *http.Request, st *site.Site
 		writePage(w, http.StatusInternalServerError, pageError)
 		return
 	}
+	ss.apply(req)
 	if !st.Budget.Acquire(r.Context()) {
 		writePage(w, http.StatusServiceUnavailable, pageUnavailable)
 		return
@@ -99,11 +106,19 @@ func (p *Public) serveForm(w http.ResponseWriter, r *http.Request, st *site.Site
 		p.legacyFailure(w, r, st, form.ID, err)
 		return
 	}
+	p.absorbSession(r, st, ss, resp)
 
 	outcome := "failure"
 	var sent int
-	if succeeded(form.Success, resp) {
+	if succeeded(form.Success, resp, ss.hasCookie) {
 		outcome = "success"
+		if form.Session != nil {
+			if form.Session.Start != "" {
+				ss.login(form.Session.Start)
+			} else if form.Session.End {
+				ss.end()
+			}
+		}
 		if target, ok := successRedirect(st.Model, form, params); ok {
 			securityHeaders(w.Header())
 			w.Header().Set("Location", target)
@@ -216,8 +231,9 @@ func encodeValues(cs string, groups map[string]map[string]string) (placeholder.V
 }
 
 // succeeded applies the form's success check. Without a check, any answer
-// below 400 counts as success.
-func succeeded(sc *mapmodel.SuccessCheck, resp *legacyclient.Response) bool {
+// below 400 counts as success. cookie checks that the session holds the
+// legacy cookie (set now or before).
+func succeeded(sc *mapmodel.SuccessCheck, resp *legacyclient.Response, hasCookie func(string) bool) bool {
 	if sc == nil {
 		return resp.Status < 400
 	}
@@ -240,6 +256,9 @@ func succeeded(sc *mapmodel.SuccessCheck, resp *legacyclient.Response) bool {
 		if sc.NotContains != "" && bytes.Contains(text, []byte(sc.NotContains)) {
 			return false
 		}
+	}
+	if sc.Cookie != "" && !hasCookie(sc.Cookie) {
+		return false
 	}
 	if sc.RedirectTo != "" {
 		loc, err := url.Parse(resp.Location)

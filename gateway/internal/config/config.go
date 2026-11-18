@@ -23,6 +23,7 @@ type Config struct {
 	FormKey         []byte         // 32-byte key sealing form tokens; nil: random per instance
 	RelayURL        string         // tunnel-relay internal address; empty: no connector mode
 	RelayToken      string         // token presented to the relay
+	RedisURL        string         // session store; empty: in-process store (single replica)
 	ShutdownTimeout time.Duration
 }
 
@@ -52,6 +53,7 @@ func FromEnv() (Config, error) {
 	cfg.FormKey = formKey
 
 	cfg.RelayURL = os.Getenv("EQ_RELAY_URL")
+	cfg.RedisURL = os.Getenv("EQ_REDIS_URL")
 	if cfg.RelayToken, err = secretValue("EQ_RELAY_TOKEN"); err != nil {
 		return Config{}, err
 	}

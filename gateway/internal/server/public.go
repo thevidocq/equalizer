@@ -10,6 +10,7 @@ import (
 	"github.com/thevidocq/equalizer/gateway/internal/clientip"
 	"github.com/thevidocq/equalizer/gateway/internal/formtoken"
 	"github.com/thevidocq/equalizer/gateway/internal/router"
+	"github.com/thevidocq/equalizer/gateway/internal/session"
 	"github.com/thevidocq/equalizer/gateway/internal/site"
 	"github.com/thevidocq/equalizer/gateway/internal/telemetry"
 )
@@ -23,12 +24,13 @@ type MapSource interface {
 // towards the legacy application and returns the response. APIs are not
 // served yet (see CHANGELOG).
 type Public struct {
-	Maps    MapSource
-	IPs     *clientip.Resolver
-	Log     *slog.Logger
-	Events  *telemetry.Emitter
-	Forms   *formtoken.Sealer // nil: forms are neither bound nor accepted
-	nowFunc func() time.Time
+	Maps     MapSource
+	IPs      *clientip.Resolver
+	Log      *slog.Logger
+	Events   *telemetry.Emitter
+	Forms    *formtoken.Sealer // nil: forms are neither bound nor accepted
+	Sessions *session.Manager  // nil: no sessions, every visitor is anonymous
+	nowFunc  func() time.Time
 }
 
 // Handler returns the HTTP handler with request_id and access log.
@@ -92,6 +94,10 @@ func (p *Public) handle(w http.ResponseWriter, r *http.Request) string {
 		return ""
 	}
 
+	ss := p.loadSession(r, active)
+	r = withSession(r, ss)
+	w = &commitWriter{ResponseWriter: w, ctx: r.Context(), ss: ss}
+
 	switch m.Entry.Kind {
 	case router.KindRoute:
 		p.serveRoute(w, r, active, m)
@@ -134,6 +140,9 @@ func (p *Public) event(r *http.Request, st *site.Site, typ, reason string, statu
 	}
 	if reason != "" {
 		ev.Reason = telemetry.Ptr(reason)
+	}
+	if ss, ok := r.Context().Value(sessionKey{}).(*sessionState); ok {
+		ev.Session = ss.hash()
 	}
 	if st != nil {
 		ev.Tenant, ev.App = st.Model.Meta.Tenant, st.Model.Meta.App

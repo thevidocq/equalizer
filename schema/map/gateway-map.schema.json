@@ -250,8 +250,28 @@
             "charset": { "type": "string" }
           }
         },
-        "error_template": { "type": "string" }
+        "error_template": { "type": "string" },
+        "session": {
+          "type": "object",
+          "description": "Gateway sessions (legacy cookies kept server-side, role after login).",
+          "additionalProperties": false,
+          "properties": {
+            "idle_minutes": { "type": "integer", "minimum": 5, "maximum": 1440 },
+            "absolute_hours": { "type": "integer", "minimum": 1, "maximum": 168 }
+          }
+        }
       }
+    },
+    "sessionAction": {
+      "type": "object",
+      "description": "start: the role granted when the form succeeds (login). end: the gateway session ends (logout).",
+      "additionalProperties": false,
+      "properties": {
+        "start": { "$ref": "#/$defs/identifier" },
+        "end": { "const": true }
+      },
+      "minProperties": 1,
+      "maxProperties": 1
     },
     "rateLimit": {
       "type": "object",
@@ -271,7 +291,7 @@
         "ttl_s": { "type": "integer", "minimum": 1 }
       }
     },
-    "baseType": { "enum": ["int", "enum", "bool", "date", "string", "email", "text", "file"] },
+    "baseType": { "enum": ["int", "enum", "bool", "date", "string", "email", "text", "password", "file"] },
     "typeDef": {
       "type": "object",
       "additionalProperties": false,
@@ -309,7 +329,7 @@
       },
       "allOf": [
         {
-          "if": { "properties": { "type": { "enum": ["text", "file"] } } },
+          "if": { "properties": { "type": { "enum": ["text", "password", "file"] } } },
           "then": {
             "anyOf": [
               { "required": ["rules"], "properties": { "rules": { "minItems": 1 } } },
@@ -408,6 +428,13 @@
           }
         },
         "forms": { "type": "array", "items": { "$ref": "#/$defs/identifier" } },
+        "session": {
+          "type": "object",
+          "description": "end: true makes the route a logout: the gateway session ends after the legacy answer.",
+          "additionalProperties": false,
+          "required": ["end"],
+          "properties": { "end": { "const": true } }
+        },
         "cache": { "$ref": "#/$defs/cache" },
         "rate_limit": { "$ref": "#/$defs/rateLimit" },
         "origin": { "$ref": "#/$defs/origin" },
@@ -435,6 +462,7 @@
           "additionalProperties": false,
           "properties": { "redirect": { "$ref": "#/$defs/identifier" } }
         },
+        "session": { "$ref": "#/$defs/sessionAction" },
         "captcha": { "type": "boolean" },
         "rate_limit": { "$ref": "#/$defs/rateLimit" },
         "origin": { "$ref": "#/$defs/origin" },

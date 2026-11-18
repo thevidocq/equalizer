@@ -1057,6 +1057,70 @@ paths:
                 conflicts: { type: object, additionalProperties: { enum: [overwrite, skip, rename] } }
       responses:
         "200": { $ref: "#/components/responses/Object" }
+  /tenants/{tenant}/logs:
+    get:
+      tags: [logs]
+      summary: >-
+        Security events of the tenant's sites, newest first: what the gateway served and refused (tenant
+        administrators, approvers and auditors; platform users see no tenant's events)
+      parameters:
+        - { $ref: "#/components/parameters/tenant" }
+        - { $ref: "#/components/parameters/logApp" }
+        - { $ref: "#/components/parameters/logTypes" }
+        - { $ref: "#/components/parameters/logSearch" }
+        - { $ref: "#/components/parameters/logSince" }
+        - name: before
+          in: query
+          description: Cursor from next_cursor (older events)
+          schema: { type: string, pattern: "^[0-9]{1,20}$" }
+      responses:
+        "200":
+          description: At most 50 events
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items: { type: array, items: { $ref: "#/components/schemas/LogEvent" } }
+                  next_cursor: { type: [string, "null"] }
+        "422": { $ref: "#/components/responses/Error" }
+        "503": { $ref: "#/components/responses/Error" }
+  /tenants/{tenant}/logs/stats:
+    get:
+      tags: [logs]
+      summary: Events per type and refused requests per interval, for the same filters as the list
+      parameters:
+        - { $ref: "#/components/parameters/tenant" }
+        - { $ref: "#/components/parameters/logApp" }
+        - { $ref: "#/components/parameters/logSearch" }
+        - { $ref: "#/components/parameters/logSince" }
+      responses:
+        "200":
+          description: Counts
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/LogStats" }
+        "422": { $ref: "#/components/responses/Error" }
+        "503": { $ref: "#/components/responses/Error" }
+  /tenants/{tenant}/logs/export:
+    get:
+      tags: [logs]
+      summary: The filtered events as CSV, newest first, at most 10000
+      parameters:
+        - { $ref: "#/components/parameters/tenant" }
+        - { $ref: "#/components/parameters/logApp" }
+        - { $ref: "#/components/parameters/logTypes" }
+        - { $ref: "#/components/parameters/logSearch" }
+        - { $ref: "#/components/parameters/logSince" }
+      responses:
+        "200":
+          description: CSV file
+          content:
+            text/csv:
+              schema: { type: string }
+        "422": { $ref: "#/components/responses/Error" }
+        "503": { $ref: "#/components/responses/Error" }
   /audit:
     get:
       tags: [audit]
@@ -1085,6 +1149,25 @@ components:
       type: http
       scheme: bearer
   parameters:
+    logApp:
+      name: app
+      in: query
+      description: Only this site
+      schema: { type: string, pattern: "^[a-z0-9][a-z0-9-]{0,62}$" }
+    logTypes:
+      name: types
+      in: query
+      description: Comma-separated event types; empty means all
+      schema: { type: string, maxLength: 300 }
+    logSearch:
+      name: q
+      in: query
+      description: Text the event must contain (IP address, path, request ID)
+      schema: { type: string, maxLength: 200 }
+    logSince:
+      name: since
+      in: query
+      schema: { enum: [1h, 24h, 7d, 30d], default: 24h }
     app:
       name: app
       in: path
@@ -1297,6 +1380,42 @@ components:
         decided_at: { type: [string, "null"], format: date-time }
         published_at: { type: [string, "null"], format: date-time }
         document: { type: object, additionalProperties: true, description: "Only when reading one version" }
+    LogEvent:
+      type: object
+      description: A security event, with the fields the panel shows (never field values)
+      required: [ts, type]
+      properties:
+        ts: { type: string, format: date-time }
+        type:
+          enum: [request.served, request.blocked, field.rejected, ratelimit.hit, behavior.alert, parse.failed, legacy.error, connector.down, exposure.alert]
+        reason: { type: [string, "null"] }
+        app: { type: [string, "null"] }
+        route: { type: [string, "null"], description: Map entry }
+        map_version: { type: [integer, "null"] }
+        request_id: { type: [string, "null"] }
+        src_ip: { type: [string, "null"] }
+        method: { type: [string, "null"] }
+        path: { type: [string, "null"] }
+        status: { type: [integer, "null"] }
+        field: { type: [string, "null"], description: Name of the refused field }
+    LogStats:
+      type: object
+      required: [counts, refused, step_seconds]
+      properties:
+        counts:
+          type: object
+          description: Events per type in the period
+          additionalProperties: { type: integer }
+        refused:
+          type: array
+          description: Refused events (every type but request.served) per interval, oldest first
+          items:
+            type: object
+            required: [ts, count]
+            properties:
+              ts: { type: string, format: date-time }
+              count: { type: integer }
+        step_seconds: { type: integer }
     AuditEntry:
       type: object
       required: [id, ts, action, target]

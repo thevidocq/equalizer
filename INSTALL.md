@@ -211,7 +211,7 @@ Open `http://localhost:3000` (user `admin`, password from `.env`), go to
 {service="gateway", level="error"}                    errors only
 ```
 
-The panel's Logs page will arrive with panel-ui; Grafana stays for in-depth analysis.
+The panel's **Logs** page (tenant administrators, approvers and auditors) reads the security events from Loki (`EQ_LOKI_URL`, already set in Compose); Grafana stays for in-depth analysis.
 
 ### File uploads *(available)*
 

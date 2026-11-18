@@ -37,6 +37,7 @@ type Config struct {
 	ExposureInterval time.Duration
 	SessionTTL       time.Duration
 	UIDir            string // static files of panel-ui; empty: API only
+	LokiURL          string // security events for the Logs page (EQ_LOKI_URL); empty: no Logs page
 	ShutdownTimeout  time.Duration
 }
 
@@ -51,6 +52,7 @@ func FromEnv() (Config, error) {
 		SigningKeyID:    env("EQ_MAP_KEY_ID", "k1"),
 		SessionTTL:      8 * time.Hour,
 		UIDir:           os.Getenv("EQ_UI_DIR"),
+		LokiURL:         strings.TrimRight(os.Getenv("EQ_LOKI_URL"), "/"),
 		ShutdownTimeout: 10 * time.Second,
 	}
 	dsn, err := DatabaseURL()

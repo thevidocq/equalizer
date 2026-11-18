@@ -55,6 +55,11 @@ Security:
   same checks as any draft and becomes a draft by whoever started it (for
   continuous discovery, whoever turned it on), never published by itself; no
   draft when nothing changed. A run silent for two hours is failed.
+- Logs page (`internal/logsearch`): security events of the tenant's own
+  sites read from Loki (`EQ_LOKI_URL`); the tenant comes from the user and
+  every filter is checked and quoted before it enters LogQL. Only the shown
+  fields leave (never field values); the CSV export (at most 10000 events)
+  neutralises spreadsheet formulas and is recorded in the activity.
 - Exposure check (`internal/exposure`): every `EQ_EXPOSURE_INTERVAL` each
   site with a `legacy_ip` is probed on ports 443 and 80 with its name in SNI
   and `Host`, comparing with the answer for a random name. Only public
@@ -92,6 +97,7 @@ Security:
 | `EQ_SMTP_USER`, `EQ_SMTP_PASSWORD` or `_FILE` | — | SMTP credentials; empty user: no authentication |
 | `EQ_MAIL_FROM` | `equalizer@localhost` | Sender of the invitations |
 | `EQ_DIRECT_DESTINATIONS` | — | `host:port` list allowed in `direct` mode (lab apps); empty: connectors only |
+| `EQ_LOKI_URL` | none | Loki for the Logs page (Compose: `http://loki:3100`); empty: the page answers 503 |
 | `EQ_EXPOSURE_INTERVAL` | `1h` | Interval between exposure checks of a site (at least `5m`; `0` turns them off) |
 | `EQ_UI_DIR` | — | Static files of panel-ui, served on `/` |
 | `EQ_LOG_LEVEL` | `info` | `debug`, `info`, `warn`, `error` |

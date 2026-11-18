@@ -1,0 +1,545 @@
+openapi: 3.1.0
+info:
+  title: Equalizer panel-api
+  version: 0.1.0
+  description: |
+    API del control plane. Usata da panel-ui (persone, OIDC + MFA) e dai
+    servizi interni (token di servizio). Prima versione: i corpi sono
+    volutamente sintetici e verranno dettagliati servizio per servizio.
+servers:
+  - url: /v1
+security:
+  - oidc: []
+tags:
+  - name: maps
+  - name: proposals
+  - name: crawls
+  - name: connectors
+  - name: capacity
+  - name: llm
+  - name: metrics
+  - name: status
+  - name: logs
+  - name: siem
+  - name: import-export
+  - name: audit
+paths:
+  /apps/{app}/maps/published:
+    get:
+      tags: [maps]
+      summary: Mappa pubblicata e sua firma (usata dal gateway)
+      security: [{ serviceToken: [] }]
+      parameters: [{ $ref: "#/components/parameters/app" }]
+      responses:
+        "200":
+          description: Mappa firmata
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/SignedMap" }
+  /apps/{app}/maps/{version}:
+    get:
+      tags: [maps]
+      summary: Legge una versione della mappa
+      parameters:
+        - { $ref: "#/components/parameters/app" }
+        - { name: version, in: path, required: true, schema: { type: integer } }
+      responses:
+        "200": { $ref: "#/components/responses/Object" }
+  /apps/{app}/maps/{version}/publish:
+    post:
+      tags: [maps]
+      summary: Pubblica e firma una versione approvata
+      parameters:
+        - { $ref: "#/components/parameters/app" }
+        - { name: version, in: path, required: true, schema: { type: integer } }
+      responses:
+        "200": { $ref: "#/components/responses/Object" }
+        "409": { description: Versione non approvata o contenente modifiche non approvate }
+  /apps/{app}/proposals:
+    get:
+      tags: [proposals]
+      summary: Coda delle proposte
+      parameters: [{ $ref: "#/components/parameters/app" }]
+      responses:
+        "200": { $ref: "#/components/responses/List" }
+    post:
+      tags: [proposals]
+      summary: Nuova proposta di modifica (agent o import)
+      security: [{ serviceToken: [] }, { oidc: [] }]
+      parameters: [{ $ref: "#/components/parameters/app" }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/Proposal" }
+      responses:
+        "201": { $ref: "#/components/responses/Object" }
+  /proposals/{id}/approve:
+    post:
+      tags: [proposals]
+      summary: Approva una proposta (mai dall'autore)
+      parameters: [{ $ref: "#/components/parameters/id" }]
+      responses:
+        "200": { $ref: "#/components/responses/Object" }
+        "403": { description: L'autore non può approvare la propria proposta }
+  /proposals/{id}/reject:
+    post:
+      tags: [proposals]
+      summary: Rifiuta una proposta
+      parameters: [{ $ref: "#/components/parameters/id" }]
+      responses:
+        "200": { $ref: "#/components/responses/Object" }
+  /apps/{app}/crawls:
+    post:
+      tags: [crawls]
+      summary: Avvia un crawl
+      parameters: [{ $ref: "#/components/parameters/app" }]
+      responses:
+        "202": { $ref: "#/components/responses/Object" }
+  /crawls/next:
+    get:
+      tags: [crawls]
+      summary: L'agent prende il prossimo lavoro in coda
+      security: [{ serviceToken: [] }]
+      responses:
+        "200": { $ref: "#/components/responses/Object" }
+        "204": { description: Nessun lavoro in coda }
+  /tenants/{tenant}/llm:
+    get:
+      tags: [llm]
+      summary: Configurazione del provider LLM del tenant (chiavi mai restituite)
+      parameters: [{ $ref: "#/components/parameters/tenant" }]
+      responses:
+        "200":
+          description: Configurazione
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/LLMConfig" }
+    put:
+      tags: [llm]
+      summary: Aggiorna la configurazione LLM
+      parameters: [{ $ref: "#/components/parameters/tenant" }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/LLMConfigUpdate" }
+      responses:
+        "200": { $ref: "#/components/responses/Object" }
+  /tenants/{tenant}/llm/test:
+    post:
+      tags: [llm]
+      summary: Prova la connessione al provider
+      parameters: [{ $ref: "#/components/parameters/tenant" }]
+      responses:
+        "200": { $ref: "#/components/responses/Object" }
+  /agent/llm-config:
+    get:
+      tags: [llm]
+      summary: Configurazione LLM effettiva per l'agent
+      security: [{ serviceToken: [] }]
+      responses:
+        "200": { $ref: "#/components/responses/Object" }
+  /apps/{app}/connectors/enroll-token:
+    post:
+      tags: [connectors]
+      summary: Genera un token di registrazione monouso (scade dopo l'uso o in 24 ore)
+      parameters: [{ $ref: "#/components/parameters/app" }]
+      responses:
+        "201": { $ref: "#/components/responses/Object" }
+  /apps/{app}/connectors:
+    get:
+      tags: [connectors]
+      summary: Connettori dell'app con stato, versione, latenza
+      parameters: [{ $ref: "#/components/parameters/app" }]
+      responses:
+        "200": { $ref: "#/components/responses/List" }
+  /apps/{app}/capacity:
+    get:
+      tags: [capacity]
+      summary: Capacità desiderata del sito
+      parameters: [{ $ref: "#/components/parameters/app" }]
+      responses:
+        "200":
+          description: Capacità
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Capacity" }
+    put:
+      tags: [capacity]
+      summary: Aggiorna la capacità (entro i limiti del piano)
+      parameters: [{ $ref: "#/components/parameters/app" }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/Capacity" }
+      responses:
+        "200": { $ref: "#/components/responses/Object" }
+        "422": { description: Fuori dai limiti del piano }
+  /capacity/desired:
+    get:
+      tags: [capacity]
+      summary: Stato desiderato di tutti i siti (orchestrator)
+      security: [{ serviceToken: [] }]
+      responses:
+        "200": { $ref: "#/components/responses/List" }
+  /capacity/status:
+    post:
+      tags: [capacity]
+      summary: Stato reale riportato dall'orchestrator
+      security: [{ serviceToken: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { type: object }
+      responses:
+        "204": { description: Ricevuto }
+  /plans:
+    get:
+      tags: [capacity]
+      summary: Piani e limiti (amministratori piattaforma)
+      responses:
+        "200": { $ref: "#/components/responses/List" }
+    put:
+      tags: [capacity]
+      summary: Aggiorna piani e limiti
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { type: array, items: { type: object } }
+      responses:
+        "200": { $ref: "#/components/responses/Object" }
+  /apps/{app}/metrics:
+    get:
+      tags: [metrics]
+      summary: Metriche aggregate per la scheda del sito protetto
+      parameters:
+        - { $ref: "#/components/parameters/app" }
+        - { name: range, in: query, schema: { enum: [1h, 24h, 7d, 30d], default: 24h } }
+      responses:
+        "200": { $ref: "#/components/responses/Object" }
+  /apps/{app}/metrics/top:
+    get:
+      tags: [metrics]
+      summary: Classifiche dall'archivio eventi
+      parameters:
+        - { $ref: "#/components/parameters/app" }
+        - { name: kind, in: query, required: true, schema: { enum: [blocked_paths, blocked_ips, reasons, pages] } }
+        - { name: range, in: query, schema: { enum: [1h, 24h, 7d, 30d], default: 24h } }
+      responses:
+        "200": { $ref: "#/components/responses/List" }
+  /heartbeat:
+    post:
+      tags: [status]
+      summary: Battito dei servizi e dei connettori
+      security: [{ serviceToken: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/Heartbeat" }
+      responses:
+        "204": { description: Ricevuto }
+  /status/platform:
+    get:
+      tags: [status]
+      summary: Salute globale (amministratori piattaforma)
+      responses:
+        "200": { $ref: "#/components/responses/Object" }
+  /tenants/{tenant}/status:
+    get:
+      tags: [status]
+      summary: Salute dei siti e dei servizi condivisi del tenant
+      parameters: [{ $ref: "#/components/parameters/tenant" }]
+      responses:
+        "200": { $ref: "#/components/responses/Object" }
+  /logs:
+    get:
+      tags: [logs]
+      summary: Ricerca nei log (filtrata per tenant)
+      parameters:
+        - { name: from, in: query, schema: { type: string, format: date-time } }
+        - { name: to, in: query, schema: { type: string, format: date-time } }
+        - { name: service, in: query, schema: { type: string } }
+        - { name: level, in: query, schema: { enum: [debug, info, warn, error] } }
+        - { name: app, in: query, schema: { type: string } }
+        - { name: request_id, in: query, schema: { type: string } }
+        - { name: q, in: query, schema: { type: string } }
+        - { name: limit, in: query, schema: { type: integer, default: 200, maximum: 5000 } }
+      responses:
+        "200": { $ref: "#/components/responses/List" }
+  /logs/tail:
+    get:
+      tags: [logs]
+      summary: Live tail (Server-Sent Events) con gli stessi filtri
+      responses:
+        "200":
+          description: Stream di righe di log
+          content:
+            text/event-stream:
+              schema: { type: string }
+  /logs/exports:
+    post:
+      tags: [logs]
+      summary: Export dei risultati di una ricerca
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                format: { enum: [json, csv] }
+                filters: { type: object }
+      responses:
+        "202": { $ref: "#/components/responses/Object" }
+  /log-levels:
+    get:
+      tags: [logs]
+      summary: Livelli di log attivi
+      responses:
+        "200": { $ref: "#/components/responses/List" }
+    put:
+      tags: [logs]
+      summary: Cambia livello per servizio, modulo e sito, con scadenza
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/LogLevel" }
+      responses:
+        "200": { $ref: "#/components/responses/Object" }
+  /apps/{app}/request-trace:
+    post:
+      tags: [logs]
+      summary: Attiva la traccia richiesta per un tempo limitato
+      parameters: [{ $ref: "#/components/parameters/app" }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [duration_minutes]
+              properties:
+                duration_minutes: { type: integer, minimum: 1, maximum: 120 }
+      responses:
+        "200": { $ref: "#/components/responses/Object" }
+  /requests/{request_id}:
+    get:
+      tags: [logs]
+      summary: Percorso completo di una richiesta, passo per passo
+      parameters:
+        - { name: request_id, in: path, required: true, schema: { type: string } }
+      responses:
+        "200": { $ref: "#/components/responses/Object" }
+  /siem-destinations:
+    get:
+      tags: [siem]
+      summary: Destinazioni di inoltro (piattaforma o tenant)
+      responses:
+        "200": { $ref: "#/components/responses/List" }
+    put:
+      tags: [siem]
+      summary: Crea o aggiorna una destinazione
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/SiemDestination" }
+      responses:
+        "200": { $ref: "#/components/responses/Object" }
+  /siem-destinations/{id}/test:
+    post:
+      tags: [siem]
+      summary: Invia un messaggio di prova
+      parameters: [{ $ref: "#/components/parameters/id" }]
+      responses:
+        "200": { $ref: "#/components/responses/Object" }
+  /exports:
+    post:
+      tags: [import-export]
+      summary: Avvia un export di configurazione
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [scope]
+              properties:
+                scope: { enum: [platform, tenant, site] }
+                tenant: { type: string }
+                app: { type: string }
+                include_map_history: { type: boolean, default: false }
+      responses:
+        "202": { $ref: "#/components/responses/Object" }
+  /imports:
+    post:
+      tags: [import-export]
+      summary: Carica un archivio e restituisce anteprima, diff e conflitti
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                archive: { type: string, format: binary }
+      responses:
+        "200": { $ref: "#/components/responses/Object" }
+  /imports/{id}/apply:
+    post:
+      tags: [import-export]
+      summary: Applica l'import (le mappe entrano come proposte)
+      parameters: [{ $ref: "#/components/parameters/id" }]
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                conflicts: { type: object, additionalProperties: { enum: [overwrite, skip, rename] } }
+      responses:
+        "200": { $ref: "#/components/responses/Object" }
+  /audit:
+    get:
+      tags: [audit]
+      summary: Registro delle azioni
+      responses:
+        "200": { $ref: "#/components/responses/List" }
+components:
+  securitySchemes:
+    oidc:
+      type: openIdConnect
+      openIdConnectUrl: /.well-known/openid-configuration
+    serviceToken:
+      type: http
+      scheme: bearer
+  parameters:
+    app:
+      name: app
+      in: path
+      required: true
+      schema: { type: string, pattern: "^[a-z0-9][a-z0-9-]{0,62}$" }
+    tenant:
+      name: tenant
+      in: path
+      required: true
+      schema: { type: string, pattern: "^[a-z0-9][a-z0-9-]{0,62}$" }
+    id:
+      name: id
+      in: path
+      required: true
+      schema: { type: string }
+  responses:
+    Object:
+      description: Oggetto
+      content:
+        application/json:
+          schema: { type: object }
+    List:
+      description: Elenco
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              items: { type: array, items: { type: object } }
+              next_cursor: { type: [string, "null"] }
+  schemas:
+    SignedMap:
+      type: object
+      required: [version, map, signature, key_id]
+      properties:
+        version: { type: integer }
+        map: { type: object, description: "Conforme a schema/map/gateway-map.schema.json" }
+        signature: { type: string, description: "Ed25519, base64" }
+        key_id: { type: string }
+    Proposal:
+      type: object
+      required: [base_version, changes, author]
+      properties:
+        base_version: { type: integer }
+        changes: { type: array, items: { type: object } }
+        author: { type: string, description: "agent:<run> o user:<id>" }
+        rationale: { type: string }
+    LLMConfig:
+      type: object
+      properties:
+        provider: { enum: [anthropic, openai, local] }
+        model: { type: string, examples: [claude-haiku-5-5] }
+        endpoint: { type: [string, "null"], description: Solo per provider locale }
+        has_api_key: { type: boolean }
+        timeout_s: { type: integer }
+        max_tokens: { type: integer }
+        retries: { type: integer }
+        fallback_provider: { type: [string, "null"] }
+        mask_personal_data: { type: boolean }
+    LLMConfigUpdate:
+      allOf:
+        - { $ref: "#/components/schemas/LLMConfig" }
+        - type: object
+          properties:
+            api_key: { type: string, writeOnly: true }
+    Capacity:
+      type: object
+      properties:
+        replicas_min: { type: integer, minimum: 1 }
+        replicas_max: { type: integer, minimum: 1 }
+        autoscale:
+          type: object
+          properties:
+            cpu_percent: { type: integer, minimum: 10, maximum: 95 }
+            rps_per_replica: { type: integer, minimum: 1 }
+        pool: { enum: [shared, dedicated] }
+        cache_routes: { type: array, items: { type: string } }
+        legacy_budget:
+          type: object
+          properties:
+            max_rps: { type: number }
+            max_concurrency: { type: integer }
+        expected_connectors: { type: integer, minimum: 1 }
+        region: { type: string }
+    Heartbeat:
+      type: object
+      required: [service, instance, version, status]
+      properties:
+        service: { type: string }
+        instance: { type: string }
+        version: { type: string }
+        status: { enum: [operational, degraded, down] }
+        reason: { type: string }
+        dependencies: { type: object, additionalProperties: { enum: [ok, failing] } }
+    LogLevel:
+      type: object
+      required: [service, level]
+      properties:
+        service: { type: string }
+        module: { type: string }
+        app: { type: string }
+        level: { enum: [debug, info, warn, error] }
+        expires_in_minutes: { type: integer, minimum: 1, maximum: 240 }
+    SiemDestination:
+      type: object
+      required: [name, kind, format, streams]
+      properties:
+        id: { type: string }
+        scope: { enum: [platform, tenant] }
+        name: { type: string }
+        kind: { enum: [syslog_tls, syslog_tcp, syslog_udp, splunk_hec, sentinel, webhook] }
+        address: { type: string }
+        format: { enum: [json, cef, leef] }
+        streams:
+          type: array
+          items:
+            type: object
+            required: [stream]
+            properties:
+              stream: { enum: [security, audit, application] }
+              min_level: { enum: [debug, info, warn, error] }
+              facility: { enum: [local0, local1, local2, local3, local4, local5, local6, local7] }
+        max_msgs_per_s: { type: integer }

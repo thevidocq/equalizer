@@ -1,0 +1,143 @@
+# Esempio di mappa per un portale pratiche comunale ipotetico.
+# Validato in CI contro schema/map/gateway-map.schema.json.
+meta:
+  schema: gateway-map/1.0
+  tenant: comune-esempio
+  app: portale-pratiche
+  version: 14
+  parent_version: 13
+  status: published
+  created_by: agent:crawl-2026-11-18
+  approved_by: user:m.rossi
+  published_at: "2026-11-18T10:30:00Z"
+
+legacy:
+  base_url: http://10.20.0.15:8080
+  reach:
+    mode: connector
+    connector_id: cn-comune-esempio-01
+    allow: ["10.20.0.15:8080"]
+  user_agent: equalizer-gateway/0.1
+  timeout_ms: 8000
+  login:
+    request:
+      method: POST
+      path: /login.do
+      form: { j_username: "{{account.user}}", j_password: "{{account.password}}" }
+    success: { cookie: JSESSIONID, not_contains: "Credenziali errate" }
+  session_expired: { redirect_to: /login.do }
+  error_detect:
+    - { status: [500, 502, 503] }
+    - { body_contains: "java.lang." }
+
+roles:
+  auth: { provider: oidc, issuer: "https://idp.comune-esempio.it" }
+  list:
+    anonimo:   { legacy_account: { mode: shared, secret_ref: "vault://comune-esempio/legacy/guest" } }
+    cittadino: { legacy_account: { mode: per_user, secret_ref: "vault://comune-esempio/legacy/users/{{user.id}}" } }
+
+defaults:
+  rate_limit: { per_ip: 60/min, per_session: 120/min }
+  legacy_budget: { max_concurrency: 10, max_rps: 20 }
+  cache: { mode: none }
+  string: { max_length: 100, charset: "[\\p{L}\\p{N} .,'-]" }
+  error_template: errore_generico
+
+types:
+  id_pratica:    { base: int, min: 1, max: 99999999 }
+  stato_pratica: { base: enum, values: [aperta, in_lavorazione, chiusa] }
+
+routes:
+  - id: home
+    path: /
+    method: GET
+    roles: [anonimo, cittadino]
+    legacy_request: { method: GET, path: /index.jsp }
+    render: faithful
+    cache: { mode: public, ttl_s: 60 }
+    origin: agent
+    confidence: 0.98
+    risk: low
+
+  - id: pratiche_elenco
+    path: /pratiche
+    method: GET
+    roles: [cittadino]
+    query:
+      stato:  { type: stato_pratica, required: false }
+      pagina: { type: int, min: 1, max: 500, default: 1 }
+    legacy_request:
+      method: GET
+      path: /pratiche/list.jsp
+      query: { st: "{{query.stato}}", p: "{{query.pagina}}" }
+    render: faithful
+    links:
+      - { legacy: "/pratiche/detail.jsp?id={id}", route: pratica_dettaglio }
+    origin: agent
+    confidence: 0.94
+    risk: low
+
+  - id: pratica_dettaglio
+    path: /pratiche/{id}
+    method: GET
+    roles: [cittadino]
+    params:
+      id: { type: id_pratica }
+    authz:
+      cittadino: { check: owned_by_user, target: params.id }
+    legacy_request:
+      method: GET
+      path: /pratiche/detail.jsp
+      query: { id: "{{params.id}}" }
+    render: faithful
+    forms: [pratica_integrazione]
+    origin: agent
+    confidence: 0.91
+    risk: medium
+
+forms:
+  - id: pratica_integrazione
+    route: /pratiche/{id}/integrazione
+    roles: [cittadino]
+    params:
+      id: { type: id_pratica }
+    fields:
+      messaggio:
+        type: text
+        max_length: 1000
+        charset: "[\\p{L}\\p{N}\\s.,;:!?()'-]"
+        risk: high
+        rules: [no_sql_meta, no_html]
+      allegato:
+        type: file
+        mime: [application/pdf]
+        max_size_kb: 5120
+        scan: av+cdr
+    legacy_request:
+      method: POST
+      path: /pratiche/integra.do
+      form: { idPratica: "{{params.id}}", testo: "{{fields.messaggio}}", tipo: "INT" }
+      files: { doc: "{{fields.allegato}}" }
+    success: { body_contains: "Integrazione registrata" }
+    on_success: { redirect: pratica_dettaglio }
+    rate_limit: { per_user: 5/hour }
+    origin: human
+    approved_by: user:m.rossi
+
+compat:
+  - legacy: "/pratiche/detail.jsp?id={id}"
+    params: { id: { type: id_pratica } }
+    action: redirect
+    route: pratica_dettaglio
+
+external_links:
+  allow: [pagopa.gov.it]
+  default: exit_page
+
+behavior:
+  - id: enumerazione_pratiche
+    route: pratica_dettaglio
+    signal: distinct_param_values
+    param: id
+    threshold: { count: 30, window: 10m, per: user }
+    action: [throttle, alert]

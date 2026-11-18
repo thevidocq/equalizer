@@ -1,0 +1,53 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://equalizer.ai/schema/events/event-1.0.json",
+  "title": "Equalizer security event",
+  "description": "Evento di sicurezza emesso da gateway, relay o sonde. Stesso formato verso archivio eventi e SIEM.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "ts", "type", "service", "tenant", "app"],
+  "properties": {
+    "schema": { "const": "event/1.0" },
+    "ts": { "type": "string", "format": "date-time" },
+    "type": {
+      "enum": [
+        "request.served",
+        "request.blocked",
+        "field.rejected",
+        "ratelimit.hit",
+        "behavior.alert",
+        "parse.failed",
+        "legacy.error",
+        "connector.down",
+        "exposure.alert"
+      ]
+    },
+    "reason": {
+      "type": ["string", "null"],
+      "description": "Motivo sintetico, es. route_not_mapped, method_not_allowed, type_mismatch, authz_denied."
+    },
+    "service": { "enum": ["gateway", "tunnel-relay", "connector", "probe"] },
+    "instance": { "type": "string" },
+    "tenant": { "type": "string" },
+    "app": { "type": "string" },
+    "map_version": { "type": ["integer", "null"] },
+    "route": { "type": ["string", "null"], "description": "Id della rotta trovata, null se non mappata." },
+    "request_id": { "type": "string" },
+    "trace_id": { "type": "string" },
+    "src_ip": { "type": "string" },
+    "session": { "type": ["string", "null"], "description": "Hash della sessione, mai l'identificativo in chiaro." },
+    "user": { "type": ["string", "null"], "description": "Hash o id interno dell'utente, mai dati personali." },
+    "method": { "type": "string" },
+    "path": { "type": "string", "maxLength": 2048 },
+    "status": { "type": "integer" },
+    "latency_ms": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "gateway": { "type": "number" },
+        "legacy": { "type": "number" }
+      }
+    },
+    "detail": { "type": "object" }
+  }
+}

@@ -1,0 +1,144 @@
+// Protocollo del tunnel tra connector e tunnel-relay.
+// Il connector apre SEMPRE la connessione verso il relay (in uscita),
+// autenticato con mTLS dopo la registrazione con token monouso.
+syntax = "proto3";
+
+package equalizer.tunnel.v1;
+
+option go_package = "github.com/thevidocq/equalizer/schema/tunnel/gen/tunnelv1";
+
+// Versione del protocollo: relay e connector rifiutano major diverse.
+message ProtocolVersion {
+  uint32 major = 1;
+  uint32 minor = 2;
+}
+
+// --- Registrazione (una tantum, prima del mTLS) ---
+
+message EnrollRequest {
+  string enroll_token = 1;        // token monouso generato dal pannello
+  bytes csr_pem = 2;              // certificate signing request del connector
+  string connector_version = 3;
+  string hostname = 4;
+}
+
+message EnrollResponse {
+  string connector_id = 1;
+  bytes certificate_pem = 2;      // certificato client per il mTLS
+  bytes ca_chain_pem = 3;
+  string tenant = 4;
+  string app = 5;
+}
+
+service Enrollment {
+  rpc Enroll(EnrollRequest) returns (EnrollResponse);
+}
+
+// --- Tunnel (stream bidirezionale, mTLS) ---
+
+service Tunnel {
+  // Il connector apre lo stream; il relay vi invia richieste,
+  // il connector risponde sullo stesso stream.
+  rpc Connect(stream ConnectorMessage) returns (stream RelayMessage);
+}
+
+// Messaggi dal connector al relay.
+message ConnectorMessage {
+  oneof kind {
+    Hello hello = 1;
+    ResponseHead response_head = 2;
+    BodyChunk response_body = 3;
+    Heartbeat heartbeat = 4;
+    RequestError request_error = 5;
+  }
+}
+
+// Messaggi dal relay al connector.
+message RelayMessage {
+  oneof kind {
+    Welcome welcome = 1;
+    RequestHead request_head = 2;
+    BodyChunk request_body = 3;
+    AllowlistUpdate allowlist = 4;
+    Heartbeat heartbeat = 5;
+    CancelRequest cancel = 6;
+  }
+}
+
+message Hello {
+  ProtocolVersion protocol = 1;
+  string connector_id = 2;
+  string connector_version = 3;
+  uint64 allowlist_version = 4;   // ultima allowlist firmata posseduta
+}
+
+message Welcome {
+  ProtocolVersion protocol = 1;
+  string relay_instance = 2;
+  uint32 heartbeat_interval_s = 3; // predefinito 10
+}
+
+// Allowlist delle destinazioni, firmata dal pannello (Ed25519).
+// Il connector verifica la firma con la chiave pubblica del pannello:
+// un relay compromesso non può allargarla.
+message AllowlistUpdate {
+  uint64 version = 1;
+  repeated string destinations = 2;  // host:porta, es. "10.20.0.15:8080"
+  bytes signature = 3;               // firma Ed25519 di version + destinations
+  string key_id = 4;
+}
+
+message Header {
+  string name = 1;
+  string value = 2;
+}
+
+// Richiesta già ricostruita dal gateway: il connector non la modifica,
+// verifica solo che la destinazione sia in allowlist.
+message RequestHead {
+  string request_id = 1;
+  string trace_id = 2;
+  string destination = 3;           // host:porta, deve essere in allowlist
+  string scheme = 4;                // http | https
+  string method = 5;
+  string path_and_query = 6;
+  repeated Header headers = 7;      // solo header ammessi dal gateway
+  bool has_body = 8;
+  uint32 timeout_ms = 9;
+}
+
+message ResponseHead {
+  string request_id = 1;
+  uint32 status = 2;
+  repeated Header headers = 3;
+  bool has_body = 4;
+}
+
+message BodyChunk {
+  string request_id = 1;
+  bytes data = 2;
+  bool last = 3;
+}
+
+message RequestError {
+  string request_id = 1;
+  enum Code {
+    CODE_UNSPECIFIED = 0;
+    DESTINATION_NOT_ALLOWED = 1;
+    LEGACY_UNREACHABLE = 2;
+    TIMEOUT = 3;
+    TOO_LARGE = 4;
+    INTERNAL = 5;
+  }
+  Code code = 2;
+  string message = 3;
+}
+
+message CancelRequest {
+  string request_id = 1;
+}
+
+message Heartbeat {
+  uint64 unix_ms = 1;
+  uint32 inflight = 2;
+}

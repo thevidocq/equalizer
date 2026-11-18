@@ -1,0 +1,30 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://equalizer.ai/schema/events/log-1.0.json",
+  "title": "Equalizer application log line",
+  "description": "Riga di log applicativo (JSON su una riga su stdout). Comune a tutti i servizi.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["ts", "level", "service", "msg"],
+  "properties": {
+    "ts": { "type": "string", "format": "date-time" },
+    "level": { "enum": ["debug", "info", "warn", "error"] },
+    "service": {
+      "enum": ["gateway", "tunnel-relay", "connector", "orchestrator", "panel-api", "panel-ui", "agent"]
+    },
+    "instance": { "type": "string" },
+    "module": { "type": "string", "description": "Modulo interno, es. pipeline.rewrite" },
+    "tenant": { "type": ["string", "null"] },
+    "app": { "type": ["string", "null"] },
+    "request_id": { "type": ["string", "null"] },
+    "trace_id": { "type": ["string", "null"] },
+    "span_id": { "type": ["string", "null"] },
+    "map_version": { "type": ["integer", "null"] },
+    "msg": { "type": "string" },
+    "error": { "type": ["string", "null"] },
+    "detail": {
+      "type": "object",
+      "description": "Dati aggiuntivi già mascherati: mai cookie, Authorization, password, token o campi personali in chiaro."
+    }
+  }
+}

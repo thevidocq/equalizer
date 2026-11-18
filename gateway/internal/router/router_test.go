@@ -13,6 +13,8 @@ func testRouter(t *testing.T) *Router {
 		{ID: "dettaglio", Kind: KindRoute, Method: "GET", Pattern: "/pratiche/{id}"},
 		{ID: "nuova", Kind: KindRoute, Method: "GET", Pattern: "/pratiche/nuova"},
 		{ID: "integrazione", Kind: KindForm, Method: "POST", Pattern: "/pratiche/{id}/integrazione"},
+		{ID: "asset:/css/", Kind: KindAsset, Method: "GET", Pattern: "/css/"},
+		{ID: "asset:/css/temi/", Kind: KindAsset, Method: "GET", Pattern: "/css/temi/"},
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -62,6 +64,23 @@ func TestDenyByDefault(t *testing.T) {
 	}
 	if _, err := r.Match("DELETE", "/pratiche/42"); !errors.Is(err, ErrMethodNotAllowed) {
 		t.Errorf("DELETE /pratiche/42: atteso ErrMethodNotAllowed, ottenuto %v", err)
+	}
+}
+
+func TestAssets(t *testing.T) {
+	r := testRouter(t)
+	m, err := r.Match("GET", "/css/temi/blu.css")
+	if err != nil || m.Entry.ID != "asset:/css/temi/" || m.Params["file"] != "blu.css" {
+		t.Fatalf("prefisso più lungo non scelto: %+v %v", m, err)
+	}
+	if _, err := r.Match("GET", "/css/"); !errors.Is(err, ErrNotMapped) {
+		t.Fatalf("il prefisso da solo non è un file: %v", err)
+	}
+	if _, err := r.Match("POST", "/css/a.css"); !errors.Is(err, ErrMethodNotAllowed) {
+		t.Fatalf("POST su asset: %v", err)
+	}
+	if _, err := New([]Entry{{ID: "x", Kind: KindAsset, Pattern: "/a/../"}}); err == nil {
+		t.Fatal("prefisso con .. accettato")
 	}
 }
 

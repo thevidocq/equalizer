@@ -23,7 +23,7 @@ Aggiungi in cima a "Voci" una sezione per ogni commit:
 | --- | --- |
 | Contratti (`schema/`) | Prima versione, validata in CI |
 | Documentazione | Architettura, formato mappa, installazione e manuali (funzionalità previste) |
-| gateway | Serve le rotte GET in modalità diretta con validazione dei valori; niente resa fedele, form, sessioni, connettore |
+| gateway | Rotte GET e asset in modalità diretta, validazione, resa fedele (UTF-8, pulizia, riscrittura URL, redirect); niente form, sessioni, connettore |
 | tunnel-relay | Da implementare |
 | connector | Da implementare |
 | orchestrator | Da implementare |
@@ -34,6 +34,52 @@ Aggiungi in cima a "Voci" una sezione per ogni commit:
 | tools (eqtool) | Chiavi e firma delle mappe |
 
 ## Voci
+
+### 2026-11-18 — Aggiungi la resa fedele e gli asset
+
+- **Branch:** `feat/faithful-rendering`
+- **Cosa:**
+  - Contratto: sezione `assets` nella mappa (prefisso, tipi ammessi,
+    dimensione massima, ruoli), prefissi con `.` o `..` rifiutati; esempio
+    aggiornato.
+  - `gateway/internal/thirdparty/xhtml`: copia del parser HTML5
+    `golang.org/x/net/html` v0.40.0 (licenza BSD), perché il proxy dei
+    moduli Go non è raggiungibile da tutti gli ambienti di sviluppo.
+  - `internal/charset`: rilevamento (header, `<meta>`, contenuto) e
+    conversione in UTF-8 di ISO-8859-1, ISO-8859-15, Windows-1252; codifiche
+    diverse rifiutate.
+  - `internal/legacyurl`: traduzione URL del legacy → URL pubblici da
+    `links`, `compat` e dal `legacy_request` delle rotte GET; asset con lo
+    stesso percorso; fallback relativo senza host interno.
+  - `internal/pipeline`: interfaccia `Step`, `Context`, statistiche;
+    passi `clean` (commenti e meta rivelatori) e `rewrite` (href, src,
+    action, formaction, srcset, `<base>`, ...); dichiarazioni di codifica
+    allineate a UTF-8.
+  - `internal/server`: pipeline applicata alle pagine HTML (fail closed se
+    fallisce), redirect del legacy tradotti verso URL pubblici (quelli
+    esterni bloccati), asset con verifica di nome, tipo dichiarato e tipo
+    reale, SVG in sandbox, query degli asset mai inviata al legacy.
+  - Router: prefissi asset (il più lungo vince), dopo le rotte.
+  - Documentazione: README del gateway, formato mappa (link e asset).
+- **Perché:** requisito "interfaccia identica al 100%": senza asset la pagina
+  perde lo stile, senza riscrittura i link portano agli URL del legacy.
+- **Stato:** test verdi con race detector. Verificato su pagine di prova:
+  link, risorse, form e srcset riscritti, IP interno assente, commenti e
+  meta `generator` tolti, ISO-8859-1 con entità convertito senza perdere gli
+  accenti; asset con contenuto PHP travestito da PNG o tipo non ammesso
+  rifiutati; `../` e `//` nei nomi rifiutati. Non ancora fatto: script
+  ammessi per hash con CSP, riscrittura degli URL dentro i CSS e negli
+  attributi `style`, `external_links`, confronto visivo automatico.
+  **Attenzione per i form:** le pagine escono in UTF-8, quindi i browser
+  invieranno i form in UTF-8; il gateway dovrà ricodificare i valori nella
+  codifica originale del legacy prima di ricostruire le POST.
+- **Prossimi passi:**
+  1. Form POST: campi tipizzati, token CSRF, campi nascosti del legacy
+     lato server, ricodifica nella codifica del legacy.
+  2. `tunnel-relay` e `connector`.
+  3. Login passante e sessioni in Redis.
+  4. Script per hash con CSP, URL nei CSS, `external_links`.
+  5. Metriche Prometheus del gateway; confronto visivo con Playwright.
 
 ### 2026-11-18 — Ricostruisci le richieste GET verso il legacy
 

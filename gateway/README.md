@@ -19,7 +19,11 @@ richieste verso il legacy e rende le pagine con la resa fedele.
 | Ricostruzione delle richieste GET verso il legacy in modalità diretta, con allowlist delle destinazioni | Fatto |
 | Filtro degli header del legacy, header di sicurezza, pagine d'errore generiche | Fatto |
 | Budget di richieste contemporanee verso il legacy (per replica) | Fatto |
-| Traduzione dei redirect del legacy | Da fare (oggi: pagina 502) |
+| Resa fedele: conversione in UTF-8 (UTF-8, ISO-8859-1, ISO-8859-15, Windows-1252), parser HTML5, passi `clean` e `rewrite` | Fatto |
+| Riscrittura degli URL interni (link, risorse, form, srcset, `<base>`), mai l'host del legacy nella pagina | Fatto |
+| Asset per prefisso con verifica del tipo dichiarato e reale, SVG in sandbox | Fatto |
+| Traduzione dei redirect del legacy verso URL pubblici | Fatto |
+| Script ammessi per hash (CSP), riscrittura degli URL nei CSS | Da fare |
 | Form (POST), API, login e sessioni | Da fare |
 | Modalità via connettore | Da fare (oggi: 502 `connector_unavailable`) |
 | Pipeline di resa fedele | Da fare |
@@ -39,6 +43,10 @@ internal/router/      allowlist delle rotte
 internal/validate/    tipi e vincoli dei valori in ingresso
 internal/placeholder/ segnaposto {{spazio.nome}} di legacy_request
 internal/legacyclient/ richieste ricostruite e risposte filtrate
+internal/legacyurl/   URL del legacy → URL pubblici (link, compat, rotte)
+internal/charset/     codifica delle pagine e conversione in UTF-8
+internal/pipeline/    resa fedele: Step, Context, passi clean/ e rewrite/
+internal/thirdparty/xhtml/ parser HTML5 (copia di golang.org/x/net/html)
 internal/transport/   collegamento al legacy (diretto; connettore in arrivo)
 internal/budget/      richieste contemporanee verso il legacy
 internal/server/      handler pubblico e di amministrazione

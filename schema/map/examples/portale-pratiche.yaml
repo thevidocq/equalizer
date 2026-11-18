@@ -131,6 +131,11 @@ compat:
     action: redirect
     route: pratica_dettaglio
 
+assets:
+  - { prefix: /css/, types: [text/css] }
+  - { prefix: /img/, types: [image/png, image/jpeg, image/gif, image/svg+xml, image/x-icon] }
+  - { prefix: /js/,  types: [application/javascript, text/javascript] }
+
 external_links:
   allow: [pagopa.gov.it]
   default: exit_page

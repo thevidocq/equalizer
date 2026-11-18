@@ -25,7 +25,8 @@ requests to the legacy application and renders pages with faithful rendering.
 | Translating legacy redirects to public URLs | Done |
 | Scripts allowed by hash (CSP), URL rewriting inside CSS | To do |
 | Forms (urlencoded POST): binding in pages, sealed token bound to the browser (CSRF), legacy hidden fields kept server-side, typed fields, re-encoding into the legacy charset, success check and redirect | Done |
-| File uploads (multipart), per-form rate limits | To do |
+| Rate limits (defaults, routes, forms; per IP, session, user), behaviour rules (enumeration, brute force, request rate: throttle, block, alert), legacy requests per second across replicas | Done |
+| File uploads (multipart), challenge (CAPTCHA), `missing_predecessor` | To do |
 | Pass-through login and sessions: legacy cookies kept server-side (Redis, encrypted), role after login, new id at login, legacy expiry, logout | Done |
 | APIs, OIDC, per-user legacy accounts | To do |
 | Connector mode through tunnel-relay (destination checked against `legacy.reach.allow`, relay and connector errors mapped to 502) | Done |
@@ -49,6 +50,7 @@ internal/legacyurl/   legacy URLs → public URLs (links, compat, routes)
 internal/formmap/     legacy <form> → declared form (action, hidden inputs)
 internal/formtoken/   sealed form state (AES-256-GCM), browser binding
 internal/session/     gateway sessions: Redis or memory store, encryption
+internal/limits/      rate limits and behaviour rules (Redis or memory counters)
 internal/charset/     page encoding and conversion to UTF-8
 internal/pipeline/    faithful rendering: Step, Context, clean/, forms/ and rewrite/ steps
 internal/thirdparty/xhtml/ HTML5 parser (copy of golang.org/x/net/html)
@@ -72,7 +74,7 @@ internal/server/      public and admin handlers
 | `EQ_FORM_KEY` or `EQ_FORM_KEY_FILE` | random | Gateway secret (32 bytes, base64): seals form tokens and, through a derived key, sessions; must be the same on every replica |
 | `EQ_RELAY_URL` | — | tunnel-relay internal address (e.g. `http://tunnel-relay:8082`); without it connector mode answers 502 |
 | `EQ_RELAY_TOKEN` or `EQ_RELAY_TOKEN_FILE` | — | Token presented to the relay (at least 32 characters) |
-| `EQ_REDIS_URL` | — | Session store, e.g. `redis://redis:6379/0`; without it sessions live in memory (single replica only) |
+| `EQ_REDIS_URL` | — | Sessions and rate-limit counters, e.g. `redis://redis:6379/0`; without it both live in memory (single replica only) |
 
 ## Development
 

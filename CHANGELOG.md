@@ -23,7 +23,7 @@ Add a section at the top of "Entries" for every commit:
 | --- | --- |
 | Contracts (`schema/`) | First version, validated in CI |
 | Documentation | Architecture, map format, installation and manuals (planned features) |
-| gateway | GET routes, assets and urlencoded POST forms in direct or connector mode, validation, faithful rendering (UTF-8, cleanup, form binding, URL rewriting, redirects), pass-through login with sessions in Redis; no file uploads or rate limits yet |
+| gateway | GET routes, assets and urlencoded POST forms in direct or connector mode, validation, faithful rendering (UTF-8, cleanup, form binding, URL rewriting, redirects), pass-through login with sessions in Redis, rate limits and behaviour rules; no file uploads yet |
 | tunnel-relay | Token-authenticated tunnels, forwarding, admin endpoints; single replica |
 | connector | Outbound tunnel, local allowlist, reconnection |
 | orchestrator | Not implemented yet |
@@ -34,6 +34,44 @@ Add a section at the top of "Entries" for every commit:
 | tools (eqtool) | Map signing keys, form key, relay token, connector registration, map signing |
 
 ## Entries
+
+### 2026-11-18 — Add rate limits and behaviour rules
+
+- **Branch:** `feat/rate-limits`
+- **What:**
+  - `internal/limits`: fixed-window counters (Redis Lua `INCR`+`PEXPIRE`,
+    sets for distinct values, marks with TTL; in-memory store as fallback).
+    Rate limits from `defaults.rate_limit`, `routes[].rate_limit` and
+    `forms[].rate_limit` (`per_ip`, `per_session`, `per_user`). Behaviour
+    rules `distinct_param_values`, `failed_logins`, `request_rate` with
+    actions `throttle` (`challenge` treated as throttle), `block`
+    (site-wide), `alert`; `missing_predecessor` accepted and reported as not
+    applied. `defaults.legacy_budget.max_rps` shared across replicas.
+  - Gateway: checks before serving (assets only see blocks), 429 with
+    `Retry-After` or 403, events `ratelimit.hit`, `request.blocked`
+    (`behavior_block`), `behavior.alert`; enumeration observed on validated
+    route values, failed logins observed on `session.start` forms; fail open
+    when the store is unreachable (error logged at most every 10 s). Notes
+    about unapplied map features logged at map load. The Redis client is
+    shared with the session store.
+  - Example map: `login_bruteforce` rule. Docs: map format, gateway README.
+- **Why:** after login, brute force and record enumeration (IDOR) are the
+  most common attacks on legacy portals; the map already described these
+  limits but the gateway ignored them.
+- **Status:** tests green with the race detector, including the limits
+  engine against a real `redis-server` and HTTP tests: page limit with
+  `Retry-After`, assets not counted, enumeration throttled at the third
+  distinct id without reaching the legacy app, brute force blocked
+  site-wide after three failed logins (even with the right password), no
+  password in events. Not done: CAPTCHA challenge, `missing_predecessor`,
+  sliding windows, per-tenant limits from the panel.
+- **Next steps:**
+  1. Test on the VPS with the remote vulnerable server (tunnel, login,
+     limits).
+  2. File uploads with AV/CDR scanning.
+  3. Scripts by hash with CSP, URLs inside CSS, `external_links`.
+  4. Prometheus metrics (gateway, relay).
+  5. panel-api: tenants, maps, approval and signing.
 
 ### 2026-11-18 — Add pass-through login and sessions
 

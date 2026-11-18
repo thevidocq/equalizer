@@ -97,6 +97,10 @@ func (p *Public) handle(w http.ResponseWriter, r *http.Request) string {
 	ss := p.loadSession(r, active)
 	r = withSession(r, ss)
 	w = &commitWriter{ResponseWriter: w, ctx: r.Context(), ss: ss}
+	// Assets: only behaviour blocks, never the page rate limits.
+	if !p.checkLimits(w, r, active, m.Entry.ID, m.Entry.Kind != router.KindAsset) {
+		return m.Entry.ID
+	}
 
 	switch m.Entry.Kind {
 	case router.KindRoute:

@@ -172,6 +172,45 @@ Not handled yet: legacy cookies are kept by name only (`Path` and `Domain`
 are ignored), OIDC in front of the legacy login, per-user legacy accounts
 from the vault.
 
+## Rate limits and behaviour rules
+
+Counters live in Redis and are shared by every replica (in process without
+`EQ_REDIS_URL`). Keys hold only hashes of IPs and sessions.
+
+- **`defaults.rate_limit`** applies to every page and form (not to assets);
+  a route's or form's `rate_limit` applies on top. Values: `N/s`, `N/min`,
+  `N/hour`, `N/day`, fixed windows.
+- **Dimensions:** `per_ip`; `per_session` (the IP when there is no session);
+  `per_user` (the session after login, the IP before).
+- Over the limit: **429** with `Retry-After`, event `ratelimit.hit`; the
+  legacy app is not contacted.
+- **`defaults.legacy_budget.max_rps`** caps requests per second towards the
+  legacy app across replicas (503 above it); `max_concurrency` stays per
+  replica.
+
+Behaviour rules (`behavior`):
+
+| Signal | Counts |
+| --- | --- |
+| `distinct_param_values` | Distinct values of `param` (path parameter or query) on the route — enumeration |
+| `failed_logins` | Submissions of a `session.start` form whose success check failed — brute force |
+| `request_rate` | Requests to the route (or to every entry without `route`) |
+| `missing_predecessor` | Accepted, not applied yet (logged at map load) |
+
+When `threshold.count` is reached within `threshold.window` for the same
+subject (`per`: `ip`, `session`, `user`):
+
+- `throttle` (and, for now, `challenge`): 429 on that route until the window
+  ends;
+- `block`: 403 on the **whole site** until the window ends (event
+  `request.blocked`, reason `behavior_block`);
+- `alert`: one `behavior.alert` event when the threshold is crossed.
+
+On routes the request that crosses the threshold is already refused; on
+forms (the legacy app has answered) the rule applies from the next request.
+If Redis is unreachable, limits are not applied (fail open) and the error is
+logged every 10 seconds at most.
+
 ## Field types
 
 | Type | Constraints | Default risk |

@@ -18,6 +18,31 @@ type Model struct {
 	API      []APIRoute         `json:"api"`
 	Compat   []Compat           `json:"compat"`
 	Assets   []Asset            `json:"assets"`
+	Behavior []BehaviorRule     `json:"behavior"`
+}
+
+// RateLimit holds limits in the form "N/unit" (60/min, 5/hour).
+type RateLimit struct {
+	PerIP      string `json:"per_ip"`
+	PerSession string `json:"per_session"`
+	PerUser    string `json:"per_user"`
+}
+
+// BehaviorRule reacts to a pattern of requests (enumeration, brute force).
+type BehaviorRule struct {
+	ID        string    `json:"id"`
+	Route     string    `json:"route"` // route or form id; empty: every entry
+	Signal    string    `json:"signal"`
+	Param     string    `json:"param"`
+	Threshold Threshold `json:"threshold"`
+	Action    []string  `json:"action"`
+}
+
+// Threshold of a behaviour rule.
+type Threshold struct {
+	Count  int    `json:"count"`
+	Window string `json:"window"` // e.g. 10m
+	Per    string `json:"per"`    // ip, session, user
 }
 
 // Asset is a prefix of legacy static files served by the gateway.
@@ -72,6 +97,7 @@ type Defaults struct {
 	String       StringDefaults `json:"string"`
 	LegacyBudget LegacyBudget   `json:"legacy_budget"`
 	Session      SessionPolicy  `json:"session"`
+	RateLimit    RateLimit      `json:"rate_limit"`
 }
 
 // SessionPolicy limits the life of gateway sessions.
@@ -139,6 +165,7 @@ type Route struct {
 	LegacyRequest LegacyRequest        `json:"legacy_request"`
 	Links         []Link               `json:"links"`
 	Session       *SessionAction       `json:"session"`
+	RateLimit     RateLimit            `json:"rate_limit"`
 }
 
 // Link maps a legacy URL found in a page to a public route.
@@ -160,6 +187,7 @@ type Form struct {
 	Success       *SuccessCheck        `json:"success"`
 	OnSuccess     *OnSuccess           `json:"on_success"`
 	Session       *SessionAction       `json:"session"`
+	RateLimit     RateLimit            `json:"rate_limit"`
 }
 
 // SessionAction starts (login: the role granted) or ends (logout) the

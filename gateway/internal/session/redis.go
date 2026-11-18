@@ -25,6 +25,9 @@ func NewRedis(url string) (*Redis, error) {
 	return &Redis{client: redis.NewClient(opts)}, nil
 }
 
+// Client returns the underlying client, shared with the limits store.
+func (r *Redis) Client() *redis.Client { return r.client }
+
 // Ping checks the connection.
 func (r *Redis) Ping(ctx context.Context) error { return r.client.Ping(ctx).Err() }
 

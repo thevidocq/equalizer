@@ -135,6 +135,9 @@ services:
       EQ_EXPOSURE_INTERVAL: ${EQ_EXPOSURE_INTERVAL:-1h}
       # Logs page: security events read from Loki (control network)
       EQ_LOKI_URL: http://loki:3100
+      # Status page: every replica of relay and gateway, found through DNS
+      EQ_RELAY_ADMIN: tunnel-relay:9091
+      EQ_GATEWAY_ADMIN: gateway:9090
     volumes:
       - ./secrets/mfa.key:/secrets/mfa.key:ro
       - ./secrets/smtp.password:/secrets/smtp.password:ro

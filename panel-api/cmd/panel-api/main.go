@@ -27,6 +27,7 @@ import (
 	"github.com/thevidocq/equalizer/panel-api/internal/config"
 	"github.com/thevidocq/equalizer/panel-api/internal/db"
 	"github.com/thevidocq/equalizer/panel-api/internal/exposure"
+	"github.com/thevidocq/equalizer/panel-api/internal/health"
 	"github.com/thevidocq/equalizer/panel-api/internal/logging"
 	"github.com/thevidocq/equalizer/panel-api/internal/logsearch"
 	"github.com/thevidocq/equalizer/panel-api/internal/mail"
@@ -123,6 +124,7 @@ func run() error {
 	if cfg.UIDir != "" {
 		srv.UI = ui.Handler(cfg.UIDir)
 	}
+	srv.Health = &health.Probe{RelayAdmin: cfg.RelayAdmin, GatewayAdmin: cfg.GatewayAdmin, LokiURL: cfg.LokiURL}
 	if cfg.LokiURL != "" {
 		srv.Logs = &logsearch.Loki{URL: cfg.LokiURL}
 	} else {

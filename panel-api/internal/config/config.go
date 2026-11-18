@@ -38,6 +38,8 @@ type Config struct {
 	SessionTTL       time.Duration
 	UIDir            string // static files of panel-ui; empty: API only
 	LokiURL          string // security events for the Logs page (EQ_LOKI_URL); empty: no Logs page
+	RelayAdmin       string // relays' admin endpoint for the status page (EQ_RELAY_ADMIN, e.g. tunnel-relay:9091)
+	GatewayAdmin     string // gateways' admin endpoint (EQ_GATEWAY_ADMIN, e.g. gateway:9090)
 	ShutdownTimeout  time.Duration
 }
 
@@ -53,6 +55,8 @@ func FromEnv() (Config, error) {
 		SessionTTL:      8 * time.Hour,
 		UIDir:           os.Getenv("EQ_UI_DIR"),
 		LokiURL:         strings.TrimRight(os.Getenv("EQ_LOKI_URL"), "/"),
+		RelayAdmin:      os.Getenv("EQ_RELAY_ADMIN"),
+		GatewayAdmin:    os.Getenv("EQ_GATEWAY_ADMIN"),
 		ShutdownTimeout: 10 * time.Second,
 	}
 	dsn, err := DatabaseURL()

@@ -60,6 +60,12 @@ Security:
   every filter is checked and quoted before it enters LogQL. Only the shown
   fields leave (never field values); the CSV export (at most 10000 events)
   neutralises spreadsheet formulas and is recorded in the activity.
+- Status page (`internal/health`): per site the published map, the
+  connector (open tunnels on every relay replica, found through DNS of
+  `EQ_RELAY_ADMIN`), the legacy application (served and legacy errors in the
+  last 15 minutes, from Loki), isolation, and problems per day over 7 days.
+  The platform page checks database, gateway and relay replicas and Loki:
+  no tenant data.
 - Exposure check (`internal/exposure`): every `EQ_EXPOSURE_INTERVAL` each
   site with a `legacy_ip` is probed on ports 443 and 80 with its name in SNI
   and `Host`, comparing with the answer for a random name. Only public
@@ -98,6 +104,8 @@ Security:
 | `EQ_MAIL_FROM` | `equalizer@localhost` | Sender of the invitations |
 | `EQ_DIRECT_DESTINATIONS` | — | `host:port` list allowed in `direct` mode (lab apps); empty: connectors only |
 | `EQ_LOKI_URL` | none | Loki for the Logs page (Compose: `http://loki:3100`); empty: the page answers 503 |
+| `EQ_RELAY_ADMIN` | none | Relays' admin endpoint for the status page (Compose: `tunnel-relay:9091`) |
+| `EQ_GATEWAY_ADMIN` | none | Gateways' admin endpoint for the platform status (Compose: `gateway:9090`) |
 | `EQ_EXPOSURE_INTERVAL` | `1h` | Interval between exposure checks of a site (at least `5m`; `0` turns them off) |
 | `EQ_UI_DIR` | — | Static files of panel-ui, served on `/` |
 | `EQ_LOG_LEVEL` | `info` | `debug`, `info`, `warn`, `error` |

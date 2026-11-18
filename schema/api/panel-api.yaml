@@ -898,16 +898,26 @@ paths:
   /status/platform:
     get:
       tags: [status]
-      summary: Global health (platform administrators)
+      summary: Health of the platform's services (platform users); no tenant data
       responses:
-        "200": { $ref: "#/components/responses/Object" }
+        "200":
+          description: Services
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/PlatformStatus" }
   /tenants/{tenant}/status:
     get:
       tags: [status]
-      summary: Health of the tenant's sites and shared services
+      summary: >-
+        Health of each site of the tenant: published map, connector, legacy application (last 15 minutes),
+        isolation, and problems per day over the last 7 days (the tenant's people)
       parameters: [{ $ref: "#/components/parameters/tenant" }]
       responses:
-        "200": { $ref: "#/components/responses/Object" }
+        "200":
+          description: Sites
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/TenantStatus" }
   /logs:
     get:
       tags: [logs]
@@ -1416,6 +1426,48 @@ components:
               ts: { type: string, format: date-time }
               count: { type: integer }
         step_seconds: { type: integer }
+    HealthState:
+      enum: [ok, degraded, down, unknown, not_used]
+      description: "unknown: no data yet (e.g. no traffic); not_used: the site does not need it"
+    Check:
+      type: object
+      required: [name, state]
+      properties:
+        name: { type: string }
+        state: { $ref: "#/components/schemas/HealthState" }
+        detail: { type: string }
+    SiteStatus:
+      type: object
+      required: [app, name, public_domain, state, checks, days]
+      properties:
+        app: { type: string }
+        name: { type: string }
+        public_domain: { type: string }
+        state: { $ref: "#/components/schemas/HealthState" }
+        checks: { type: array, items: { $ref: "#/components/schemas/Check" } }
+        days:
+          type: array
+          description: Last 7 days, oldest first
+          items:
+            type: object
+            required: [date, legacy_errors, connector_drops]
+            properties:
+              date: { type: string, format: date }
+              legacy_errors: { type: integer }
+              connector_drops: { type: integer }
+    TenantStatus:
+      type: object
+      required: [sites, checked_at, logs_available]
+      properties:
+        sites: { type: array, items: { $ref: "#/components/schemas/SiteStatus" } }
+        checked_at: { type: string, format: date-time }
+        logs_available: { type: boolean, description: "false: traffic and history are unknown (log store not reachable)" }
+    PlatformStatus:
+      type: object
+      required: [services, checked_at]
+      properties:
+        services: { type: array, items: { $ref: "#/components/schemas/Check" } }
+        checked_at: { type: string, format: date-time }
     AuditEntry:
       type: object
       required: [id, ts, action, target]

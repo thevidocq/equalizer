@@ -27,13 +27,35 @@ Add a section at the top of "Entries" for every commit:
 | tunnel-relay | Token-authenticated tunnels, forwarding with tenant check, admin endpoints; several replicas with handover |
 | connector | Outbound tunnel, local allowlist, reconnection; one per server, virtual hosts |
 | orchestrator | Not implemented yet |
-| panel-api | Discovery jobs and continuous discovery, tenant AI settings, map templates per CMS, auth with mandatory TOTP, tenants, email invitations, tenant connectors, map reach checks, exposure check, Logs page backend (Loki), platform/tenant privacy, users, sites, connectors, maps with approval and signing, audit, internal endpoints |
-| panel-ui | Discovery tab and tenant AI settings, login, joining by invitation, platform tenant overview, sites with isolation, tenant connectors, people with invitations, maps with editor, approval, import and export, activity, logs |
+| panel-api | Discovery jobs and continuous discovery, tenant AI settings, map templates per CMS, auth with mandatory TOTP, tenants, email invitations, tenant connectors, map reach checks, exposure check, Logs page backend (Loki), status page, platform/tenant privacy, users, sites, connectors, maps with approval and signing, audit, internal endpoints |
+| panel-ui | Discovery tab and tenant AI settings, login, joining by invitation, platform tenant overview, sites with isolation, tenant connectors, people with invitations, maps with editor, approval, import and export, activity, logs, status |
 | agent | Discovery: read-only crawl through the connector, fixed exclusions, CMS fingerprint, deterministic routes and types, optional AI review with the tenant's model, proposed drafts |
 | deploy/compose | Caddy (on-demand certificates for protected sites, relay and panel domains), SMTP settings, gateway (2 replicas), Redis, PostgreSQL, panel-api, panel-ui, tunnel-relay, Vector, Loki, Grafana; statically validated |
 | tools (eqtool) | Map signing keys, form key, relay token, connector registration, map signing |
 
 ## Entries
+
+### 2026-11-18 — Status page
+
+- **Branch:** `feat/status-page` (on top of `feat/map-import-export`)
+- **What:**
+  - Contract: `TenantStatus`, `SiteStatus`, `PlatformStatus`, `HealthState`
+    for `/tenants/{tenant}/status` and `/status/platform` (were open objects).
+  - panel-api `internal/health`: each site's map (published version),
+    connector (tunnels on every relay replica through DNS), legacy
+    application (served and errors in the last 15 minutes from Loki),
+    isolation (exposure check), overall state = the worst; problems per day
+    over 7 days (legacy errors, connector drops). Platform: database,
+    gateway and relay replicas ready, Loki. Tenant people see their sites;
+    platform users only the platform page. `EQ_RELAY_ADMIN`,
+    `EQ_GATEWAY_ADMIN` (set in Compose).
+  - panel-ui `features/status`: Status (tenant) and Platform status pages,
+    refreshed every 30 seconds; states as a word and a dot.
+- **Why:** to tell at once whether a site is down because of Equalizer, the
+  connector or the legacy server.
+- **Status:** tests pass (evaluation, probes over replicas, counts from
+  Loki, permissions). Not yet run against the Compose stack.
+- **Next steps:** docs and screenshots; SIEM forwarding.
 
 ### 2026-11-18 — Map import and export
 

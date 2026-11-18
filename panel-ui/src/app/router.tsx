@@ -11,6 +11,7 @@ import { MapsPage, NewVersionPage, VersionPage } from "@/features/maps";
 import { UsersPage } from "@/features/users";
 import { AuditPage } from "@/features/audit";
 import { LogsPage } from "@/features/logs";
+import { PlatformStatusPage, StatusPage } from "@/features/status";
 import { Shell } from "./Shell";
 import { Home } from "./Home";
 
@@ -30,6 +31,8 @@ export const router = createBrowserRouter([
       { path: "t/:tenant/people", element: <UsersPage /> },
       { path: "t/:tenant/activity", element: <AuditPage /> },
       { path: "t/:tenant/logs", element: <LogsPage /> },
+      { path: "t/:tenant/status", element: <StatusPage /> },
+      { path: "status", element: <PlatformStatusPage /> },
       { path: "t/:tenant/connectors", element: <ConnectorsPage /> },
       { path: "t/:tenant/settings", element: <SettingsPage /> },
       {

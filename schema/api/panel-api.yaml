@@ -73,7 +73,16 @@ paths:
       tags: [tenants]
       summary: Tenants visible to the user (all for platform roles)
       responses:
-        "200": { $ref: "#/components/responses/List" }
+        "200":
+          description: Tenants
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items: { type: array, items: { $ref: "#/components/schemas/Tenant" } }
+                  next_cursor: { type: [string, "null"] }
     post:
       tags: [tenants]
       summary: Create a tenant (platform administrators)
@@ -83,7 +92,11 @@ paths:
           application/json:
             schema: { $ref: "#/components/schemas/TenantCreate" }
       responses:
-        "201": { $ref: "#/components/responses/Object" }
+        "201":
+          description: Tenant created
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Tenant" }
         "409": { $ref: "#/components/responses/Error" }
   /tenants/{tenant}/users:
     get:
@@ -91,7 +104,16 @@ paths:
       summary: Users of a tenant
       parameters: [{ $ref: "#/components/parameters/tenant" }]
       responses:
-        "200": { $ref: "#/components/responses/List" }
+        "200":
+          description: Users
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items: { type: array, items: { $ref: "#/components/schemas/User" } }
+                  next_cursor: { type: [string, "null"] }
     post:
       tags: [users]
       summary: Create a tenant user (tenant or platform administrators)
@@ -102,7 +124,11 @@ paths:
           application/json:
             schema: { $ref: "#/components/schemas/UserCreate" }
       responses:
-        "201": { $ref: "#/components/responses/Object" }
+        "201":
+          description: User created
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/User" }
         "409": { $ref: "#/components/responses/Error" }
   /tenants/{tenant}/apps:
     get:
@@ -110,7 +136,16 @@ paths:
       summary: Protected sites of a tenant
       parameters: [{ $ref: "#/components/parameters/tenant" }]
       responses:
-        "200": { $ref: "#/components/responses/List" }
+        "200":
+          description: Sites
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items: { type: array, items: { $ref: "#/components/schemas/App" } }
+                  next_cursor: { type: [string, "null"] }
     post:
       tags: [apps]
       summary: Protect a new site
@@ -121,7 +156,11 @@ paths:
           application/json:
             schema: { $ref: "#/components/schemas/AppCreate" }
       responses:
-        "201": { $ref: "#/components/responses/Object" }
+        "201":
+          description: Site created
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/App" }
         "409": { $ref: "#/components/responses/Error" }
   /apps/{app}:
     get:
@@ -129,7 +168,11 @@ paths:
       summary: A protected site
       parameters: [{ $ref: "#/components/parameters/app" }]
       responses:
-        "200": { $ref: "#/components/responses/Object" }
+        "200":
+          description: Site
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/App" }
         "404": { $ref: "#/components/responses/Error" }
   /apps/{app}/maps:
     get:
@@ -137,7 +180,16 @@ paths:
       summary: Map versions of the site, newest first
       parameters: [{ $ref: "#/components/parameters/app" }]
       responses:
-        "200": { $ref: "#/components/responses/List" }
+        "200":
+          description: Versions, without documents
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items: { type: array, items: { $ref: "#/components/schemas/MapVersion" } }
+                  next_cursor: { type: [string, "null"] }
     post:
       tags: [maps]
       summary: New draft version (validated against the map schema)
@@ -150,10 +202,14 @@ paths:
               type: object
               required: [document]
               properties:
-                document: { type: object, description: "Map in JSON (schema/map/gateway-map.schema.json); meta.tenant, meta.app, meta.version and meta.status are set by the panel" }
+                document: { type: object, additionalProperties: true, description: "Map in JSON (schema/map/gateway-map.schema.json); meta.tenant, meta.app, meta.version and meta.status are set by the panel" }
                 note: { type: string, maxLength: 2000 }
       responses:
-        "201": { $ref: "#/components/responses/Object" }
+        "201":
+          description: Draft created
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/MapVersion" }
         "422": { $ref: "#/components/responses/Error" }
   /apps/{app}/maps/{version}:
     get:
@@ -163,7 +219,11 @@ paths:
         - { $ref: "#/components/parameters/app" }
         - { $ref: "#/components/parameters/version" }
       responses:
-        "200": { $ref: "#/components/responses/Object" }
+        "200":
+          description: Version with its document
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/MapVersion" }
   /apps/{app}/maps/{version}/{action}:
     post:
       tags: [maps]
@@ -173,7 +233,11 @@ paths:
         - { $ref: "#/components/parameters/version" }
         - { name: action, in: path, required: true, schema: { enum: [submit, approve, reject, publish] } }
       responses:
-        "200": { $ref: "#/components/responses/Object" }
+        "200":
+          description: Version after the action
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/MapVersion" }
         "403": { $ref: "#/components/responses/Error" }
         "409": { $ref: "#/components/responses/Error" }
   /internal/apps/{app}/map:
@@ -287,7 +351,16 @@ paths:
       summary: Connectors of the site (token never returned)
       parameters: [{ $ref: "#/components/parameters/app" }]
       responses:
-        "200": { $ref: "#/components/responses/List" }
+        "200":
+          description: Connectors
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items: { type: array, items: { $ref: "#/components/schemas/Connector" } }
+                  next_cursor: { type: [string, "null"] }
     post:
       tags: [connectors]
       summary: Register a connector; the token is returned only in this answer
@@ -581,8 +654,19 @@ paths:
     get:
       tags: [audit]
       summary: Action log
+      parameters:
+        - { name: tenant, in: query, required: false, schema: { type: string }, description: "Platform users only: restrict to one tenant" }
       responses:
-        "200": { $ref: "#/components/responses/List" }
+        "200":
+          description: Latest entries, newest first
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items: { type: array, items: { $ref: "#/components/schemas/AuditEntry" } }
+                  next_cursor: { type: [string, "null"] }
 components:
   securitySchemes:
     panelSession:
@@ -680,6 +764,60 @@ components:
         id: { type: string, pattern: "^[a-z0-9][a-z0-9-]{0,62}$" }
         name: { type: string, maxLength: 200 }
         public_domain: { type: string, maxLength: 253 }
+    Tenant:
+      type: object
+      required: [id, name, created_at]
+      properties:
+        id: { type: string }
+        name: { type: string }
+        created_at: { type: string, format: date-time }
+    App:
+      type: object
+      required: [id, tenant, name, public_domain, created_at, published_version]
+      properties:
+        id: { type: string }
+        tenant: { type: string }
+        name: { type: string }
+        public_domain: { type: string }
+        created_at: { type: string, format: date-time }
+        published_version: { type: [integer, "null"] }
+    Connector:
+      type: object
+      required: [id, app, tenant, created_at, rotated_at]
+      properties:
+        id: { type: string }
+        app: { type: string }
+        tenant: { type: string }
+        created_at: { type: string, format: date-time }
+        rotated_at: { type: [string, "null"], format: date-time }
+    MapVersion:
+      type: object
+      required: [app, version, status]
+      properties:
+        app: { type: string }
+        version: { type: integer }
+        status: { enum: [draft, in_review, approved, rejected, published, retired] }
+        note: { type: string }
+        author_id: { type: integer }
+        author: { type: string }
+        approver_id: { type: [integer, "null"] }
+        approver: { type: [string, "null"] }
+        created_at: { type: string, format: date-time }
+        decided_at: { type: [string, "null"], format: date-time }
+        published_at: { type: [string, "null"], format: date-time }
+        document: { type: object, additionalProperties: true, description: "Only when reading one version" }
+    AuditEntry:
+      type: object
+      required: [id, ts, action, target]
+      properties:
+        id: { type: integer }
+        ts: { type: string, format: date-time }
+        user_id: { type: [integer, "null"] }
+        user: { type: [string, "null"] }
+        tenant: { type: [string, "null"] }
+        action: { type: string }
+        target: { type: string }
+        detail: { type: object, additionalProperties: true }
     ConnectorCreated:
       type: object
       required: [id, token]

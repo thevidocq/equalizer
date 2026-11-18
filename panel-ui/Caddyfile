@@ -1,0 +1,35 @@
+{
+	admin off
+	auto_https off
+}
+
+:8080 {
+	encode zstd gzip
+
+	header {
+		Content-Security-Policy "default-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; object-src 'none'; frame-ancestors 'none'; base-uri 'none'; form-action 'self'"
+		X-Content-Type-Options nosniff
+		X-Frame-Options DENY
+		Referrer-Policy no-referrer
+		-Server
+	}
+
+	# The API lives in panel-api: same origin, so the session cookie works.
+	handle /v1/* {
+		reverse_proxy {$EQ_PANEL_API:panel-api:8080}
+	}
+
+	handle /assets/* {
+		header Cache-Control "public, max-age=31536000, immutable"
+		root * /srv
+		file_server
+	}
+
+	# Every other path is a page of the single-page application.
+	handle {
+		header Cache-Control "no-store"
+		root * /srv
+		try_files {path} /index.html
+		file_server
+	}
+}

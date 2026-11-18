@@ -122,13 +122,21 @@ services:
       - ./secrets/postgres.password:/secrets/postgres.password:ro
       - ./secrets/map-signing.key:/secrets/map-signing.key:ro
       - ./secrets/panel-internal.token:/secrets/panel-internal.token:ro
-    # Never on the Internet: reach it over an SSH tunnel or VPN.
-    ports:
-      - "127.0.0.1:8088:8080"
     networks: [control]
     depends_on:
       postgres:
         condition: service_healthy
+
+  panel-ui:
+    build: ../../panel-ui
+    restart: unless-stopped
+    environment:
+      EQ_PANEL_API: panel-api:8080
+    # Never on the Internet: reach it over an SSH tunnel or VPN.
+    ports:
+      - "127.0.0.1:8088:8080"
+    networks: [control]
+    depends_on: [panel-api]
 
   redis:
     image: redis:7.4-alpine

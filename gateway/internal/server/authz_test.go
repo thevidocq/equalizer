@@ -94,3 +94,69 @@ func TestOwnedByUser(t *testing.T) {
 		t.Error("a target that is not a declared value was accepted")
 	}
 }
+
+// A single-page app: the list comes as JSON, then the browser asks for one
+// permit by id. The ids of the JSON list are issued like links of a page.
+func TestOwnedFromJSON(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		if r.URL.Path == "/rest/permits" {
+			_, _ = io.WriteString(w, `{"items":[{"id":5,"title":"Shed"},{"id":7,"title":"Porch"}]}`)
+			return
+		}
+		_, _ = io.WriteString(w, `{"id":1,"title":"x"}`)
+	}))
+	defer srv.Close()
+	u, _ := url.Parse(srv.URL)
+	m := &mapmodel.Model{
+		Meta:   mapmodel.Meta{Tenant: "t", App: "a", Version: 1, Status: "published"},
+		Legacy: mapmodel.Legacy{BaseURL: srv.URL, Reach: mapmodel.Reach{Mode: "direct", Allow: []string{u.Host}}},
+		Roles:  mapmodel.Roles{Anonymous: "guest", List: map[string]any{"guest": nil}},
+		API: []mapmodel.APIRoute{
+			{ID: "list", Path: "/api/permits", Method: "GET", Roles: []string{"guest"},
+				LegacyRequest: mapmodel.LegacyRequest{Method: "GET", Path: "/rest/permits"},
+				Response: mapmodel.APIResponse{List: true, Path: "items",
+					Fields: map[string]mapmodel.FieldSpec{"id": {Type: "int"}, "title": {Type: "string"}},
+					Issues: map[string]string{"id": "get.params.id"}}},
+			{ID: "get", Path: "/api/permits/{id}", Method: "GET", Roles: []string{"guest"},
+				Params:        map[string]mapmodel.FieldSpec{"id": {Type: "int"}},
+				LegacyRequest: mapmodel.LegacyRequest{Method: "GET", Path: "/rest/permits/{{params.id}}"},
+				Response:      mapmodel.APIResponse{Fields: map[string]mapmodel.FieldSpec{"id": {Type: "int"}, "title": {Type: "string"}}},
+				Authz:         map[string]mapmodel.AuthzRule{"guest": {Check: "owned_by_user", Target: "params.id"}}},
+		},
+	}
+	st, err := site.Build(m)
+	if err != nil {
+		t.Fatal(err)
+	}
+	sealer, _ := formtoken.New(formtoken.RandomKey())
+	mgr, _ := session.NewManager(session.NewMemory(), formtoken.RandomKey())
+	p := &Public{Maps: fixedMaps{st}, IPs: clientip.New(nil), Forms: sealer, Sessions: mgr,
+		Log: slog.New(slog.NewJSONHandler(io.Discard, nil)), Events: telemetry.NewEmitter(io.Discard, "test")}
+	b := &browser{t: t, h: p.Handler(), cookies: map[string]string{}}
+
+	if rec := b.do("GET", "/api/permits/5", nil); rec.Code != http.StatusForbidden {
+		t.Fatalf("before the list: %d", rec.Code)
+	}
+	if rec := b.do("GET", "/api/permits", nil); rec.Code != 200 {
+		t.Fatalf("list: %d", rec.Code)
+	}
+	for path, want := range map[string]int{"/api/permits/5": 200, "/api/permits/7": 200, "/api/permits/9": 403} {
+		if rec := b.do("GET", path, nil); rec.Code != want {
+			t.Errorf("%s: %d, want %d", path, rec.Code, want)
+		}
+	}
+
+	for name, issues := range map[string]map[string]string{
+		"undeclared field": {"owner": "get.params.id"},
+		"no rule there":    {"id": "list.params.id"},
+		"wrong target":     {"id": "get.query.id"},
+	} {
+		bad := *m
+		bad.API = append([]mapmodel.APIRoute{}, m.API...)
+		bad.API[0].Response.Issues = issues
+		if _, err := site.Build(&bad); err == nil {
+			t.Errorf("%s: accepted", name)
+		}
+	}
+}

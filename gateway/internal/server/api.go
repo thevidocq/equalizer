@@ -138,6 +138,7 @@ func (p *Public) writeAPI(w http.ResponseWriter, r *http.Request, st *site.Site,
 		writeAPIError(w, http.StatusBadGateway, "unavailable")
 		return http.StatusBadGateway
 	}
+	issueFromJSON(sessionOf(r), api, out)
 	apiHeaders(w.Header())
 	w.WriteHeader(resp.Status)
 	if r.Method != http.MethodHead {

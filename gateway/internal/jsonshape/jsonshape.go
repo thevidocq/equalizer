@@ -194,3 +194,29 @@ func typed(v *validate.Validator, name string, spec mapmodel.FieldSpec, val any)
 	}
 	return canon, true
 }
+
+// Values returns the values of a field in a rebuilt answer (one object or a
+// list of objects), as the canonical strings the router produces.
+func Values(out []byte, field string) []string {
+	dec := json.NewDecoder(bytes.NewReader(out))
+	dec.UseNumber()
+	var doc any
+	if dec.Decode(&doc) != nil {
+		return nil
+	}
+	objs, ok := doc.([]any)
+	if !ok {
+		objs = []any{doc}
+	}
+	var vals []string
+	for _, o := range objs {
+		obj, _ := o.(map[string]any)
+		switch v := obj[field].(type) {
+		case string:
+			vals = append(vals, v)
+		case json.Number:
+			vals = append(vals, v.String())
+		}
+	}
+	return vals
+}

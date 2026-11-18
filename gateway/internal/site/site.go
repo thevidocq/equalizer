@@ -157,6 +157,13 @@ func BuildWith(m *mapmodel.Model, opts Options) (*Site, error) {
 		return nil, err
 	}
 
+	owned := ownedTargets(m)
+	for _, a := range m.API {
+		if err := checkIssues(owned, a.Response); err != nil {
+			return nil, fmt.Errorf("api %q: %w", a.ID, err)
+		}
+	}
+
 	return &Site{
 		Limits:    lim,
 		Notes:     notes,
@@ -170,7 +177,7 @@ func BuildWith(m *mapmodel.Model, opts Options) (*Site, error) {
 		Pipeline:  pipeline.New(DefaultSteps()...),
 
 		unsupported: unsupported,
-		owned:       ownedTargets(m),
+		owned:       owned,
 	}, nil
 }
 

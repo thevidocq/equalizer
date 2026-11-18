@@ -67,3 +67,14 @@ func TestCompare(t *testing.T) {
 		t.Errorf("identical maps: %+v", same)
 	}
 }
+
+func TestIssuesAdded(t *testing.T) {
+	old := `{"api":[{"id":"list","path":"/api/p","method":"GET","roles":["g"],"response":{"fields":{"id":{"type":"int"}}}}]}`
+	next := strings.Replace(old, `"fields":{"id":{"type":"int"}}`, `"fields":{"id":{"type":"int"}},"issues":{"id":"get.params.id"}`, 1)
+	for _, f := range Compare([]byte(old), []byte(next)).Findings {
+		if f.Rule == "issues_added" && f.Entry == "api.list" && f.Severity == "medium" {
+			return
+		}
+	}
+	t.Error("issues_added not found")
+}

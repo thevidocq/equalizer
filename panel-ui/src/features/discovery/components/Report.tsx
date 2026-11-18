@@ -50,6 +50,8 @@ export function Report({ d }: { d: Discovery }) {
       {ai.notes?.length ? <List title="AI notes" items={ai.notes.map((n: string) => ({ n }))} render={(i) => i.n} /> : null}
       <List title="Routes added" items={r.routes_added} render={(i) => `${i.path}${i.logged_in_only ? "  (logged in)" : ""}`} />
       <List title="Forms added" items={r.forms_added} render={(i) => `${i.route}  ${i.fields.join(", ")}`} />
+      <List title="Protection against IDOR proposed" items={r.issues_proposed}
+        render={(i) => `${i.list} → ${i.detail}  (${i.field}${i.roles?.length ? `, owned_by_user for ${i.roles.join(", ")}` : ""})`} />
       <List title="Kept out of the map" items={r.excluded} render={(i) => `${i.path}  ${i.reason}`} />
       <List title="Asked by visitors, still missing" items={r.visitors_missing} render={(i) => `${i.path}  (${i.clients} visitors)`} />
       <List title="Not supported yet" items={r.not_supported} render={(i) => `${i.path}  ${i.reason}`} />

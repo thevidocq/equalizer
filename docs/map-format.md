@@ -332,7 +332,10 @@ pages and APIs that show one person's objects, add a rule per role:
   ```
 
   The entry named must have an `owned_by_user` rule on that target, and the
-  field must be in `fields`; otherwise the map does not load. The review aid
+  field must be in `fields`; otherwise the map does not load. Discovery
+  proposes both when a GET list API and a GET detail API (`/api/x` and
+  `/api/x/{id}`) share an id of the same type, unless a person already chose
+  another rule for the detail. The review aid
   flags new `issues` (`issues_added`).
 - Forms need no rule: their parameters travel sealed in the form token.
 - The review aid flags new pages with personal-looking paths and no rule,

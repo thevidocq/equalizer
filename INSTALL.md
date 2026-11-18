@@ -3,11 +3,10 @@
 > **Status:** prototype under construction. Steps marked *(available)* already
 > have code and configuration in the repository; the others describe the
 > planned installation and will be completed over time (see `CHANGELOG.md`).
-> Today the gateway serves read-only pages of a legacy application reached
-> **directly** (`legacy.reach.mode: direct`), with faithful rendering and URL
-> rewriting, and accepts urlencoded POST forms declared in the map; with
-> `mode: connector` it answers 502 until the connector is ready. File uploads
-> and login are not served yet.
+> Today the gateway serves pages and urlencoded POST forms of a legacy
+> application reached **directly** (`legacy.reach.mode: direct`) or **through
+> the connector** (`mode: connector`), with faithful rendering. File uploads,
+> login and the panel are not available yet.
 
 The prototype runs on **one VPS** with Docker Compose. The legacy application
 to protect can be anywhere: the **connector**, installed next to it, reaches it.
@@ -19,12 +18,15 @@ to protect can be anywhere: the **connector**, installed next to it, reaches it.
 - 4 vCPU, 16 GB RAM, 160 GB SSD.
 - Ubuntu 24.04 LTS.
 - A DNS name for the gateway (e.g. `gw.example.com`) and one for the relay
-  (e.g. `relay.example.com`), both pointing to the VPS IP.
+  (e.g. `relay.example.com`), both pointing to the VPS IP. If you use
+  Cloudflare, leave the relay record **DNS only** (grey cloud): the tunnel is
+  a long-lived upgraded connection.
 
 ### Connector machine
 
 - Linux with Docker, on the same network as the legacy application.
-- Outbound Internet access on port **8443** (to the relay).
+- Outbound Internet access on port **443** (HTTPS to the relay; a corporate
+  proxy works through `HTTPS_PROXY`).
 - No inbound port needed.
 
 ## 2. Prepare the VPS
@@ -34,12 +36,11 @@ to protect can be anywhere: the **connector**, installed next to it, reaches it.
 curl -fsSL https://get.docker.com | sh
 sudo usermod -aG docker $USER   # then log out and back in
 
-# Firewall: only gateway (80/443), relay (8443), SSH and the admin VPN
+# Firewall: only gateway and relay (80/443), SSH and the admin VPN
 sudo ufw default deny incoming
 sudo ufw allow 22/tcp
 sudo ufw allow 80/tcp
 sudo ufw allow 443/tcp
-sudo ufw allow 8443/tcp
 sudo ufw allow 51820/udp        # WireGuard to reach the panel
 sudo ufw enable
 ```
@@ -66,7 +67,7 @@ python3 scripts/validate_schemas.py
 ```bash
 cd deploy/compose
 cp .env.example .env
-nano .env        # domain, email, Grafana password, EQ_UID/EQ_GID (id -u, id -g)
+nano .env        # domains, email, Grafana password, EQ_UID/EQ_GID (id -u, id -g)
 ```
 
 Main values in `.env`:
@@ -74,6 +75,7 @@ Main values in `.env`:
 | Variable | Example | Meaning |
 | --- | --- | --- |
 | `EQ_GATEWAY_DOMAIN` | `gw.example.com` | Public domain of the gateway (automatic certificate) |
+| `EQ_RELAY_DOMAIN` | `relay.example.com` | Public domain of the relay, where connectors open their tunnel |
 | `EQ_ACME_EMAIL` | `admin@example.com` | Email for Let's Encrypt |
 | `EQ_GATEWAY_REPLICAS` | `2` | Gateway replicas |
 | `EQ_LOG_LEVEL` | `info` | Log level (`debug`, `info`, `warn`, `error`) |
@@ -81,7 +83,7 @@ Main values in `.env`:
 | `EQ_GRAFANA_PASSWORD` | *(choose one)* | Password of the Grafana `admin` user |
 | `EQ_UID` / `EQ_GID` | `1000` | VPS user owning the files created by `eqtool` |
 
-## 5. Signing key and first map *(available)*
+## 5. Keys, connector and first map *(available)*
 
 Until the panel exists, maps are signed by hand with `eqtool`.
 
@@ -90,6 +92,11 @@ Until the panel exists, maps are signed by hand with `eqtool`.
 docker compose --profile tools run --rm eqtool keygen -out secrets/map-signing.key
 # key that seals form tokens, shared by the gateway replicas
 docker compose --profile tools run --rm eqtool formkey -out secrets/form.key
+# token the gateway presents to the relay
+docker compose --profile tools run --rm eqtool secret -out secrets/relay.token
+# register the connector: copy the EQ_CONNECTOR_TOKEN it prints (shown once)
+docker compose --profile tools run --rm eqtool connector -file secrets/connectors.json \
+  -id cn-lab-01 -tenant lab -app vulnerable-app
 
 # convert and validate a YAML map (from the repository root)
 cd ../..
@@ -103,6 +110,21 @@ docker compose --profile tools run --rm eqtool sign \
 ```
 
 The gateway reloads the map by itself when `maps/current.json` changes (within 15 seconds).
+
+For a legacy app reached through the connector, the map says:
+
+```yaml
+legacy:
+  base_url: http://10.20.0.15:8080        # address as seen from the connector
+  reach:
+    mode: connector
+    connector_id: cn-lab-01                # as registered above
+    allow: ["10.20.0.15:8080"]
+```
+
+The relay rereads `secrets/connectors.json` every 15 seconds: new connectors
+need no restart; removing one or rotating its token (`-rotate`) closes its
+open tunnels.
 
 ## 6. Start *(available)*
 
@@ -138,22 +160,37 @@ Open `http://localhost:3000` (user `admin`, password from `.env`), go to
 
 The panel's Logs page will arrive with panel-ui; Grafana stays for in-depth analysis.
 
-## 7. Install the connector next to the legacy application
+## 7. Install the connector next to the legacy application *(available)*
 
-1. In the panel: **Protected sites → Protect a site**, enter the public
-   domain and the internal address of the legacy application.
-2. In the **Connectors** tab generate an enrolment token (one-time, valid
-   24 hours).
-3. On the connector machine:
+On a machine with Docker on the legacy application's network (the remote
+server itself is fine):
 
 ```bash
 docker run -d --name eq-connector --restart unless-stopped \
-  -e RELAY_URL=relay.example.com:8443 \
-  -e ENROLL_TOKEN=<token from the panel> \
-  equalizer/connector:latest
+  -e EQ_RELAY_URL=https://relay.example.com \
+  -e EQ_CONNECTOR_ID=cn-lab-01 \
+  -e EQ_CONNECTOR_TOKEN=<token printed by eqtool connector> \
+  -e EQ_ALLOW=10.20.0.15:8080 \
+  ghcr.io/thevidocq/equalizer-connector:latest
 ```
 
-4. In the panel the connector shows as **online** within a few seconds.
+- `EQ_ALLOW` lists the only `host:port` destinations the connector will
+  reach, whatever it is asked. If the legacy app runs on the same machine,
+  use its LAN address or, with `--network host`, `127.0.0.1:<port>`.
+- For an `https` legacy app with a self-signed certificate: mount its CA and
+  set `EQ_LEGACY_CA_FILE`, or as a last resort `EQ_LEGACY_INSECURE_TLS=true`.
+- The image is published by CI on every merge to `main`. GitHub packages
+  start private: make `equalizer-connector` public in the repository's
+  *Packages* settings, or run `docker login ghcr.io` first. Without the
+  registry, build it on the machine:
+  `git clone https://github.com/thevidocq/equalizer.git && docker build -t equalizer/connector equalizer/connector`.
+
+Check that the tunnel is open:
+
+```bash
+docker logs eq-connector | grep "tunnel open"       # on the connector machine
+docker compose logs tunnel-relay | grep "connector connected"
+```
 
 ## 8. Checks
 

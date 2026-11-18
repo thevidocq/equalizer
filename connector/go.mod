@@ -1,0 +1,5 @@
+module github.com/thevidocq/equalizer/connector
+
+go 1.24
+
+require github.com/hashicorp/yamux v0.1.2

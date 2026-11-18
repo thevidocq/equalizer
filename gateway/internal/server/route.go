@@ -171,8 +171,10 @@ func (p *Public) legacyFailure(w http.ResponseWriter, r *http.Request, st *site.
 	switch {
 	case errors.Is(err, transport.ErrDestinationNotAllowed):
 		reason = "destination_not_allowed"
-	case errors.Is(err, site.ErrConnectorUnavailable):
+	case errors.Is(err, transport.ErrConnectorUnavailable):
 		reason = "connector_unavailable"
+	case errors.Is(err, transport.ErrLegacyUnreachable):
+		reason = "legacy_unreachable"
 	case errors.Is(err, legacyclient.ErrTooLarge):
 		reason = "response_too_large"
 	}

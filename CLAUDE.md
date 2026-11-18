@@ -81,5 +81,6 @@ session or account. Read it in full before touching the code.
 | Initial LLM | Claude Haiku via API; local and ChatGPT configurable |
 | UI components | Custom library in `panel-ui/src/shared/ui`, built on Radix UI and Tailwind CSS |
 | Prototype | One VPS with Docker Compose; Kubernetes driver later |
+| Tunnel | HTTPS upgrade to `equalizer-tunnel/1` + yamux + HTTP/1.1 per stream (no gRPC); connector local allowlist is the last barrier |
 | Lab and remote servers | Prepared by the project owner |
 | Language | English for everything in the repository |

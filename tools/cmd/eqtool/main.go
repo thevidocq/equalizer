@@ -4,6 +4,10 @@
 //	    create the Ed25519 key pair (private .key and public .pub files, base64)
 //	eqtool formkey -out secrets/form.key
 //	    create the key that seals form tokens (shared by all gateway replicas)
+//	eqtool secret -out secrets/relay.token
+//	    create a random token (gateway ↔ relay)
+//	eqtool connector -file secrets/connectors.json -id cn-1 -tenant t -app a [-rotate]
+//	    register a connector on the relay and print its token (shown once)
 //	eqtool sign -key secrets/map-signing.key -map maps/map.json -key-id k1 -out maps/current.json
 //	    sign a JSON map and produce the SignedMap document read by the gateway
 //
@@ -35,6 +39,10 @@ func main() {
 		err = keygen(os.Args[2:])
 	case "formkey":
 		err = formkey(os.Args[2:])
+	case "secret":
+		err = secret(os.Args[2:])
+	case "connector":
+		err = connector(os.Args[2:])
 	case "sign":
 		err = sign(os.Args[2:])
 	default:
@@ -48,7 +56,7 @@ func main() {
 }
 
 func usage() {
-	fmt.Fprintln(os.Stderr, "usage: eqtool keygen -out FILE | eqtool formkey -out FILE | eqtool sign -key FILE -map FILE -key-id ID -out FILE")
+	fmt.Fprintln(os.Stderr, "usage: eqtool keygen|formkey|secret -out FILE | eqtool connector -file FILE -id ID -tenant T -app A [-rotate] | eqtool sign -key FILE -map FILE -key-id ID -out FILE")
 }
 
 func keygen(args []string) error {

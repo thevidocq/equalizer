@@ -1,4 +1,4 @@
-// Package config legge la configurazione del gateway dalle variabili d'ambiente.
+// Package config reads the gateway configuration from environment variables.
 package config
 
 import (
@@ -9,20 +9,20 @@ import (
 	"time"
 )
 
-// Config è la configurazione completa del gateway.
+// Config is the complete gateway configuration.
 type Config struct {
-	PublicAddr      string         // indirizzo del traffico pubblico (dietro il proxy edge)
-	AdminAddr       string         // indirizzo di /healthz, /readyz (solo rete control)
-	Instance        string         // nome dell'istanza nei log
+	PublicAddr      string         // public traffic address (behind the edge proxy)
+	AdminAddr       string         // address of /healthz, /readyz (control network only)
+	Instance        string         // instance name in logs
 	LogLevel        string         // debug, info, warn, error
-	MapFile         string         // file SignedMap (JSON)
-	MapPublicKey    string         // chiave pubblica Ed25519 in base64
-	MapPublicKeyID  string         // identificativo atteso della chiave
-	TrustedProxies  []netip.Prefix // reti da cui accettare X-Forwarded-For
+	MapFile         string         // SignedMap file (JSON)
+	MapPublicKey    string         // Ed25519 public key, base64
+	MapPublicKeyID  string         // expected key identifier
+	TrustedProxies  []netip.Prefix // networks allowed to set X-Forwarded-For
 	ShutdownTimeout time.Duration
 }
 
-// FromEnv costruisce la configurazione da variabili d'ambiente con valori predefiniti sicuri.
+// FromEnv builds the configuration from environment variables with safe defaults.
 func FromEnv() (Config, error) {
 	host, _ := os.Hostname()
 	cfg := Config{
@@ -50,23 +50,23 @@ func FromEnv() (Config, error) {
 	switch cfg.LogLevel {
 	case "debug", "info", "warn", "error":
 	default:
-		return Config{}, fmt.Errorf("EQ_LOG_LEVEL non valido: %q", cfg.LogLevel)
+		return Config{}, fmt.Errorf("invalid EQ_LOG_LEVEL: %q", cfg.LogLevel)
 	}
 	return cfg, nil
 }
 
-// publicKey legge la chiave da EQ_MAP_PUBKEY o dal file in EQ_MAP_PUBKEY_FILE.
+// publicKey reads the key from EQ_MAP_PUBKEY or from the file in EQ_MAP_PUBKEY_FILE.
 func publicKey() (string, error) {
 	if k := strings.TrimSpace(os.Getenv("EQ_MAP_PUBKEY")); k != "" {
 		return k, nil
 	}
 	path := os.Getenv("EQ_MAP_PUBKEY_FILE")
 	if path == "" {
-		return "", fmt.Errorf("serve EQ_MAP_PUBKEY o EQ_MAP_PUBKEY_FILE")
+		return "", fmt.Errorf("EQ_MAP_PUBKEY or EQ_MAP_PUBKEY_FILE is required")
 	}
 	b, err := os.ReadFile(path)
 	if err != nil {
-		return "", fmt.Errorf("lettura chiave pubblica: %w", err)
+		return "", fmt.Errorf("reading public key: %w", err)
 	}
 	return strings.TrimSpace(string(b)), nil
 }

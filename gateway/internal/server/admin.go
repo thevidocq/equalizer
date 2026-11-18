@@ -5,13 +5,13 @@ import (
 	"net/http"
 )
 
-// Admin espone /healthz e /readyz sulla rete interna (mai pubblici).
+// Admin exposes /healthz and /readyz on the internal network (never public).
 type Admin struct {
 	Maps    MapSource
 	Version string
 }
 
-// Handler restituisce l'handler degli endpoint di amministrazione.
+// Handler returns the handler of the administration endpoints.
 func (a *Admin) Handler() http.Handler {
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /healthz", func(w http.ResponseWriter, _ *http.Request) {
@@ -21,7 +21,7 @@ func (a *Admin) Handler() http.Handler {
 		active := a.Maps.Current()
 		if active == nil {
 			writeJSON(w, http.StatusServiceUnavailable, map[string]any{
-				"status": "not_ready", "reason": "nessuna mappa valida caricata",
+				"status": "not_ready", "reason": "no valid map loaded",
 			})
 			return
 		}

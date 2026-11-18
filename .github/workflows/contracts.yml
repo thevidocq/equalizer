@@ -18,22 +18,22 @@ jobs:
         with:
           python-version: "3.12"
 
-      - name: Installa dipendenze
+      - name: Install dependencies
         run: pip install jsonschema pyyaml openapi-spec-validator grpcio-tools
 
-      - name: Valida JSON Schema, esempi di mappa e OpenAPI
+      - name: Validate JSON Schema, map examples and OpenAPI
         run: python scripts/validate_schemas.py
 
-      - name: Compila il protocollo del tunnel
+      - name: Compile the tunnel protocol
         run: |
           mkdir -p /tmp/proto-out
           python -m grpc_tools.protoc -I schema/tunnel --python_out=/tmp/proto-out schema/tunnel/tunnel.proto
 
-      - name: Il changelog deve cambiare in ogni PR
+      - name: The changelog must change in every PR
         if: github.event_name == 'pull_request'
         run: |
           git fetch --depth=1 origin "${{ github.base_ref }}"
           if git diff --quiet "origin/${{ github.base_ref }}" -- CHANGELOG.md; then
-            echo "CHANGELOG.md non aggiornato: aggiungi una voce per questa modifica." >&2
+            echo "CHANGELOG.md not updated: add an entry for this change." >&2
             exit 1
           fi

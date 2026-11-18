@@ -1,13 +1,13 @@
-// Package legacyurl traduce gli URL del legacy negli URL pubblici del
-// gateway. Lo usano la pipeline di resa (link nelle pagine) e la
-// traduzione dei redirect.
+// Package legacyurl translates legacy URLs into the gateway's public URLs.
+// It is used by the rendering pipeline (links in pages) and by redirect
+// translation.
 //
-// Fonti dei modelli, in ordine di priorità:
-//  1. links delle rotte e compat: "/percorso?chiave={nome}"
-//  2. legacy_request delle rotte GET: "/percorso" con query "{{params.x}}"
+// Pattern sources, in priority order:
+//  1. route links and compat: "/path?key={name}"
+//  2. legacy_request of GET routes: "/path" with query "{{params.x}}"
 //
-// Un URL del legacy corrisponde a un modello solo se percorso e chiavi di
-// query coincidono esattamente: chiavi in più = nessuna corrispondenza.
+// A legacy URL matches a pattern only if path and query keys are exactly the
+// same: extra keys mean no match.
 package legacyurl
 
 import (
@@ -19,28 +19,28 @@ import (
 	"github.com/thevidocq/equalizer/gateway/internal/mapmodel"
 )
 
-// Rewriter traduce URL del legacy in URL pubblici.
+// Rewriter translates legacy URLs into public URLs.
 type Rewriter struct {
 	base     *url.URL
 	basePath string
 	patterns []pattern
-	assets   []string // prefissi degli asset
+	assets   []string // asset prefixes
 }
 
 type pattern struct {
 	route    *mapmodel.Route
-	segments []part          // segmenti del percorso del legacy
-	query    map[string]part // chiavi di query del legacy
+	segments []part          // legacy path segments
+	query    map[string]part // legacy query keys
 }
 
-// part è un valore fisso o una cattura verso params/query della rotta.
+// part is a fixed value or a capture into the route's params/query.
 type part struct {
 	literal string
-	ns      string // "params" o "query"; vuoto se fisso
+	ns      string // "params" or "query"; empty when fixed
 	name    string
 }
 
-// New compila i modelli di una mappa.
+// New compiles the patterns of a map.
 func New(base *url.URL, m *mapmodel.Model) (*Rewriter, error) {
 	r := &Rewriter{base: base, basePath: strings.TrimSuffix(base.Path, "/")}
 	for _, a := range m.Assets {
@@ -49,7 +49,7 @@ func New(base *url.URL, m *mapmodel.Model) (*Rewriter, error) {
 	for i := range m.Routes {
 		for _, l := range m.Routes[i].Links {
 			if err := r.addBraces(m, l.Legacy, l.Route); err != nil {
-				return nil, fmt.Errorf("rotta %q, link %q: %w", m.Routes[i].ID, l.Legacy, err)
+				return nil, fmt.Errorf("route %q, link %q: %w", m.Routes[i].ID, l.Legacy, err)
 			}
 		}
 	}
@@ -66,13 +66,13 @@ func New(base *url.URL, m *mapmodel.Model) (*Rewriter, error) {
 	return r, nil
 }
 
-// Internal dice se u (già risolto in assoluto) punta al legacy.
+// Internal reports whether u (already resolved to absolute) points to the legacy application.
 func (r *Rewriter) Internal(u *url.URL) bool {
 	return strings.EqualFold(u.Host, r.base.Host) && (u.Scheme == "http" || u.Scheme == "https")
 }
 
-// Public restituisce l'URL pubblico (percorso e query) per un URL interno.
-// ok=false se nessun modello corrisponde.
+// Public returns the public URL (path and query) for an internal URL.
+// ok=false when no pattern matches.
 func (r *Rewriter) Public(u *url.URL) (string, bool) {
 	path := u.Path
 	if r.basePath != "" {
@@ -86,7 +86,7 @@ func (r *Rewriter) Public(u *url.URL) (string, bool) {
 	}
 	for _, prefix := range r.assets {
 		if strings.HasPrefix(path, prefix) && len(path) > len(prefix) {
-			// Gli asset hanno lo stesso percorso pubblico e legacy.
+			// Assets have the same public and legacy path.
 			out := (&url.URL{Path: path, RawQuery: u.RawQuery, Fragment: u.Fragment}).String()
 			return out, true
 		}
@@ -104,8 +104,8 @@ func (r *Rewriter) Public(u *url.URL) (string, bool) {
 	return "", false
 }
 
-// Fallback restituisce il percorso relativo di un URL interno non mappato:
-// l'host interno del legacy non deve mai comparire nella pagina.
+// Fallback returns the relative path of an unmapped internal URL: the
+// legacy's internal host must never appear in the page.
 func (r *Rewriter) Fallback(u *url.URL) string {
 	out := u.EscapedPath()
 	if out == "" {
@@ -155,7 +155,7 @@ func (p pattern) apply(segs []string, q url.Values) (string, bool) {
 	return build(p.route, captured)
 }
 
-// build compone l'URL pubblico della rotta con i valori catturati.
+// build composes the route's public URL from the captured values.
 func build(route *mapmodel.Route, captured map[string]map[string]string) (string, bool) {
 	var b strings.Builder
 	for _, seg := range split(route.Path) {
@@ -189,11 +189,11 @@ func build(route *mapmodel.Route, captured map[string]map[string]string) (string
 	return out, true
 }
 
-// addBraces aggiunge un modello in formato "/percorso?k={nome}".
+// addBraces adds a pattern in the "/path?k={name}" format.
 func (r *Rewriter) addBraces(m *mapmodel.Model, legacy, routeID string) error {
 	route, ok := m.RouteByID(routeID)
 	if !ok {
-		return fmt.Errorf("rotta %q inesistente", routeID)
+		return fmt.Errorf("route %q does not exist", routeID)
 	}
 	path, rawQuery, _ := strings.Cut(legacy, "?")
 	target := func(v string) (part, error) {
@@ -205,10 +205,10 @@ func (r *Rewriter) addBraces(m *mapmodel.Model, legacy, routeID string) error {
 			if _, isQuery := route.Query[name]; isQuery {
 				return part{ns: "query", name: name}, nil
 			}
-			return part{}, fmt.Errorf("{%s} non è un parametro né una query della rotta", name)
+			return part{}, fmt.Errorf("{%s} is neither a parameter nor a query of the route", name)
 		}
 		if strings.ContainsAny(v, "{}") {
-			return part{}, fmt.Errorf("segnaposto malformato %q", v)
+			return part{}, fmt.Errorf("malformed placeholder %q", v)
 		}
 		return part{literal: v}, nil
 	}
@@ -234,8 +234,8 @@ func (r *Rewriter) addBraces(m *mapmodel.Model, legacy, routeID string) error {
 	return nil
 }
 
-// fromLegacyRequest ricava il modello inverso di legacy_request.
-// Valori misti (es. "p-{{params.id}}") non sono invertibili: la rotta si salta.
+// fromLegacyRequest derives the inverse pattern of legacy_request.
+// Mixed values (e.g. "p-{{params.id}}") cannot be inverted: the route is skipped.
 func fromLegacyRequest(route *mapmodel.Route) (pattern, bool) {
 	lr := route.LegacyRequest
 	if !strings.EqualFold(lr.Method, "GET") {

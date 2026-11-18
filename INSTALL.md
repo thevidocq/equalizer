@@ -1,168 +1,168 @@
-# Installazione
+# Installation
 
-> **Stato:** prototipo in costruzione. I passi marcati *(disponibile)* hanno
-> già il codice e la configurazione nel repository; gli altri descrivono
-> l'installazione prevista e verranno completati man mano (vedi
-> `CHANGELOG.md`). Oggi il gateway serve le pagine in lettura di un legacy
-> raggiungibile **direttamente** (`legacy.reach.mode: direct`), senza ancora
-> riscriverne l'HTML; con `mode: connector` risponde 502 finché il connettore
-> non è pronto. Form e login non sono ancora serviti.
+> **Status:** prototype under construction. Steps marked *(available)* already
+> have code and configuration in the repository; the others describe the
+> planned installation and will be completed over time (see `CHANGELOG.md`).
+> Today the gateway serves read-only pages of a legacy application reached
+> **directly** (`legacy.reach.mode: direct`), with faithful rendering and URL
+> rewriting; with `mode: connector` it answers 502 until the connector is
+> ready. Forms and login are not served yet.
 
-Il prototipo gira su **una VPS** con Docker Compose. Il legacy da proteggere
-può stare ovunque: lo raggiunge il **connettore**, installato accanto a lui.
+The prototype runs on **one VPS** with Docker Compose. The legacy application
+to protect can be anywhere: the **connector**, installed next to it, reaches it.
 
-## 1. Requisiti
+## 1. Requirements
 
 ### VPS
 
-- 4 vCPU, 16 GB di RAM, 160 GB SSD.
+- 4 vCPU, 16 GB RAM, 160 GB SSD.
 - Ubuntu 24.04 LTS.
-- Un nome DNS per il gateway (es. `gw.example.com`) e uno per il relay
-  (es. `relay.example.com`), entrambi verso l'IP della VPS.
+- A DNS name for the gateway (e.g. `gw.example.com`) and one for the relay
+  (e.g. `relay.example.com`), both pointing to the VPS IP.
 
-### Macchina del connettore
+### Connector machine
 
-- Linux con Docker, nella stessa rete del legacy.
-- Uscita verso Internet sulla porta **8443** (verso il relay).
-- Nessuna porta in ingresso necessaria.
+- Linux with Docker, on the same network as the legacy application.
+- Outbound Internet access on port **8443** (to the relay).
+- No inbound port needed.
 
-## 2. Preparare la VPS
+## 2. Prepare the VPS
 
 ```bash
-# Docker e plugin Compose
+# Docker and the Compose plugin
 curl -fsSL https://get.docker.com | sh
-sudo usermod -aG docker $USER   # poi esci e rientra
+sudo usermod -aG docker $USER   # then log out and back in
 
-# Firewall: solo gateway (80/443), relay (8443), SSH e VPN di amministrazione
+# Firewall: only gateway (80/443), relay (8443), SSH and the admin VPN
 sudo ufw default deny incoming
 sudo ufw allow 22/tcp
 sudo ufw allow 80/tcp
 sudo ufw allow 443/tcp
 sudo ufw allow 8443/tcp
-sudo ufw allow 51820/udp        # WireGuard per accedere al pannello
+sudo ufw allow 51820/udp        # WireGuard to reach the panel
 sudo ufw enable
 ```
 
-Il pannello **non** è esposto su Internet: si raggiunge tramite VPN WireGuard
-o tunnel SSH (`ssh -L 8080:localhost:8080 utente@vps`).
+The panel is **not** exposed to the Internet: reach it over a WireGuard VPN
+or an SSH tunnel (`ssh -L 8080:localhost:8080 user@vps`).
 
-## 3. Scaricare il progetto *(disponibile)*
+## 3. Get the project *(available)*
 
 ```bash
 git clone https://github.com/thevidocq/equalizer.git
 cd equalizer
 ```
 
-Verifica dei contratti *(disponibile)*:
+Check the contracts *(available)*:
 
 ```bash
 pip install jsonschema pyyaml openapi-spec-validator
 python3 scripts/validate_schemas.py
 ```
 
-## 4. Configurare *(disponibile)*
+## 4. Configure *(available)*
 
 ```bash
 cd deploy/compose
 cp .env.example .env
-nano .env        # dominio, email, password di Grafana, EQ_UID/EQ_GID (id -u, id -g)
+nano .env        # domain, email, Grafana password, EQ_UID/EQ_GID (id -u, id -g)
 ```
 
-Valori principali in `.env`:
+Main values in `.env`:
 
-| Variabile | Esempio | Significato |
+| Variable | Example | Meaning |
 | --- | --- | --- |
-| `EQ_GATEWAY_DOMAIN` | `gw.example.com` | Dominio pubblico del gateway (certificato automatico) |
-| `EQ_ACME_EMAIL` | `admin@example.com` | Email per Let's Encrypt |
-| `EQ_GATEWAY_REPLICAS` | `2` | Repliche del gateway |
-| `EQ_LOG_LEVEL` | `info` | Livello dei log (`debug`, `info`, `warn`, `error`) |
-| `EQ_MAP_KEY_ID` | `k1` | Identificativo della chiave di firma delle mappe |
-| `EQ_GRAFANA_PASSWORD` | *(scegline una)* | Password dell'utente `admin` di Grafana |
-| `EQ_UID` / `EQ_GID` | `1000` | Utente della VPS che possiede i file creati da `eqtool` |
+| `EQ_GATEWAY_DOMAIN` | `gw.example.com` | Public domain of the gateway (automatic certificate) |
+| `EQ_ACME_EMAIL` | `admin@example.com` | Email for Let's Encrypt |
+| `EQ_GATEWAY_REPLICAS` | `2` | Gateway replicas |
+| `EQ_LOG_LEVEL` | `info` | Log level (`debug`, `info`, `warn`, `error`) |
+| `EQ_MAP_KEY_ID` | `k1` | Identifier of the map signing key |
+| `EQ_GRAFANA_PASSWORD` | *(choose one)* | Password of the Grafana `admin` user |
+| `EQ_UID` / `EQ_GID` | `1000` | VPS user owning the files created by `eqtool` |
 
-## 5. Chiave di firma e prima mappa *(disponibile)*
+## 5. Signing key and first map *(available)*
 
-Finché il pannello non esiste, le mappe si firmano a mano con `eqtool`.
+Until the panel exists, maps are signed by hand with `eqtool`.
 
 ```bash
-# dalla cartella deploy/compose
+# from deploy/compose
 docker compose --profile tools run --rm eqtool keygen -out secrets/map-signing.key
 
-# converte e valida una mappa YAML (dalla radice del repository)
+# convert and validate a YAML map (from the repository root)
 cd ../..
 pip install jsonschema pyyaml
-python3 scripts/map_to_json.py schema/map/examples/portale-pratiche.yaml > deploy/compose/maps/mappa.json
+python3 scripts/map_to_json.py schema/map/examples/permits-portal.yaml > deploy/compose/maps/map.json
 
-# firma la mappa: il gateway legge maps/current.json
+# sign the map: the gateway reads maps/current.json
 cd deploy/compose
 docker compose --profile tools run --rm eqtool sign \
-  -key secrets/map-signing.key -map maps/mappa.json -key-id k1 -out maps/current.json
+  -key secrets/map-signing.key -map maps/map.json -key-id k1 -out maps/current.json
 ```
 
-Il gateway ricarica la mappa da solo quando `maps/current.json` cambia (entro 15 secondi).
+The gateway reloads the map by itself when `maps/current.json` changes (within 15 seconds).
 
-## 6. Avviare *(disponibile)*
+## 6. Start *(available)*
 
 ```bash
 docker compose up -d --build
-docker compose ps            # gateway "healthy", due repliche
+docker compose ps            # gateway "healthy", two replicas
 ```
 
-Verifiche rapide:
+Quick checks:
 
 ```bash
-curl -I https://gw.example.com/            # rotta mappata: pagina del legacy (mode: direct) o 502 (mode: connector)
-curl -I https://gw.example.com/wp-admin    # non mappata: 404
+curl -I https://gw.example.com/            # mapped route: legacy page (mode: direct) or 502 (mode: connector)
+curl -I https://gw.example.com/wp-admin    # not mapped: 404
 ```
 
-### Vedere i log *(disponibile)*
+### Viewing logs *(available)*
 
-Grafana ascolta solo su localhost della VPS. Dal tuo computer:
+Grafana listens only on the VPS localhost. From your computer:
 
 ```bash
-ssh -L 3000:localhost:3000 utente@vps
+ssh -L 3000:localhost:3000 user@vps
 ```
 
-Apri `http://localhost:3000` (utente `admin`, password di `.env`), vai in
-**Explore**, sorgente **Loki**, e usa query come:
+Open `http://localhost:3000` (user `admin`, password from `.env`), go to
+**Explore**, source **Loki**, and use queries such as:
 
 ```text
-{service="gateway"}                                  tutti i log del gateway
-{service="gateway", stream="security"}               solo eventi di sicurezza
-{service="gateway"} |= "r-4ffd4c18cbf386ec"           una richiesta precisa
-{service="gateway", level="error"}                    solo errori
+{service="gateway"}                                  all gateway logs
+{service="gateway", stream="security"}               security events only
+{service="gateway"} |= "r-4ffd4c18cbf386ec"           one specific request
+{service="gateway", level="error"}                    errors only
 ```
 
-La pagina Log del pannello arriverà con panel-ui; Grafana resta per le analisi approfondite.
+The panel's Logs page will arrive with panel-ui; Grafana stays for in-depth analysis.
 
-## 7. Installare il connettore accanto al legacy
+## 7. Install the connector next to the legacy application
 
-1. Nel pannello: **Siti protetti → Proteggi un sito**, inserisci dominio
-   pubblico e indirizzo interno del legacy.
-2. Nella scheda **Connettori** genera un token di registrazione (monouso,
-   valido 24 ore).
-3. Sulla macchina del connettore:
+1. In the panel: **Protected sites → Protect a site**, enter the public
+   domain and the internal address of the legacy application.
+2. In the **Connectors** tab generate an enrolment token (one-time, valid
+   24 hours).
+3. On the connector machine:
 
 ```bash
 docker run -d --name eq-connector --restart unless-stopped \
   -e RELAY_URL=relay.example.com:8443 \
-  -e ENROLL_TOKEN=<token dal pannello> \
+  -e ENROLL_TOKEN=<token from the panel> \
   equalizer/connector:latest
 ```
 
-4. Nel pannello il connettore risulta **online** entro pochi secondi.
+4. In the panel the connector shows as **online** within a few seconds.
 
-## 8. Verifiche
+## 8. Checks
 
-| Controllo | Come |
+| Check | How |
 | --- | --- |
-| Servizi attivi | Pannello → **Stato dei servizi**, tutto "operativo" |
-| Connettore | Pannello → sito → **Connettori**: online, latenza mostrata |
-| Percorso completo | Controllo sintetico end-to-end verde |
-| Log | Pannello → **Log**, filtro per servizio |
-| Esposizione | Dopo il passaggio, il legacy non risponde da Internet |
+| Services running | Panel → **Service status**, everything "operational" |
+| Connector | Panel → site → **Connectors**: online, latency shown |
+| Full path | End-to-end synthetic check green |
+| Logs | Panel → **Logs**, filter by service |
+| Exposure | After cutover, the legacy application does not answer from the Internet |
 
-## 9. Aggiornare
+## 9. Update
 
 ```bash
 git pull
@@ -171,10 +171,10 @@ docker compose pull
 docker compose up -d --build
 ```
 
-## 10. Disinstallare
+## 10. Uninstall
 
 ```bash
 cd deploy/compose
-docker compose down          # aggiungi -v per cancellare anche i dati
-docker rm -f eq-connector    # sulla macchina del connettore
+docker compose down          # add -v to delete data as well
+docker rm -f eq-connector    # on the connector machine
 ```

@@ -1,9 +1,9 @@
-// Comando gateway: avvia il traffico pubblico e gli endpoint di amministrazione.
+// Command gateway starts public traffic and the administration endpoints.
 //
-// Uso:
+// Usage:
 //
-//	gateway              avvia il servizio
-//	gateway healthcheck  controlla /healthz in locale (per il healthcheck di Docker)
+//	gateway              start the service
+//	gateway healthcheck  check /healthz locally (for the Docker healthcheck)
 package main
 
 import (
@@ -25,7 +25,7 @@ import (
 	"github.com/thevidocq/equalizer/gateway/internal/telemetry"
 )
 
-// version è impostata in fase di build (-ldflags "-X main.version=...").
+// version is set at build time (-ldflags "-X main.version=...").
 var version = "dev"
 
 func main() {
@@ -92,7 +92,7 @@ func run() error {
 			}
 		}(s)
 	}
-	log.Info("gateway avviato", slog.Group("detail",
+	log.Info("gateway started", slog.Group("detail",
 		slog.String("version", version),
 		slog.String("public_addr", cfg.PublicAddr),
 		slog.String("admin_addr", cfg.AdminAddr),
@@ -101,23 +101,23 @@ func run() error {
 	select {
 	case <-ctx.Done():
 	case err := <-errs:
-		log.Error("server terminato", slog.String("error", err.Error()))
+		log.Error("server stopped", slog.String("error", err.Error()))
 	}
 	shutdownCtx, cancel := context.WithTimeout(context.Background(), cfg.ShutdownTimeout)
 	defer cancel()
 	for _, s := range servers {
 		_ = s.Shutdown(shutdownCtx)
 	}
-	log.Info("gateway fermato")
+	log.Info("gateway stopped")
 	return nil
 }
 
 func logReload(log *slog.Logger, a *site.Site, err error) {
 	if err != nil {
-		log.Error("mappa non caricata", slog.String("error", err.Error()))
+		log.Error("map not loaded", slog.String("error", err.Error()))
 		return
 	}
-	log.Info("mappa attiva", slog.Group("detail",
+	log.Info("map active", slog.Group("detail",
 		slog.String("tenant", a.Model.Meta.Tenant),
 		slog.String("app", a.Model.Meta.App),
 		slog.Int("map_version", a.Model.Meta.Version),

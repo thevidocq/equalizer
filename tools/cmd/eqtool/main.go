@@ -1,12 +1,12 @@
-// eqtool: strumenti da riga di comando per il prototipo.
+// eqtool: command-line tools for the prototype.
 //
 //	eqtool keygen -out secrets/map-signing.key
-//	    crea la coppia di chiavi Ed25519 (file .key privato e .pub pubblico, base64)
-//	eqtool sign -key secrets/map-signing.key -map maps/mappa.json -key-id k1 -out maps/current.json
-//	    firma una mappa JSON e produce il documento SignedMap letto dal gateway
+//	    create the Ed25519 key pair (private .key and public .pub files, base64)
+//	eqtool sign -key secrets/map-signing.key -map maps/map.json -key-id k1 -out maps/current.json
+//	    sign a JSON map and produce the SignedMap document read by the gateway
 //
-// Nel prodotto finale la firma la fa panel-api; eqtool serve finché il
-// pannello non esiste.
+// In the final product panel-api does the signing; eqtool is needed until
+// the panel exists.
 package main
 
 import (
@@ -44,17 +44,17 @@ func main() {
 }
 
 func usage() {
-	fmt.Fprintln(os.Stderr, "uso: eqtool keygen -out FILE | eqtool sign -key FILE -map FILE -key-id ID -out FILE")
+	fmt.Fprintln(os.Stderr, "usage: eqtool keygen -out FILE | eqtool sign -key FILE -map FILE -key-id ID -out FILE")
 }
 
 func keygen(args []string) error {
 	fs := flag.NewFlagSet("keygen", flag.ContinueOnError)
-	out := fs.String("out", "map-signing.key", "file della chiave privata (la pubblica va in .pub)")
+	out := fs.String("out", "map-signing.key", "private key file (the public key goes to .pub)")
 	if err := fs.Parse(args); err != nil {
 		return err
 	}
 	if _, err := os.Stat(*out); err == nil {
-		return fmt.Errorf("%s esiste già: non la sovrascrivo", *out)
+		return fmt.Errorf("%s already exists: not overwriting it", *out)
 	}
 	pub, priv, err := ed25519.GenerateKey(rand.Reader)
 	if err != nil {
@@ -67,21 +67,21 @@ func keygen(args []string) error {
 	if err := os.WriteFile(pubPath, []byte(base64.StdEncoding.EncodeToString(pub)+"\n"), 0o644); err != nil {
 		return err
 	}
-	fmt.Printf("chiave privata: %s\nchiave pubblica: %s\n", *out, pubPath)
+	fmt.Printf("private key: %s\npublic key: %s\n", *out, pubPath)
 	return nil
 }
 
 func sign(args []string) error {
 	fs := flag.NewFlagSet("sign", flag.ContinueOnError)
-	keyPath := fs.String("key", "", "chiave privata creata con keygen")
-	mapPath := fs.String("map", "", "mappa in JSON (vedi scripts/map_to_json.py)")
-	keyID := fs.String("key-id", "k1", "identificativo della chiave")
-	out := fs.String("out", "current.json", "documento firmato in uscita")
+	keyPath := fs.String("key", "", "private key created with keygen")
+	mapPath := fs.String("map", "", "map in JSON (see scripts/map_to_json.py)")
+	keyID := fs.String("key-id", "k1", "key identifier")
+	out := fs.String("out", "current.json", "signed output document")
 	if err := fs.Parse(args); err != nil {
 		return err
 	}
 	if *keyPath == "" || *mapPath == "" {
-		return errors.New("servono -key e -map")
+		return errors.New("-key and -map are required")
 	}
 	seedB64, err := os.ReadFile(*keyPath)
 	if err != nil {
@@ -89,7 +89,7 @@ func sign(args []string) error {
 	}
 	seed, err := base64.StdEncoding.DecodeString(strings.TrimSpace(string(seedB64)))
 	if err != nil || len(seed) != ed25519.SeedSize {
-		return errors.New("chiave privata non valida")
+		return errors.New("invalid private key")
 	}
 	priv := ed25519.NewKeyFromSeed(seed)
 
@@ -99,7 +99,7 @@ func sign(args []string) error {
 	}
 	var payload bytes.Buffer
 	if err := json.Compact(&payload, raw); err != nil {
-		return fmt.Errorf("la mappa non è JSON valido: %w", err)
+		return fmt.Errorf("the map is not valid JSON: %w", err)
 	}
 	var meta struct {
 		Meta struct {
@@ -111,7 +111,7 @@ func sign(args []string) error {
 		return err
 	}
 	if meta.Meta.Status != "published" {
-		return fmt.Errorf("meta.status è %q: il gateway accetta solo mappe published", meta.Meta.Status)
+		return fmt.Errorf("meta.status is %q: the gateway only accepts published maps", meta.Meta.Status)
 	}
 
 	doc, err := json.MarshalIndent(map[string]any{
@@ -126,6 +126,6 @@ func sign(args []string) error {
 	if err := os.WriteFile(*out, append(doc, '\n'), 0o644); err != nil {
 		return err
 	}
-	fmt.Printf("mappa versione %d firmata: %s\n", meta.Meta.Version, *out)
+	fmt.Printf("map version %d signed: %s\n", meta.Meta.Version, *out)
 	return nil
 }

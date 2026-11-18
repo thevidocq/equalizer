@@ -7,7 +7,7 @@ import (
 	"time"
 )
 
-// Event è un evento di sicurezza conforme a schema/events/event.schema.json.
+// Event is a security event that conforms to schema/events/event.schema.json.
 type Event struct {
 	Schema     string         `json:"schema"`
 	TS         string         `json:"ts"`
@@ -28,13 +28,13 @@ type Event struct {
 	Detail     map[string]any `json:"detail,omitempty"`
 }
 
-// Latency divide il tempo tra gateway e legacy.
+// Latency splits time between the gateway and the legacy application.
 type Latency struct {
 	Gateway float64 `json:"gateway"`
 	Legacy  float64 `json:"legacy"`
 }
 
-// Emitter scrive eventi come righe JSON (stdout), letti da Vector.
+// Emitter writes events as JSON lines (stdout), collected by Vector.
 type Emitter struct {
 	mu       sync.Mutex
 	enc      *json.Encoder
@@ -42,12 +42,12 @@ type Emitter struct {
 	now      func() time.Time
 }
 
-// NewEmitter crea un emitter che scrive su w.
+// NewEmitter creates an emitter that writes to w.
 func NewEmitter(w io.Writer, instance string) *Emitter {
 	return &Emitter{enc: json.NewEncoder(w), instance: instance, now: time.Now}
 }
 
-// Emit completa i campi comuni e scrive l'evento.
+// Emit fills in the common fields and writes the event.
 func (e *Emitter) Emit(ev Event) {
 	ev.Schema = "event/1.0"
 	ev.Service = ServiceName
@@ -63,5 +63,5 @@ func (e *Emitter) Emit(ev Event) {
 	_ = e.enc.Encode(ev)
 }
 
-// Ptr restituisce un puntatore al valore, per i campi nullable.
+// Ptr returns a pointer to the value, for nullable fields.
 func Ptr[T any](v T) *T { return &v }

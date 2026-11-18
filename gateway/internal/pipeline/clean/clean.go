@@ -1,5 +1,5 @@
-// Package clean toglie dalla pagina ciò che non si vede ma informa chi
-// attacca: commenti HTML e meta che rivelano il software del legacy.
+// Package clean removes from the page what is invisible but informs an
+// attacker: HTML comments and meta tags that reveal the legacy software.
 package clean
 
 import (
@@ -10,16 +10,16 @@ import (
 	"github.com/thevidocq/equalizer/gateway/internal/thirdparty/xhtml/atom"
 )
 
-// Step è il passo di pulizia invisibile.
+// Step is the invisible clean-up step.
 type Step struct{}
 
-// Name restituisce il nome del passo.
+// Name returns the step name.
 func (Step) Name() string { return "clean" }
 
-// meta con questi nomi rivelano prodotto e versione del legacy.
+// meta tags with these names reveal the legacy product and version.
 var revealing = map[string]bool{"generator": true, "application-name": true}
 
-// Apply rimuove commenti e meta rivelatori.
+// Apply removes comments and revealing meta tags.
 func (Step) Apply(doc *html.Node, ctx *pipeline.Context) error {
 	var drop []*html.Node
 	pipeline.Walk(doc, func(n *html.Node) bool {

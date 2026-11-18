@@ -1,207 +1,242 @@
 # Changelog
 
-Registro di **ogni commit**, pensato perché chiunque (persona o altra
-sessione Claude) possa riprendere il lavoro senza contesto.
+A record of **every commit**, written so that anyone (a person or another
+Claude session) can pick up the work with no prior context.
 
-## Come scrivere una voce
+## How to write an entry
 
-Aggiungi in cima a "Voci" una sezione per ogni commit:
+Add a section at the top of "Entries" for every commit:
 
 ```markdown
-### AAAA-MM-GG — <titolo del commit>
+### YYYY-MM-DD — <commit title>
 
-- **Branch:** <nome>
-- **Cosa:** cosa è cambiato, per file o area
-- **Perché:** motivo della modifica
-- **Stato:** cosa funziona, cosa è a metà, cosa non è testato
-- **Prossimi passi:** elenco ordinato di ciò che viene dopo
+- **Branch:** <name>
+- **What:** what changed, by file or area
+- **Why:** reason for the change
+- **Status:** what works, what is half-done, what is untested
+- **Next steps:** ordered list of what comes next
 ```
 
-## Stato attuale del progetto
+## Current project status
 
-| Area | Stato |
+| Area | Status |
 | --- | --- |
-| Contratti (`schema/`) | Prima versione, validata in CI |
-| Documentazione | Architettura, formato mappa, installazione e manuali (funzionalità previste) |
-| gateway | Rotte GET e asset in modalità diretta, validazione, resa fedele (UTF-8, pulizia, riscrittura URL, redirect); niente form, sessioni, connettore |
-| tunnel-relay | Da implementare |
-| connector | Da implementare |
-| orchestrator | Da implementare |
-| panel-api | Da implementare |
-| panel-ui | Da implementare |
-| agent | Da implementare |
-| deploy/compose | Caddy, gateway (2 repliche), Vector, Loki, Grafana; validato staticamente |
-| tools (eqtool) | Chiavi e firma delle mappe |
+| Contracts (`schema/`) | First version, validated in CI |
+| Documentation | Architecture, map format, installation and manuals (planned features) |
+| gateway | GET routes and assets in direct mode, validation, faithful rendering (UTF-8, cleanup, URL rewriting, redirects); no forms, sessions or connector yet |
+| tunnel-relay | Not implemented yet |
+| connector | Not implemented yet |
+| orchestrator | Not implemented yet |
+| panel-api | Not implemented yet |
+| panel-ui | Not implemented yet |
+| agent | Not implemented yet |
+| deploy/compose | Caddy, gateway (2 replicas), Vector, Loki, Grafana; statically validated |
+| tools (eqtool) | Keys and map signing |
 
-## Voci
+## Entries
 
-### 2026-11-18 — Aggiungi la resa fedele e gli asset
+### 2026-11-18 — Translate the whole repository to English
+
+- **Branch:** `chore/english`
+- **What:**
+  - Go code (gateway, eqtool): every comment, log message, error, HTTP error
+    page and test translated; test data uses English entities (`guest`,
+    `citizen`, `permit_id`, `/permits/{id}`). No logic changes.
+  - Contracts: descriptions in the map, event and log schemas, OpenAPI
+    summaries and descriptions, tunnel proto comments, metrics catalogue.
+  - Example map renamed `portale-pratiche.yaml` → `permits-portal.yaml`
+    and rewritten with English ids (`example-city`, `permits_list`,
+    `permit_detail`, `permit_supplement`, ...).
+  - Manuals renamed `amministratore.md` → `admin.md` and `cliente.md` →
+    `tenant.md`; README, CLAUDE.md, INSTALL.md, architecture, map format,
+    every service README, Compose files, `.env.example`, Caddy, Vector,
+    Loki, CI workflows and Python scripts translated. This changelog's
+    earlier entries translated as well.
+  - `CLAUDE.md`: the language rule is now "everything in English",
+    including commit messages; note on the vendored HTML parser and on
+    opening PRs through the REST API. Stale lines fixed (INSTALL status,
+    the duplicate "rendering pipeline: to do" row in the gateway README).
+- **Why:** the project is international; Italian in comments and docs is a
+  barrier for contributors.
+- **Status:** `go vet` and `go test -race` green for gateway and tools;
+  contracts validate; Compose validates. Identifiers were already English,
+  so behaviour is unchanged.
+- **Next steps:**
+  1. Form POST: typed fields, CSRF token, legacy hidden fields held
+     server-side, re-encoding into the legacy charset.
+  2. `tunnel-relay` and `connector`.
+  3. Pass-through login and sessions in Redis.
+  4. Scripts by hash with CSP, URLs inside CSS, `external_links`.
+  5. Gateway Prometheus metrics; visual comparison with Playwright.
+
+### 2026-11-18 — Add faithful rendering and assets
 
 - **Branch:** `feat/faithful-rendering`
-- **Cosa:**
-  - Contratto: sezione `assets` nella mappa (prefisso, tipi ammessi,
-    dimensione massima, ruoli), prefissi con `.` o `..` rifiutati; esempio
-    aggiornato.
-  - `gateway/internal/thirdparty/xhtml`: copia del parser HTML5
-    `golang.org/x/net/html` v0.40.0 (licenza BSD), perché il proxy dei
-    moduli Go non è raggiungibile da tutti gli ambienti di sviluppo.
-  - `internal/charset`: rilevamento (header, `<meta>`, contenuto) e
-    conversione in UTF-8 di ISO-8859-1, ISO-8859-15, Windows-1252; codifiche
-    diverse rifiutate.
-  - `internal/legacyurl`: traduzione URL del legacy → URL pubblici da
-    `links`, `compat` e dal `legacy_request` delle rotte GET; asset con lo
-    stesso percorso; fallback relativo senza host interno.
-  - `internal/pipeline`: interfaccia `Step`, `Context`, statistiche;
-    passi `clean` (commenti e meta rivelatori) e `rewrite` (href, src,
-    action, formaction, srcset, `<base>`, ...); dichiarazioni di codifica
-    allineate a UTF-8.
-  - `internal/server`: pipeline applicata alle pagine HTML (fail closed se
-    fallisce), redirect del legacy tradotti verso URL pubblici (quelli
-    esterni bloccati), asset con verifica di nome, tipo dichiarato e tipo
-    reale, SVG in sandbox, query degli asset mai inviata al legacy.
-  - Router: prefissi asset (il più lungo vince), dopo le rotte.
-  - Documentazione: README del gateway, formato mappa (link e asset).
-- **Perché:** requisito "interfaccia identica al 100%": senza asset la pagina
-  perde lo stile, senza riscrittura i link portano agli URL del legacy.
-- **Stato:** test verdi con race detector. Verificato su pagine di prova:
-  link, risorse, form e srcset riscritti, IP interno assente, commenti e
-  meta `generator` tolti, ISO-8859-1 con entità convertito senza perdere gli
-  accenti; asset con contenuto PHP travestito da PNG o tipo non ammesso
-  rifiutati; `../` e `//` nei nomi rifiutati. Non ancora fatto: script
-  ammessi per hash con CSP, riscrittura degli URL dentro i CSS e negli
-  attributi `style`, `external_links`, confronto visivo automatico.
-  **Attenzione per i form:** le pagine escono in UTF-8, quindi i browser
-  invieranno i form in UTF-8; il gateway dovrà ricodificare i valori nella
-  codifica originale del legacy prima di ricostruire le POST.
-- **Prossimi passi:**
-  1. Form POST: campi tipizzati, token CSRF, campi nascosti del legacy
-     lato server, ricodifica nella codifica del legacy.
-  2. `tunnel-relay` e `connector`.
-  3. Login passante e sessioni in Redis.
-  4. Script per hash con CSP, URL nei CSS, `external_links`.
-  5. Metriche Prometheus del gateway; confronto visivo con Playwright.
+- **What:**
+  - Contract: `assets` section in the map (prefix, allowed types, maximum
+    size, roles); prefixes containing `.` or `..` rejected; example updated.
+  - `gateway/internal/thirdparty/xhtml`: copy of the HTML5 parser
+    `golang.org/x/net/html` v0.40.0 (BSD licence), because the Go module
+    proxy is not reachable from every development environment.
+  - `internal/charset`: detection (header, `<meta>`, content) and
+    conversion to UTF-8 of ISO-8859-1, ISO-8859-15, Windows-1252; other
+    encodings rejected.
+  - `internal/legacyurl`: translation of legacy URLs → public URLs from
+    `links`, `compat` and the `legacy_request` of GET routes; assets keep
+    their path; relative fallback without the internal host.
+  - `internal/pipeline`: `Step` interface, `Context`, statistics; `clean`
+    step (revealing comments and meta tags) and `rewrite` step (href, src,
+    action, formaction, srcset, `<base>`, ...); charset declarations
+    aligned to UTF-8.
+  - `internal/server`: pipeline applied to HTML pages (fail closed on
+    error), legacy redirects translated to public URLs (external ones
+    blocked), assets checked on name, declared type and real type,
+    sandboxed SVG, asset query never sent to the legacy application.
+  - Router: asset prefixes (longest wins), after routes.
+  - Documentation: gateway README, map format (links and assets).
+- **Why:** the "100% identical interface" requirement: without assets the
+  page loses its style; without rewriting, links lead to legacy URLs.
+- **Status:** tests green with the race detector. Checked on sample pages:
+  links, resources, forms and srcset rewritten, internal IP absent, comments
+  and `generator` meta removed, ISO-8859-1 with entities converted without
+  losing accents; assets with PHP content disguised as PNG or with a type not
+  allowed are rejected; `../` and `//` in names rejected. Not done yet:
+  scripts allowed by hash with CSP, URL rewriting inside CSS and `style`
+  attributes, `external_links`, automatic visual comparison.
+  **Note for forms:** pages are now output in UTF-8, so browsers will submit
+  forms in UTF-8; the gateway must re-encode values into the legacy
+  application's original charset before rebuilding POSTs.
+- **Next steps:**
+  1. Form POST: typed fields, CSRF token, legacy hidden fields held
+     server-side, re-encoding into the legacy charset.
+  2. `tunnel-relay` and `connector`.
+  3. Pass-through login and sessions in Redis.
+  4. Scripts by hash with CSP, URLs inside CSS, `external_links`.
+  5. Gateway Prometheus metrics; visual comparison with Playwright.
 
-### 2026-11-18 — Ricostruisci le richieste GET verso il legacy
+### 2026-11-18 — Rebuild GET requests to the legacy application
 
 - **Branch:** `feat/legacy-reconstruction`
-- **Cosa:**
-  - Contratto: `roles.anonymous` nello schema della mappa (ruolo dei
-    visitatori non autenticati) e nell'esempio.
-  - `gateway/internal/mapmodel`: tipi della mappa spostati in un pacchetto
-    proprio ed estesi (tipi, valori predefiniti, specifiche dei campi,
-    `legacy_request`).
-  - `internal/validate`: tipi `int`, `enum`, `bool`, `date`, `string`,
-    `email`, `text` con vincoli e regole `no_html`, `no_sql_meta`,
-    `no_template_meta`; query non dichiarate scartate, ripetute rifiutate;
-    pattern e regole verificati al caricamento della mappa.
-  - `internal/placeholder`: segnaposto `{{params.x}}`, `{{query.x}}`, ecc.
-  - `internal/legacyclient`: richiesta costruita da zero (percorso con
-    valori codificati, query dichiarate, header fissi), redirect non
-    seguiti, risposta limitata a 16 MiB, header del legacy filtrati.
-  - `internal/transport`: modalità diretta con allowlist host:porta nel
-    dialer (difesa anche contro redirect e DNS).
-  - `internal/budget`: richieste contemporanee verso il legacy, per replica.
-  - `internal/site`: compila una versione della mappa (router, validatore,
-    client, budget) e rifiuta mappe incoerenti.
-  - `internal/server/route.go`: ruolo anonimo (403 sulle rotte riservate),
-    validazione, ricostruzione, pagine generiche per 4xx/5xx del legacy
-    (mai stack trace), header di sicurezza, eventi `request.served` con
-    latenza divisa, `field.rejected` senza il valore, `legacy.error`.
-  - Documentazione: README del gateway, formato mappa (regole e ruolo
-    anonimo), INSTALL.
-- **Perché:** primo passo in cui il gateway serve davvero un sito: il
-  legacy riceve solo richieste ricostruite e valori validati.
-- **Stato:** test verdi con race detector. Prova end-to-end con un legacy
-  finto: `/` e `/pratiche/7` serviti (il legacy ha ricevuto solo
-  `GET /index.jsp` e `GET /detail.jsp?id=7`), `/pratiche/7abc` → 400,
-  `/index.jsp` e `/../../etc/passwd` → 404. Limiti noti: l'HTML del legacy
-  passa senza resa fedele (i link interni puntano ancora agli URL del
-  legacy); i redirect del legacy diventano 502; form, API, login e
-  sessioni non sono serviti; con `mode: connector` risposta 502; il budget
-  non è condiviso tra repliche; i tipi della mappa sono ancora scritti a mano.
-- **Prossimi passi:**
-  1. Pipeline di resa fedele: parser HTML5, pulizia, riscrittura dei link
-     (`links`, `compat`), traduzione dei redirect.
-  2. Form POST con campi tipizzati e token CSRF.
-  3. `tunnel-relay` e `connector`.
-  4. Login passante e sessioni in Redis.
-  5. Metriche Prometheus del gateway.
+- **What:**
+  - Contract: `roles.anonymous` in the map schema (role of unauthenticated
+    visitors) and in the example.
+  - `gateway/internal/mapmodel`: map types moved to their own package and
+    extended (types, defaults, field specs, `legacy_request`).
+  - `internal/validate`: `int`, `enum`, `bool`, `date`, `string`, `email`,
+    `text` types with constraints and the `no_html`, `no_sql_meta`,
+    `no_template_meta` rules; undeclared query parameters dropped, repeated
+    ones rejected; patterns and rules checked when the map loads.
+  - `internal/placeholder`: `{{params.x}}`, `{{query.x}}`, ... placeholders.
+  - `internal/legacyclient`: request built from scratch (path with encoded
+    values, declared query, fixed headers), redirects not followed, response
+    capped at 16 MiB, legacy headers filtered.
+  - `internal/transport`: direct mode with a host:port allowlist in the
+    dialer (also a defence against redirects and DNS).
+  - `internal/budget`: concurrent requests to the legacy application, per
+    replica.
+  - `internal/site`: compiles a map version (router, validator, client,
+    budget) and rejects inconsistent maps.
+  - `internal/server/route.go`: anonymous role (403 on restricted routes),
+    validation, rebuilding, generic pages for legacy 4xx/5xx (never stack
+    traces), security headers, `request.served` events with split latency,
+    `field.rejected` without the value, `legacy.error`.
+  - Documentation: gateway README, map format (rules and anonymous role),
+    INSTALL.
+- **Why:** the first step in which the gateway really serves a site: the
+  legacy application receives only rebuilt requests and validated values.
+- **Status:** tests green with the race detector. End-to-end test with a fake
+  legacy app: `/` and `/permits/7` served (the legacy app received only
+  `GET /index.jsp` and `GET /detail.jsp?id=7`), `/permits/7abc` → 400,
+  `/index.jsp` and `/../../etc/passwd` → 404. Known limits: legacy HTML
+  passes through without faithful rendering (internal links still point to
+  legacy URLs); legacy redirects become 502; forms, APIs, login and sessions
+  are not served; `mode: connector` answers 502; the budget is not shared
+  between replicas; map types are still written by hand.
+- **Next steps:**
+  1. Faithful rendering pipeline: HTML5 parser, cleanup, link rewriting
+     (`links`, `compat`), redirect translation.
+  2. Form POST with typed fields and CSRF token.
+  3. `tunnel-relay` and `connector`.
+  4. Pass-through login and sessions in Redis.
+  5. Gateway Prometheus metrics.
 
-### 2026-11-18 — Aggiungi Compose di base, log e scheletro del gateway
+### 2026-11-18 — Add base Compose, logging and gateway skeleton
 
 - **Branch:** `feat/compose-gateway-skeleton`
-- **Cosa:**
-  - `gateway/`: servizio Go (solo libreria standard) con caricamento e
-    verifica della mappa firmata Ed25519, ricarica a caldo (file e SIGHUP),
-    router in allowlist (404 non mappato, 405 metodo non ammesso, OPTIONS e
-    HEAD gestiti dal gateway, TRACE/CONNECT rifiutati), fail closed senza
-    mappa (503), log JSON conformi allo schema, `request_id` generato dal
-    gateway e restituito in `X-Eq-Request-Id`, eventi `request.blocked`, IP
-    del client solo da proxy fidati, `/healthz` e `/readyz` su porta separata,
-    sottocomando `healthcheck`, Dockerfile distroless non root, test.
-  - `tools/`: `eqtool keygen` e `eqtool sign` (firma delle mappe finché non
-    c'è panel-api), Dockerfile.
-  - `scripts/map_to_json.py`: valida una mappa YAML e la converte in JSON.
-  - `deploy/compose/`: reti `edge`, `control`, `lab` (internal), Caddy con
-    TLS automatico e bilanciamento dinamico delle repliche, gateway con 2
-    repliche, Vector → Loki, Grafana solo su localhost, profilo `tools`,
+- **What:**
+  - `gateway/`: Go service (standard library only) with loading and
+    verification of the Ed25519-signed map, hot reload (file and SIGHUP),
+    allowlist router (404 unmapped, 405 method not allowed, OPTIONS and HEAD
+    handled by the gateway, TRACE/CONNECT rejected), fail closed without a
+    map (503), JSON logs conforming to the schema, `request_id` generated by
+    the gateway and returned in `X-Eq-Request-Id`, `request.blocked` events,
+    client IP only from trusted proxies, `/healthz` and `/readyz` on a
+    separate port, `healthcheck` subcommand, distroless non-root Dockerfile,
+    tests.
+  - `tools/`: `eqtool keygen` and `eqtool sign` (map signing until
+    panel-api exists), Dockerfile.
+  - `scripts/map_to_json.py`: validates a YAML map and converts it to JSON.
+  - `deploy/compose/`: `edge`, `control`, `lab` (internal) networks, Caddy
+    with automatic TLS and dynamic balancing of replicas, gateway with 2
+    replicas, Vector → Loki, Grafana on localhost only, `tools` profile,
     `.env.example`.
-  - Contratto `SignedMap` (OpenAPI): la mappa viaggia come `payload` base64
-    firmato byte per byte invece che come oggetto JSON.
-  - CI `go.yml`: gofmt, vet, test con race detector, validazione Compose,
-    build delle immagini.
-  - `INSTALL.md`: passi 4–6 resi concreti (configurazione, chiave e firma,
-    avvio, log in Grafana). `CLAUDE.md`: note sull'ambiente di sviluppo.
-- **Perché:** avere dal primo giorno la base per fare debug (log strutturati
-  e cercabili) e un gateway che già applica il deny by default.
-- **Stato:** test Go verdi; prova end-to-end in locale con l'esempio firmato:
-  `/` e `/pratiche/42` → 503 (mappate, ricostruzione assente), `/wp-admin` →
-  404, metodo sbagliato → 405, TRACE → 405, `/readyz` pronto; le 12 righe di
-  log/eventi prodotte validano contro gli schemi. Il Compose è validato con
-  `docker compose config` ma **non è stato avviato** (nessun demone Docker
-  nella sessione di sviluppo): Caddy, Vector, Loki e Grafana vanno collaudati
-  sulla VPS. I tipi della mappa nel gateway sono scritti a mano (sottoinsieme)
-  perché qui non si scaricano strumenti di generazione: da sostituire.
-- **Prossimi passi:**
-  1. Collaudo del Compose sulla VPS e correzioni (in particolare la
-     configurazione di Vector).
-  2. Validazione dei tipi di parametri e campi nel gateway.
-  3. `legacyclient` e `transport` (modalità diretta), poi ricostruzione delle
-     richieste GET.
-  4. Pipeline di resa fedele con parser HTML5 (`golang.org/x/net/html`).
-  5. `tunnel-relay` e `connector` su `tunnel.proto`.
-  6. Metriche Prometheus del gateway e generazione dei tipi dagli schemi.
+  - `SignedMap` contract (OpenAPI): the map travels as a base64 `payload`
+    signed byte by byte instead of as a JSON object.
+  - CI `go.yml`: gofmt, vet, tests with the race detector, Compose
+    validation, image builds.
+  - `INSTALL.md`: steps 4–6 made concrete (configuration, key and
+    signing, start, logs in Grafana). `CLAUDE.md`: notes on the development
+    environment.
+- **Why:** to have from day one the basis for debugging (structured,
+  searchable logs) and a gateway that already applies deny by default.
+- **Status:** Go tests green; local end-to-end test with the signed example:
+  `/` and `/permits/42` → 503 (mapped, no rebuilding yet), `/wp-admin` → 404,
+  wrong method → 405, TRACE → 405, `/readyz` ready; the 12 log/event lines
+  produced validate against the schemas. Compose is validated with
+  `docker compose config` but **has not been started** (no Docker daemon in
+  the development session): Caddy, Vector, Loki and Grafana must be tested on
+  the VPS. Map types in the gateway are written by hand (a subset) because
+  generation tools cannot be downloaded here: to be replaced.
+- **Next steps:**
+  1. Test the Compose stack on the VPS and fix it (especially the Vector
+     configuration).
+  2. Validation of parameter and field types in the gateway.
+  3. `legacyclient` and `transport` (direct mode), then rebuilding of GET
+     requests.
+  4. Faithful rendering pipeline with an HTML5 parser (`golang.org/x/net/html`).
+  5. `tunnel-relay` and `connector` on `tunnel.proto`.
+  6. Gateway Prometheus metrics and type generation from the schemas.
 
-### 2026-11-18 — Inizializza repository, contratti e documentazione
+### 2026-11-18 — Initialise repository, contracts and documentation
 
 - **Branch:** `feat/bootstrap`
-- **Cosa:**
-  - Struttura del monorepo con una cartella per servizio e un README in ognuna.
-  - `schema/map/gateway-map.schema.json`: JSON Schema della mappa (versione
-    `gateway-map/1.0`) con esempio validato in `schema/map/examples/`.
-  - `schema/api/panel-api.yaml`: OpenAPI 3.1 di panel-api (prima versione,
-    corpi sintetici).
-  - `schema/events/`: schema degli eventi di sicurezza e delle righe di log.
-  - `schema/tunnel/tunnel.proto`: protocollo gRPC tra connettore e relay.
-  - `schema/metrics/catalog.md`: catalogo delle metriche Prometheus.
-  - `scripts/validate_schemas.py` e workflow CI `contracts.yml`.
+- **What:**
+  - Monorepo layout with one folder per service and a README in each.
+  - `schema/map/gateway-map.schema.json`: JSON Schema of the map (version
+    `gateway-map/1.0`) with a validated example in `schema/map/examples/`.
+  - `schema/api/panel-api.yaml`: OpenAPI 3.1 for panel-api (first version,
+    brief bodies).
+  - `schema/events/`: schemas of security events and log lines.
+  - `schema/tunnel/tunnel.proto`: gRPC protocol between connector and relay.
+  - `schema/metrics/catalog.md`: Prometheus metrics catalogue.
+  - `scripts/validate_schemas.py` and the `contracts.yml` CI workflow.
   - `README.md`, `CLAUDE.md`, `INSTALL.md`, `docs/architecture.md`,
-    `docs/map-format.md`, manuali amministratore e cliente.
-- **Perché:** fissare i contratti tra i servizi prima di scrivere codice, così
-  i servizi si sviluppano separatamente senza refactoring; rendere il
-  progetto riprendibile da chiunque.
-- **Stato:** i contratti validano in locale (schemi, esempio, OpenAPI, proto).
-  Lo schema rifiuta i casi principali: campi `text`/`file` senza regole,
-  rotte non `GET`, resa `template` senza estrazione, connettore senza id.
-  Nella mappa la chiave di autorizzazione si chiama `target` (non `on`, che
-  YAML interpreta come booleano). Nessun servizio è ancora implementato:
-  `INSTALL.md` e i manuali descrivono il funzionamento previsto.
-- **Prossimi passi:**
-  1. `deploy/compose/`: Compose di base con reti `edge`, `control`, `lab` e
-     pipeline di log (Vector, Loki, Grafana).
-  2. `gateway/`: server HTTP, caricamento e verifica della mappa firmata,
-     router in allowlist, log strutturati con `request_id`.
-  3. `gateway/internal/pipeline/`: resa fedele (parsing, pulizia, riscrittura
-     URL, form) con test su pagine di esempio.
-  4. `tunnel-relay/` e `connector/` sul protocollo `tunnel.proto`.
-  5. Generazione dei tipi Go dagli schemi (`schema/` → `gen/`).
+    `docs/map-format.md`, administrator and tenant manuals.
+- **Why:** to fix the contracts between services before writing code, so
+  services can be developed separately without refactoring; to make the
+  project resumable by anyone.
+- **Status:** contracts validate locally (schemas, example, OpenAPI, proto).
+  The schema rejects the main bad cases: `text`/`file` fields without rules,
+  non-`GET` routes, `template` rendering without extraction, connector
+  without an id. In the map the authorisation key is called `target` (not
+  `on`, which YAML reads as a boolean). No service is implemented yet:
+  `INSTALL.md` and the manuals describe the planned behaviour.
+- **Next steps:**
+  1. `deploy/compose/`: base Compose with `edge`, `control`, `lab` networks
+     and a log pipeline (Vector, Loki, Grafana).
+  2. `gateway/`: HTTP server, loading and verification of the signed map,
+     allowlist router, structured logs with `request_id`.
+  3. `gateway/internal/pipeline/`: faithful rendering (parsing, cleanup, URL
+     rewriting, forms) with tests on sample pages.
+  4. `tunnel-relay/` and `connector/` on the `tunnel.proto` protocol.
+  5. Type generation for Go from the schemas (`schema/` → `gen/`).

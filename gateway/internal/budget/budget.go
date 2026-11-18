@@ -1,7 +1,7 @@
-// Package budget limita le richieste contemporanee verso il legacy.
+// Package budget limits concurrent requests to the legacy application.
 //
-// Per ora il limite vale per singola replica. Il conteggio condiviso tra
-// repliche (Redis) arriverà con il passaggio a più istanze reali.
+// For now the limit applies per replica. A count shared across replicas
+// (Redis) will come with multiple real instances.
 package budget
 
 import (
@@ -9,14 +9,13 @@ import (
 	"time"
 )
 
-// Limiter è un semaforo con attesa massima.
+// Limiter is a semaphore with a maximum wait.
 type Limiter struct {
 	slots chan struct{}
 	wait  time.Duration
 }
 
-// New crea un limiter con max richieste contemporanee; max <= 0 significa
-// nessun limite.
+// New creates a limiter with max concurrent requests; max <= 0 means no limit.
 func New(max int, wait time.Duration) *Limiter {
 	if max <= 0 {
 		return &Limiter{}
@@ -24,8 +23,8 @@ func New(max int, wait time.Duration) *Limiter {
 	return &Limiter{slots: make(chan struct{}, max), wait: wait}
 }
 
-// Acquire prende un posto, aspettando al massimo il tempo configurato.
-// Restituisce false se il budget è esaurito: il chiamante risponde 503.
+// Acquire takes a slot, waiting at most the configured time. It returns
+// false when the budget is exhausted: the caller answers 503.
 func (l *Limiter) Acquire(ctx context.Context) bool {
 	if l.slots == nil {
 		return true
@@ -47,14 +46,14 @@ func (l *Limiter) Acquire(ctx context.Context) bool {
 	}
 }
 
-// Release libera il posto preso con Acquire.
+// Release frees the slot taken with Acquire.
 func (l *Limiter) Release() {
 	if l.slots != nil {
 		<-l.slots
 	}
 }
 
-// InFlight restituisce le richieste in corso.
+// InFlight returns the number of requests in progress.
 func (l *Limiter) InFlight() int {
 	return len(l.slots)
 }

@@ -1,12 +1,12 @@
-// Package mapmodel definisce i tipi della mappa usati dal gateway.
+// Package mapmodel defines the map types used by the gateway.
 package mapmodel
 
-// Model è il sottoinsieme della mappa (schema/map/gateway-map.schema.json)
-// usato finora dal gateway. La validazione completa contro lo schema avviene
-// nel pannello prima della firma; il gateway si fida solo della firma.
+// Model is the subset of the map (schema/map/gateway-map.schema.json) used so
+// far by the gateway. Full validation against the schema happens in the panel
+// before signing; the gateway trusts only the signature.
 //
-// TODO: generare questi tipi da schema/ quando la generazione automatica
-// sarà disponibile (vedi CHANGELOG).
+// TODO: generate these types from schema/ once code generation is available
+// (see CHANGELOG).
 type Model struct {
 	Meta     Meta               `json:"meta"`
 	Legacy   Legacy             `json:"legacy"`
@@ -20,7 +20,7 @@ type Model struct {
 	Assets   []Asset            `json:"assets"`
 }
 
-// Asset è un prefisso di file statici del legacy servito dal gateway.
+// Asset is a prefix of legacy static files served by the gateway.
 type Asset struct {
 	Prefix    string   `json:"prefix"`
 	Types     []string `json:"types"`
@@ -28,7 +28,7 @@ type Asset struct {
 	Roles     []string `json:"roles"`
 }
 
-// Meta identifica tenant, app e versione.
+// Meta identifies tenant, app and version.
 type Meta struct {
 	Schema  string `json:"schema"`
 	Tenant  string `json:"tenant"`
@@ -37,7 +37,7 @@ type Meta struct {
 	Status  string `json:"status"`
 }
 
-// Legacy descrive come raggiungere l'applicazione protetta.
+// Legacy describes how to reach the protected application.
 type Legacy struct {
 	BaseURL   string `json:"base_url"`
 	Reach     Reach  `json:"reach"`
@@ -45,38 +45,38 @@ type Legacy struct {
 	TimeoutMS int    `json:"timeout_ms"`
 }
 
-// Reach indica se il legacy si raggiunge via connettore o direttamente.
+// Reach says whether the legacy application is reached through a connector or directly.
 type Reach struct {
 	Mode        string   `json:"mode"`
 	ConnectorID string   `json:"connector_id"`
 	Allow       []string `json:"allow"`
 }
 
-// Roles elenca i ruoli e quello dei visitatori non autenticati.
+// Roles lists the roles and the one given to unauthenticated visitors.
 type Roles struct {
 	Anonymous string         `json:"anonymous"`
 	List      map[string]any `json:"list"`
 }
 
-// Defaults contiene i valori predefiniti della mappa.
+// Defaults holds the map's default values.
 type Defaults struct {
 	String       StringDefaults `json:"string"`
 	LegacyBudget LegacyBudget   `json:"legacy_budget"`
 }
 
-// StringDefaults si applica ai campi string senza vincoli propri.
+// StringDefaults applies to string fields without constraints of their own.
 type StringDefaults struct {
 	MaxLength int    `json:"max_length"`
 	Charset   string `json:"charset"`
 }
 
-// LegacyBudget limita il carico verso il legacy.
+// LegacyBudget limits the load sent to the legacy application.
 type LegacyBudget struct {
 	MaxConcurrency int     `json:"max_concurrency"`
 	MaxRPS         float64 `json:"max_rps"`
 }
 
-// TypeDef è un tipo riutilizzabile definito in "types".
+// TypeDef is a reusable type defined in "types".
 type TypeDef struct {
 	Base      string   `json:"base"`
 	Min       *float64 `json:"min"`
@@ -87,7 +87,7 @@ type TypeDef struct {
 	MaxLength int      `json:"max_length"`
 }
 
-// FieldSpec descrive un valore in ingresso dal client.
+// FieldSpec describes a value coming from the client.
 type FieldSpec struct {
 	Type      string   `json:"type"`
 	Required  *bool    `json:"required"`
@@ -101,7 +101,7 @@ type FieldSpec struct {
 	Rules     []string `json:"rules"`
 }
 
-// LegacyRequest è la richiesta che il gateway costruisce verso il legacy.
+// LegacyRequest is the request the gateway builds towards the legacy application.
 type LegacyRequest struct {
 	Method  string            `json:"method"`
 	Path    string            `json:"path"`
@@ -110,7 +110,7 @@ type LegacyRequest struct {
 	Headers map[string]string `json:"headers"`
 }
 
-// Route è una pagina in lettura.
+// Route is a read-only page.
 type Route struct {
 	ID            string               `json:"id"`
 	Path          string               `json:"path"`
@@ -123,22 +123,22 @@ type Route struct {
 	Links         []Link               `json:"links"`
 }
 
-// Link traduce un URL del legacy trovato in una pagina in una rotta pubblica.
-// Formato di Legacy: "/percorso?chiave={nome}", dove {nome} è un parametro
-// o un valore di query della rotta di destinazione.
+// Link maps a legacy URL found in a page to a public route.
+// Legacy format: "/path?key={name}", where {name} is a parameter or a query
+// value of the target route.
 type Link struct {
 	Legacy string `json:"legacy"`
 	Route  string `json:"route"`
 }
 
-// Form è un'azione di scrittura (POST) su un percorso pubblico.
+// Form is a write action (POST) on a public path.
 type Form struct {
 	ID    string   `json:"id"`
 	Route string   `json:"route"`
 	Roles []string `json:"roles"`
 }
 
-// APIRoute è un endpoint JSON per le parti dinamiche.
+// APIRoute is a JSON endpoint for dynamic parts of a page.
 type APIRoute struct {
 	ID     string   `json:"id"`
 	Path   string   `json:"path"`
@@ -146,14 +146,14 @@ type APIRoute struct {
 	Roles  []string `json:"roles"`
 }
 
-// Compat è un URL storico del legacy.
+// Compat is a historical legacy URL.
 type Compat struct {
 	Legacy string `json:"legacy"`
 	Action string `json:"action"`
 	Route  string `json:"route"`
 }
 
-// RouteByID restituisce la rotta con l'id indicato.
+// RouteByID returns the route with the given id.
 func (m *Model) RouteByID(id string) (*Route, bool) {
 	for i := range m.Routes {
 		if m.Routes[i].ID == id {

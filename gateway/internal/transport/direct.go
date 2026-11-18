@@ -1,8 +1,8 @@
-// Package transport porta le richieste ricostruite fino al legacy.
+// Package transport carries the rebuilt requests to the legacy application.
 //
-// Direct collega il gateway al legacy nella stessa rete (modalità diretta).
-// La modalità via connettore arriverà con tunnel-relay e userà la stessa
-// interfaccia http.RoundTripper.
+// Direct connects the gateway to a legacy application on the same network
+// (direct mode). The connector mode will arrive with tunnel-relay and will
+// use the same http.RoundTripper interface.
 package transport
 
 import (
@@ -15,21 +15,21 @@ import (
 	"time"
 )
 
-// ErrDestinationNotAllowed indica un tentativo di connessione fuori allowlist.
-var ErrDestinationNotAllowed = errors.New("destinazione non ammessa")
+// ErrDestinationNotAllowed reports a connection attempt outside the allowlist.
+var ErrDestinationNotAllowed = errors.New("destination not allowed")
 
-// Direct restituisce un RoundTripper che si collega solo alle destinazioni
-// host:porta elencate in allow (legacy.reach.allow). Niente proxy, niente
-// connessioni verso altri host anche se un redirect o un DNS lo chiedessero.
+// Direct returns a RoundTripper that connects only to the host:port
+// destinations listed in allow (legacy.reach.allow). No proxy, and no
+// connections to other hosts even if a redirect or DNS asked for one.
 func Direct(allow []string, timeout time.Duration) (http.RoundTripper, error) {
 	if len(allow) == 0 {
-		return nil, errors.New("allowlist delle destinazioni vuota")
+		return nil, errors.New("empty destination allowlist")
 	}
 	allowed := make(map[string]bool, len(allow))
 	for _, a := range allow {
 		host, port, err := net.SplitHostPort(a)
 		if err != nil {
-			return nil, fmt.Errorf("destinazione %q non valida: %w", a, err)
+			return nil, fmt.Errorf("invalid destination %q: %w", a, err)
 		}
 		allowed[net.JoinHostPort(strings.ToLower(host), port)] = true
 	}
@@ -47,6 +47,6 @@ func Direct(allow []string, timeout time.Duration) (http.RoundTripper, error) {
 		IdleConnTimeout:       90 * time.Second,
 		ResponseHeaderTimeout: timeout,
 		TLSHandshakeTimeout:   5 * time.Second,
-		ForceAttemptHTTP2:     false, // verso il legacy solo HTTP/1.1
+		ForceAttemptHTTP2:     false, // HTTP/1.1 only towards the legacy application
 	}, nil
 }

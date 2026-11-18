@@ -1,14 +1,14 @@
 {
 	email {$EQ_ACME_EMAIL}
-	# niente pagina di amministrazione di Caddy
+	# no Caddy admin endpoint
 	admin off
 }
 
 {$EQ_GATEWAY_DOMAIN} {
 	encode zstd gzip
 
-	# Caddy passa l'IP del client in X-Forwarded-For; il gateway lo accetta
-	# solo da questa rete (EQ_TRUSTED_PROXIES).
+	# Caddy passes the client IP in X-Forwarded-For; the gateway accepts it
+	# only from this network (EQ_TRUSTED_PROXIES).
 	reverse_proxy {
 		dynamic a {
 			name gateway

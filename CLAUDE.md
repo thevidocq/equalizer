@@ -1,83 +1,85 @@
-# Istruzioni per chi sviluppa Equalizer
+# Instructions for Equalizer developers
 
-Questo file serve a chiunque riprenda lo sviluppo, in particolare a un'altra
-sessione o a un altro account Claude. Leggilo per intero prima di toccare il
-codice.
+This file is for whoever picks up development, in particular another Claude
+session or account. Read it in full before touching the code.
 
-## Da dove ripartire
+## Where to start
 
-1. Leggi [`CHANGELOG.md`](CHANGELOG.md): l'ultima voce dice **cosa è stato
-   fatto, cosa è rimasto a metà e quali sono i prossimi passi**.
-2. Leggi [`docs/architecture.md`](docs/architecture.md) e
+1. Read [`CHANGELOG.md`](CHANGELOG.md): the latest entry says **what was done,
+   what was left half-finished and what the next steps are**.
+2. Read [`docs/architecture.md`](docs/architecture.md) and
    [`docs/map-format.md`](docs/map-format.md).
-3. Esegui `python3 scripts/validate_schemas.py`: deve passare prima e dopo il
-   tuo lavoro.
+3. Run `python3 scripts/validate_schemas.py`: it must pass before and after
+   your work.
 
-## Requisiti non negoziabili
+## Non-negotiable requirements
 
-1. **Interfaccia identica al 100%** al sito legacy (resa fedele predefinita).
-2. **Il legacy non è mai esposto**: lo raggiunge solo il connettore.
-3. **Ricostruzione, mai inoltro**: nessun byte del client arriva al legacy così com'è.
-4. **Deny by default**: ciò che non è nella mappa non esiste.
-5. **Tutto configurabile dal pannello**, compresi LLM, capacità, log e inoltro SIEM.
-6. **Modularità**: niente codice monolitico, né backend né frontend.
+1. **Interface 100% identical** to the legacy site (faithful rendering by default).
+2. **The legacy application is never exposed**: only the connector reaches it.
+3. **Rebuild, never forward**: no client byte reaches the legacy application as is.
+4. **Deny by default**: whatever is not in the map does not exist.
+5. **Everything configurable from the panel**, including LLM, capacity, logs and SIEM forwarding.
+6. **Modularity**: no monolithic code, neither backend nor frontend.
 
-## Regole di sviluppo
+## Development rules
 
-- **Contratti prima del codice.** I confini tra servizi sono in `schema/`.
-  Se un servizio ha bisogno di qualcosa di nuovo, si cambia prima il
-  contratto, poi il codice. I tipi Go e Python si generano dagli schemi.
-- **Un servizio per cartella**, nessun database condiviso tra servizi.
-- **Go**: un pacchetto, una responsabilità; dipendenze verso interfacce
-  piccole; niente pacchetti `utils`/`common`. Soglia di allarme: 400 righe
-  per file.
-- **Pipeline di resa a passi**: ogni passo implementa la stessa interfaccia
-  `Step`; l'ordine si configura.
-- **React**: organizzazione per funzionalità (`features/<nome>/`), pagine che
-  compongono componenti, dati solo tramite hook e client generato da
-  OpenAPI, `shared/ui` non importa mai da `features/`. Soglia: 200 righe per file.
-- **Configurazione da variabili d'ambiente**, servizi senza stato locale.
-- **Log JSON** conformi a `schema/events/log.schema.json`, con `request_id`
-  propagato. Mai segreti o dati personali nei log.
-- **Lingua**: documentazione e messaggi per le persone in italiano;
-  identificatori nel codice in inglese.
+- **Contracts before code.** Service boundaries live in `schema/`. If a
+  service needs something new, change the contract first, then the code.
+  Go and Python types are generated from the schemas.
+- **One service per folder**, no database shared between services.
+- **Go**: one package, one responsibility; depend on small interfaces; no
+  `utils`/`common` packages. Warning threshold: 400 lines per file.
+- **Step-based rendering pipeline**: every step implements the same `Step`
+  interface; the order is configurable.
+- **React**: organised by feature (`features/<name>/`), pages that compose
+  components, data only through hooks and the client generated from OpenAPI,
+  `shared/ui` never imports from `features/`. Threshold: 200 lines per file.
+- **Configuration from environment variables**, services with no local state.
+- **JSON logs** conforming to `schema/events/log.schema.json`, with
+  `request_id` propagated. Never secrets or personal data in logs.
+- **Language**: everything in English — documentation, code comments,
+  messages, logs, tests and commit messages. The project is international.
 
-## Flusso di lavoro Git
+## Git workflow
 
-- Un branch per attività (`feat/...`, `fix/...`, `docs/...`), poi pull request
-  verso `main`.
-- **Ogni commit aggiunge una voce a `CHANGELOG.md`** nel formato indicato
-  all'inizio di quel file, con: cosa è cambiato, perché, stato e prossimi
-  passi. La CI rifiuta le PR che non toccano il changelog.
-- Messaggi di commit in italiano, all'imperativo, prima riga sotto i 72
-  caratteri.
+- One branch per task (`feat/...`, `fix/...`, `docs/...`, `chore/...`), then a
+  pull request to `main`.
+- **Every commit adds an entry to `CHANGELOG.md`** in the format given at the
+  top of that file: what changed, why, status and next steps. CI rejects PRs
+  that do not touch the changelog.
+- Commit messages in English, imperative mood, first line under 72
+  characters.
 
-## Ambiente di sviluppo nelle sessioni Claude
+## Development environment in Claude sessions
 
-- Il proxy dei moduli Go (`proxy.golang.org`) può essere bloccato. I moduli
-  ospitati su GitHub si scaricano con `GOPROXY=direct GOSUMDB=off`.
-- I moduli `golang.org/x/...` non si scaricano direttamente: clonare il
-  mirror GitHub (es. `github.com/golang/net`) e usare un `go.work` locale con
-  `replace`, **senza committarlo**. `go.mod` e `go.sum` restano quelli
-  standard, così la build normale (CI, VPS) funziona.
-- Docker può non avere il demone: validare il Compose con
-  `docker compose config --quiet`; le immagini le costruisce la CI.
+- The Go module proxy (`proxy.golang.org`) may be blocked. Modules hosted on
+  GitHub download with `GOPROXY=direct GOSUMDB=off`.
+- `golang.org/x/...` modules cannot be downloaded directly. The HTML parser
+  is therefore vendored in `gateway/internal/thirdparty/xhtml` (see its
+  README). For other `golang.org/x` modules, clone the GitHub mirror (e.g.
+  `github.com/golang/net`) at a tag compatible with the installed Go and use
+  a local `go.work` with `replace`, **without committing it**.
+- Docker may have no daemon: validate Compose with
+  `docker compose config --quiet`; CI builds the images.
+- The `gh` GraphQL API may be blocked: open PRs with the REST API
+  (`gh api repos/thevidocq/equalizer/pulls`).
 
-## Sicurezza del laboratorio
+## Lab safety
 
-- Le app vulnerabili del laboratorio non pubblicano porte e stanno su una
-  rete Docker `internal`.
-- Le campagne di attacco si eseguono **solo** contro sistemi di proprietà del
-  progetto o con autorizzazione scritta del proprietario.
+- Vulnerable lab apps publish no ports and live on an `internal` Docker
+  network.
+- Attack campaigns run **only** against systems owned by the project or with
+  the owner's written authorisation.
 
-## Decisioni già prese
+## Decisions already made
 
-| Tema | Decisione |
+| Topic | Decision |
 | --- | --- |
-| Nome | Equalizer (dominio `equalizer.ai` in valutazione) |
-| Repository | GitHub `thevidocq/equalizer`, CI con GitHub Actions |
-| Linguaggi | Go (gateway, relay, connettore, orchestrator, panel-api), Python (agent), TypeScript + React (pannello) |
-| LLM iniziale | Claude Haiku via API; locale e ChatGPT configurabili |
-| Componenti UI | Libreria propria in `panel-ui/src/shared/ui`, su Radix UI e Tailwind CSS |
-| Prototipo | Una VPS con Docker Compose; driver Kubernetes dopo |
-| Laboratorio e server remoti | Preparati dal proprietario del progetto |
+| Name | Equalizer (domain `equalizer.ai` under evaluation) |
+| Repository | GitHub `thevidocq/equalizer`, CI with GitHub Actions |
+| Languages | Go (gateway, relay, connector, orchestrator, panel-api), Python (agent), TypeScript + React (panel) |
+| Initial LLM | Claude Haiku via API; local and ChatGPT configurable |
+| UI components | Custom library in `panel-ui/src/shared/ui`, built on Radix UI and Tailwind CSS |
+| Prototype | One VPS with Docker Compose; Kubernetes driver later |
+| Lab and remote servers | Prepared by the project owner |
+| Language | English for everything in the repository |

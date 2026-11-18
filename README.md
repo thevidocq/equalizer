@@ -1,57 +1,57 @@
 # Equalizer
 
-Equalizer protegge le applicazioni web legacy che non si possono aggiornare.
-Le nasconde da Internet e ne serve una **copia identica**, ricostruita a ogni
-richiesta da un gateway che lascia passare solo ciò che è dichiarato in una
-mappa in allowlist.
+Equalizer protects legacy web applications that cannot be updated. It hides
+them from the Internet and serves an **identical copy**, rebuilt on every
+request by a gateway that only lets through what is declared in an allowlist
+map.
 
-> **Stato:** in sviluppo — prototipo. Vedi [`CHANGELOG.md`](CHANGELOG.md) per
-> cosa è già implementato.
+> **Status:** in development — prototype. See [`CHANGELOG.md`](CHANGELOG.md)
+> for what is already implemented.
 
-## Come funziona in breve
+## How it works, in short
 
 ```text
-utenti → gateway (unico esposto) → tunnel-relay ⇠ tunnel in uscita ⇠ connettore → app legacy
-                    ↑ mappa firmata
-pannello → panel-api ← proposte ← agent AI (crawl del legacy)
+users → gateway (only exposed part) → tunnel-relay ⇠ outbound tunnel ⇠ connector → legacy app
+                    ↑ signed map
+panel → panel-api ← proposals ← AI agent (crawls the legacy app)
 ```
 
-- Il legacy non è mai raggiungibile da Internet: risponde solo al connettore
-  installato accanto a lui, che apre il tunnel **dall'interno**.
-- Ogni richiesta viene **ricostruita**, mai inoltrata così com'è.
-- Un agent AI propone la mappa; le persone la approvano da un pannello
-  multitenant.
+- The legacy application is never reachable from the Internet: it only
+  answers the connector installed next to it, which opens the tunnel **from
+  the inside**.
+- Every request is **rebuilt**, never forwarded as is.
+- An AI agent proposes the map; people approve it from a multitenant panel.
 
-## Documentazione
+## Documentation
 
-| Documento | Contenuto |
+| Document | Contents |
 | --- | --- |
-| [`docs/architecture.md`](docs/architecture.md) | Architettura, componenti, regole di progetto |
-| [`docs/map-format.md`](docs/map-format.md) | Formato della mappa |
-| [`INSTALL.md`](INSTALL.md) | Installazione (VPS, connettore) |
-| [`docs/manual/amministratore.md`](docs/manual/amministratore.md) | Manuale dell'amministratore di piattaforma |
-| [`docs/manual/cliente.md`](docs/manual/cliente.md) | Manuale dell'amministratore del cliente |
-| [`CHANGELOG.md`](CHANGELOG.md) | Cosa cambia a ogni commit e prossimi passi |
-| [`CLAUDE.md`](CLAUDE.md) | Istruzioni per chi riprende lo sviluppo (persone o Claude) |
+| [`docs/architecture.md`](docs/architecture.md) | Architecture, components, design rules |
+| [`docs/map-format.md`](docs/map-format.md) | Map format |
+| [`INSTALL.md`](INSTALL.md) | Installation (VPS, connector) |
+| [`docs/manual/admin.md`](docs/manual/admin.md) | Platform administrator manual |
+| [`docs/manual/tenant.md`](docs/manual/tenant.md) | Tenant administrator manual |
+| [`CHANGELOG.md`](CHANGELOG.md) | What changes in each commit, and next steps |
+| [`CLAUDE.md`](CLAUDE.md) | Instructions for whoever picks up development (people or Claude) |
 
-## Struttura del repository
+## Repository layout
 
-| Cartella | Contenuto | Linguaggio |
+| Folder | Contents | Language |
 | --- | --- | --- |
-| `schema/` | Contratti: mappa, API, eventi, log, tunnel, metriche | JSON Schema, OpenAPI, protobuf |
-| `gateway/` | Gateway: allowlist, ricostruzione, resa fedele | Go |
-| `tunnel-relay/` | Termina i tunnel dei connettori | Go |
-| `connector/` | Connettore da installare accanto al legacy | Go |
-| `orchestrator/` | Applica la capacità configurata dal pannello | Go |
-| `panel-api/` | API del control plane | Go |
-| `panel-ui/` | Pannello web | TypeScript, React |
-| `agent/` | Crawler e agent AI | Python |
-| `lab/` | Laboratorio di test (app vulnerabili isolate) | Docker |
-| `deploy/compose/` | Docker Compose del prototipo | YAML |
-| `tools/` | `eqtool`: chiavi e firma delle mappe (prototipo) | Go |
-| `scripts/` | Validazione contratti, conversione mappe YAML → JSON | Python |
+| `schema/` | Contracts: map, API, events, logs, tunnel, metrics | JSON Schema, OpenAPI, protobuf |
+| `gateway/` | Gateway: allowlist, rebuilding, faithful rendering | Go |
+| `tunnel-relay/` | Terminates connector tunnels | Go |
+| `connector/` | Connector installed next to the legacy application | Go |
+| `orchestrator/` | Applies the capacity configured in the panel | Go |
+| `panel-api/` | Control-plane API | Go |
+| `panel-ui/` | Web panel | TypeScript, React |
+| `agent/` | Crawler and AI agent | Python |
+| `lab/` | Test lab (isolated vulnerable apps) | Docker |
+| `deploy/compose/` | Docker Compose for the prototype | YAML |
+| `tools/` | `eqtool`: keys and map signing (prototype) | Go |
+| `scripts/` | Contract validation, YAML → JSON map conversion | Python |
 
-## Verificare i contratti
+## Checking the contracts
 
 ```bash
 pip install jsonschema pyyaml openapi-spec-validator

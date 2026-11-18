@@ -10,44 +10,44 @@ import (
 	"github.com/thevidocq/equalizer/gateway/internal/mapmodel"
 )
 
-// SchemaVersion è l'unica versione di schema accettata da questo gateway.
+// SchemaVersion is the only map schema version accepted by this gateway.
 const SchemaVersion = "gateway-map/1.0"
 
-// SignedMap è il documento firmato prodotto dal pannello
+// SignedMap is the signed document produced by the panel
 // (components.schemas.SignedMap in schema/api/panel-api.yaml).
 type SignedMap struct {
 	Version   int    `json:"version"`
-	Payload   string `json:"payload"`   // base64 del JSON compatto della mappa
-	Signature string `json:"signature"` // base64 della firma Ed25519 dei byte di payload
+	Payload   string `json:"payload"`   // base64 of the map's compact JSON
+	Signature string `json:"signature"` // base64 of the Ed25519 signature of the payload bytes
 	KeyID     string `json:"key_id"`
 }
 
-// Errori di verifica, distinguibili nei log.
+// Verification errors, distinguishable in logs.
 var (
-	ErrBadSignature  = errors.New("firma della mappa non valida")
-	ErrWrongKey      = errors.New("mappa firmata con una chiave diversa da quella attesa")
-	ErrSchemaVersion = errors.New("versione di schema della mappa non supportata")
-	ErrNotPublished  = errors.New("la mappa non è in stato published")
-	ErrVersionMatch  = errors.New("versione del documento firmato diversa da meta.version")
+	ErrBadSignature  = errors.New("invalid map signature")
+	ErrWrongKey      = errors.New("map signed with a key other than the expected one")
+	ErrSchemaVersion = errors.New("unsupported map schema version")
+	ErrNotPublished  = errors.New("map status is not published")
+	ErrVersionMatch  = errors.New("signed document version differs from meta.version")
 )
 
-// Verify controlla firma e coerenza e restituisce la mappa decodificata.
-// expectedKeyID vuoto significa "qualunque id": la chiave pubblica resta vincolante.
+// Verify checks signature and consistency and returns the decoded map.
+// An empty expectedKeyID accepts any id; the public key is still binding.
 func Verify(doc []byte, pub ed25519.PublicKey, expectedKeyID string) (*mapmodel.Model, []byte, error) {
 	var sm SignedMap
 	if err := json.Unmarshal(doc, &sm); err != nil {
-		return nil, nil, fmt.Errorf("documento firmato non leggibile: %w", err)
+		return nil, nil, fmt.Errorf("unreadable signed document: %w", err)
 	}
 	if expectedKeyID != "" && sm.KeyID != expectedKeyID {
 		return nil, nil, ErrWrongKey
 	}
 	payload, err := base64.StdEncoding.DecodeString(sm.Payload)
 	if err != nil {
-		return nil, nil, fmt.Errorf("payload non in base64: %w", err)
+		return nil, nil, fmt.Errorf("payload is not base64: %w", err)
 	}
 	sig, err := base64.StdEncoding.DecodeString(sm.Signature)
 	if err != nil {
-		return nil, nil, fmt.Errorf("firma non in base64: %w", err)
+		return nil, nil, fmt.Errorf("signature is not base64: %w", err)
 	}
 	if len(pub) != ed25519.PublicKeySize || !ed25519.Verify(pub, payload, sig) {
 		return nil, nil, ErrBadSignature
@@ -55,7 +55,7 @@ func Verify(doc []byte, pub ed25519.PublicKey, expectedKeyID string) (*mapmodel.
 
 	var m mapmodel.Model
 	if err := json.Unmarshal(payload, &m); err != nil {
-		return nil, nil, fmt.Errorf("mappa non leggibile: %w", err)
+		return nil, nil, fmt.Errorf("unreadable map: %w", err)
 	}
 	switch {
 	case m.Meta.Schema != SchemaVersion:
@@ -68,14 +68,14 @@ func Verify(doc []byte, pub ed25519.PublicKey, expectedKeyID string) (*mapmodel.
 	return &m, payload, nil
 }
 
-// ParsePublicKey decodifica una chiave pubblica Ed25519 in base64.
+// ParsePublicKey decodes a base64 Ed25519 public key.
 func ParsePublicKey(b64 string) (ed25519.PublicKey, error) {
 	raw, err := base64.StdEncoding.DecodeString(b64)
 	if err != nil {
-		return nil, fmt.Errorf("chiave pubblica non in base64: %w", err)
+		return nil, fmt.Errorf("public key is not base64: %w", err)
 	}
 	if len(raw) != ed25519.PublicKeySize {
-		return nil, fmt.Errorf("chiave pubblica di %d byte, attesi %d", len(raw), ed25519.PublicKeySize)
+		return nil, fmt.Errorf("public key has %d bytes, want %d", len(raw), ed25519.PublicKeySize)
 	}
 	return ed25519.PublicKey(raw), nil
 }

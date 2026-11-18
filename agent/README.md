@@ -1,5 +1,5 @@
 # agent
 
-Servizio Python: crawler per ruolo (Playwright), analisi delle pagine e proposte di mappa. Provider LLM intercambiabili in `llm/` (`anthropic` predefinito con Claude Haiku, `openai`, `local`).
+Python service: per-role crawler (Playwright), page analysis and map proposals. Interchangeable LLM providers in `llm/` (`anthropic` by default with Claude Haiku, `openai`, `local`).
 
-Struttura prevista: `crawler/`, `analyzer/`, `proposer/`, `llm/`, `client/` (generato da OpenAPI). Stato: da implementare.
+Planned layout: `crawler/`, `analyzer/`, `proposer/`, `llm/`, `client/` (generated from OpenAPI). Status: not implemented yet.

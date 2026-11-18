@@ -5,15 +5,15 @@ import (
 	"unicode"
 )
 
-// rules sono controlli specifici, non firme generiche: ognuno ammette o
-// rifiuta una classe precisa di caratteri o sequenze.
+// rules are specific checks, not generic signatures: each one accepts or
+// rejects a precise class of characters or sequences.
 var rules = map[string]func(string) bool{
-	// no_html: nessun tag o entità HTML.
+	// no_html: no HTML tags or numeric entities.
 	"no_html": func(s string) bool {
 		return !strings.ContainsAny(s, "<>") && !strings.Contains(s, "&#")
 	},
-	// no_sql_meta: nessun metacarattere SQL. L'apostrofo è ammesso solo tra
-	// due lettere (es. "D'Angelo"), mai come delimitatore.
+	// no_sql_meta: no SQL metacharacters. The apostrophe is allowed only
+	// between two letters (e.g. "O'Brien"), never as a delimiter.
 	"no_sql_meta": func(s string) bool {
 		for _, seq := range []string{"--", "/*", "*/", ";", "\\", "\"", "\x00", "`"} {
 			if strings.Contains(s, seq) {
@@ -31,7 +31,7 @@ var rules = map[string]func(string) bool{
 		}
 		return true
 	},
-	// no_template_meta: nessuna sequenza di template o codice lato server.
+	// no_template_meta: no template or server-side code sequences.
 	"no_template_meta": func(s string) bool {
 		for _, seq := range []string{"<?", "?>", "<%", "%>", "${", "#{", "{{", "}}"} {
 			if strings.Contains(s, seq) {

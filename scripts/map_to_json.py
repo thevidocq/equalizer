@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
-"""Converte una mappa YAML in JSON dopo averla validata contro lo schema.
+"""Convert a YAML map to JSON after validating it against the schema.
 
-Uso: python3 scripts/map_to_json.py schema/map/examples/portale-pratiche.yaml > mappa.json
+Usage: python3 scripts/map_to_json.py schema/map/examples/permits-portal.yaml > map.json
 
-Nel prodotto finale lo fa panel-api; questo script serve al prototipo.
+In the final product panel-api does this; the script exists for the prototype.
 """
 from __future__ import annotations
 
@@ -27,8 +27,8 @@ def main() -> int:
     errors = sorted(validator.iter_errors(doc), key=lambda e: list(e.path))
     if errors:
         for err in errors:
-            where = "/".join(str(p) for p in err.path) or "(radice)"
-            print(f"errore @ {where}: {err.message}", file=sys.stderr)
+            where = "/".join(str(p) for p in err.path) or "(root)"
+            print(f"error @ {where}: {err.message}", file=sys.stderr)
         return 1
     json.dump(doc, sys.stdout, ensure_ascii=False, indent=2)
     sys.stdout.write("\n")

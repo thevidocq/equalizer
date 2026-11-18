@@ -16,9 +16,9 @@ import (
 	"github.com/thevidocq/equalizer/gateway/internal/validate"
 )
 
-// serveRoute serve una rotta in lettura: controlla il ruolo, valida
-// parametri e query, ricostruisce la richiesta verso il legacy e restituisce
-// la risposta filtrata, con la resa fedele per le pagine HTML.
+// serveRoute serves a read route: it checks the role, validates parameters
+// and query, rebuilds the request towards the legacy application and returns
+// the filtered response, with faithful rendering for HTML pages.
 func (p *Public) serveRoute(w http.ResponseWriter, r *http.Request, st *site.Site, m router.Match) {
 	start := p.now()
 	route, ok := st.Model.RouteByID(m.Entry.ID)
@@ -26,7 +26,7 @@ func (p *Public) serveRoute(w http.ResponseWriter, r *http.Request, st *site.Sit
 		writePage(w, http.StatusInternalServerError, pageError)
 		return
 	}
-	// Autenticazione non ancora presente: ogni visitatore ha il ruolo anonimo.
+	// No authentication yet: every visitor has the anonymous role.
 	if !site.RoleAllowed(st.Model.Roles.Anonymous, route.Roles) {
 		p.block(w, r, st, http.StatusForbidden, "authz_denied")
 		return
@@ -50,14 +50,14 @@ func (p *Public) serveRoute(w http.ResponseWriter, r *http.Request, st *site.Sit
 
 	req, err := st.Legacy.Build(r.Context(), route.LegacyRequest, placeholder.Values{"params": params, "query": queryVals})
 	if err != nil {
-		p.Log.ErrorContext(r.Context(), "richiesta verso il legacy non costruibile",
+		p.Log.ErrorContext(r.Context(), "cannot build the legacy request",
 			slog.String("error", err.Error()), slog.Group("detail", slog.String("route", route.ID)))
 		writePage(w, http.StatusInternalServerError, pageError)
 		return
 	}
 
 	if !st.Budget.Acquire(r.Context()) {
-		p.Log.WarnContext(r.Context(), "budget verso il legacy esaurito",
+		p.Log.WarnContext(r.Context(), "legacy budget exhausted",
 			slog.Group("detail", slog.String("route", route.ID), slog.Int("in_flight", st.Budget.InFlight())))
 		writePage(w, http.StatusServiceUnavailable, pageUnavailable)
 		return
@@ -77,7 +77,7 @@ func (p *Public) serveRoute(w http.ResponseWriter, r *http.Request, st *site.Sit
 	p.Events.Emit(ev)
 }
 
-// writeLegacy scrive la risposta del legacy e restituisce lo status inviato.
+// writeLegacy writes the legacy response and returns the status sent.
 func (p *Public) writeLegacy(w http.ResponseWriter, r *http.Request, st *site.Site, routeID string, pageURL *url.URL, resp *legacyclient.Response) int {
 	switch {
 	case resp.Status >= 500:
@@ -104,15 +104,15 @@ func (p *Public) writeLegacy(w http.ResponseWriter, r *http.Request, st *site.Si
 		ctx := &pipeline.Context{PageURL: pageURL, URLs: st.URLs}
 		out, err := st.Pipeline.Render(resp.Body, resp.Header.Get("Content-Type"), ctx)
 		if err != nil {
-			// Fail closed: meglio un errore di una pagina resa male.
-			p.Log.ErrorContext(r.Context(), "resa fedele non riuscita",
+			// Fail closed: an error is better than a badly rendered page.
+			p.Log.ErrorContext(r.Context(), "faithful rendering failed",
 				slog.String("error", err.Error()), slog.Group("detail", slog.String("route", routeID)))
 			writePage(w, http.StatusBadGateway, pageBadGateway)
 			return http.StatusBadGateway
 		}
 		body = out
 		h.Set("Content-Type", pipeline.ContentType)
-		p.Log.DebugContext(r.Context(), "pagina resa", slog.Group("detail",
+		p.Log.DebugContext(r.Context(), "page rendered", slog.Group("detail",
 			slog.String("route", routeID), slog.String("charset", ctx.Stats.Charset),
 			slog.Int("rewritten", ctx.Stats.Rewritten), slog.Int("unmapped", ctx.Stats.Unmapped),
 			slog.Int("removed", ctx.Stats.Removed), slog.Any("unmapped_paths", ctx.Stats.UnmappedPaths)))
@@ -125,16 +125,16 @@ func (p *Public) writeLegacy(w http.ResponseWriter, r *http.Request, st *site.Si
 	return resp.Status
 }
 
-// redirect traduce un redirect del legacy in un redirect verso il gateway.
-// Un redirect verso un host esterno viene bloccato: le destinazioni esterne
-// ammesse arriveranno con external_links.
+// redirect turns a legacy redirect into a redirect towards the gateway.
+// Redirects to external hosts are blocked: allowed external destinations
+// will arrive with external_links.
 func (p *Public) redirect(w http.ResponseWriter, r *http.Request, st *site.Site, routeID string, pageURL *url.URL, resp *legacyclient.Response) int {
 	loc, err := url.Parse(resp.Location)
 	if err == nil {
 		loc = pageURL.ResolveReference(loc)
 	}
 	if err != nil || !st.URLs.Internal(loc) {
-		p.Log.WarnContext(r.Context(), "redirect del legacy verso destinazione non ammessa",
+		p.Log.WarnContext(r.Context(), "legacy redirect to a destination that is not allowed",
 			slog.Group("detail", slog.String("route", routeID), slog.Int("status", resp.Status)))
 		writePage(w, http.StatusBadGateway, pageBadGateway)
 		return http.StatusBadGateway
@@ -142,7 +142,7 @@ func (p *Public) redirect(w http.ResponseWriter, r *http.Request, st *site.Site,
 	target, ok := st.URLs.Public(loc)
 	if !ok {
 		target = st.URLs.Fallback(loc)
-		p.Log.InfoContext(r.Context(), "redirect del legacy verso un percorso non mappato",
+		p.Log.InfoContext(r.Context(), "legacy redirect to an unmapped path",
 			slog.Group("detail", slog.String("route", routeID), slog.String("legacy_path", loc.Path)))
 	}
 	securityHeaders(w.Header())
@@ -158,7 +158,7 @@ func (p *Public) reject(w http.ResponseWriter, r *http.Request, st *site.Site, r
 		reason, field = ve.Reason, ve.Field
 	}
 	ev := p.event(r, st, "field.rejected", reason, http.StatusBadRequest, telemetry.Ptr(routeID))
-	ev.Detail = map[string]any{"field": field} // mai il valore
+	ev.Detail = map[string]any{"field": field} // never the value
 	p.Events.Emit(ev)
 	writePage(w, http.StatusBadRequest, pageBadRequest)
 }
@@ -175,12 +175,12 @@ func (p *Public) legacyFailure(w http.ResponseWriter, r *http.Request, st *site.
 	}
 	ev := p.event(r, st, "legacy.error", reason, http.StatusBadGateway, telemetry.Ptr(routeID))
 	p.Events.Emit(ev)
-	p.Log.WarnContext(r.Context(), "legacy non raggiungibile",
+	p.Log.WarnContext(r.Context(), "legacy application unreachable",
 		slog.String("error", err.Error()), slog.Group("detail", slog.String("route", routeID), slog.String("reason", reason)))
 	writePage(w, http.StatusBadGateway, pageBadGateway)
 }
 
-// securityHeaders aggiunge gli header moderni che il legacy non mette.
+// securityHeaders adds the modern headers the legacy application does not set.
 func securityHeaders(h http.Header) {
 	h.Set("X-Content-Type-Options", "nosniff")
 	h.Set("Referrer-Policy", "strict-origin-when-cross-origin")

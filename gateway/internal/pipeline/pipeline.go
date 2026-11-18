@@ -1,6 +1,6 @@
-// Package pipeline applica la resa fedele alle pagine HTML del legacy:
-// converte in UTF-8, analizza l'HTML5, applica una serie di passi
-// indipendenti e riserializza la pagina. A video la pagina resta identica.
+// Package pipeline applies faithful rendering to legacy HTML pages: it
+// converts them to UTF-8, parses the HTML5, applies a series of independent
+// steps and serialises the page again. On screen the page stays identical.
 package pipeline
 
 import (
@@ -14,30 +14,30 @@ import (
 	"github.com/thevidocq/equalizer/gateway/internal/thirdparty/xhtml/atom"
 )
 
-// URLMapper traduce gli URL del legacy in URL pubblici (legacyurl.Rewriter).
+// URLMapper translates legacy URLs into public URLs (legacyurl.Rewriter).
 type URLMapper interface {
 	Internal(u *url.URL) bool
 	Public(u *url.URL) (string, bool)
 	Fallback(u *url.URL) string
 }
 
-// Context è ciò che un passo conosce della pagina in elaborazione.
+// Context is what a step knows about the page being processed.
 type Context struct {
-	PageURL *url.URL // URL del legacy da cui viene la pagina
+	PageURL *url.URL // legacy URL the page comes from
 	URLs    URLMapper
 	Stats   Stats
 }
 
-// Stats riassume cosa ha fatto la pipeline, per log e traccia richiesta.
+// Stats summarises what the pipeline did, for logs and request tracing.
 type Stats struct {
 	Charset       string
 	Rewritten     int
 	Unmapped      int
 	Removed       int
-	UnmappedPaths []string // al massimo 20, senza query
+	UnmappedPaths []string // at most 20, without query
 }
 
-// NoteUnmapped registra un URL interno senza rotta pubblica.
+// NoteUnmapped records an internal URL without a public route.
 func (s *Stats) NoteUnmapped(u *url.URL) {
 	s.Unmapped++
 	if len(s.UnmappedPaths) < 20 {
@@ -45,27 +45,27 @@ func (s *Stats) NoteUnmapped(u *url.URL) {
 	}
 }
 
-// Step è un passo della resa fedele. Ogni passo modifica l'albero e non
-// conosce gli altri.
+// Step is a faithful-rendering step. Each step modifies the tree and knows
+// nothing about the others.
 type Step interface {
 	Name() string
 	Apply(doc *html.Node, ctx *Context) error
 }
 
-// Pipeline è una sequenza configurata di passi.
+// Pipeline is a configured sequence of steps.
 type Pipeline struct {
 	steps []Step
 }
 
-// New crea una pipeline con i passi nell'ordine dato.
+// New creates a pipeline with the steps in the given order.
 func New(steps ...Step) *Pipeline {
 	return &Pipeline{steps: steps}
 }
 
-// ContentType è il tipo dichiarato al client per le pagine elaborate.
+// ContentType is the type declared to the client for processed pages.
 const ContentType = "text/html; charset=utf-8"
 
-// Render elabora una pagina HTML e la restituisce in UTF-8.
+// Render processes an HTML page and returns it in UTF-8.
 func (p *Pipeline) Render(body []byte, contentType string, ctx *Context) ([]byte, error) {
 	cs, err := charset.Detect(contentType, body)
 	if err != nil {
@@ -83,36 +83,35 @@ func (p *Pipeline) Render(body []byte, contentType string, ctx *Context) ([]byte
 	declareUTF8(doc)
 	for _, s := range p.steps {
 		if err := s.Apply(doc, ctx); err != nil {
-			return nil, fmt.Errorf("passo %s: %w", s.Name(), err)
+			return nil, fmt.Errorf("step %s: %w", s.Name(), err)
 		}
 	}
 	var out bytes.Buffer
 	if err := html.Render(&out, doc); err != nil {
-		return nil, fmt.Errorf("serializzazione: %w", err)
+		return nil, fmt.Errorf("serialisation: %w", err)
 	}
 	return out.Bytes(), nil
 }
 
-// IsHTML dice se un Content-Type va elaborato dalla pipeline.
+// IsHTML reports whether a Content-Type must go through the pipeline.
 func IsHTML(contentType string) bool {
 	ct := strings.ToLower(strings.TrimSpace(contentType))
 	return strings.HasPrefix(ct, "text/html") || strings.HasPrefix(ct, "application/xhtml+xml")
 }
 
-// Walk visita tutti i nodi in profondità. fn restituisce false per non
-// scendere nei figli.
+// Walk visits all nodes depth first. fn returns false to skip the children.
 func Walk(n *html.Node, fn func(*html.Node) bool) {
 	if !fn(n) {
 		return
 	}
 	for c := n.FirstChild; c != nil; {
-		next := c.NextSibling // fn può rimuovere c
+		next := c.NextSibling // fn may remove c
 		Walk(c, fn)
 		c = next
 	}
 }
 
-// declareUTF8 allinea le dichiarazioni di codifica alla pagina convertita.
+// declareUTF8 aligns the encoding declarations with the converted page.
 func declareUTF8(doc *html.Node) {
 	Walk(doc, func(n *html.Node) bool {
 		if n.Type != html.ElementNode || n.DataAtom != atom.Meta {

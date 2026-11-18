@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
-"""Valida i contratti in schema/.
+"""Validate the contracts in schema/.
 
-- I JSON Schema sono schemi validi (draft 2020-12).
-- Gli esempi di mappa in schema/map/examples/ rispettano lo schema della mappa.
-- Le OpenAPI sono valide.
+- JSON Schemas are valid schemas (draft 2020-12).
+- Map examples in schema/map/examples/ conform to the map schema.
+- OpenAPI documents are valid.
 
-Uso: python3 scripts/validate_schemas.py
-Esce con codice 1 al primo gruppo di errori.
+Usage: python3 scripts/validate_schemas.py
+Exits with code 1 if any group reports errors.
 """
 from __future__ import annotations
 
@@ -46,10 +46,10 @@ def check_map_examples() -> list[str]:
         found = sorted(validator.iter_errors(load(path)), key=lambda e: list(e.path))
         if found:
             for err in found:
-                where = "/".join(str(p) for p in err.path) or "(radice)"
+                where = "/".join(str(p) for p in err.path) or "(root)"
                 errors.append(f"{path.relative_to(ROOT)} @ {where}: {err.message}")
         else:
-            print(f"ok   esempio  {path.relative_to(ROOT)}")
+            print(f"ok   example  {path.relative_to(ROOT)}")
     return errors
 
 
@@ -57,7 +57,7 @@ def check_openapi() -> list[str]:
     try:
         from openapi_spec_validator import validate
     except ImportError:
-        return ["openapi-spec-validator non installato (pip install openapi-spec-validator)"]
+        return ["openapi-spec-validator not installed (pip install openapi-spec-validator)"]
     errors: list[str] = []
     for path in sorted((SCHEMA_DIR / "api").glob("*.y*ml")):
         try:
@@ -71,11 +71,11 @@ def check_openapi() -> list[str]:
 def main() -> int:
     errors = check_json_schemas() + check_map_examples() + check_openapi()
     if errors:
-        print("\nERRORI:", file=sys.stderr)
+        print("\nERRORS:", file=sys.stderr)
         for err in errors:
             print(f"  - {err}", file=sys.stderr)
         return 1
-    print("\nTutti i contratti sono validi.")
+    print("\nAll contracts are valid.")
     return 0
 
 

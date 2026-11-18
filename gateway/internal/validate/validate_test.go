@@ -14,8 +14,8 @@ func b(v bool) *bool       { return &v }
 func testValidator(t *testing.T) *Validator {
 	t.Helper()
 	return New(map[string]mapmodel.TypeDef{
-		"id_pratica":    {Base: "int", Min: f(1), Max: f(99999999)},
-		"stato_pratica": {Base: "enum", Values: []string{"aperta", "chiusa"}},
+		"permit_id":     {Base: "int", Min: f(1), Max: f(99999999)},
+		"permit_status": {Base: "enum", Values: []string{"open", "closed"}},
 	}, mapmodel.StringDefaults{MaxLength: 20, Charset: `[\p{L}\p{N} .,'-]`})
 }
 
@@ -36,32 +36,32 @@ func TestValues(t *testing.T) {
 		want   string
 		reason string
 	}{
-		{"int valido", mapmodel.FieldSpec{Type: "id_pratica"}, "42", "42", ""},
-		{"int con zeri", mapmodel.FieldSpec{Type: "id_pratica"}, "0042", "42", ""},
-		{"int fuori intervallo", mapmodel.FieldSpec{Type: "id_pratica"}, "0", "", ReasonRange},
-		{"sql injection su int", mapmodel.FieldSpec{Type: "id_pratica"}, "1 OR 1=1", "", ReasonType},
-		{"path traversal su int", mapmodel.FieldSpec{Type: "id_pratica"}, "../etc", "", ReasonType},
-		{"enum valido", mapmodel.FieldSpec{Type: "stato_pratica"}, "aperta", "aperta", ""},
-		{"enum non ammesso", mapmodel.FieldSpec{Type: "stato_pratica"}, "tutte", "", ReasonValue},
+		{"valid int", mapmodel.FieldSpec{Type: "permit_id"}, "42", "42", ""},
+		{"int with leading zeros", mapmodel.FieldSpec{Type: "permit_id"}, "0042", "42", ""},
+		{"int out of range", mapmodel.FieldSpec{Type: "permit_id"}, "0", "", ReasonRange},
+		{"sql injection on int", mapmodel.FieldSpec{Type: "permit_id"}, "1 OR 1=1", "", ReasonType},
+		{"path traversal on int", mapmodel.FieldSpec{Type: "permit_id"}, "../etc", "", ReasonType},
+		{"valid enum", mapmodel.FieldSpec{Type: "permit_status"}, "open", "open", ""},
+		{"enum not allowed", mapmodel.FieldSpec{Type: "permit_status"}, "all", "", ReasonValue},
 		{"bool", mapmodel.FieldSpec{Type: "bool"}, "1", "true", ""},
-		{"data", mapmodel.FieldSpec{Type: "date"}, "2026-02-30", "", ReasonType},
-		{"stringa con default charset", mapmodel.FieldSpec{Type: "string"}, "D'Angelo Maria", "D'Angelo Maria", ""},
-		{"stringa con caratteri vietati", mapmodel.FieldSpec{Type: "string"}, "<script>", "", ReasonCharset},
-		{"stringa troppo lunga", mapmodel.FieldSpec{Type: "string"}, "abcdefghijklmnopqrstuvwxyz", "", ReasonLength},
-		{"stringa con pattern", mapmodel.FieldSpec{Type: "string", Pattern: `^[A-Z0-9]{16}$`}, "RSSMRA80A01H501U", "RSSMRA80A01H501U", ""},
-		{"pattern non rispettato", mapmodel.FieldSpec{Type: "string", Pattern: `^[A-Z0-9]{16}$`}, "abc", "", ReasonPattern},
-		{"email", mapmodel.FieldSpec{Type: "email"}, "m.rossi@comune.it", "m.rossi@comune.it", ""},
-		{"email non valida", mapmodel.FieldSpec{Type: "email"}, "x@y", "", ReasonPattern},
-		{"caratteri di controllo", mapmodel.FieldSpec{Type: "string"}, "ab\x00c", "", ReasonCharset},
+		{"date", mapmodel.FieldSpec{Type: "date"}, "2026-02-30", "", ReasonType},
+		{"string with default charset", mapmodel.FieldSpec{Type: "string"}, "O'Brien Mary", "O'Brien Mary", ""},
+		{"string with forbidden characters", mapmodel.FieldSpec{Type: "string"}, "<script>", "", ReasonCharset},
+		{"string too long", mapmodel.FieldSpec{Type: "string"}, "abcdefghijklmnopqrstuvwxyz", "", ReasonLength},
+		{"string with pattern", mapmodel.FieldSpec{Type: "string", Pattern: `^[A-Z0-9]{16}$`}, "RSSMRA80A01H501U", "RSSMRA80A01H501U", ""},
+		{"pattern not respected", mapmodel.FieldSpec{Type: "string", Pattern: `^[A-Z0-9]{16}$`}, "abc", "", ReasonPattern},
+		{"email", mapmodel.FieldSpec{Type: "email"}, "m.smith@example.org", "m.smith@example.org", ""},
+		{"invalid email", mapmodel.FieldSpec{Type: "email"}, "x@y", "", ReasonPattern},
+		{"control characters", mapmodel.FieldSpec{Type: "string"}, "ab\x00c", "", ReasonCharset},
 	}
 	for _, c := range cases {
-		got, _, err := v.Value("campo", c.spec, c.raw, true)
+		got, _, err := v.Value("field", c.spec, c.raw, true)
 		if reason(err) != c.reason {
-			t.Errorf("%s: motivo %q, atteso %q", c.name, reason(err), c.reason)
+			t.Errorf("%s: reason %q, want %q", c.name, reason(err), c.reason)
 			continue
 		}
 		if c.reason == "" && got != c.want {
-			t.Errorf("%s: valore %q, atteso %q", c.name, got, c.want)
+			t.Errorf("%s: value %q, want %q", c.name, got, c.want)
 		}
 	}
 }
@@ -70,19 +70,19 @@ func TestTextRules(t *testing.T) {
 	v := testValidator(t)
 	spec := mapmodel.FieldSpec{Type: "text", MaxLength: 200, Charset: `[\p{L}\p{N}\s.,;:!?()'-]`,
 		Rules: []string{"no_sql_meta", "no_html", "no_template_meta"}}
-	if err := v.Check(map[string]mapmodel.FieldSpec{"messaggio": spec}); err != nil {
+	if err := v.Check(map[string]mapmodel.FieldSpec{"message": spec}); err != nil {
 		t.Fatal(err)
 	}
-	ok := []string{"Allego la ricevuta di D'Angelo.", "Riga uno\nriga due"}
-	bad := []string{"' OR '1'='1", "x'; DROP TABLE pratiche", "test -- commento", "${jndi:ldap://x}", "{{7*7}}"}
+	ok := []string{"Attached is the receipt from O'Brien.", "Line one\nline two"}
+	bad := []string{"' OR '1'='1", "x'; DROP TABLE permits", "test -- comment", "${jndi:ldap://x}", "{{7*7}}"}
 	for _, s := range ok {
-		if _, _, err := v.Value("messaggio", spec, s, true); err != nil {
-			t.Errorf("rifiutato a torto %q: %v", s, err)
+		if _, _, err := v.Value("message", spec, s, true); err != nil {
+			t.Errorf("wrongly rejected %q: %v", s, err)
 		}
 	}
 	for _, s := range bad {
-		if _, _, err := v.Value("messaggio", spec, s, true); err == nil {
-			t.Errorf("accettato a torto %q", s)
+		if _, _, err := v.Value("message", spec, s, true); err == nil {
+			t.Errorf("wrongly accepted %q", s)
 		}
 	}
 }
@@ -90,37 +90,37 @@ func TestTextRules(t *testing.T) {
 func TestFields(t *testing.T) {
 	v := testValidator(t)
 	specs := map[string]mapmodel.FieldSpec{
-		"stato":  {Type: "stato_pratica", Required: b(false)},
-		"pagina": {Type: "int", Min: f(1), Max: f(500), Default: float64(1)},
+		"status": {Type: "permit_status", Required: b(false)},
+		"page":   {Type: "int", Min: f(1), Max: f(500), Default: float64(1)},
 	}
-	got, err := v.Fields(specs, url.Values{"stato": {"aperta"}, "debug": {"1"}})
+	got, err := v.Fields(specs, url.Values{"status": {"open"}, "debug": {"1"}})
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got["stato"] != "aperta" || got["pagina"] != "1" {
-		t.Fatalf("valori inattesi: %v", got)
+	if got["status"] != "open" || got["page"] != "1" {
+		t.Fatalf("unexpected values: %v", got)
 	}
 	if _, ok := got["debug"]; ok {
-		t.Fatal("parametro non dichiarato non scartato")
+		t.Fatal("undeclared parameter not dropped")
 	}
-	if _, err := v.Fields(specs, url.Values{"stato": {"aperta", "chiusa"}}); reason(err) != ReasonDuplicate {
-		t.Fatalf("parametro ripetuto non rifiutato: %v", err)
+	if _, err := v.Fields(specs, url.Values{"status": {"open", "closed"}}); reason(err) != ReasonDuplicate {
+		t.Fatalf("repeated parameter not rejected: %v", err)
 	}
-	if _, err := v.Fields(map[string]mapmodel.FieldSpec{"id": {Type: "id_pratica"}}, url.Values{}); reason(err) != ReasonMissing {
-		t.Fatalf("parametro obbligatorio mancante non rifiutato: %v", err)
+	if _, err := v.Fields(map[string]mapmodel.FieldSpec{"id": {Type: "permit_id"}}, url.Values{}); reason(err) != ReasonMissing {
+		t.Fatalf("missing required parameter not rejected: %v", err)
 	}
 }
 
 func TestCheckRejectsBadMaps(t *testing.T) {
 	v := testValidator(t)
 	cases := map[string]mapmodel.FieldSpec{
-		"tipo sconosciuto":   {Type: "codice_misterioso"},
-		"pattern non valido": {Type: "string", Pattern: "(["},
-		"regola sconosciuta": {Type: "text", Rules: []string{"no_tutto"}},
+		"unknown type":    {Type: "mystery_code"},
+		"invalid pattern": {Type: "string", Pattern: "(["},
+		"unknown rule":    {Type: "text", Rules: []string{"no_everything"}},
 	}
 	for name, spec := range cases {
 		if err := v.Check(map[string]mapmodel.FieldSpec{"x": spec}); err == nil {
-			t.Errorf("%s: mappa accettata a torto", name)
+			t.Errorf("%s: map wrongly accepted", name)
 		}
 	}
 }

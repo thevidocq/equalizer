@@ -13,9 +13,9 @@ import (
 
 const testMap = `{"meta":{"schema":"gateway-map/1.0","tenant":"t","app":"a","version":3,"status":"published"},
 "legacy":{"base_url":"http://10.0.0.1:8080","reach":{"mode":"direct","allow":["10.0.0.1:8080"]}},
-"roles":{"anonymous":"anonimo","list":{"anonimo":{}}},
-"routes":[{"id":"home","path":"/","method":"GET","roles":["anonimo"],"render":"faithful","legacy_request":{"method":"GET","path":"/index.jsp"}}],
-"forms":[{"id":"contatti","route":"/contatti","roles":["anonimo"]}]}`
+"roles":{"anonymous":"guest","list":{"guest":{}}},
+"routes":[{"id":"home","path":"/","method":"GET","roles":["guest"],"render":"faithful","legacy_request":{"method":"GET","path":"/index.jsp"}}],
+"forms":[{"id":"contact","route":"/contact","roles":["guest"]}]}`
 
 func sign(t *testing.T, priv ed25519.PrivateKey, payload string, version int, keyID string) []byte {
 	t.Helper()
@@ -37,33 +37,33 @@ func TestVerify(t *testing.T) {
 
 	m, _, err := Verify(sign(t, priv, testMap, 3, "k1"), pub, "k1")
 	if err != nil {
-		t.Fatalf("mappa valida rifiutata: %v", err)
+		t.Fatalf("valid map rejected: %v", err)
 	}
 	if m.Meta.App != "a" || len(m.Routes) != 1 {
-		t.Fatalf("mappa decodificata male: %+v", m.Meta)
+		t.Fatalf("map decoded incorrectly: %+v", m.Meta)
 	}
 
 	cases := map[string]struct {
 		doc  []byte
 		want error
 	}{
-		"firma di un'altra chiave": {sign(t, otherPriv, testMap, 3, "k1"), ErrBadSignature},
-		"id chiave diverso":        {sign(t, priv, testMap, 3, "k2"), ErrWrongKey},
-		"versione diversa":         {sign(t, priv, testMap, 4, "k1"), ErrVersionMatch},
+		"signed with another key": {sign(t, otherPriv, testMap, 3, "k1"), ErrBadSignature},
+		"different key id":        {sign(t, priv, testMap, 3, "k2"), ErrWrongKey},
+		"different version":       {sign(t, priv, testMap, 4, "k1"), ErrVersionMatch},
 	}
 	for name, c := range cases {
 		if _, _, err := Verify(c.doc, pub, "k1"); !errors.Is(err, c.want) {
-			t.Errorf("%s: atteso %v, ottenuto %v", name, c.want, err)
+			t.Errorf("%s: want %v, got %v", name, c.want, err)
 		}
 	}
 
-	// payload modificato dopo la firma
+	// payload modified after signing
 	var sm SignedMap
 	_ = json.Unmarshal(sign(t, priv, testMap, 3, "k1"), &sm)
 	sm.Payload = base64.StdEncoding.EncodeToString([]byte(testMap + " "))
 	tampered, _ := json.Marshal(sm)
 	if _, _, err := Verify(tampered, pub, "k1"); !errors.Is(err, ErrBadSignature) {
-		t.Errorf("payload alterato: atteso ErrBadSignature, ottenuto %v", err)
+		t.Errorf("tampered payload: want ErrBadSignature, got %v", err)
 	}
 }
 
@@ -74,24 +74,24 @@ func TestStoreKeepsPreviousMapOnError(t *testing.T) {
 	s := NewStore(path, pub, "")
 
 	if _, err := s.Reload(); err == nil {
-		t.Fatal("atteso errore senza file")
+		t.Fatal("expected an error without a file")
 	}
 	if s.Current() != nil {
-		t.Fatal("nessuna mappa attesa")
+		t.Fatal("expected no map")
 	}
 
 	_ = os.WriteFile(path, sign(t, priv, testMap, 3, "k1"), 0o600)
 	if _, err := s.Reload(); err != nil {
-		t.Fatalf("reload valido: %v", err)
+		t.Fatalf("valid reload: %v", err)
 	}
 	_ = os.WriteFile(path, sign(t, otherPriv, testMap, 3, "k1"), 0o600)
 	if _, err := s.Reload(); err == nil {
-		t.Fatal("attesa firma non valida")
+		t.Fatal("expected an invalid signature")
 	}
 	if a := s.Current(); a == nil || a.Model.Meta.Version != 3 {
-		t.Fatal("la mappa precedente deve restare attiva")
+		t.Fatal("the previous map must stay active")
 	}
-	if _, err := s.Current().Router.Match("POST", "/contatti"); err != nil {
-		t.Fatalf("form non instradato: %v", err)
+	if _, err := s.Current().Router.Match("POST", "/contact"); err != nil {
+		t.Fatalf("form not routed: %v", err)
 	}
 }

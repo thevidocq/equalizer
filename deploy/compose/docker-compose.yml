@@ -1,9 +1,9 @@
-# Equalizer — prototipo su una VPS.
-# Reti:
-#   edge     esposta: proxy edge (Caddy) e, in seguito, tunnel-relay
-#   control  interna: gateway, osservabilità, pannello (in seguito)
-#   lab      interna e senza uscita verso Internet: app di test
-# Avvio: docker compose up -d   (vedi INSTALL.md)
+# Equalizer — prototype on a VPS.
+# Networks:
+#   edge     exposed: edge proxy (Caddy) and, later, tunnel-relay
+#   control  internal: gateway, observability, panel (later)
+#   lab      internal, with no way out to the Internet: test apps
+# Start: docker compose up -d   (see INSTALL.md)
 
 name: equalizer
 
@@ -31,7 +31,7 @@ services:
       - "80:80"
       - "443:443"
     environment:
-      EQ_GATEWAY_DOMAIN: ${EQ_GATEWAY_DOMAIN:?imposta EQ_GATEWAY_DOMAIN in .env}
+      EQ_GATEWAY_DOMAIN: ${EQ_GATEWAY_DOMAIN:?set EQ_GATEWAY_DOMAIN in .env}
       EQ_ACME_EMAIL: ${EQ_ACME_EMAIL:-}
     volumes:
       - ./caddy/Caddyfile:/etc/caddy/Caddyfile:ro
@@ -55,7 +55,7 @@ services:
       EQ_MAP_FILE: /maps/current.json
       EQ_MAP_PUBKEY_FILE: /secrets/map-signing.pub
       EQ_MAP_KEY_ID: ${EQ_MAP_KEY_ID:-k1}
-      # rete edge: solo Caddy può indicare l'IP del client
+      # edge network: only Caddy may state the client IP
       EQ_TRUSTED_PROXIES: ${EQ_TRUSTED_PROXIES:-172.16.0.0/12}
     volumes:
       - ./maps:/maps:ro
@@ -77,7 +77,7 @@ services:
     command: ["--config", "/etc/vector/vector.yaml"]
     volumes:
       - ./vector/vector.yaml:/etc/vector/vector.yaml:ro
-      # sola lettura: Vector legge i log dei container con etichetta eq.collect
+      # read-only: Vector reads logs of containers labelled eq.collect
       - /var/run/docker.sock:/var/run/docker.sock:ro
       - vector-data:/var/lib/vector
     networks: [control]
@@ -88,10 +88,10 @@ services:
     restart: unless-stopped
     environment:
       GF_SECURITY_ADMIN_USER: admin
-      GF_SECURITY_ADMIN_PASSWORD: ${EQ_GRAFANA_PASSWORD:?imposta EQ_GRAFANA_PASSWORD in .env}
+      GF_SECURITY_ADMIN_PASSWORD: ${EQ_GRAFANA_PASSWORD:?set EQ_GRAFANA_PASSWORD in .env}
       GF_USERS_ALLOW_SIGN_UP: "false"
       GF_ANALYTICS_REPORTING_ENABLED: "false"
-    # solo da localhost della VPS: si raggiunge con tunnel SSH o VPN
+    # VPS localhost only: reach it over an SSH tunnel or VPN
     ports:
       - "127.0.0.1:3000:3000"
     volumes:
@@ -103,7 +103,7 @@ services:
   eqtool:
     build: ../../tools
     profiles: [tools]
-    # scrive i file con l'utente della VPS, non con root
+    # writes files as the VPS user, not as root
     user: "${EQ_UID:-1000}:${EQ_GID:-1000}"
     volumes:
       - ./:/work

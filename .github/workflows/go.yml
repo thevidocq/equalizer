@@ -24,7 +24,7 @@ jobs:
         with:
           go-version: "1.24"
 
-      - name: Formattazione
+      - name: Formatting
         run: test -z "$(gofmt -l .)" || (gofmt -l . && exit 1)
 
       - name: Vet
@@ -37,7 +37,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Valida docker-compose
+      - name: Validate docker-compose
         working-directory: deploy/compose
         run: |
           cp .env.example .env
@@ -48,7 +48,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Build immagine gateway
+      - name: Build gateway image
         run: docker build -t equalizer/gateway:ci gateway
-      - name: Build immagine eqtool
+      - name: Build eqtool image
         run: docker build -t equalizer/eqtool:ci tools

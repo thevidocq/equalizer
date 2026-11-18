@@ -1,4 +1,4 @@
-// Package mapstore carica, verifica e tiene attiva la mappa firmata.
+// Package mapstore loads, verifies and keeps the signed map active.
 package mapstore
 
 import (
@@ -10,8 +10,8 @@ import (
 	"github.com/thevidocq/equalizer/gateway/internal/site"
 )
 
-// Store tiene il sito attivo e lo sostituisce in modo atomico.
-// Una richiesta usa un solo Site dall'inizio alla fine.
+// Store holds the active site and swaps it atomically.
+// A request uses a single Site from start to finish.
 type Store struct {
 	path   string
 	pub    ed25519.PublicKey
@@ -19,22 +19,22 @@ type Store struct {
 	active atomic.Pointer[site.Site]
 }
 
-// NewStore crea uno store che legge il documento firmato da path.
+// NewStore creates a store that reads the signed document from path.
 func NewStore(path string, pub ed25519.PublicKey, keyID string) *Store {
 	return &Store{path: path, pub: pub, keyID: keyID}
 }
 
-// Current restituisce il sito attivo o nil se nessuna mappa è stata caricata.
+// Current returns the active site, or nil if no map has been loaded.
 func (s *Store) Current() *site.Site {
 	return s.active.Load()
 }
 
-// Reload legge, verifica, compila e attiva la mappa. In caso di errore il
-// sito precedente resta in uso (fail closed solo se non ce n'è nessuno).
+// Reload reads, verifies, compiles and activates the map. On error the
+// previous site stays in use (fail closed only when there is none).
 func (s *Store) Reload() (*site.Site, error) {
 	doc, err := os.ReadFile(s.path)
 	if err != nil {
-		return nil, fmt.Errorf("lettura mappa: %w", err)
+		return nil, fmt.Errorf("reading map: %w", err)
 	}
 	m, _, err := Verify(doc, s.pub, s.keyID)
 	if err != nil {
@@ -42,7 +42,7 @@ func (s *Store) Reload() (*site.Site, error) {
 	}
 	st, err := site.Build(m)
 	if err != nil {
-		return nil, fmt.Errorf("mappa non utilizzabile: %w", err)
+		return nil, fmt.Errorf("unusable map: %w", err)
 	}
 	s.active.Store(st)
 	return st, nil

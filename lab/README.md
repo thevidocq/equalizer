@@ -1,5 +1,5 @@
 # lab
 
-Laboratorio di test: applicazioni volutamente vulnerabili e container attaccante.
+Test lab: deliberately vulnerable applications and an attacker container.
 
-Regole: le app non pubblicano porte e stanno su una rete Docker `internal`; si raggiungono solo tramite connettore locale. Le campagne di attacco si eseguono solo su sistemi di proprietà del progetto o con autorizzazione scritta. Preparato dal proprietario del progetto.
+Rules: the apps publish no ports and live on an `internal` Docker network; they are reachable only through a local connector. Attack campaigns run only against systems owned by the project or with written authorisation. Prepared by the project owner.

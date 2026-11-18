@@ -3,7 +3,7 @@ package placeholder
 import "testing"
 
 func TestResolve(t *testing.T) {
-	vals := Values{"params": {"id": "42"}, "query": {"stato": "aperta"}}
+	vals := Values{"params": {"id": "42"}, "query": {"status": "open"}}
 	cases := []struct {
 		tpl, want string
 		absent    bool
@@ -11,27 +11,27 @@ func TestResolve(t *testing.T) {
 	}{
 		{"INT", "INT", false, false},
 		{"{{params.id}}", "42", false, false},
-		{"{{ query.stato }}", "aperta", false, false},
-		{"/pratiche/{{params.id}}/allegati", "/pratiche/42/allegati", false, false},
-		{"{{query.pagina}}", "", true, false},
-		{"p-{{query.pagina}}", "", false, true},
-		{"{{segreto.x}}", "", false, true},
+		{"{{ query.status }}", "open", false, false},
+		{"/permits/{{params.id}}/files", "/permits/42/files", false, false},
+		{"{{query.page}}", "", true, false},
+		{"p-{{query.page}}", "", false, true},
+		{"{{secret.x}}", "", false, true},
 		{"{{params.id", "", false, true},
-		{"valore}}", "", false, true},
+		{"value}}", "", false, true},
 	}
 	for _, c := range cases {
 		got, absent, err := Resolve(c.tpl, vals)
 		if (err != nil) != c.err || absent != c.absent || (err == nil && got != c.want) {
-			t.Errorf("%q: (%q, %v, %v), atteso (%q, %v, errore=%v)", c.tpl, got, absent, err, c.want, c.absent, c.err)
+			t.Errorf("%q: (%q, %v, %v), want (%q, %v, error=%v)", c.tpl, got, absent, err, c.want, c.absent, c.err)
 		}
 	}
 }
 
 func TestCheck(t *testing.T) {
 	if err := Check("/x/{{params.id}}"); err != nil {
-		t.Errorf("template valido rifiutato: %v", err)
+		t.Errorf("valid template rejected: %v", err)
 	}
 	if err := Check("{{env.PATH}}"); err == nil {
-		t.Error("spazio non ammesso accettato")
+		t.Error("disallowed namespace accepted")
 	}
 }

@@ -2,6 +2,8 @@
 //
 //	eqtool keygen -out secrets/map-signing.key
 //	    create the Ed25519 key pair (private .key and public .pub files, base64)
+//	eqtool formkey -out secrets/form.key
+//	    create the key that seals form tokens (shared by all gateway replicas)
 //	eqtool sign -key secrets/map-signing.key -map maps/map.json -key-id k1 -out maps/current.json
 //	    sign a JSON map and produce the SignedMap document read by the gateway
 //
@@ -31,6 +33,8 @@ func main() {
 	switch os.Args[1] {
 	case "keygen":
 		err = keygen(os.Args[2:])
+	case "formkey":
+		err = formkey(os.Args[2:])
 	case "sign":
 		err = sign(os.Args[2:])
 	default:
@@ -44,7 +48,7 @@ func main() {
 }
 
 func usage() {
-	fmt.Fprintln(os.Stderr, "usage: eqtool keygen -out FILE | eqtool sign -key FILE -map FILE -key-id ID -out FILE")
+	fmt.Fprintln(os.Stderr, "usage: eqtool keygen -out FILE | eqtool formkey -out FILE | eqtool sign -key FILE -map FILE -key-id ID -out FILE")
 }
 
 func keygen(args []string) error {
@@ -68,6 +72,26 @@ func keygen(args []string) error {
 		return err
 	}
 	fmt.Printf("private key: %s\npublic key: %s\n", *out, pubPath)
+	return nil
+}
+
+func formkey(args []string) error {
+	fs := flag.NewFlagSet("formkey", flag.ContinueOnError)
+	out := fs.String("out", "form.key", "form key file (32 random bytes, base64)")
+	if err := fs.Parse(args); err != nil {
+		return err
+	}
+	if _, err := os.Stat(*out); err == nil {
+		return fmt.Errorf("%s already exists: not overwriting it", *out)
+	}
+	key := make([]byte, 32)
+	if _, err := rand.Read(key); err != nil {
+		return err
+	}
+	if err := os.WriteFile(*out, []byte(base64.StdEncoding.EncodeToString(key)+"\n"), 0o600); err != nil {
+		return err
+	}
+	fmt.Printf("form key: %s\n", *out)
 	return nil
 }
 

@@ -1,8 +1,9 @@
 // Package placeholder resolves the {{namespace.name}} placeholders of
 // legacy_request.
 //
-// Allowed namespaces: params (path), query, fields (form), account (legacy
-// account of the role), user (authenticated user). Values arrive already
+// Allowed namespaces: params (path), query, fields (form), hidden (legacy
+// hidden fields kept server-side), account (legacy account of the role),
+// user (authenticated user). Values arrive already
 // validated: this package only substitutes them.
 package placeholder
 
@@ -14,7 +15,7 @@ import (
 // Values holds values by namespace: Values["params"]["id"].
 type Values map[string]map[string]string
 
-var namespaces = map[string]bool{"params": true, "query": true, "fields": true, "account": true, "user": true}
+var namespaces = map[string]bool{"params": true, "query": true, "fields": true, "hidden": true, "account": true, "user": true}
 
 // Resolve substitutes the placeholders in tpl.
 //
@@ -64,6 +65,20 @@ func Resolve(tpl string, vals Values) (out string, absent bool, err error) {
 }
 
 var errMissing = fmt.Errorf("missing value for")
+
+// Single returns namespace and name when tpl is exactly one placeholder,
+// e.g. "{{params.id}}"; ok is false for fixed or mixed values.
+func Single(tpl string) (ns, name string, ok bool) {
+	t := strings.TrimSpace(tpl)
+	if !strings.HasPrefix(t, "{{") || !strings.HasSuffix(t, "}}") || strings.Count(t, "{{") != 1 {
+		return "", "", false
+	}
+	ns, name, ok = strings.Cut(strings.TrimSpace(t[2:len(t)-2]), ".")
+	if !ok || !namespaces[ns] || name == "" {
+		return "", "", false
+	}
+	return ns, name, true
+}
 
 // Check verifies a template's syntax without values.
 func Check(tpl string) error {

@@ -35,3 +35,19 @@ func TestCheck(t *testing.T) {
 		t.Error("disallowed namespace accepted")
 	}
 }
+
+func TestSingle(t *testing.T) {
+	cases := map[string][3]string{
+		"{{params.id}}":    {"params", "id", "ok"},
+		" {{ hidden.vs }}": {"hidden", "vs", "ok"},
+		"p-{{params.id}}":  {"", "", ""},
+		"fixed":            {"", "", ""},
+		"{{bogus.x}}":      {"", "", ""},
+	}
+	for tpl, want := range cases {
+		ns, name, ok := Single(tpl)
+		if ns != want[0] || name != want[1] || ok != (want[2] == "ok") {
+			t.Errorf("Single(%q) = %q, %q, %v", tpl, ns, name, ok)
+		}
+	}
+}

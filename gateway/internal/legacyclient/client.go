@@ -90,10 +90,35 @@ func (c *Client) Build(ctx context.Context, lr mapmodel.LegacyRequest, vals plac
 	u.RawQuery = q.Encode()
 
 	method := strings.ToUpper(lr.Method)
-	if method != http.MethodGet {
+	var body io.Reader
+	contentType := ""
+	switch method {
+	case http.MethodGet:
+		if len(lr.Form) > 0 {
+			return nil, errors.New("a GET request cannot carry a form body")
+		}
+	case http.MethodPost:
+		form := url.Values{}
+		for _, key := range sortedKeys(lr.Form) {
+			v, absent, err := placeholder.Resolve(lr.Form[key], vals)
+			if err != nil {
+				return nil, fmt.Errorf("form %q: %w", key, err)
+			}
+			if !absent {
+				form.Set(key, v)
+			}
+		}
+		// Values arrive already encoded in the legacy charset: Encode
+		// percent-encodes their bytes as they are.
+		body = strings.NewReader(form.Encode())
+		contentType = "application/x-www-form-urlencoded"
+	default:
 		return nil, fmt.Errorf("method %q towards the legacy application is not supported yet", method)
 	}
-	req, err := http.NewRequestWithContext(ctx, method, u.String(), nil)
+	if len(lr.Files) > 0 {
+		return nil, errors.New("file uploads are not supported yet")
+	}
+	req, err := http.NewRequestWithContext(ctx, method, u.String(), body)
 	if err != nil {
 		return nil, err
 	}
@@ -106,6 +131,9 @@ func (c *Client) Build(ctx context.Context, lr mapmodel.LegacyRequest, vals plac
 		if !absent {
 			req.Header.Set(key, v)
 		}
+	}
+	if contentType != "" {
+		req.Header.Set("Content-Type", contentType)
 	}
 	req.Header.Set("User-Agent", c.userAgent)
 	req.Header.Set("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8")

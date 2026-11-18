@@ -8,14 +8,17 @@ import (
 	"fmt"
 	"net/http"
 	"slices"
+	"strings"
 	"time"
 
 	"github.com/thevidocq/equalizer/gateway/internal/budget"
+	"github.com/thevidocq/equalizer/gateway/internal/formmap"
 	"github.com/thevidocq/equalizer/gateway/internal/legacyclient"
 	"github.com/thevidocq/equalizer/gateway/internal/legacyurl"
 	"github.com/thevidocq/equalizer/gateway/internal/mapmodel"
 	"github.com/thevidocq/equalizer/gateway/internal/pipeline"
 	"github.com/thevidocq/equalizer/gateway/internal/pipeline/clean"
+	"github.com/thevidocq/equalizer/gateway/internal/pipeline/forms"
 	"github.com/thevidocq/equalizer/gateway/internal/pipeline/rewrite"
 	"github.com/thevidocq/equalizer/gateway/internal/placeholder"
 	"github.com/thevidocq/equalizer/gateway/internal/router"
@@ -38,12 +41,16 @@ type Site struct {
 	Legacy    *legacyclient.Client
 	Budget    *budget.Limiter
 	URLs      *legacyurl.Rewriter
+	Forms     *formmap.Map
 	Pipeline  *pipeline.Pipeline
+
+	unsupported map[string]string // form id → reason it cannot be served yet
 }
 
 // DefaultSteps is the default order of the faithful-rendering steps.
+// forms must run before rewrite: it needs the legacy action URLs.
 func DefaultSteps() []pipeline.Step {
-	return []pipeline.Step{clean.Step{}, rewrite.Step{}}
+	return []pipeline.Step{clean.Step{}, forms.Step{}, rewrite.Step{}}
 }
 
 // Build compiles the map. It rejects inconsistent maps instead of serving them half-working.
@@ -68,6 +75,16 @@ func Build(m *mapmodel.Model) (*Site, error) {
 		}
 		if err := checkTemplates(r.LegacyRequest); err != nil {
 			return nil, fmt.Errorf("route %q: %w", r.ID, err)
+		}
+	}
+
+	unsupported := map[string]string{}
+	for _, f := range m.Forms {
+		if err := checkForm(m, v, f); err != nil {
+			return nil, fmt.Errorf("form %q: %w", f.ID, err)
+		}
+		if reason := formUnsupported(f); reason != "" {
+			unsupported[f.ID] = reason
 		}
 	}
 
@@ -104,8 +121,49 @@ func Build(m *mapmodel.Model) (*Site, error) {
 		Legacy:    lc,
 		Budget:    budget.New(m.Defaults.LegacyBudget.MaxConcurrency, budgetWait),
 		URLs:      urls,
+		Forms:     formmap.New(lc.Base(), m),
 		Pipeline:  pipeline.New(DefaultSteps()...),
+
+		unsupported: unsupported,
 	}, nil
+}
+
+// FormUnsupported returns why a declared form cannot be served yet ("" if it can).
+func (s *Site) FormUnsupported(id string) string { return s.unsupported[id] }
+
+func checkForm(m *mapmodel.Model, v *validate.Validator, f mapmodel.Form) error {
+	if err := v.Check(f.Params); err != nil {
+		return fmt.Errorf("params: %w", err)
+	}
+	if err := v.Check(f.Fields); err != nil {
+		return fmt.Errorf("fields: %w", err)
+	}
+	if err := checkTemplates(f.LegacyRequest); err != nil {
+		return err
+	}
+	if f.OnSuccess != nil && f.OnSuccess.Redirect != "" {
+		if _, ok := m.RouteByID(f.OnSuccess.Redirect); !ok {
+			return fmt.Errorf("on_success.redirect: route %q does not exist", f.OnSuccess.Redirect)
+		}
+	}
+	return nil
+}
+
+// formUnsupported lists the features a form needs that the gateway does not
+// have yet. Such forms are recognised in pages but answered with 503.
+func formUnsupported(f mapmodel.Form) string {
+	if len(f.LegacyRequest.Files) > 0 {
+		return "file_upload"
+	}
+	for _, spec := range f.Fields {
+		if spec.Type == "file" {
+			return "file_upload"
+		}
+	}
+	if !strings.EqualFold(f.LegacyRequest.Method, http.MethodPost) {
+		return "legacy_method"
+	}
+	return ""
 }
 
 // AssetByPrefix returns the asset entry with the given prefix.
@@ -148,7 +206,7 @@ func checkTemplates(lr mapmodel.LegacyRequest) error {
 	if err := placeholder.Check(lr.Path); err != nil {
 		return fmt.Errorf("legacy_request.path: %w", err)
 	}
-	for _, group := range []map[string]string{lr.Query, lr.Form, lr.Headers} {
+	for _, group := range []map[string]string{lr.Query, lr.Form, lr.Files, lr.Headers} {
 		for k, tpl := range group {
 			if err := placeholder.Check(tpl); err != nil {
 				return fmt.Errorf("legacy_request %q: %w", k, err)

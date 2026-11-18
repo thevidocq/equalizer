@@ -23,7 +23,7 @@ Add a section at the top of "Entries" for every commit:
 | --- | --- |
 | Contracts (`schema/`) | First version, validated in CI |
 | Documentation | Architecture, map format, installation and manuals (planned features) |
-| gateway | GET routes and assets in direct mode, validation, faithful rendering (UTF-8, cleanup, URL rewriting, redirects); no forms, sessions or connector yet |
+| gateway | GET routes, assets and urlencoded POST forms in direct mode, validation, faithful rendering (UTF-8, cleanup, form binding, URL rewriting, redirects); no file uploads, sessions or connector yet |
 | tunnel-relay | Not implemented yet |
 | connector | Not implemented yet |
 | orchestrator | Not implemented yet |
@@ -31,9 +31,66 @@ Add a section at the top of "Entries" for every commit:
 | panel-ui | Not implemented yet |
 | agent | Not implemented yet |
 | deploy/compose | Caddy, gateway (2 replicas), Vector, Loki, Grafana; statically validated |
-| tools (eqtool) | Keys and map signing |
+| tools (eqtool) | Map signing keys, form key, map signing |
 
 ## Entries
+
+### 2026-11-18 — Serve POST forms
+
+- **Branch:** `feat/forms`
+- **What:**
+  - Contract: `hidden` placeholder namespace (legacy hidden inputs kept
+    server-side) documented in the map schema; forms section in
+    `docs/map-format.md`.
+  - `internal/charset`: `FromUTF8` re-encodes values into ISO-8859-1,
+    ISO-8859-15 or Windows-1252; unrepresentable characters are an error.
+  - `internal/formtoken`: form state sealed with AES-256-GCM (form id,
+    action parameters, kept hidden values, page charset, expiry, hash of the
+    browser binding cookie). Stateless: works across replicas with a shared
+    key.
+  - `internal/formmap`: recognises a legacy `<form>` as a declared form by
+    inverting its `legacy_request` (path, query, hidden inputs used as
+    `{{params.x}}`), computes the public action and the input renames.
+  - `internal/pipeline/forms`: new step before `rewrite`. Removes every
+    hidden input of POST forms, sets the public action, renames inputs,
+    drops `formaction`/`accept-charset`, adds the `_eq_token` input.
+    Pipeline helpers `BaseURL`, `Attr`, `SetAttr`, `DelAttr`, `MarkFinal`.
+  - `internal/legacyclient`: POST with an urlencoded body rebuilt from
+    `legacy_request.form`.
+  - `internal/site`: forms checked at load time (types, templates,
+    `on_success.redirect`); forms with file fields marked unsupported (503).
+  - `internal/server/form.go`: role, cross-site check (`Origin`,
+    `Sec-Fetch-Site`), urlencoded only (415 otherwise), 1 MiB limit (413),
+    token checks (missing, invalid, expired, other browser, other
+    form/record → 403), field validation, re-encoding, success check
+    (`status`, `body_contains`, `not_contains`, `redirect_to`), 303 to
+    `on_success.redirect` or the legacy page rendered faithfully.
+    `__Host-eq_form` cookie (Secure, HttpOnly, SameSite=Lax) set only on
+    pages that contain a bound form.
+  - Configuration: `EQ_FORM_KEY` / `EQ_FORM_KEY_FILE`; without it a random
+    key and a warning (single replica only). `eqtool formkey`; Compose
+    mounts `secrets/form.key`; INSTALL updated.
+- **Why:** writes are the riskiest part of a legacy app. The browser never
+  sees the legacy hidden fields, cannot replay a form from another browser
+  or for another record, and every value reaches the legacy app typed and in
+  its own charset.
+- **Status:** tests green with the race detector, including an end-to-end
+  test with a fake ISO-8859-1 legacy app: the page shows no internal hidden
+  value, the rebuilt POST carries `permitId=42`, `text=Caf%E9 note`, the
+  kept hidden value and the fixed value, and nothing else; ten rejection
+  cases never reach the legacy app. Not done: file uploads (multipart), the
+  `cookie` success check, per-form rate limits and CAPTCHA, re-encoding of
+  GET query values for non-UTF-8 legacy apps, JavaScript that reads hidden
+  inputs or input names (it would see the public names).
+  **Requires on the VPS:** `eqtool formkey -out secrets/form.key` before
+  `docker compose up`, otherwise the gateway container fails to mount it.
+- **Next steps:**
+  1. `tunnel-relay` and `connector`.
+  2. Pass-through login and sessions in Redis (then the `cookie` check and
+     per-user legacy accounts).
+  3. File uploads with AV/CDR scanning; per-form rate limits.
+  4. Scripts by hash with CSP, URLs inside CSS, `external_links`.
+  5. Gateway Prometheus metrics; visual comparison with Playwright.
 
 ### 2026-11-18 — Translate the whole repository to English
 

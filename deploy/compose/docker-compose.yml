@@ -55,11 +55,14 @@ services:
       EQ_MAP_FILE: /maps/current.json
       EQ_MAP_PUBKEY_FILE: /secrets/map-signing.pub
       EQ_MAP_KEY_ID: ${EQ_MAP_KEY_ID:-k1}
+      # shared by every replica: a form rendered by one is accepted by the others
+      EQ_FORM_KEY_FILE: /secrets/form.key
       # edge network: only Caddy may state the client IP
       EQ_TRUSTED_PROXIES: ${EQ_TRUSTED_PROXIES:-172.16.0.0/12}
     volumes:
       - ./maps:/maps:ro
       - ./secrets/map-signing.pub:/secrets/map-signing.pub:ro
+      - ./secrets/form.key:/secrets/form.key:ro
     networks: [edge, control]
 
   loki:

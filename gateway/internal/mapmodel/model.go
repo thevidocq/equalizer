@@ -107,6 +107,7 @@ type LegacyRequest struct {
 	Path    string            `json:"path"`
 	Query   map[string]string `json:"query"`
 	Form    map[string]string `json:"form"`
+	Files   map[string]string `json:"files"`
 	Headers map[string]string `json:"headers"`
 }
 
@@ -133,9 +134,28 @@ type Link struct {
 
 // Form is a write action (POST) on a public path.
 type Form struct {
-	ID    string   `json:"id"`
-	Route string   `json:"route"`
-	Roles []string `json:"roles"`
+	ID            string               `json:"id"`
+	Route         string               `json:"route"`
+	Roles         []string             `json:"roles"`
+	Params        map[string]FieldSpec `json:"params"`
+	Fields        map[string]FieldSpec `json:"fields"`
+	LegacyRequest LegacyRequest        `json:"legacy_request"`
+	Success       *SuccessCheck        `json:"success"`
+	OnSuccess     *OnSuccess           `json:"on_success"`
+}
+
+// SuccessCheck tells whether the legacy application accepted a submission.
+type SuccessCheck struct {
+	Cookie       string `json:"cookie"`
+	Status       []int  `json:"status"`
+	BodyContains string `json:"body_contains"`
+	NotContains  string `json:"not_contains"`
+	RedirectTo   string `json:"redirect_to"`
+}
+
+// OnSuccess says what the visitor sees after a successful submission.
+type OnSuccess struct {
+	Redirect string `json:"redirect"` // route id
 }
 
 // APIRoute is a JSON endpoint for dynamic parts of a page.
@@ -151,6 +171,16 @@ type Compat struct {
 	Legacy string `json:"legacy"`
 	Action string `json:"action"`
 	Route  string `json:"route"`
+}
+
+// FormByID returns the form with the given id.
+func (m *Model) FormByID(id string) (*Form, bool) {
+	for i := range m.Forms {
+		if m.Forms[i].ID == id {
+			return &m.Forms[i], true
+		}
+	}
+	return nil, false
 }
 
 // RouteByID returns the route with the given id.

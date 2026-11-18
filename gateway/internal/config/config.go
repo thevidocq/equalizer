@@ -2,6 +2,7 @@
 package config
 
 import (
+	"encoding/base64"
 	"fmt"
 	"net/netip"
 	"os"
@@ -19,6 +20,7 @@ type Config struct {
 	MapPublicKey    string         // Ed25519 public key, base64
 	MapPublicKeyID  string         // expected key identifier
 	TrustedProxies  []netip.Prefix // networks allowed to set X-Forwarded-For
+	FormKey         []byte         // 32-byte key sealing form tokens; nil: random per instance
 	ShutdownTimeout time.Duration
 }
 
@@ -40,6 +42,12 @@ func FromEnv() (Config, error) {
 		return Config{}, err
 	}
 	cfg.MapPublicKey = key
+
+	formKey, err := formKey()
+	if err != nil {
+		return Config{}, err
+	}
+	cfg.FormKey = formKey
 
 	proxies, err := parsePrefixes(env("EQ_TRUSTED_PROXIES", ""))
 	if err != nil {
@@ -69,6 +77,29 @@ func publicKey() (string, error) {
 		return "", fmt.Errorf("reading public key: %w", err)
 	}
 	return strings.TrimSpace(string(b)), nil
+}
+
+// formKey reads the form-token key (base64, 32 bytes) from EQ_FORM_KEY or
+// from the file in EQ_FORM_KEY_FILE. It is optional: without it each
+// instance uses a random key, which works with a single replica only.
+func formKey() ([]byte, error) {
+	raw := strings.TrimSpace(os.Getenv("EQ_FORM_KEY"))
+	if raw == "" {
+		path := os.Getenv("EQ_FORM_KEY_FILE")
+		if path == "" {
+			return nil, nil
+		}
+		b, err := os.ReadFile(path)
+		if err != nil {
+			return nil, fmt.Errorf("reading form key: %w", err)
+		}
+		raw = strings.TrimSpace(string(b))
+	}
+	key, err := base64.StdEncoding.DecodeString(raw)
+	if err != nil || len(key) != 32 {
+		return nil, fmt.Errorf("the form key must be 32 bytes in base64")
+	}
+	return key, nil
 }
 
 func parsePrefixes(raw string) ([]netip.Prefix, error) {

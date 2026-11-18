@@ -9,6 +9,7 @@ import (
 	"github.com/thevidocq/equalizer/gateway/internal/mapmodel"
 	"github.com/thevidocq/equalizer/gateway/internal/pipeline"
 	"github.com/thevidocq/equalizer/gateway/internal/pipeline/clean"
+	"github.com/thevidocq/equalizer/gateway/internal/pipeline/forms"
 	"github.com/thevidocq/equalizer/gateway/internal/pipeline/rewrite"
 )
 
@@ -82,5 +83,59 @@ func TestCharsetConversion(t *testing.T) {
 	}
 	if !strings.Contains(out, "café è") || !strings.Contains(out, `content="text/html; charset=utf-8"`) {
 		t.Errorf("wrong conversion:\n%q", out)
+	}
+}
+
+type fakeForms struct{}
+
+func (fakeForms) Match(action *url.URL, hidden map[string]string) (pipeline.FormMatch, bool) {
+	if action.Path != "/supplement.do" || hidden["permitId"] == "" {
+		return pipeline.FormMatch{}, false
+	}
+	return pipeline.FormMatch{FormID: "supplement", Action: "/permits/" + hidden["permitId"] + "/supplement",
+		Hidden: map[string]string{"vs": hidden["vs"]}, Rename: map[string]string{"text": "message"}}, true
+}
+
+func (fakeForms) Token(m pipeline.FormMatch, cs string) (string, error) {
+	return "TOKEN-" + m.FormID + "-" + cs, nil
+}
+
+func TestFormBinding(t *testing.T) {
+	base, _ := url.Parse("http://10.20.0.15:8080/")
+	rw, _ := legacyurl.New(base, &mapmodel.Model{})
+	pageURL, _ := url.Parse("http://10.20.0.15:8080/detail.jsp?id=42")
+	page := `<html><body>
+<form method="POST" action="supplement.do" accept-charset="ISO-8859-1">
+<input type="hidden" name="permitId" value="42"><input type="hidden" name="vs" value="internal-state">
+<input type="hidden" name="debug" value="1">
+<label for="t">Text</label><textarea id="t" name="text"></textarea>
+<button type="submit" formaction="other.do">Send</button></form>
+<form method="post" action="admin.do"><input type="hidden" name="role" value="admin"><input name="q"></form>
+<form method="get" action="search.jsp"><input type="hidden" name="lang" value="en"><input name="q"></form>
+</body></html>`
+	ctx := &pipeline.Context{PageURL: pageURL, URLs: rw, Forms: fakeForms{}}
+	out, err := pipeline.New(forms.Step{}, rewrite.Step{}).Render([]byte(page), "text/html; charset=iso-8859-1", ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	body := string(out)
+	for _, want := range []string{
+		`action="/permits/42/supplement"`,
+		`name="_eq_token" value="TOKEN-supplement-iso-8859-1"`,
+		`<textarea id="t" name="message">`,
+		`<label for="t">Text</label>`,
+		`name="lang"`, // GET forms keep their hidden inputs
+	} {
+		if !strings.Contains(body, want) {
+			t.Errorf("missing %q in\n%s", want, body)
+		}
+	}
+	for _, banned := range []string{"internal-state", "permitId", `name="debug"`, "formaction", "accept-charset", `value="admin"`} {
+		if strings.Contains(body, banned) {
+			t.Errorf("%q must not reach the page:\n%s", banned, body)
+		}
+	}
+	if ctx.Stats.Forms != 1 || ctx.Stats.FormsUnmapped != 1 {
+		t.Errorf("stats: %+v", ctx.Stats)
 	}
 }

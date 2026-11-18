@@ -21,11 +21,97 @@ type URLMapper interface {
 	Fallback(u *url.URL) string
 }
 
+// FormBinder recognises legacy forms that post to a declared form and seals
+// their server-side state into a token (see the formmap and formtoken
+// packages). The server provides one per request.
+type FormBinder interface {
+	Match(action *url.URL, hidden map[string]string) (FormMatch, bool)
+	Token(m FormMatch, charset string) (string, error)
+}
+
+// FormMatch is a legacy form recognised as a declared form.
+type FormMatch struct {
+	FormID string
+	Action string            // public action URL
+	Params map[string]string // path parameters of the public action
+	Hidden map[string]string // hidden values kept server-side
+	Rename map[string]string // legacy input name → public field name
+}
+
 // Context is what a step knows about the page being processed.
 type Context struct {
-	PageURL *url.URL // legacy URL the page comes from
-	URLs    URLMapper
+	PageURL *url.URL   // legacy URL the page comes from
+	URLs    URLMapper  // legacy → public URLs
+	Forms   FormBinder // nil: forms are not bound and only their URLs are rewritten
 	Stats   Stats
+
+	final map[*html.Node]bool // elements whose URLs are already public
+}
+
+// MarkFinal records that an element's URL attributes are already public:
+// later steps must not rewrite them again.
+func (c *Context) MarkFinal(n *html.Node) {
+	if c.final == nil {
+		c.final = map[*html.Node]bool{}
+	}
+	c.final[n] = true
+}
+
+// Final reports whether an element was marked with MarkFinal.
+func (c *Context) Final(n *html.Node) bool { return c.final[n] }
+
+// BaseURL returns the URL relative links resolve against: the page URL,
+// changed by the first <base href> if present.
+func BaseURL(doc *html.Node, pageURL *url.URL) *url.URL {
+	base := pageURL
+	found := false
+	Walk(doc, func(n *html.Node) bool {
+		if found {
+			return false
+		}
+		if n.Type == html.ElementNode && n.DataAtom == atom.Base {
+			if href, ok := Attr(n, "href"); ok {
+				if u, err := url.Parse(strings.TrimSpace(href)); err == nil {
+					base = pageURL.ResolveReference(u)
+				}
+				found = true
+			}
+		}
+		return true
+	})
+	return base
+}
+
+// Attr returns the value of an attribute (case-insensitive name).
+func Attr(n *html.Node, key string) (string, bool) {
+	for _, a := range n.Attr {
+		if strings.EqualFold(a.Key, key) {
+			return a.Val, true
+		}
+	}
+	return "", false
+}
+
+// SetAttr sets an attribute, adding it if missing.
+func SetAttr(n *html.Node, key, val string) {
+	for i, a := range n.Attr {
+		if strings.EqualFold(a.Key, key) {
+			n.Attr[i].Val = val
+			return
+		}
+	}
+	n.Attr = append(n.Attr, html.Attribute{Key: key, Val: val})
+}
+
+// DelAttr removes an attribute.
+func DelAttr(n *html.Node, key string) {
+	out := n.Attr[:0]
+	for _, a := range n.Attr {
+		if !strings.EqualFold(a.Key, key) {
+			out = append(out, a)
+		}
+	}
+	n.Attr = out
 }
 
 // Stats summarises what the pipeline did, for logs and request tracing.
@@ -34,6 +120,8 @@ type Stats struct {
 	Rewritten     int
 	Unmapped      int
 	Removed       int
+	Forms         int      // forms bound to a declared form
+	FormsUnmapped int      // POST forms that match no declared form
 	UnmappedPaths []string // at most 20, without query
 }
 

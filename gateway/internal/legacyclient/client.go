@@ -1,6 +1,6 @@
-// Package legacyclient costruisce da zero le richieste verso il legacy e ne
-// legge le risposte. Nessun dato del client viene copiato: metodo, percorso,
-// query e header nascono dalla mappa e dai valori già validati.
+// Package legacyclient builds requests to the legacy application from
+// scratch and reads its responses. No client data is copied: method, path,
+// query and headers come from the map and from already validated values.
 package legacyclient
 
 import (
@@ -18,29 +18,29 @@ import (
 	"github.com/thevidocq/equalizer/gateway/internal/placeholder"
 )
 
-// MaxBody è la dimensione massima di una risposta del legacy (16 MiB).
+// MaxBody is the maximum size of a legacy response (16 MiB).
 const MaxBody = 16 << 20
 
-// ErrTooLarge indica una risposta oltre MaxBody.
-var ErrTooLarge = errors.New("risposta del legacy troppo grande")
+// ErrTooLarge reports a response larger than MaxBody.
+var ErrTooLarge = errors.New("legacy response too large")
 
-// Header della risposta del legacy che possono arrivare al client.
-// Tutto il resto (Server, X-Powered-By, Set-Cookie, ...) viene scartato.
+// Legacy response headers that may reach the client.
+// Everything else (Server, X-Powered-By, Set-Cookie, ...) is dropped.
 var responseHeaders = []string{
 	"Content-Type", "Content-Language", "Content-Disposition",
 	"Cache-Control", "Expires", "Last-Modified",
 }
 
-// Response è la risposta del legacy già filtrata.
+// Response is the already filtered legacy response.
 type Response struct {
 	Status   int
 	Header   http.Header
 	Body     []byte
-	Location string // destinazione del redirect, se presente (URL del legacy)
+	Location string // redirect target, if any (legacy URL)
 	Duration time.Duration
 }
 
-// Client parla con un legacy attraverso un RoundTripper (diretto o tunnel).
+// Client talks to a legacy application through a RoundTripper (direct or tunnel).
 type Client struct {
 	base      *url.URL
 	rt        http.RoundTripper
@@ -48,11 +48,11 @@ type Client struct {
 	timeout   time.Duration
 }
 
-// New crea un client per il legacy in baseURL.
+// New creates a client for the legacy application at baseURL.
 func New(baseURL string, rt http.RoundTripper, userAgent string, timeout time.Duration) (*Client, error) {
 	u, err := url.Parse(baseURL)
 	if err != nil || (u.Scheme != "http" && u.Scheme != "https") || u.Host == "" {
-		return nil, fmt.Errorf("base_url non valido: %q", baseURL)
+		return nil, fmt.Errorf("invalid base_url: %q", baseURL)
 	}
 	if userAgent == "" {
 		userAgent = "equalizer-gateway"
@@ -63,15 +63,15 @@ func New(baseURL string, rt http.RoundTripper, userAgent string, timeout time.Du
 	return &Client{base: u, rt: rt, userAgent: userAgent, timeout: timeout}, nil
 }
 
-// Build costruisce la richiesta verso il legacy da legacy_request e dai valori.
+// Build builds the legacy request from legacy_request and the values.
 func (c *Client) Build(ctx context.Context, lr mapmodel.LegacyRequest, vals placeholder.Values) (*http.Request, error) {
 	path, rawPath, err := resolvePath(lr.Path, vals)
 	if err != nil {
 		return nil, err
 	}
 	u := *c.base
-	// RawPath tiene i valori codificati: un "/" in un valore non diventa
-	// mai un separatore di percorso.
+	// RawPath keeps the values encoded: a "/" inside a value never becomes
+	// a path separator.
 	u.Path = strings.TrimSuffix(c.base.Path, "/") + path
 	u.RawPath = strings.TrimSuffix(c.base.EscapedPath(), "/") + rawPath
 	u.RawQuery = ""
@@ -91,7 +91,7 @@ func (c *Client) Build(ctx context.Context, lr mapmodel.LegacyRequest, vals plac
 
 	method := strings.ToUpper(lr.Method)
 	if method != http.MethodGet {
-		return nil, fmt.Errorf("metodo %q non ancora supportato verso il legacy", method)
+		return nil, fmt.Errorf("method %q towards the legacy application is not supported yet", method)
 	}
 	req, err := http.NewRequestWithContext(ctx, method, u.String(), nil)
 	if err != nil {
@@ -112,7 +112,7 @@ func (c *Client) Build(ctx context.Context, lr mapmodel.LegacyRequest, vals plac
 	return req, nil
 }
 
-// Do invia la richiesta e legge la risposta. I redirect non vengono seguiti.
+// Do sends the request and reads the response. Redirects are not followed.
 func (c *Client) Do(req *http.Request) (*Response, error) {
 	ctx, cancel := context.WithTimeout(req.Context(), c.timeout)
 	defer cancel()
@@ -124,7 +124,7 @@ func (c *Client) Do(req *http.Request) (*Response, error) {
 	defer resp.Body.Close()
 	body, err := io.ReadAll(io.LimitReader(resp.Body, MaxBody+1))
 	if err != nil {
-		return nil, fmt.Errorf("lettura risposta: %w", err)
+		return nil, fmt.Errorf("reading response: %w", err)
 	}
 	if len(body) > MaxBody {
 		return nil, ErrTooLarge
@@ -143,10 +143,10 @@ func (c *Client) Do(req *http.Request) (*Response, error) {
 	return out, nil
 }
 
-// Base restituisce l'URL base del legacy (per riconoscere i redirect interni).
+// Base returns the legacy base URL (to recognise internal redirects).
 func (c *Client) Base() *url.URL { u := *c.base; return &u }
 
-// resolvePath restituisce il percorso decodificato e quello codificato.
+// resolvePath returns the decoded and the encoded path.
 func resolvePath(tpl string, vals placeholder.Values) (string, string, error) {
 	escaped := placeholder.Values{}
 	for ns, m := range vals {
@@ -160,7 +160,7 @@ func resolvePath(tpl string, vals placeholder.Values) (string, string, error) {
 		return "", "", fmt.Errorf("path: %w", err)
 	}
 	if absent || !strings.HasPrefix(raw, "/") {
-		return "", "", fmt.Errorf("path non valido: %q", tpl)
+		return "", "", fmt.Errorf("invalid path: %q", tpl)
 	}
 	plain, _, err := placeholder.Resolve(tpl, vals)
 	if err != nil {

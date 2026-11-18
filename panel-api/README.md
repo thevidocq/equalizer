@@ -1,5 +1,5 @@
 # panel-api
 
-API Go del control plane: tenant, mappe e versioni, proposte, approvazioni, firma, LLM, connettori, capacità, metriche, stato dei servizi, log, inoltro SIEM, import/export, audit.
+Go control-plane API: tenants, maps and versions, proposals, approvals, signing, LLM, connectors, capacity, metrics, service status, logs, SIEM forwarding, import/export, audit.
 
-Struttura prevista: `cmd/panel-api/`, `internal/<dominio>/`. Contratto: `schema/api/panel-api.yaml`. Stato: da implementare.
+Planned layout: `cmd/panel-api/`, `internal/<domain>/`. Contract: `schema/api/panel-api.yaml`. Status: not implemented yet.

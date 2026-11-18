@@ -15,14 +15,14 @@ import (
 	"github.com/thevidocq/equalizer/gateway/internal/telemetry"
 )
 
-// Nomi di file ammessi negli asset: niente segnaposto, niente % residui.
+// File names allowed for assets: no placeholders, no leftover %.
 var assetFileRe = regexp.MustCompile(`^[A-Za-z0-9._\-/ @+~,()!]{1,512}$`)
 
-// Dimensione massima predefinita di un asset (10 MiB).
+// Default maximum asset size (10 MiB).
 const defaultAssetMaxKB = 10 << 10
 
-// serveAsset serve un file statico del legacy dopo aver verificato nome,
-// tipo dichiarato e, per le immagini raster, tipo reale.
+// serveAsset serves a legacy static file after checking its name, declared
+// type and, for raster images, actual type.
 func (p *Public) serveAsset(w http.ResponseWriter, r *http.Request, st *site.Site, m router.Match) {
 	asset, ok := st.AssetByPrefix(m.Entry.Pattern)
 	if !ok {
@@ -39,7 +39,7 @@ func (p *Public) serveAsset(w http.ResponseWriter, r *http.Request, st *site.Sit
 		return
 	}
 
-	// La query del client non arriva al legacy: un asset è solo il suo percorso.
+	// The client query never reaches the legacy application: an asset is just its path.
 	req, err := st.Legacy.Build(r.Context(), mapmodel.LegacyRequest{Method: http.MethodGet, Path: asset.Prefix + file}, nil)
 	if err != nil {
 		p.block(w, r, st, http.StatusNotFound, "asset_name_rejected")
@@ -66,7 +66,7 @@ func (p *Public) serveAsset(w http.ResponseWriter, r *http.Request, st *site.Sit
 	}
 	ct := resp.Header.Get("Content-Type")
 	if reason := checkAsset(asset, ct, resp, maxKB); reason != "" {
-		p.Log.WarnContext(r.Context(), "asset rifiutato", slog.Group("detail",
+		p.Log.WarnContext(r.Context(), "asset rejected", slog.Group("detail",
 			slog.String("prefix", asset.Prefix), slog.String("reason", reason), slog.String("content_type", ct)))
 		p.block(w, r, st, http.StatusNotFound, reason)
 		return
@@ -83,7 +83,7 @@ func (p *Public) serveAsset(w http.ResponseWriter, r *http.Request, st *site.Sit
 	}
 	securityHeaders(h)
 	if strings.HasPrefix(ct, "image/svg") {
-		// Un SVG aperto direttamente non deve poter eseguire script.
+		// An SVG opened directly must not be able to run scripts.
 		h.Set("Content-Security-Policy", "sandbox; default-src 'none'; style-src 'unsafe-inline'; img-src data:")
 	}
 	w.WriteHeader(http.StatusOK)
@@ -105,7 +105,7 @@ func validAssetFile(file string) bool {
 	return true
 }
 
-// checkAsset restituisce il motivo del rifiuto, o "" se l'asset va bene.
+// checkAsset returns the rejection reason, or "" if the asset is fine.
 func checkAsset(asset *mapmodel.Asset, contentType string, resp *legacyclient.Response, maxKB int) string {
 	if len(resp.Body) > maxKB<<10 {
 		return "asset_too_large"

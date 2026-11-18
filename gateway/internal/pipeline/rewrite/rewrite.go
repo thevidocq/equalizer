@@ -1,5 +1,5 @@
-// Package rewrite riscrive gli URL della pagina verso il gateway: link,
-// risorse, form e srcset. L'host interno del legacy non compare mai.
+// Package rewrite rewrites the page's URLs towards the gateway: links,
+// resources, forms and srcset. The legacy's internal host never appears.
 package rewrite
 
 import (
@@ -11,26 +11,26 @@ import (
 	"github.com/thevidocq/equalizer/gateway/internal/thirdparty/xhtml/atom"
 )
 
-// Step è il passo di riscrittura degli URL.
+// Step is the URL rewriting step.
 type Step struct{}
 
-// Name restituisce il nome del passo.
+// Name returns the step name.
 func (Step) Name() string { return "rewrite" }
 
-// Attributi che contengono un URL (object usa "data", gestito a parte).
+// Attributes that hold a URL (object uses "data", handled separately).
 var urlAttrs = map[string]bool{
 	"href": true, "src": true, "action": true, "formaction": true,
 	"poster": true, "background": true, "cite": true, "longdesc": true,
 }
 
-// Schemi che non puntano al legacy e restano invariati.
+// Schemes that do not point to the legacy application and stay unchanged.
 var keepSchemes = []string{"javascript:", "mailto:", "tel:", "data:", "about:", "blob:", "sms:"}
 
-// Apply riscrive tutti gli URL interni.
+// Apply rewrites every internal URL.
 func (Step) Apply(doc *html.Node, ctx *pipeline.Context) error {
 	base := ctx.PageURL
-	// <base href> cambia la risoluzione: lo si applica e poi lo si toglie,
-	// perché dopo la riscrittura tutti gli URL sono percorsi assoluti.
+	// <base href> changes resolution: apply it, then remove it, because
+	// after rewriting every URL is an absolute path.
 	var bases []*html.Node
 	pipeline.Walk(doc, func(n *html.Node) bool {
 		if n.Type == html.ElementNode && n.DataAtom == atom.Base {
@@ -83,7 +83,7 @@ func rewriteOne(raw string, base *url.URL, ctx *pipeline.Context) string {
 	}
 	abs := base.ResolveReference(u)
 	if !ctx.URLs.Internal(abs) {
-		return raw // esterno: resta com'è
+		return raw // external: left as is
 	}
 	if public, ok := ctx.URLs.Public(abs); ok {
 		ctx.Stats.Rewritten++
@@ -93,7 +93,7 @@ func rewriteOne(raw string, base *url.URL, ctx *pipeline.Context) string {
 	return ctx.URLs.Fallback(abs)
 }
 
-// rewriteSrcset riscrive "url descrittore, url descrittore".
+// rewriteSrcset rewrites "url descriptor, url descriptor".
 func rewriteSrcset(raw string, base *url.URL, ctx *pipeline.Context) string {
 	parts := strings.Split(raw, ",")
 	for i, p := range parts {

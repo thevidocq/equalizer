@@ -1,4 +1,4 @@
-// Package telemetry produce log ed eventi JSON conformi a schema/events/.
+// Package telemetry produces JSON logs and events that conform to schema/events/.
 package telemetry
 
 import (
@@ -8,11 +8,11 @@ import (
 	"strings"
 )
 
-// ServiceName è il valore del campo "service" nei log del gateway.
+// ServiceName is the value of the "service" field in gateway logs.
 const ServiceName = "gateway"
 
-// Logger restituisce un logger JSON conforme a schema/events/log.schema.json.
-// Il livello è modificabile a caldo tramite level.
+// Logger returns a JSON logger that conforms to schema/events/log.schema.json.
+// The level can be changed at runtime through level.
 func Logger(w io.Writer, instance string, level *slog.LevelVar) *slog.Logger {
 	h := slog.NewJSONHandler(w, &slog.HandlerOptions{
 		Level:       level,
@@ -24,7 +24,7 @@ func Logger(w io.Writer, instance string, level *slog.LevelVar) *slog.Logger {
 	)
 }
 
-// ParseLevel converte il livello testuale dello schema nel livello slog.
+// ParseLevel converts the schema's textual level into an slog level.
 func ParseLevel(s string) slog.Level {
 	switch strings.ToLower(s) {
 	case "debug":
@@ -38,7 +38,7 @@ func ParseLevel(s string) slog.Level {
 	}
 }
 
-// replaceAttr rinomina i campi standard di slog nei nomi dello schema.
+// replaceAttr renames slog's standard fields to the schema's names.
 func replaceAttr(groups []string, a slog.Attr) slog.Attr {
 	if len(groups) > 0 {
 		return a
@@ -68,7 +68,7 @@ func levelName(l slog.Level) string {
 	}
 }
 
-// contextHandler aggiunge request_id e trace_id presenti nel context.
+// contextHandler adds the request_id found in the context.
 type contextHandler struct {
 	slog.Handler
 }

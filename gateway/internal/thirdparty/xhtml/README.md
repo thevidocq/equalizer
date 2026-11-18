@@ -1,9 +1,9 @@
 # xhtml
 
-Copia del parser HTML5 `golang.org/x/net/html` (con `atom`), versione
-**v0.40.0**, licenza BSD (vedi `LICENSE`). Esclusi test, dati di test e il
-generatore di `atom`; l'unica modifica è il percorso di import di `atom`.
+Copy of the `golang.org/x/net/html` HTML5 parser (with `atom`), version
+**v0.40.0**, BSD licence (see `LICENSE`). Tests, test data and the `atom`
+generator are excluded; the only change is the `atom` import path.
 
-È inclusa nel repository perché gli ambienti di sviluppo usati non sempre
-raggiungono il proxy dei moduli Go. Per aggiornarla: copiare i file dalla
-nuova versione, ripetere la modifica dell'import, eseguire i test del gateway.
+It is kept in the repository because the development environments in use
+cannot always reach the Go module proxy. To update it: copy the files from
+the new version, repeat the import change, run the gateway tests.

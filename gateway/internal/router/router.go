@@ -1,5 +1,5 @@
-// Package router trova la voce della mappa corrispondente a una richiesta.
-// Deny by default: ciò che non corrisponde a una voce non esiste.
+// Package router finds the map entry matching a request.
+// Deny by default: anything that matches no entry does not exist.
 package router
 
 import (
@@ -10,7 +10,7 @@ import (
 	"strings"
 )
 
-// Kind distingue rotte di lettura, form e API.
+// Kind distinguishes read routes, forms, APIs and asset prefixes.
 type Kind string
 
 const (
@@ -20,21 +20,21 @@ const (
 	KindAsset Kind = "asset"
 )
 
-// Entry è una voce della mappa da instradare.
+// Entry is a map entry to route.
 type Entry struct {
 	ID      string
 	Kind    Kind
 	Method  string
-	Pattern string // es. /pratiche/{id}; per KindAsset un prefisso, es. /css/
+	Pattern string // e.g. /permits/{id}; for KindAsset a prefix, e.g. /css/
 }
 
-// Match è il risultato di un instradamento riuscito.
+// Match is the result of a successful routing.
 type Match struct {
 	Entry  Entry
-	Params map[string]string // valori grezzi: la validazione dei tipi è a valle
+	Params map[string]string // raw values: type validation happens downstream
 }
 
-// Errori di instradamento; il chiamante li traduce in 404 e 405.
+// Routing errors; the caller turns them into 404 and 405.
 var (
 	ErrNotMapped        = errors.New("route_not_mapped")
 	ErrMethodNotAllowed = errors.New("method_not_allowed")
@@ -48,34 +48,34 @@ type compiled struct {
 
 type segment struct {
 	literal string
-	param   string // non vuoto se il segmento è {param}
+	param   string // set when the segment is {param}
 }
 
-// Router contiene le voci compilate. È immutabile dopo New.
+// Router holds the compiled entries. It is immutable after New.
 type Router struct {
 	entries []compiled
-	assets  []Entry // prefissi, dal più lungo al più corto
+	assets  []Entry // prefixes, longest first
 }
 
-// New compila le voci. Rifiuta pattern malformati o duplicati.
+// New compiles the entries. It rejects malformed or duplicate patterns.
 func New(entries []Entry) (*Router, error) {
 	r := &Router{}
 	seen := map[string]string{}
 	for _, e := range entries {
 		if e.Kind == KindAsset {
 			if !strings.HasPrefix(e.Pattern, "/") || !strings.HasSuffix(e.Pattern, "/") || strings.Contains(e.Pattern, "..") {
-				return nil, fmt.Errorf("prefisso asset non valido %q", e.Pattern)
+				return nil, fmt.Errorf("invalid asset prefix %q", e.Pattern)
 			}
 			r.assets = append(r.assets, e)
 			continue
 		}
 		segs, params, err := compile(e.Pattern)
 		if err != nil {
-			return nil, fmt.Errorf("voce %q: %w", e.ID, err)
+			return nil, fmt.Errorf("entry %q: %w", e.ID, err)
 		}
 		key := e.Method + " " + shape(segs)
 		if other, dup := seen[key]; dup {
-			return nil, fmt.Errorf("voci %q e %q in conflitto su %s %s", other, e.ID, e.Method, e.Pattern)
+			return nil, fmt.Errorf("entries %q and %q conflict on %s %s", other, e.ID, e.Method, e.Pattern)
 		}
 		seen[key] = e.ID
 		r.entries = append(r.entries, compiled{entry: e, segments: segs, params: params})
@@ -84,8 +84,8 @@ func New(entries []Entry) (*Router, error) {
 	return r, nil
 }
 
-// Match trova la voce più specifica (meno parametri) per metodo e percorso.
-// HEAD usa le voci GET.
+// Match finds the most specific entry (fewest parameters) for method and
+// path. HEAD uses GET entries. Asset prefixes are tried after routes.
 func (r *Router) Match(method, path string) (Match, error) {
 	if method == http.MethodHead {
 		method = http.MethodGet
@@ -152,7 +152,7 @@ func (c *compiled) match(parts []string) (map[string]string, bool) {
 
 func compile(pattern string) ([]segment, int, error) {
 	if !strings.HasPrefix(pattern, "/") {
-		return nil, 0, errors.New("il percorso deve iniziare con /")
+		return nil, 0, errors.New("path must start with /")
 	}
 	var segs []segment
 	params := 0
@@ -160,14 +160,14 @@ func compile(pattern string) ([]segment, int, error) {
 		if strings.HasPrefix(p, "{") && strings.HasSuffix(p, "}") {
 			name := p[1 : len(p)-1]
 			if name == "" {
-				return nil, 0, errors.New("parametro senza nome")
+				return nil, 0, errors.New("unnamed parameter")
 			}
 			segs = append(segs, segment{param: name})
 			params++
 			continue
 		}
 		if strings.ContainsAny(p, "{}") {
-			return nil, 0, fmt.Errorf("segmento non valido %q", p)
+			return nil, 0, fmt.Errorf("invalid segment %q", p)
 		}
 		segs = append(segs, segment{literal: p})
 	}
@@ -187,7 +187,7 @@ func shape(segs []segment) string {
 	return b.String()
 }
 
-// split divide il percorso in segmenti; "/" diventa zero segmenti.
+// split splits the path into segments; "/" yields zero segments.
 func split(path string) []string {
 	path = strings.Trim(path, "/")
 	if path == "" {

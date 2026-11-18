@@ -3,9 +3,9 @@ info:
   title: Equalizer panel-api
   version: 0.1.0
   description: |
-    API del control plane. Usata da panel-ui (persone, OIDC + MFA) e dai
-    servizi interni (token di servizio). Prima versione: i corpi sono
-    volutamente sintetici e verranno dettagliati servizio per servizio.
+    Control-plane API. Used by panel-ui (people, OIDC + MFA) and by
+    internal services (service tokens). First version: bodies are
+    deliberately brief and will be detailed service by service.
 servers:
   - url: /v1
 security:
@@ -27,19 +27,19 @@ paths:
   /apps/{app}/maps/published:
     get:
       tags: [maps]
-      summary: Mappa pubblicata e sua firma (usata dal gateway)
+      summary: Published map and its signature (used by the gateway)
       security: [{ serviceToken: [] }]
       parameters: [{ $ref: "#/components/parameters/app" }]
       responses:
         "200":
-          description: Mappa firmata
+          description: Signed map
           content:
             application/json:
               schema: { $ref: "#/components/schemas/SignedMap" }
   /apps/{app}/maps/{version}:
     get:
       tags: [maps]
-      summary: Legge una versione della mappa
+      summary: Read a map version
       parameters:
         - { $ref: "#/components/parameters/app" }
         - { name: version, in: path, required: true, schema: { type: integer } }
@@ -48,23 +48,23 @@ paths:
   /apps/{app}/maps/{version}/publish:
     post:
       tags: [maps]
-      summary: Pubblica e firma una versione approvata
+      summary: Publish and sign an approved version
       parameters:
         - { $ref: "#/components/parameters/app" }
         - { name: version, in: path, required: true, schema: { type: integer } }
       responses:
         "200": { $ref: "#/components/responses/Object" }
-        "409": { description: Versione non approvata o contenente modifiche non approvate }
+        "409": { description: Version not approved or containing unapproved changes }
   /apps/{app}/proposals:
     get:
       tags: [proposals]
-      summary: Coda delle proposte
+      summary: Proposal queue
       parameters: [{ $ref: "#/components/parameters/app" }]
       responses:
         "200": { $ref: "#/components/responses/List" }
     post:
       tags: [proposals]
-      summary: Nuova proposta di modifica (agent o import)
+      summary: New change proposal (agent or import)
       security: [{ serviceToken: [] }, { oidc: [] }]
       parameters: [{ $ref: "#/components/parameters/app" }]
       requestBody:
@@ -77,47 +77,47 @@ paths:
   /proposals/{id}/approve:
     post:
       tags: [proposals]
-      summary: Approva una proposta (mai dall'autore)
+      summary: Approve a proposal (never by its author)
       parameters: [{ $ref: "#/components/parameters/id" }]
       responses:
         "200": { $ref: "#/components/responses/Object" }
-        "403": { description: L'autore non può approvare la propria proposta }
+        "403": { description: The author cannot approve their own proposal }
   /proposals/{id}/reject:
     post:
       tags: [proposals]
-      summary: Rifiuta una proposta
+      summary: Reject a proposal
       parameters: [{ $ref: "#/components/parameters/id" }]
       responses:
         "200": { $ref: "#/components/responses/Object" }
   /apps/{app}/crawls:
     post:
       tags: [crawls]
-      summary: Avvia un crawl
+      summary: Start a crawl
       parameters: [{ $ref: "#/components/parameters/app" }]
       responses:
         "202": { $ref: "#/components/responses/Object" }
   /crawls/next:
     get:
       tags: [crawls]
-      summary: L'agent prende il prossimo lavoro in coda
+      summary: The agent takes the next queued job
       security: [{ serviceToken: [] }]
       responses:
         "200": { $ref: "#/components/responses/Object" }
-        "204": { description: Nessun lavoro in coda }
+        "204": { description: No job queued }
   /tenants/{tenant}/llm:
     get:
       tags: [llm]
-      summary: Configurazione del provider LLM del tenant (chiavi mai restituite)
+      summary: Tenant LLM provider configuration (keys never returned)
       parameters: [{ $ref: "#/components/parameters/tenant" }]
       responses:
         "200":
-          description: Configurazione
+          description: Configuration
           content:
             application/json:
               schema: { $ref: "#/components/schemas/LLMConfig" }
     put:
       tags: [llm]
-      summary: Aggiorna la configurazione LLM
+      summary: Update the LLM configuration
       parameters: [{ $ref: "#/components/parameters/tenant" }]
       requestBody:
         required: true
@@ -129,45 +129,45 @@ paths:
   /tenants/{tenant}/llm/test:
     post:
       tags: [llm]
-      summary: Prova la connessione al provider
+      summary: Test the connection to the provider
       parameters: [{ $ref: "#/components/parameters/tenant" }]
       responses:
         "200": { $ref: "#/components/responses/Object" }
   /agent/llm-config:
     get:
       tags: [llm]
-      summary: Configurazione LLM effettiva per l'agent
+      summary: Effective LLM configuration for the agent
       security: [{ serviceToken: [] }]
       responses:
         "200": { $ref: "#/components/responses/Object" }
   /apps/{app}/connectors/enroll-token:
     post:
       tags: [connectors]
-      summary: Genera un token di registrazione monouso (scade dopo l'uso o in 24 ore)
+      summary: Generate a one-time enrolment token (expires after use or within 24 hours)
       parameters: [{ $ref: "#/components/parameters/app" }]
       responses:
         "201": { $ref: "#/components/responses/Object" }
   /apps/{app}/connectors:
     get:
       tags: [connectors]
-      summary: Connettori dell'app con stato, versione, latenza
+      summary: App connectors with status, version, latency
       parameters: [{ $ref: "#/components/parameters/app" }]
       responses:
         "200": { $ref: "#/components/responses/List" }
   /apps/{app}/capacity:
     get:
       tags: [capacity]
-      summary: Capacità desiderata del sito
+      summary: Desired capacity of the site
       parameters: [{ $ref: "#/components/parameters/app" }]
       responses:
         "200":
-          description: Capacità
+          description: Capacity
           content:
             application/json:
               schema: { $ref: "#/components/schemas/Capacity" }
     put:
       tags: [capacity]
-      summary: Aggiorna la capacità (entro i limiti del piano)
+      summary: Update capacity (within plan limits)
       parameters: [{ $ref: "#/components/parameters/app" }]
       requestBody:
         required: true
@@ -176,18 +176,18 @@ paths:
             schema: { $ref: "#/components/schemas/Capacity" }
       responses:
         "200": { $ref: "#/components/responses/Object" }
-        "422": { description: Fuori dai limiti del piano }
+        "422": { description: Outside plan limits }
   /capacity/desired:
     get:
       tags: [capacity]
-      summary: Stato desiderato di tutti i siti (orchestrator)
+      summary: Desired state of all sites (orchestrator)
       security: [{ serviceToken: [] }]
       responses:
         "200": { $ref: "#/components/responses/List" }
   /capacity/status:
     post:
       tags: [capacity]
-      summary: Stato reale riportato dall'orchestrator
+      summary: Actual state reported by the orchestrator
       security: [{ serviceToken: [] }]
       requestBody:
         required: true
@@ -195,16 +195,16 @@ paths:
           application/json:
             schema: { type: object }
       responses:
-        "204": { description: Ricevuto }
+        "204": { description: Received }
   /plans:
     get:
       tags: [capacity]
-      summary: Piani e limiti (amministratori piattaforma)
+      summary: Plans and limits (platform administrators)
       responses:
         "200": { $ref: "#/components/responses/List" }
     put:
       tags: [capacity]
-      summary: Aggiorna piani e limiti
+      summary: Update plans and limits
       requestBody:
         required: true
         content:
@@ -215,7 +215,7 @@ paths:
   /apps/{app}/metrics:
     get:
       tags: [metrics]
-      summary: Metriche aggregate per la scheda del sito protetto
+      summary: Aggregated metrics for the protected site page
       parameters:
         - { $ref: "#/components/parameters/app" }
         - { name: range, in: query, schema: { enum: [1h, 24h, 7d, 30d], default: 24h } }
@@ -224,7 +224,7 @@ paths:
   /apps/{app}/metrics/top:
     get:
       tags: [metrics]
-      summary: Classifiche dall'archivio eventi
+      summary: Rankings from the event store
       parameters:
         - { $ref: "#/components/parameters/app" }
         - { name: kind, in: query, required: true, schema: { enum: [blocked_paths, blocked_ips, reasons, pages] } }
@@ -234,7 +234,7 @@ paths:
   /heartbeat:
     post:
       tags: [status]
-      summary: Battito dei servizi e dei connettori
+      summary: Service and connector heartbeat
       security: [{ serviceToken: [] }]
       requestBody:
         required: true
@@ -242,24 +242,24 @@ paths:
           application/json:
             schema: { $ref: "#/components/schemas/Heartbeat" }
       responses:
-        "204": { description: Ricevuto }
+        "204": { description: Received }
   /status/platform:
     get:
       tags: [status]
-      summary: Salute globale (amministratori piattaforma)
+      summary: Global health (platform administrators)
       responses:
         "200": { $ref: "#/components/responses/Object" }
   /tenants/{tenant}/status:
     get:
       tags: [status]
-      summary: Salute dei siti e dei servizi condivisi del tenant
+      summary: Health of the tenant's sites and shared services
       parameters: [{ $ref: "#/components/parameters/tenant" }]
       responses:
         "200": { $ref: "#/components/responses/Object" }
   /logs:
     get:
       tags: [logs]
-      summary: Ricerca nei log (filtrata per tenant)
+      summary: Log search (filtered by tenant)
       parameters:
         - { name: from, in: query, schema: { type: string, format: date-time } }
         - { name: to, in: query, schema: { type: string, format: date-time } }
@@ -274,17 +274,17 @@ paths:
   /logs/tail:
     get:
       tags: [logs]
-      summary: Live tail (Server-Sent Events) con gli stessi filtri
+      summary: Live tail (Server-Sent Events) with the same filters
       responses:
         "200":
-          description: Stream di righe di log
+          description: Stream of log lines
           content:
             text/event-stream:
               schema: { type: string }
   /logs/exports:
     post:
       tags: [logs]
-      summary: Export dei risultati di una ricerca
+      summary: Export of search results
       requestBody:
         required: true
         content:
@@ -299,12 +299,12 @@ paths:
   /log-levels:
     get:
       tags: [logs]
-      summary: Livelli di log attivi
+      summary: Active log levels
       responses:
         "200": { $ref: "#/components/responses/List" }
     put:
       tags: [logs]
-      summary: Cambia livello per servizio, modulo e sito, con scadenza
+      summary: Change level per service, module and site, with expiry
       requestBody:
         required: true
         content:
@@ -315,7 +315,7 @@ paths:
   /apps/{app}/request-trace:
     post:
       tags: [logs]
-      summary: Attiva la traccia richiesta per un tempo limitato
+      summary: Enable request tracing for a limited time
       parameters: [{ $ref: "#/components/parameters/app" }]
       requestBody:
         required: true
@@ -331,7 +331,7 @@ paths:
   /requests/{request_id}:
     get:
       tags: [logs]
-      summary: Percorso completo di una richiesta, passo per passo
+      summary: Full path of a request, step by step
       parameters:
         - { name: request_id, in: path, required: true, schema: { type: string } }
       responses:
@@ -339,12 +339,12 @@ paths:
   /siem-destinations:
     get:
       tags: [siem]
-      summary: Destinazioni di inoltro (piattaforma o tenant)
+      summary: Forwarding destinations (platform or tenant)
       responses:
         "200": { $ref: "#/components/responses/List" }
     put:
       tags: [siem]
-      summary: Crea o aggiorna una destinazione
+      summary: Create or update a destination
       requestBody:
         required: true
         content:
@@ -355,14 +355,14 @@ paths:
   /siem-destinations/{id}/test:
     post:
       tags: [siem]
-      summary: Invia un messaggio di prova
+      summary: Send a test message
       parameters: [{ $ref: "#/components/parameters/id" }]
       responses:
         "200": { $ref: "#/components/responses/Object" }
   /exports:
     post:
       tags: [import-export]
-      summary: Avvia un export di configurazione
+      summary: Start a configuration export
       requestBody:
         required: true
         content:
@@ -380,7 +380,7 @@ paths:
   /imports:
     post:
       tags: [import-export]
-      summary: Carica un archivio e restituisce anteprima, diff e conflitti
+      summary: Upload an archive and return preview, diff and conflicts
       requestBody:
         required: true
         content:
@@ -394,7 +394,7 @@ paths:
   /imports/{id}/apply:
     post:
       tags: [import-export]
-      summary: Applica l'import (le mappe entrano come proposte)
+      summary: Apply the import (maps arrive as proposals)
       parameters: [{ $ref: "#/components/parameters/id" }]
       requestBody:
         content:
@@ -408,7 +408,7 @@ paths:
   /audit:
     get:
       tags: [audit]
-      summary: Registro delle azioni
+      summary: Action log
       responses:
         "200": { $ref: "#/components/responses/List" }
 components:
@@ -437,12 +437,12 @@ components:
       schema: { type: string }
   responses:
     Object:
-      description: Oggetto
+      description: Object
       content:
         application/json:
           schema: { type: object }
     List:
-      description: Elenco
+      description: List
       content:
         application/json:
           schema:
@@ -454,17 +454,17 @@ components:
     SignedMap:
       type: object
       description: |
-        Documento firmato letto dal gateway. La firma copre i byte esatti del
-        payload, così nessun passaggio intermedio può alterarla riformattando
-        il JSON.
+        Signed document read by the gateway. The signature covers the exact
+        payload bytes, so no intermediate step can break it by reformatting
+        the JSON.
       required: [version, payload, signature, key_id]
       properties:
-        version: { type: integer, description: "Uguale a meta.version della mappa" }
+        version: { type: integer, description: "Equal to the map's meta.version" }
         payload:
           type: string
           contentEncoding: base64
-          description: "Base64 del JSON compatto della mappa (schema/map/gateway-map.schema.json)"
-        signature: { type: string, contentEncoding: base64, description: "Firma Ed25519 dei byte di payload" }
+          description: "Base64 of the compact map JSON (schema/map/gateway-map.schema.json)"
+        signature: { type: string, contentEncoding: base64, description: "Ed25519 signature of the payload bytes" }
         key_id: { type: string }
     Proposal:
       type: object
@@ -472,14 +472,14 @@ components:
       properties:
         base_version: { type: integer }
         changes: { type: array, items: { type: object } }
-        author: { type: string, description: "agent:<run> o user:<id>" }
+        author: { type: string, description: "agent:<run> or user:<id>" }
         rationale: { type: string }
     LLMConfig:
       type: object
       properties:
         provider: { enum: [anthropic, openai, local] }
         model: { type: string, examples: [claude-haiku-5-5] }
-        endpoint: { type: [string, "null"], description: Solo per provider locale }
+        endpoint: { type: [string, "null"], description: Local provider only }
         has_api_key: { type: boolean }
         timeout_s: { type: integer }
         max_tokens: { type: integer }

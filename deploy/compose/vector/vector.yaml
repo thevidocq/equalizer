@@ -1,6 +1,7 @@
-# Vector raccoglie i log JSON dei container con etichetta eq.collect=true,
-# li divide nei flussi "security" (eventi, campo schema) e "application"
-# (log) e li invia a Loki. L'inoltro verso SIEM arriverà dal pannello.
+# Vector collects JSON logs from containers labelled eq.collect=true,
+# splits them into the "security" stream (events, with a schema field) and the
+# "application" stream (logs) and sends them to Loki. SIEM forwarding will be
+# configured from the panel.
 
 data_dir: /var/lib/vector
 
@@ -43,7 +44,7 @@ sinks:
     endpoint: http://loki:3100
     encoding:
       codec: json
-    # etichette a bassa cardinalità: il resto si cerca nel contenuto
+    # low-cardinality labels: everything else is searched in the content
     labels:
       service: "{{ service }}"
       stream: "{{ stream }}"

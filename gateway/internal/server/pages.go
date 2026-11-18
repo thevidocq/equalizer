@@ -4,15 +4,15 @@ import (
 	"net/http"
 )
 
-// Pagine generiche: non rivelano nulla del legacy né del gateway.
+// Generic pages: they reveal nothing about the legacy application or the gateway.
 const (
-	pageNotFound    = "Pagina non trovata"
-	pageNotAllowed  = "Operazione non consentita"
-	pageForbidden   = "Accesso riservato"
-	pageBadRequest  = "Richiesta non valida"
-	pageBadGateway  = "Il servizio non risponde. Riprova tra poco."
-	pageUnavailable = "Servizio temporaneamente non disponibile. Riprova tra poco."
-	pageError       = "Si è verificato un errore. Riprova tra poco."
+	pageNotFound    = "Page not found"
+	pageNotAllowed  = "Operation not allowed"
+	pageForbidden   = "Restricted access"
+	pageBadRequest  = "Invalid request"
+	pageBadGateway  = "The service is not responding. Please try again shortly."
+	pageUnavailable = "Service temporarily unavailable. Please try again shortly."
+	pageError       = "An error occurred. Please try again shortly."
 )
 
 func writePage(w http.ResponseWriter, status int, message string) {
@@ -22,7 +22,7 @@ func writePage(w http.ResponseWriter, status int, message string) {
 	h.Set("X-Content-Type-Options", "nosniff")
 	h.Set("Content-Security-Policy", "default-src 'none'; style-src 'unsafe-inline'")
 	w.WriteHeader(status)
-	_, _ = w.Write([]byte(`<!doctype html><html lang="it"><head><meta charset="utf-8">` +
+	_, _ = w.Write([]byte(`<!doctype html><html lang="en"><head><meta charset="utf-8">` +
 		`<meta name="viewport" content="width=device-width,initial-scale=1"><title>` + message + `</title>` +
 		`<style>body{font-family:system-ui,sans-serif;margin:15vh auto;max-width:32rem;padding:0 1rem;color:#333}</style>` +
 		`</head><body><p>` + message + `</p></body></html>`))

@@ -1,5 +1,5 @@
 # orchestrator
 
-Servizio Go che legge da panel-api la capacità desiderata di ogni sito e la applica: driver `compose` (prototipo) e `kubernetes` (cloud) con la stessa interfaccia `Driver`.
+Go service that reads the desired capacity of each site from panel-api and applies it: a `compose` driver (prototype) and a `kubernetes` driver (cloud), both behind the same `Driver` interface.
 
-Struttura prevista: `cmd/orchestrator/`, `internal/{desired,reconcile,drivers/compose,drivers/kubernetes}/`. Stato: da implementare.
+Planned layout: `cmd/orchestrator/`, `internal/{desired,reconcile,drivers/compose,drivers/kubernetes}/`. Status: not implemented yet.

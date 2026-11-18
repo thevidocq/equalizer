@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://equalizer.ai/schema/events/log-1.0.json",
   "title": "Equalizer application log line",
-  "description": "Riga di log applicativo (JSON su una riga su stdout). Comune a tutti i servizi.",
+  "description": "Application log line (single-line JSON on stdout). Shared by all services.",
   "type": "object",
   "additionalProperties": false,
   "required": ["ts", "level", "service", "msg"],
@@ -13,7 +13,7 @@
       "enum": ["gateway", "tunnel-relay", "connector", "orchestrator", "panel-api", "panel-ui", "agent"]
     },
     "instance": { "type": "string" },
-    "module": { "type": "string", "description": "Modulo interno, es. pipeline.rewrite" },
+    "module": { "type": "string", "description": "Internal module, e.g. pipeline.rewrite" },
     "tenant": { "type": ["string", "null"] },
     "app": { "type": ["string", "null"] },
     "request_id": { "type": ["string", "null"] },
@@ -24,7 +24,7 @@
     "error": { "type": ["string", "null"] },
     "detail": {
       "type": "object",
-      "description": "Dati aggiuntivi già mascherati: mai cookie, Authorization, password, token o campi personali in chiaro."
+      "description": "Extra data, already masked: never cookies, Authorization, passwords, tokens or personal fields in clear."
     }
   }
 }

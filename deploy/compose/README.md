@@ -1,16 +1,16 @@
 # deploy/compose
 
-Docker Compose del prototipo su una VPS. Guida completa in [`INSTALL.md`](../../INSTALL.md).
+Docker Compose for the prototype on a VPS. Full guide in [`INSTALL.md`](../../INSTALL.md).
 
-| Servizio | Rete | Esposto | Note |
+| Service | Network | Exposed | Notes |
 | --- | --- | --- | --- |
-| `caddy` | edge | 80, 443 | TLS automatico, bilancia le repliche del gateway |
-| `gateway` | edge, control | no | 2 repliche predefinite |
-| `loki` | control | no | archivio dei log, 30 giorni |
-| `vector` | control | no | raccoglie i log dei container con etichetta `eq.collect=true` |
-| `grafana` | control | solo `127.0.0.1:3000` | analisi dei log, via tunnel SSH |
-| `eqtool` | nessuna | no | profilo `tools`: chiavi e firma delle mappe |
+| `caddy` | edge | 80, 443 | Automatic TLS, balances the gateway replicas |
+| `gateway` | edge, control | no | 2 replicas by default |
+| `loki` | control | no | Log store, 30 days |
+| `vector` | control | no | Collects logs from containers labelled `eq.collect=true` |
+| `grafana` | control | `127.0.0.1:3000` only | Log analysis, over an SSH tunnel |
+| `eqtool` | none | no | `tools` profile: keys and map signing |
 
-La rete `lab` è `internal`: le app di test non hanno uscita verso Internet.
-Cartelle locali: `maps/` (mappe firmate, non nel repository) e `secrets/`
-(chiavi, non nel repository).
+The `lab` network is `internal`: test apps have no way out to the Internet.
+Local folders: `maps/` (signed maps, not in the repository) and `secrets/`
+(keys, not in the repository).

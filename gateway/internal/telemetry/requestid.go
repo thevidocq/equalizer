@@ -9,30 +9,30 @@ import (
 
 type ctxKey struct{}
 
-// HeaderRequestID è l'header con cui il request_id viaggia verso relay e
-// connettore e torna al client. Non viene mai accettato dal client.
+// HeaderRequestID carries the request_id to the relay and the connector and
+// back to the client. It is never accepted from the client.
 const HeaderRequestID = "X-Eq-Request-Id"
 
-// NewRequestID genera un identificativo casuale "r-" + 16 cifre esadecimali.
+// NewRequestID generates a random identifier: "r-" + 16 hex digits.
 func NewRequestID() string {
 	var b [8]byte
 	_, _ = rand.Read(b[:])
 	return "r-" + hex.EncodeToString(b[:])
 }
 
-// WithRequestID restituisce un context con il request_id.
+// WithRequestID returns a context carrying the request_id.
 func WithRequestID(ctx context.Context, id string) context.Context {
 	return context.WithValue(ctx, ctxKey{}, id)
 }
 
-// RequestID legge il request_id dal context, o "" se assente.
+// RequestID reads the request_id from the context, or "" if absent.
 func RequestID(ctx context.Context) string {
 	id, _ := ctx.Value(ctxKey{}).(string)
 	return id
 }
 
-// RequestIDMiddleware assegna a ogni richiesta un nuovo request_id, ignorando
-// qualunque valore inviato dal client, e lo espone nella risposta.
+// RequestIDMiddleware assigns a new request_id to every request, ignoring any
+// value sent by the client, and exposes it in the response.
 func RequestIDMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		id := NewRequestID()

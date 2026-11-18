@@ -1,6 +1,6 @@
-// Package validate controlla i valori in ingresso dal client contro i tipi
-// dichiarati nella mappa. Un valore che non rispetta il tipo non arriva mai
-// al legacy.
+// Package validate checks client values against the types declared in the
+// map. A value that does not respect its type never reaches the legacy
+// application.
 package validate
 
 import (
@@ -16,7 +16,7 @@ import (
 	"github.com/thevidocq/equalizer/gateway/internal/mapmodel"
 )
 
-// Motivi di rifiuto, usati come "reason" negli eventi field.rejected.
+// Rejection reasons, used as "reason" in field.rejected events.
 const (
 	ReasonMissing     = "missing_required"
 	ReasonType        = "type_mismatch"
@@ -31,59 +31,59 @@ const (
 	ReasonUnsupported = "unsupported_type"
 )
 
-// fallbackMaxLength limita le stringhe quando la mappa non dice nulla.
+// fallbackMaxLength limits strings when the map says nothing.
 const fallbackMaxLength = 1000
 
 var emailRe = regexp.MustCompile(`^[A-Za-z0-9._%+\-]+@[A-Za-z0-9.\-]+\.[A-Za-z]{2,}$`)
 
-// Error descrive un valore rifiutato. Non contiene mai il valore stesso.
+// Error describes a rejected value. It never contains the value itself.
 type Error struct {
 	Field  string
 	Reason string
 }
 
-func (e *Error) Error() string { return fmt.Sprintf("campo %q rifiutato: %s", e.Field, e.Reason) }
+func (e *Error) Error() string { return fmt.Sprintf("field %q rejected: %s", e.Field, e.Reason) }
 
-// Validator applica tipi e vincoli di una versione della mappa.
+// Validator applies the types and constraints of one map version.
 type Validator struct {
 	types    map[string]mapmodel.TypeDef
 	defaults mapmodel.StringDefaults
 	regexps  sync.Map // string → *regexp.Regexp
 }
 
-// New crea un validatore per i tipi e i valori predefiniti di una mappa.
+// New creates a validator for a map's types and default values.
 func New(types map[string]mapmodel.TypeDef, defaults mapmodel.StringDefaults) *Validator {
 	return &Validator{types: types, defaults: defaults}
 }
 
-// Check compila in anticipo pattern e charset di tutte le specifiche,
-// così una mappa con espressioni non valide viene rifiutata al caricamento.
+// Check compiles every pattern and charset up front, so a map with invalid
+// expressions is rejected at load time.
 func (v *Validator) Check(specs map[string]mapmodel.FieldSpec) error {
 	for name, s := range specs {
 		r, err := v.resolve(s)
 		if err != nil {
-			return fmt.Errorf("campo %q: %w", name, err)
+			return fmt.Errorf("field %q: %w", name, err)
 		}
 		for _, expr := range []string{r.pattern, charsetExpr(r.charset)} {
 			if expr == "" {
 				continue
 			}
 			if _, err := v.regexp(expr); err != nil {
-				return fmt.Errorf("campo %q: espressione non valida: %w", name, err)
+				return fmt.Errorf("field %q: invalid expression: %w", name, err)
 			}
 		}
 		for _, rule := range r.rules {
 			if _, ok := rules[rule]; !ok {
-				return fmt.Errorf("campo %q: regola sconosciuta %q", name, rule)
+				return fmt.Errorf("field %q: unknown rule %q", name, rule)
 			}
 		}
 	}
 	return nil
 }
 
-// Fields valida un insieme di valori (query o parametri di percorso).
-// I nomi non dichiarati vengono scartati; quelli ripetuti rifiutati.
-// Restituisce i valori canonici dei soli campi presenti o con default.
+// Fields validates a set of values (query or path parameters). Undeclared
+// names are dropped; repeated ones are rejected. It returns the canonical
+// values of the fields that are present or have a default.
 func (v *Validator) Fields(specs map[string]mapmodel.FieldSpec, values url.Values) (map[string]string, error) {
 	out := make(map[string]string, len(specs))
 	for name, spec := range specs {
@@ -106,8 +106,8 @@ func (v *Validator) Fields(specs map[string]mapmodel.FieldSpec, values url.Value
 	return out, nil
 }
 
-// Value valida un singolo valore. set è false se il campo è assente e
-// facoltativo senza default.
+// Value validates a single value. set is false when the field is absent,
+// optional and has no default.
 func (v *Validator) Value(name string, spec mapmodel.FieldSpec, raw string, present bool) (string, bool, error) {
 	r, err := v.resolve(spec)
 	if err != nil {
@@ -196,7 +196,7 @@ func (v *Validator) checkText(r resolved, raw string) (string, string) {
 	return raw, ""
 }
 
-// resolved è una specifica con il tipo nominale già espanso.
+// resolved is a specification with its named type already expanded.
 type resolved struct {
 	base      string
 	required  bool
@@ -214,12 +214,12 @@ func (v *Validator) resolve(s mapmodel.FieldSpec) (resolved, error) {
 	if !isBase(s.Type) {
 		t, ok := v.types[s.Type]
 		if !ok || !isBase(t.Base) {
-			return resolved{}, fmt.Errorf("tipo sconosciuto %q", s.Type)
+			return resolved{}, fmt.Errorf("unknown type %q", s.Type)
 		}
 		r = resolved{base: t.Base, min: t.Min, max: t.Max, values: t.Values,
 			pattern: t.Pattern, charset: t.Charset, maxLength: t.MaxLength}
 	}
-	// I vincoli del campo prevalgono su quelli del tipo.
+	// Field constraints override those of the type.
 	r.required = s.Required == nil || *s.Required
 	r.def = s.Default
 	if s.Min != nil {
@@ -266,8 +266,8 @@ func isBase(t string) bool {
 	return false
 }
 
-// charsetExpr trasforma una classe di caratteri ammessi in un'espressione
-// che accetta solo stringhe composte da quei caratteri.
+// charsetExpr turns a class of allowed characters into an expression that
+// accepts only strings made of those characters.
 func charsetExpr(charset string) string {
 	if charset == "" {
 		return ""
@@ -287,11 +287,11 @@ func (v *Validator) regexp(expr string) (*regexp.Regexp, error) {
 	return re, nil
 }
 
-// mustRegexp si usa solo dopo Check, che ha già compilato tutto.
+// mustRegexp is used only after Check, which has already compiled everything.
 func (v *Validator) mustRegexp(expr string) *regexp.Regexp {
 	re, err := v.regexp(expr)
 	if err != nil {
-		// Mai raggiunto dopo Check; se accade, il valore viene rifiutato.
+		// Never reached after Check; if it happens, the value is rejected.
 		return regexp.MustCompile(`\A\z.`)
 	}
 	return re

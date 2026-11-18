@@ -1,118 +1,118 @@
-# Architettura
+# Architecture
 
-Equalizer è un gateway che sostituisce sul web le applicazioni legacy non
-aggiornabili: le nasconde da Internet e ne serve una copia identica,
-ricostruita a ogni richiesta. Un crawler e un agent AI generano la mappa in
-allowlist, le persone la approvano da un pannello multitenant.
+Equalizer is a gateway that stands in for legacy applications that cannot be
+updated: it hides them from the Internet and serves an identical copy,
+rebuilt on every request. A crawler and an AI agent generate the allowlist
+map; people approve it from a multitenant panel.
 
-## Requisiti non negoziabili
+## Non-negotiable requirements
 
-1. **Interfaccia identica al 100%**: resa fedele predefinita, verificata con
-   confronto visivo automatico (Playwright, pixel per pixel).
-2. **Nessuna esposizione del legacy**: lo raggiunge solo il connettore, che
-   apre il tunnel in uscita, sia in cloud sia on-prem.
-3. **Ricostruzione, mai inoltro.**
-4. **Continuità**: gli URL storici continuano a funzionare (`compat`).
-5. **Due modalità**: cloud con DNS ripuntato e on-prem, stesso software.
-6. **LLM configurabile**: Claude, ChatGPT o modello locale, dal pannello.
-7. **Tutto configurabile dal pannello**, compresa la capacità (SaaS/PaaS).
-8. **Modularità**: servizi separati che parlano solo tramite contratti.
+1. **Interface 100% identical**: faithful rendering by default, verified with
+   automatic visual comparison (Playwright, pixel by pixel).
+2. **No exposure of the legacy application**: only the connector reaches it,
+   opening the tunnel outbound, both in cloud and on-prem.
+3. **Rebuild, never forward.**
+4. **Continuity**: historical URLs keep working (`compat`).
+5. **Two modes**: cloud with repointed DNS and on-prem, same software.
+6. **Configurable LLM**: Claude, ChatGPT or a local model, from the panel.
+7. **Everything configurable from the panel**, including capacity (SaaS/PaaS).
+8. **Modularity**: separate services that talk only through contracts.
 
-## Flusso
+## Flow
 
 ```text
-                 DATA PLANE                                   RETE DEL CLIENTE
-Internet ──► gateway ──► tunnel-relay ◄══ tunnel in uscita ══ connettore ──► app legacy
-               ▲  (unico esposto)  ▲
-               │ mappa firmata     │ crawl
-            panel-api ◄── proposte ── agent ──► provider LLM
+                 DATA PLANE                                   CUSTOMER NETWORK
+Internet ──► gateway ──► tunnel-relay ◄══ outbound tunnel ══ connector ──► legacy app
+               ▲  (only exposed)   ▲
+               │ signed map        │ crawl
+            panel-api ◄── proposals ── agent ──► LLM provider
                ▲    │                 CONTROL PLANE
           panel-ui  └──► PostgreSQL
                orchestrator ──► Docker / Kubernetes
 ```
 
-## Componenti
+## Components
 
-| Servizio | Linguaggio | Responsabilità | Contratto |
+| Service | Language | Responsibility | Contract |
 | --- | --- | --- | --- |
-| `gateway` | Go | Traffico pubblico, allowlist, ricostruzione, resa fedele | Mappa firmata, eventi, metriche |
-| `tunnel-relay` | Go | Termina i tunnel dei connettori, instrada le richieste | `schema/tunnel/tunnel.proto` |
-| `connector` | Go | Accanto al legacy; tunnel in uscita; solo destinazioni ammesse | `schema/tunnel/tunnel.proto` |
-| `orchestrator` | Go | Applica la capacità configurata (repliche, autoscaling, pool) | Stato desiderato da panel-api |
-| `panel-api` | Go | Tenant, mappe, proposte, approvazioni, LLM, connettori, capacità, metriche, stato, log, SIEM, import/export, audit, firma | `schema/api/panel-api.yaml` |
-| `panel-ui` | TypeScript, React | Pannello | Client generato da OpenAPI |
-| `agent` | Python | Crawl per ruolo, analisi, proposte di mappa | OpenAPI, interfaccia `LLMProvider` |
-| `postgres` | — | Dati del control plane | Migrazioni versionate |
-| `redis` | — | Sessioni, rate limit, cache, notifiche di nuova mappa | Chiavi documentate per modulo |
+| `gateway` | Go | Public traffic, allowlist, rebuilding, faithful rendering | Signed map, events, metrics |
+| `tunnel-relay` | Go | Terminates connector tunnels, routes requests | `schema/tunnel/tunnel.proto` |
+| `connector` | Go | Next to the legacy app; outbound tunnel; allowed destinations only | `schema/tunnel/tunnel.proto` |
+| `orchestrator` | Go | Applies the configured capacity (replicas, autoscaling, pools) | Desired state from panel-api |
+| `panel-api` | Go | Tenants, maps, proposals, approvals, LLM, connectors, capacity, metrics, status, logs, SIEM, import/export, audit, signing | `schema/api/panel-api.yaml` |
+| `panel-ui` | TypeScript, React | Panel | Client generated from OpenAPI |
+| `agent` | Python | Per-role crawling, analysis, map proposals | OpenAPI, `LLMProvider` interface |
+| `postgres` | — | Control-plane data | Versioned migrations |
+| `redis` | — | Sessions, rate limits, cache, new-map notifications | Keys documented per module |
 
-Osservabilità: Vector (raccolta log), Loki (log), Tempo (tracce),
-Prometheus + Alertmanager (metriche e allarmi), Grafana (analisi).
+Observability: Vector (log collection), Loki (logs), Tempo (traces),
+Prometheus + Alertmanager (metrics and alerts), Grafana (analysis).
 
-## Resa fedele (pipeline del gateway)
+## Faithful rendering (gateway pipeline)
 
-Per ogni pagina, passi indipendenti con la stessa interfaccia `Step`:
+For each page, independent steps implementing the same `Step` interface:
 
-1. **Parsing** HTML5 in DOM e riserializzazione.
-2. **Pulizia invisibile**: commenti, meta di versione, header che rivelano lo
-   stack, campi nascosti interni, debug.
-3. **Riscrittura URL** di link, `src`, `action`, URL nei CSS.
-4. **Form**: `action` verso il gateway, token CSRF, campi nascosti reinseriti
-   lato server.
-5. **Script** ammessi solo per hash (CSP).
-6. **Asset** serviti dopo verifica del tipo reale.
-7. **Header di sicurezza** (CSP, HSTS, ...).
+1. **Parsing** HTML5 into a DOM and serialising it again.
+2. **Invisible cleanup**: comments, version meta tags, headers revealing the
+   stack, internal hidden fields, debug output.
+3. **URL rewriting** of links, `src`, `action`, URLs inside CSS.
+4. **Forms**: `action` pointing to the gateway, CSRF token, hidden fields
+   re-inserted server-side.
+5. **Scripts** allowed only by hash (CSP).
+6. **Assets** served after checking their real type.
+7. **Security headers** (CSP, HSTS, ...).
 
-## Regole di modularità
+## Modularity rules
 
-- Backend: un pacchetto, una responsabilità; dipendenze verso interfacce;
-  tipi generati da `schema/`; configurazione da env; soglia 400 righe/file.
-- Frontend: `features/<nome>/{pages,components,hooks,index.ts}`; pagine che
-  compongono; dati solo da hook; `shared/ui` senza dipendenze dalle
-  funzionalità; confini verificati da lint; soglia 200 righe/file.
+- Backend: one package, one responsibility; depend on interfaces; types
+  generated from `schema/`; configuration from env; 400 lines/file threshold.
+- Frontend: `features/<name>/{pages,components,hooks,index.ts}`; pages
+  compose; data only from hooks; `shared/ui` has no dependency on features;
+  boundaries checked by lint; 200 lines/file threshold.
 
-## Provider LLM
+## LLM providers
 
-Interfaccia unica nell'agent (`agent/llm/`), un modulo per provider:
-`anthropic` (predefinito: Claude Haiku), `openai`, `local` (endpoint
-compatibile OpenAI, es. Ollama, vLLM). Configurazione per tenant dal pannello;
-chiavi nel vault, sola scrittura. Il contenuto delle pagine passa al modello
-come dati, l'output deve validare contro lo schema della mappa, il modello
-non ha strumenti che scrivono, ogni proposta che allarga la superficie
-richiede approvazione umana.
+A single interface in the agent (`agent/llm/`), one module per provider:
+`anthropic` (default: Claude Haiku), `openai`, `local` (OpenAI-compatible
+endpoint, e.g. Ollama, vLLM). Per-tenant configuration from the panel; keys
+in the vault, write-only. Page content is passed to the model as data, the
+output must validate against the map schema, the model has no tools that
+write, and every proposal that widens the surface needs human approval.
 
-## Connettore e tunnel
+## Connector and tunnel
 
-- Il connettore apre sempre la connessione verso il relay (TLS, porta 8443),
-  gRPC bidirezionale con mTLS.
-- Registrazione con token monouso del pannello → certificato client.
-- Allowlist delle destinazioni **firmata dal pannello**: un relay
-  compromesso non può allargarla.
-- Più connettori per app in attivo-attivo.
+- The connector always opens the connection to the relay (TLS, port 8443),
+  bidirectional gRPC with mTLS.
+- Enrolment with a one-time token from the panel → client certificate.
+- Destination allowlist **signed by the panel**: a compromised relay cannot
+  widen it.
+- Several connectors per app, active-active.
 
-## Scalabilità orizzontale
+## Horizontal scaling
 
-Servizi senza stato locale; stato condiviso in Redis e PostgreSQL; nessuna
-sessione sticky. Alla pubblicazione di una mappa le repliche la scaricano,
-verificano la firma e la attivano. Il budget verso il legacy è contato in
-Redis e vale per tutte le repliche. La capacità di ogni sito si configura dal
-pannello; l'`orchestrator` la applica con il driver `compose` (prototipo) o
-`kubernetes` (cloud: operator con risorsa `ProtectedSite`, HPA, PDB).
+Services with no local state; shared state in Redis and PostgreSQL; no sticky
+sessions. When a map is published, replicas download it, verify the
+signature and activate it. The budget towards the legacy application is
+counted in Redis and applies across all replicas. Each site's capacity is
+configured from the panel; the `orchestrator` applies it with the `compose`
+driver (prototype) or the `kubernetes` driver (cloud: operator with a
+`ProtectedSite` resource, HPA, PDB).
 
-## Metriche, stato, log
+## Metrics, status, logs
 
-- **Scheda sito**: traffico, protezione, prestazioni, copertura,
-  collegamento, agent. Catalogo in `schema/metrics/catalog.md`.
-- **Stato dei servizi**: vista globale per l'amministratore, vista ristretta
-  per il cliente; `/healthz`, `/readyz`, heartbeat, controllo sintetico
-  end-to-end ogni minuto.
-- **Log**: JSON (`schema/events/log.schema.json`), `request_id` propagato,
-  mascheramento alla fonte, livelli a caldo con scadenza, traccia richiesta,
-  pagina di ricerca con live tail ed export, inoltro SIEM (syslog RFC 5424,
-  Splunk HEC, Sentinel, webhook; JSON/CEF/LEEF; facility per flusso).
+- **Site page**: traffic, protection, performance, coverage, connectivity,
+  agent. Catalogue in `schema/metrics/catalog.md`.
+- **Service status**: global view for the administrator, restricted view for
+  the tenant; `/healthz`, `/readyz`, heartbeats, end-to-end synthetic check
+  every minute.
+- **Logs**: JSON (`schema/events/log.schema.json`), propagated `request_id`,
+  masking at the source, hot log levels with expiry, request tracing, search
+  page with live tail and export, SIEM forwarding (syslog RFC 5424, Splunk
+  HEC, Sentinel, webhook; JSON/CEF/LEEF; facility per stream).
 
-## Sicurezza del prodotto
+## Product security
 
-Mappe firmate Ed25519; gateway autonomo se il pannello è giù; fail closed;
-segreti solo nel vault; scansione dipendenze e SBOM in CI; container non root;
-revisione obbligatoria su `pipeline/`, `legacyclient/`, `mapstore/`; pentest
-prima dell'uso su portali reali.
+Ed25519-signed maps; the gateway runs on its own if the panel is down; fail
+closed; secrets only in the vault; dependency scanning and SBOM in CI;
+non-root containers; mandatory review on `pipeline/`, `legacyclient/`,
+`mapstore/`; penetration test before use on real portals.

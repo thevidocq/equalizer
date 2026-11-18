@@ -1,11 +1,11 @@
 # tools
 
-`eqtool`: strumenti del prototipo, in Go senza dipendenze esterne.
+`eqtool`: prototype tools, in Go with no external dependencies.
 
-| Comando | Cosa fa |
+| Command | What it does |
 | --- | --- |
-| `eqtool keygen -out secrets/map-signing.key` | Crea la coppia di chiavi Ed25519 per firmare le mappe (`.key` privata, `.pub` pubblica) |
-| `eqtool sign -key secrets/map-signing.key -map maps/mappa.json -key-id k1 -out maps/current.json` | Firma una mappa JSON e produce il documento letto dal gateway |
+| `eqtool keygen -out secrets/map-signing.key` | Creates the Ed25519 key pair used to sign maps (private `.key`, public `.pub`) |
+| `eqtool sign -key secrets/map-signing.key -map maps/map.json -key-id k1 -out maps/current.json` | Signs a JSON map and produces the document read by the gateway |
 
-La mappa YAML si converte in JSON (con validazione) con `scripts/map_to_json.py`.
-Nel prodotto finale firma e conversione le fa panel-api.
+The YAML map is converted to JSON (with validation) by `scripts/map_to_json.py`.
+In the final product panel-api does both signing and conversion.

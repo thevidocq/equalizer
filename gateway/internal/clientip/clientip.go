@@ -1,7 +1,7 @@
-// Package clientip ricava l'IP reale del client.
+// Package clientip determines the client's real IP address.
 //
-// X-Forwarded-For e CF-Connecting-IP sono accettati solo se la connessione
-// arriva da una rete fidata (il proxy edge, o Cloudflare se configurato).
+// X-Forwarded-For and CF-Connecting-IP are honoured only when the connection
+// comes from a trusted network (the edge proxy, or Cloudflare if configured).
 package clientip
 
 import (
@@ -11,17 +11,17 @@ import (
 	"strings"
 )
 
-// Resolver ricava l'IP del client rispettando le reti fidate.
+// Resolver determines the client IP while respecting the trusted networks.
 type Resolver struct {
 	trusted []netip.Prefix
 }
 
-// New crea un Resolver con le reti fidate indicate.
+// New creates a Resolver with the given trusted networks.
 func New(trusted []netip.Prefix) *Resolver {
 	return &Resolver{trusted: trusted}
 }
 
-// IP restituisce l'IP del client per la richiesta.
+// IP returns the client IP for the request.
 func (r *Resolver) IP(req *http.Request) string {
 	peer := peerAddr(req.RemoteAddr)
 	if !peer.IsValid() || !r.isTrusted(peer) {
@@ -32,7 +32,7 @@ func (r *Resolver) IP(req *http.Request) string {
 			return a.String()
 		}
 	}
-	// L'ultimo indirizzo di X-Forwarded-For non fidato è il client.
+	// The last untrusted address in X-Forwarded-For is the client.
 	parts := strings.Split(req.Header.Get("X-Forwarded-For"), ",")
 	for i := len(parts) - 1; i >= 0; i-- {
 		a, err := netip.ParseAddr(strings.TrimSpace(parts[i]))

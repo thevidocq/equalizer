@@ -1,4 +1,4 @@
-// Package server espone il traffico pubblico e gli endpoint di amministrazione.
+// Package server serves public traffic and the administration endpoints.
 package server
 
 import (
@@ -13,14 +13,14 @@ import (
 	"github.com/thevidocq/equalizer/gateway/internal/telemetry"
 )
 
-// MapSource fornisce il sito attivo (mappa compilata).
+// MapSource provides the active site (compiled map).
 type MapSource interface {
 	Current() *site.Site
 }
 
-// Public gestisce il traffico pubblico: instrada, valida, ricostruisce la
-// richiesta verso il legacy e restituisce la risposta. Form e API non sono
-// ancora serviti (vedi CHANGELOG).
+// Public handles public traffic: it routes, validates, rebuilds the request
+// towards the legacy application and returns the response. Forms and APIs
+// are not served yet (see CHANGELOG).
 type Public struct {
 	Maps    MapSource
 	IPs     *clientip.Resolver
@@ -29,7 +29,7 @@ type Public struct {
 	nowFunc func() time.Time
 }
 
-// Handler restituisce l'handler HTTP con request_id e log di accesso.
+// Handler returns the HTTP handler with request_id and access log.
 func (p *Public) Handler() http.Handler {
 	return telemetry.RequestIDMiddleware(http.HandlerFunc(p.serve))
 }
@@ -45,10 +45,10 @@ func (p *Public) serve(w http.ResponseWriter, r *http.Request) {
 	start := p.now()
 	rec := &statusRecorder{ResponseWriter: w, status: http.StatusOK}
 	routeID := p.handle(rec, r)
-	p.Log.InfoContext(r.Context(), "richiesta",
+	p.Log.InfoContext(r.Context(), "request",
 		slog.Group("detail",
 			slog.String("method", r.Method),
-			slog.String("path", r.URL.Path), // mai la query: può contenere dati personali
+			slog.String("path", r.URL.Path), // never the query: it may hold personal data
 			slog.Int("status", rec.status),
 			slog.String("route", routeID),
 			slog.Float64("duration_ms", float64(p.now().Sub(start).Microseconds())/1000),
@@ -56,11 +56,11 @@ func (p *Public) serve(w http.ResponseWriter, r *http.Request) {
 	)
 }
 
-// handle risponde alla richiesta e restituisce l'id della rotta trovata ("" se nessuna).
+// handle answers the request and returns the matched route id ("" if none).
 func (p *Public) handle(w http.ResponseWriter, r *http.Request) string {
 	switch r.Method {
 	case http.MethodOptions:
-		// Risposto dal gateway, mai inoltrato. Nessuna politica CORS per ora.
+		// Answered by the gateway, never forwarded. No CORS policy for now.
 		w.Header().Set("Allow", "GET, HEAD, POST")
 		w.WriteHeader(http.StatusNoContent)
 		return ""
@@ -85,7 +85,7 @@ func (p *Public) handle(w http.ResponseWriter, r *http.Request) string {
 		p.block(w, r, active, http.StatusMethodNotAllowed, "method_not_allowed")
 		return ""
 	case err != nil:
-		p.Log.ErrorContext(r.Context(), "errore di instradamento", slog.String("error", err.Error()))
+		p.Log.ErrorContext(r.Context(), "routing error", slog.String("error", err.Error()))
 		writePage(w, http.StatusInternalServerError, pageError)
 		return ""
 	}
@@ -98,7 +98,7 @@ func (p *Public) handle(w http.ResponseWriter, r *http.Request) string {
 		p.serveAsset(w, r, active, m)
 		return m.Entry.ID
 	}
-	p.Log.DebugContext(r.Context(), "voce trovata, tipo non ancora servito",
+	p.Log.DebugContext(r.Context(), "entry matched, kind not served yet",
 		slog.Group("detail", slog.String("route", m.Entry.ID), slog.String("kind", string(m.Entry.Kind))))
 	writePage(w, http.StatusServiceUnavailable, pageUnavailable)
 	return m.Entry.ID
@@ -116,14 +116,14 @@ func (p *Public) block(w http.ResponseWriter, r *http.Request, st *site.Site, st
 	}
 }
 
-// event prepara un evento con i campi comuni della richiesta.
+// event prepares an event with the request's common fields.
 func (p *Public) event(r *http.Request, st *site.Site, typ, reason string, status int, route *string) telemetry.Event {
 	ev := telemetry.Event{
 		Type:      typ,
 		RequestID: telemetry.RequestID(r.Context()),
 		SrcIP:     p.IPs.IP(r),
 		Method:    r.Method,
-		Path:      r.URL.Path, // mai la query: può contenere dati personali
+		Path:      r.URL.Path, // never the query: it may hold personal data
 		Status:    status,
 		Route:     route,
 	}

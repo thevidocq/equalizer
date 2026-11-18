@@ -1,6 +1,6 @@
-// Package site compila una versione della mappa in tutto ciò che serve a
-// servirla: router, validatore, client verso il legacy, budget.
-// Un Site è immutabile: una nuova mappa produce un nuovo Site.
+// Package site compiles one map version into everything needed to serve it:
+// router, validator, legacy client, budget, URL translation and rendering
+// pipeline. A Site is immutable: a new map produces a new Site.
 package site
 
 import (
@@ -23,14 +23,14 @@ import (
 	"github.com/thevidocq/equalizer/gateway/internal/validate"
 )
 
-// ErrConnectorUnavailable è restituito finché il trasporto via connettore
-// non è implementato (arriva con tunnel-relay).
-var ErrConnectorUnavailable = errors.New("trasporto via connettore non ancora disponibile")
+// ErrConnectorUnavailable is returned until the connector transport is
+// implemented (it arrives with tunnel-relay).
+var ErrConnectorUnavailable = errors.New("connector transport not available yet")
 
-// Budget di attesa quando il legacy è saturo.
+// How long to wait when the legacy application is saturated.
 const budgetWait = 2 * time.Second
 
-// Site è una mappa compilata e pronta a servire richieste.
+// Site is a compiled map ready to serve requests.
 type Site struct {
 	Model     *mapmodel.Model
 	Router    *router.Router
@@ -41,33 +41,33 @@ type Site struct {
 	Pipeline  *pipeline.Pipeline
 }
 
-// DefaultSteps è l'ordine predefinito dei passi della resa fedele.
+// DefaultSteps is the default order of the faithful-rendering steps.
 func DefaultSteps() []pipeline.Step {
 	return []pipeline.Step{clean.Step{}, rewrite.Step{}}
 }
 
-// Build compila la mappa. Rifiuta mappe incoerenti invece di servirle a metà.
+// Build compiles the map. It rejects inconsistent maps instead of serving them half-working.
 func Build(m *mapmodel.Model) (*Site, error) {
 	rt, err := router.New(Entries(m))
 	if err != nil {
-		return nil, fmt.Errorf("rotte: %w", err)
+		return nil, fmt.Errorf("routes: %w", err)
 	}
 	if m.Roles.Anonymous != "" {
 		if _, ok := m.Roles.List[m.Roles.Anonymous]; !ok {
-			return nil, fmt.Errorf("roles.anonymous %q non è in roles.list", m.Roles.Anonymous)
+			return nil, fmt.Errorf("roles.anonymous %q is not in roles.list", m.Roles.Anonymous)
 		}
 	}
 
 	v := validate.New(m.Types, m.Defaults.String)
 	for _, r := range m.Routes {
 		if err := v.Check(r.Params); err != nil {
-			return nil, fmt.Errorf("rotta %q, params: %w", r.ID, err)
+			return nil, fmt.Errorf("route %q, params: %w", r.ID, err)
 		}
 		if err := v.Check(r.Query); err != nil {
-			return nil, fmt.Errorf("rotta %q, query: %w", r.ID, err)
+			return nil, fmt.Errorf("route %q, query: %w", r.ID, err)
 		}
 		if err := checkTemplates(r.LegacyRequest); err != nil {
-			return nil, fmt.Errorf("rotta %q: %w", r.ID, err)
+			return nil, fmt.Errorf("route %q: %w", r.ID, err)
 		}
 	}
 
@@ -85,7 +85,7 @@ func Build(m *mapmodel.Model) (*Site, error) {
 	case "connector":
 		tr = unavailable{}
 	default:
-		return nil, fmt.Errorf("legacy.reach.mode sconosciuto: %q", m.Legacy.Reach.Mode)
+		return nil, fmt.Errorf("unknown legacy.reach.mode: %q", m.Legacy.Reach.Mode)
 	}
 	lc, err := legacyclient.New(m.Legacy.BaseURL, tr, m.Legacy.UserAgent, timeout)
 	if err != nil {
@@ -94,7 +94,7 @@ func Build(m *mapmodel.Model) (*Site, error) {
 
 	urls, err := legacyurl.New(lc.Base(), m)
 	if err != nil {
-		return nil, fmt.Errorf("link: %w", err)
+		return nil, fmt.Errorf("links: %w", err)
 	}
 
 	return &Site{
@@ -108,7 +108,7 @@ func Build(m *mapmodel.Model) (*Site, error) {
 	}, nil
 }
 
-// AssetByPrefix restituisce la voce asset con quel prefisso.
+// AssetByPrefix returns the asset entry with the given prefix.
 func (s *Site) AssetByPrefix(prefix string) (*mapmodel.Asset, bool) {
 	for i := range s.Model.Assets {
 		if s.Model.Assets[i].Prefix == prefix {
@@ -118,12 +118,12 @@ func (s *Site) AssetByPrefix(prefix string) (*mapmodel.Asset, bool) {
 	return nil, false
 }
 
-// RoleAllowed dice se il ruolo può accedere a una voce con quei ruoli.
+// RoleAllowed reports whether the role may access an entry with those roles.
 func RoleAllowed(role string, allowed []string) bool {
 	return role != "" && slices.Contains(allowed, role)
 }
 
-// Entries converte rotte, form e API della mappa in voci per il router.
+// Entries turns the map's routes, forms, APIs and assets into router entries.
 func Entries(m *mapmodel.Model) []router.Entry {
 	var out []router.Entry
 	for _, r := range m.Routes {
@@ -141,7 +141,7 @@ func Entries(m *mapmodel.Model) []router.Entry {
 	return out
 }
 
-// AssetID è l'id di instradamento di un prefisso di asset.
+// AssetID is the routing id of an asset prefix.
 func AssetID(prefix string) string { return "asset:" + prefix }
 
 func checkTemplates(lr mapmodel.LegacyRequest) error {

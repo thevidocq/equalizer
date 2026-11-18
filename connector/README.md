@@ -1,7 +1,7 @@
 # connector
 
-Servizio Go da installare accanto al legacy. Apre il tunnel in uscita verso il relay ed esegue solo richieste verso destinazioni presenti nell'allowlist firmata dal pannello.
+Go service installed next to the legacy application. It opens the outbound tunnel to the relay and only executes requests to destinations in the allowlist signed by the panel.
 
-Struttura prevista: `cmd/connector/`, `internal/{tunnel,allowlist,executor}/`.
+Planned layout: `cmd/connector/`, `internal/{tunnel,allowlist,executor}/`.
 
-Contratto: `schema/tunnel/tunnel.proto`. Stato: da implementare.
+Contract: `schema/tunnel/tunnel.proto`. Status: not implemented yet.

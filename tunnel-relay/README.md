@@ -1,7 +1,7 @@
 # tunnel-relay
 
-Servizio Go che termina i tunnel aperti dai connettori e instrada le richieste del gateway e dell'agent verso il connettore giusto.
+Go service that terminates the tunnels opened by connectors and routes gateway and agent requests to the right connector.
 
-Struttura prevista: `cmd/relay/`, `internal/{sessions,routing,auth}/`.
+Planned layout: `cmd/relay/`, `internal/{sessions,routing,auth}/`.
 
-Contratto: `schema/tunnel/tunnel.proto`. Stato: da implementare.
+Contract: `schema/tunnel/tunnel.proto`. Status: not implemented yet.

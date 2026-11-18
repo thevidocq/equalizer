@@ -8,9 +8,9 @@ import (
 	"github.com/thevidocq/equalizer/gateway/internal/site"
 )
 
-// Watch ricarica la mappa quando il file cambia (controllo ogni interval)
-// o quando arriva un valore su trigger (es. SIGHUP). onResult riceve
-// l'esito di ogni tentativo.
+// Watch reloads the map when the file changes (checked every interval) or
+// when a value arrives on trigger (e.g. SIGHUP). onResult receives the
+// outcome of every attempt.
 func (s *Store) Watch(ctx context.Context, interval time.Duration, trigger <-chan struct{}, onResult func(*site.Site, error)) {
 	ticker := time.NewTicker(interval)
 	defer ticker.Stop()

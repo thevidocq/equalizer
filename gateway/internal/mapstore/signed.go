@@ -6,6 +6,8 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+
+	"github.com/thevidocq/equalizer/gateway/internal/mapmodel"
 )
 
 // SchemaVersion è l'unica versione di schema accettata da questo gateway.
@@ -31,7 +33,7 @@ var (
 
 // Verify controlla firma e coerenza e restituisce la mappa decodificata.
 // expectedKeyID vuoto significa "qualunque id": la chiave pubblica resta vincolante.
-func Verify(doc []byte, pub ed25519.PublicKey, expectedKeyID string) (*Model, []byte, error) {
+func Verify(doc []byte, pub ed25519.PublicKey, expectedKeyID string) (*mapmodel.Model, []byte, error) {
 	var sm SignedMap
 	if err := json.Unmarshal(doc, &sm); err != nil {
 		return nil, nil, fmt.Errorf("documento firmato non leggibile: %w", err)
@@ -51,7 +53,7 @@ func Verify(doc []byte, pub ed25519.PublicKey, expectedKeyID string) (*Model, []
 		return nil, nil, ErrBadSignature
 	}
 
-	var m Model
+	var m mapmodel.Model
 	if err := json.Unmarshal(payload, &m); err != nil {
 		return nil, nil, fmt.Errorf("mappa non leggibile: %w", err)
 	}

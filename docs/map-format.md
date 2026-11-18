@@ -22,7 +22,7 @@ Esempio completo: [`schema/map/examples/portale-pratiche.yaml`](../schema/map/ex
 | --- | --- |
 | `meta` | Schema, tenant, app, versione, stato, autore, approvatore |
 | `legacy` | `base_url`, `reach` (connettore o diretto, destinazioni ammesse), login, sessione scaduta, rilevamento errori |
-| `roles` | Autenticazione sul gateway e account legacy per ruolo |
+| `roles` | Ruolo dei visitatori non autenticati (`anonymous`), autenticazione sul gateway, account legacy per ruolo |
 | `defaults` | Rate limit, budget verso il legacy, cache, vincoli stringa, template di errore |
 | `types` | Tipi riutilizzabili (`id_pratica`, `codice_fiscale`, ...) |
 | `routes` | Pagine in lettura (`GET`): richiesta al legacy, `render`, link, permessi |
@@ -52,6 +52,18 @@ Esempio completo: [`schema/map/examples/portale-pratiche.yaml`](../schema/map/ex
 | `email` | formato, `max_length` | medio |
 | `text` | `charset`, `max_length`, `rules` (obbligatorie) | alto |
 | `file` | `mime`, `max_size_kb`, `scan` (obbligatorio) | alto |
+
+## Regole per i campi di testo
+
+| Regola | Rifiuta |
+| --- | --- |
+| `no_html` | `<`, `>`, entità numeriche `&#` |
+| `no_sql_meta` | `--`, `/*`, `*/`, `;`, `\`, `"`, `` ` ``, NUL; l'apostrofo è ammesso solo tra due lettere (`D'Angelo`) |
+| `no_template_meta` | `<?`, `?>`, `<%`, `%>`, `${`, `#{`, `{{`, `}}` |
+
+Una regola sconosciuta rende la mappa non caricabile. I parametri di query
+non dichiarati vengono scartati; quelli ripetuti rifiutati. Senza
+`roles.anonymous` nessuna pagina è pubblica.
 
 ## Ciclo di vita
 

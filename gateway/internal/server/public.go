@@ -8,18 +8,19 @@ import (
 	"time"
 
 	"github.com/thevidocq/equalizer/gateway/internal/clientip"
-	"github.com/thevidocq/equalizer/gateway/internal/mapstore"
 	"github.com/thevidocq/equalizer/gateway/internal/router"
+	"github.com/thevidocq/equalizer/gateway/internal/site"
 	"github.com/thevidocq/equalizer/gateway/internal/telemetry"
 )
 
-// MapSource fornisce la mappa attiva.
+// MapSource fornisce il sito attivo (mappa compilata).
 type MapSource interface {
-	Current() *mapstore.Active
+	Current() *site.Site
 }
 
-// Public gestisce il traffico pubblico. Per ora instrada e blocca: la
-// ricostruzione verso il legacy arriva nel prossimo passo (vedi CHANGELOG).
+// Public gestisce il traffico pubblico: instrada, valida, ricostruisce la
+// richiesta verso il legacy e restituisce la risposta. Form e API non sono
+// ancora serviti (vedi CHANGELOG).
 type Public struct {
 	Maps    MapSource
 	IPs     *clientip.Resolver
@@ -89,32 +90,47 @@ func (p *Public) handle(w http.ResponseWriter, r *http.Request) string {
 		return ""
 	}
 
-	p.Log.DebugContext(r.Context(), "rotta trovata, ricostruzione non ancora implementata",
+	if m.Entry.Kind == router.KindRoute {
+		p.serveRoute(w, r, active, m)
+		return m.Entry.ID
+	}
+	p.Log.DebugContext(r.Context(), "voce trovata, tipo non ancora servito",
 		slog.Group("detail", slog.String("route", m.Entry.ID), slog.String("kind", string(m.Entry.Kind))))
 	writePage(w, http.StatusServiceUnavailable, pageUnavailable)
 	return m.Entry.ID
 }
 
-func (p *Public) block(w http.ResponseWriter, r *http.Request, a *mapstore.Active, status int, reason string) {
+func (p *Public) block(w http.ResponseWriter, r *http.Request, st *site.Site, status int, reason string) {
+	p.Events.Emit(p.event(r, st, "request.blocked", reason, status, nil))
+	switch status {
+	case http.StatusNotFound:
+		writePage(w, status, pageNotFound)
+	case http.StatusForbidden:
+		writePage(w, status, pageForbidden)
+	default:
+		writePage(w, status, pageNotAllowed)
+	}
+}
+
+// event prepara un evento con i campi comuni della richiesta.
+func (p *Public) event(r *http.Request, st *site.Site, typ, reason string, status int, route *string) telemetry.Event {
 	ev := telemetry.Event{
-		Type:      "request.blocked",
-		Reason:    telemetry.Ptr(reason),
+		Type:      typ,
 		RequestID: telemetry.RequestID(r.Context()),
 		SrcIP:     p.IPs.IP(r),
 		Method:    r.Method,
-		Path:      r.URL.Path,
+		Path:      r.URL.Path, // mai la query: può contenere dati personali
 		Status:    status,
+		Route:     route,
 	}
-	if a != nil {
-		ev.Tenant, ev.App = a.Model.Meta.Tenant, a.Model.Meta.App
-		ev.MapVersion = telemetry.Ptr(a.Model.Meta.Version)
+	if reason != "" {
+		ev.Reason = telemetry.Ptr(reason)
 	}
-	p.Events.Emit(ev)
-	if status == http.StatusNotFound {
-		writePage(w, status, pageNotFound)
-		return
+	if st != nil {
+		ev.Tenant, ev.App = st.Model.Meta.Tenant, st.Model.Meta.App
+		ev.MapVersion = telemetry.Ptr(st.Model.Meta.Version)
 	}
-	writePage(w, status, pageNotAllowed)
+	return ev
 }
 
 type statusRecorder struct {

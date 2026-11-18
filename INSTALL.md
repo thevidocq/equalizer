@@ -3,8 +3,10 @@
 > **Stato:** prototipo in costruzione. I passi marcati *(disponibile)* hanno
 > già il codice e la configurazione nel repository; gli altri descrivono
 > l'installazione prevista e verranno completati man mano (vedi
-> `CHANGELOG.md`). Oggi il gateway instrada e blocca secondo la mappa, ma
-> non ricostruisce ancora le pagine del legacy: le rotte mappate rispondono 503.
+> `CHANGELOG.md`). Oggi il gateway serve le pagine in lettura di un legacy
+> raggiungibile **direttamente** (`legacy.reach.mode: direct`), senza ancora
+> riscriverne l'HTML; con `mode: connector` risponde 502 finché il connettore
+> non è pronto. Form e login non sono ancora serviti.
 
 Il prototipo gira su **una VPS** con Docker Compose. Il legacy da proteggere
 può stare ovunque: lo raggiunge il **connettore**, installato accanto a lui.
@@ -109,7 +111,7 @@ docker compose ps            # gateway "healthy", due repliche
 Verifiche rapide:
 
 ```bash
-curl -I https://gw.example.com/            # rotta mappata: 503 finché la ricostruzione non è implementata
+curl -I https://gw.example.com/            # rotta mappata: pagina del legacy (mode: direct) o 502 (mode: connector)
 curl -I https://gw.example.com/wp-admin    # non mappata: 404
 ```
 

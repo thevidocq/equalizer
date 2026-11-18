@@ -188,6 +188,10 @@
       "additionalProperties": false,
       "required": ["list"],
       "properties": {
+        "anonymous": {
+          "$ref": "#/$defs/identifier",
+          "description": "Ruolo dei visitatori non autenticati; deve esistere in 'list'. Senza questo campo nessuna pagina è pubblica."
+        },
         "auth": {
           "type": "object",
           "additionalProperties": false,

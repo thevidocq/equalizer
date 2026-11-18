@@ -32,6 +32,7 @@ legacy:
 
 roles:
   auth: { provider: oidc, issuer: "https://idp.comune-esempio.it" }
+  anonymous: anonimo
   list:
     anonimo:   { legacy_account: { mode: shared, secret_ref: "vault://comune-esempio/legacy/guest" } }
     cittadino: { legacy_account: { mode: per_user, secret_ref: "vault://comune-esempio/legacy/users/{{user.id}}" } }

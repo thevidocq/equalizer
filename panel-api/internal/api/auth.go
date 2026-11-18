@@ -43,13 +43,14 @@ func (s *Server) login(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	s.Throttle.Reset(keys...)
-	id, err := s.Sessions.Create(r.Context(), u.ID)
+	// The session is complete only when no second step is due.
+	u.MFAVerified = !u.MFAEnabled && !s.MFARequired
+	id, err := s.Sessions.Create(r.Context(), u.ID, u.MFAVerified)
 	if err != nil {
 		s.storeError(w, r, err)
 		return
 	}
-	http.SetCookie(w, &http.Cookie{Name: auth.CookieName, Value: id, Path: "/", Secure: true, HttpOnly: true,
-		SameSite: http.SameSiteStrictMode, MaxAge: int(s.Sessions.TTL.Seconds())})
+	s.setSessionCookie(w, id)
 	_ = s.Store.Record(r.Context(), &u.ID, u.Tenant, "auth.login", "", map[string]any{"ip": clientIP(r)})
 	writeJSON(w, http.StatusOK, u)
 }
@@ -61,6 +62,11 @@ func (s *Server) logout(w http.ResponseWriter, r *http.Request, u *auth.User) {
 	http.SetCookie(w, &http.Cookie{Name: auth.CookieName, Path: "/", Secure: true, HttpOnly: true, SameSite: http.SameSiteStrictMode, MaxAge: -1})
 	_ = s.Store.Record(r.Context(), &u.ID, u.Tenant, "auth.logout", "", nil)
 	w.WriteHeader(http.StatusNoContent)
+}
+
+func (s *Server) setSessionCookie(w http.ResponseWriter, id string) {
+	http.SetCookie(w, &http.Cookie{Name: auth.CookieName, Value: id, Path: "/", Secure: true, HttpOnly: true,
+		SameSite: http.SameSiteStrictMode, MaxAge: int(s.Sessions.TTL.Seconds())})
 }
 
 func (s *Server) me(w http.ResponseWriter, _ *http.Request, u *auth.User) {

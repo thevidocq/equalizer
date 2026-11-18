@@ -9,12 +9,13 @@ CSS. Talks only to panel-api, through the client generated from
 
 | Page | Who |
 | --- | --- |
-| Log in | everyone |
+| Log in, then the code of the authenticator app (set up at the first login, with ten recovery codes shown once) | everyone |
+| Your account: change password | everyone |
 | Tenants (add a tenant) | platform users |
 | Protected sites (list, protect a site) | tenant users; adding: administrators |
 | Site → Map: versions with their approval path, YAML editor with syntax check, send for review, approve, reject, publish | editors write; approvers and administrators decide (never on their own version) |
 | Site → Connectors: add (the token and the `docker run` command shown once), rotate, remove | administrators |
-| People (add a person with a role) | administrators |
+| People (add a person with a role, see who set up an authenticator, reset an authenticator, deactivate) | administrators |
 | Activity (audit log in plain sentences) | administrators, approvers, auditors; platform users |
 
 ## Layout

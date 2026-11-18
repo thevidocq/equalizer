@@ -27,6 +27,7 @@ import (
 	"github.com/thevidocq/equalizer/panel-api/internal/config"
 	"github.com/thevidocq/equalizer/panel-api/internal/db"
 	"github.com/thevidocq/equalizer/panel-api/internal/logging"
+	"github.com/thevidocq/equalizer/panel-api/internal/mfa"
 	"github.com/thevidocq/equalizer/panel-api/internal/store"
 	"github.com/thevidocq/equalizer/panel-api/internal/ui"
 )
@@ -79,7 +80,15 @@ func run() error {
 	sessions := &auth.Sessions{DB: conn, TTL: cfg.SessionTTL}
 	go purge(ctx, sessions, log)
 
+	box, err := mfa.NewBox(cfg.MFAKey)
+	if err != nil {
+		return err
+	}
+	if !cfg.MFARequired {
+		log.Warn("EQ_MFA_REQUIRED=false: panel users may log in with a password only")
+	}
 	srv := &api.Server{
+		MFA: box, MFARequired: cfg.MFARequired, MFAThrottle: auth.NewThrottle(5, 15*time.Minute),
 		Store: st, Sessions: sessions, Throttle: auth.NewThrottle(5, 15*time.Minute),
 		Log: log.With(slog.String("module", "api")), SigningKey: cfg.SigningKey, KeyID: cfg.SigningKeyID,
 		InternalToken: cfg.InternalToken,

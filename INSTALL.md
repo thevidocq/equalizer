@@ -94,6 +94,7 @@ docker compose --profile tools run --rm eqtool formkey -out secrets/form.key    
 docker compose --profile tools run --rm eqtool secret  -out secrets/relay.token       # gateway → relay
 docker compose --profile tools run --rm eqtool secret  -out secrets/panel-internal.token  # gateway and relay → panel
 docker compose --profile tools run --rm eqtool secret  -out secrets/postgres.password
+docker compose --profile tools run --rm eqtool formkey -out secrets/mfa.key           # panel authenticator secrets
 ```
 
 All files are created `0600` and owned by `EQ_UID`/`EQ_GID`; the services
@@ -126,7 +127,10 @@ The panel listens only on the VPS localhost. From your computer:
 ssh -L 8088:localhost:8088 user@vps
 ```
 
-Open `http://localhost:8088` and log in. Then:
+Open `http://localhost:8088` and log in. The first time, the panel asks you
+to link an authenticator app (scan the QR code, type a code) and shows ten
+recovery codes once: keep them. From then on every login asks for the code
+of the app. Then:
 
 1. **Tenants → Add a tenant** (for the lab, e.g. "Lab").
 2. In the tenant: **+ Protect a site**, with its name and public domain.

@@ -28,6 +28,12 @@ export function useLogin() {
   });
 }
 
+export function useChangePassword() {
+  return useMutation({
+    mutationFn: (body: { current_password: string; new_password: string }) => unwrap(api.POST("/auth/password", { body })),
+  });
+}
+
 export function useLogout() {
   const qc = useQueryClient();
   return useMutation({

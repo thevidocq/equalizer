@@ -66,9 +66,9 @@ func (s *Store) Credentials(ctx context.Context, email string) (auth.User, strin
 	var hash string
 	var disabled bool
 	err := s.DB.QueryRowContext(ctx, `
-		SELECT id, email, name, password_hash, platform_role, tenant_id, tenant_role, disabled
+		SELECT id, email, name, password_hash, platform_role, tenant_id, tenant_role, disabled, mfa_secret IS NOT NULL
 		FROM users WHERE email = lower($1)`, email).
-		Scan(&u.ID, &u.Email, &u.Name, &hash, &u.PlatformRole, &u.Tenant, &u.TenantRole, &disabled)
+		Scan(&u.ID, &u.Email, &u.Name, &hash, &u.PlatformRole, &u.Tenant, &u.TenantRole, &disabled, &u.MFAEnabled)
 	if err == nil && disabled {
 		return auth.User{}, "", ErrNotFound
 	}
@@ -78,7 +78,7 @@ func (s *Store) Credentials(ctx context.Context, email string) (auth.User, strin
 // Users lists the users of a tenant.
 func (s *Store) Users(ctx context.Context, tenant string) ([]auth.User, error) {
 	rows, err := s.DB.QueryContext(ctx, `
-		SELECT id, email, name, platform_role, tenant_id, tenant_role
+		SELECT id, email, name, platform_role, tenant_id, tenant_role, mfa_secret IS NOT NULL
 		FROM users WHERE tenant_id = $1 AND NOT disabled ORDER BY email`, tenant)
 	if err != nil {
 		return nil, err
@@ -87,7 +87,7 @@ func (s *Store) Users(ctx context.Context, tenant string) ([]auth.User, error) {
 	out := []auth.User{}
 	for rows.Next() {
 		var u auth.User
-		if err := rows.Scan(&u.ID, &u.Email, &u.Name, &u.PlatformRole, &u.Tenant, &u.TenantRole); err != nil {
+		if err := rows.Scan(&u.ID, &u.Email, &u.Name, &u.PlatformRole, &u.Tenant, &u.TenantRole, &u.MFAEnabled); err != nil {
 			return nil, err
 		}
 		out = append(out, u)

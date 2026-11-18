@@ -11,6 +11,10 @@ const messages: Record<string, string> = {
   weak_password: "The password needs at least 12 characters.",
   not_found: "Not found.",
   unauthorized: "Your session ended. Log in again.",
+  invalid_code: "The code is wrong or expired. Use the code shown now in the app.",
+  mfa_required: "Complete the second login step first.",
+  wrong_password: "The current password is wrong.",
+  cannot_deactivate_self: "You cannot deactivate yourself: ask another administrator.",
 };
 
 /** A sentence that tells the user what happened and what to do. */

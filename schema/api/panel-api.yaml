@@ -10,6 +10,10 @@ info:
 
     Every request that changes state must carry the header
     `X-Eq-Panel: 1` (CSRF barrier together with SameSite=Strict cookies).
+
+    Two-step login: a password login opens a session limited to /auth/*
+    until /auth/mfa/verify (or, the first time, /auth/mfa/setup and
+    /auth/mfa/enable) succeeds.
 servers:
   - url: /v1
 security:
@@ -68,6 +72,83 @@ paths:
             application/json:
               schema: { $ref: "#/components/schemas/User" }
         "401": { $ref: "#/components/responses/Error" }
+  /auth/mfa/setup:
+    post:
+      tags: [auth]
+      summary: Start (or restart) the enrolment of an authenticator app; the secret is active only after /auth/mfa/enable
+      responses:
+        "200":
+          description: Secret to add to the authenticator app
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/MfaSetup" }
+        "409": { $ref: "#/components/responses/Error" }
+  /auth/mfa/enable:
+    post:
+      tags: [auth]
+      summary: Confirm the enrolment with a code from the app; returns the recovery codes, shown once
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/MfaCode" }
+      responses:
+        "200":
+          description: Recovery codes
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/RecoveryCodes" }
+        "400": { $ref: "#/components/responses/Error" }
+  /auth/mfa/verify:
+    post:
+      tags: [auth]
+      summary: Second step of the login, with a code from the app or a recovery code; the session id changes
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/MfaCode" }
+      responses:
+        "200":
+          description: User
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/User" }
+        "400": { $ref: "#/components/responses/Error" }
+        "429": { $ref: "#/components/responses/Error" }
+  /auth/password:
+    post:
+      tags: [auth]
+      summary: Change one's own password; the other sessions of the user end
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [current_password, new_password]
+              properties:
+                current_password: { type: string, maxLength: 256, writeOnly: true }
+                new_password: { type: string, minLength: 12, maxLength: 256, writeOnly: true }
+      responses:
+        "204": { description: Password changed }
+        "400": { $ref: "#/components/responses/Error" }
+  /tenants/{tenant}/users/{id}:
+    delete:
+      tags: [users]
+      summary: Deactivate a person; their sessions end
+      parameters: [{ $ref: "#/components/parameters/tenant" }, { $ref: "#/components/parameters/id" }]
+      responses:
+        "204": { description: Deactivated }
+        "404": { $ref: "#/components/responses/Error" }
+  /tenants/{tenant}/users/{id}/reset-mfa:
+    post:
+      tags: [users]
+      summary: Remove a person's authenticator (lost phone); they enrol again at the next login
+      parameters: [{ $ref: "#/components/parameters/tenant" }, { $ref: "#/components/parameters/id" }]
+      responses:
+        "204": { description: Reset }
+        "404": { $ref: "#/components/responses/Error" }
   /tenants:
     get:
       tags: [tenants]
@@ -743,6 +824,24 @@ components:
         platform_role: { type: [string, "null"], enum: [admin, operator, null] }
         tenant: { type: [string, "null"] }
         tenant_role: { type: [string, "null"], enum: [admin, editor, approver, auditor, null] }
+        mfa_enabled: { type: boolean, description: "An authenticator app is enrolled" }
+        mfa_verified: { type: boolean, description: "Only in /auth/me: this session passed the second step. Without it only /auth/* answers" }
+    MfaSetup:
+      type: object
+      required: [secret, otpauth_uri]
+      properties:
+        secret: { type: string, description: "Base32, for manual entry" }
+        otpauth_uri: { type: string, description: "otpauth://totp/... for the QR code" }
+    MfaCode:
+      type: object
+      required: [code]
+      properties:
+        code: { type: string, maxLength: 32, description: "6 digits from the app, or a recovery code" }
+    RecoveryCodes:
+      type: object
+      required: [recovery_codes]
+      properties:
+        recovery_codes: { type: array, items: { type: string } }
     UserCreate:
       type: object
       required: [email, name, password, role]

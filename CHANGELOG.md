@@ -27,13 +27,53 @@ Add a section at the top of "Entries" for every commit:
 | tunnel-relay | Token-authenticated tunnels, forwarding, admin endpoints; single replica |
 | connector | Outbound tunnel, local allowlist, reconnection |
 | orchestrator | Not implemented yet |
-| panel-api | Auth, tenants, users, sites, connectors, maps with approval and signing, audit, internal endpoints |
+| panel-api | Auth with mandatory TOTP, tenants, users, sites, connectors, maps with approval and signing, audit, internal endpoints |
 | panel-ui | Login, tenants, sites, connectors, people, maps with editor and approval, activity |
 | agent | Not implemented yet |
 | deploy/compose | Caddy (gateway and relay domains), gateway (2 replicas), Redis, PostgreSQL, panel-api, panel-ui, tunnel-relay, Vector, Loki, Grafana; statically validated |
 | tools (eqtool) | Map signing keys, form key, relay token, connector registration, map signing |
 
 ## Entries
+
+### 2026-11-18 — Add two-step login, password change and user deactivation
+
+- **Branch:** `feat/mfa`
+- **What:**
+  - Contract: `/auth/mfa/setup`, `/auth/mfa/enable`, `/auth/mfa/verify`,
+    `/auth/password`, `DELETE /tenants/{tenant}/users/{id}`,
+    `/tenants/{tenant}/users/{id}/reset-mfa`; `mfa_enabled` and
+    `mfa_verified` on users; the two-step rule in the description.
+  - panel-api: migration `0002_mfa.sql`; `internal/mfa` (TOTP RFC 6238
+    checked against the RFC vectors, ±1 step, replay refused; ten
+    single-use recovery codes stored as SHA-256; secrets encrypted with
+    `EQ_MFA_KEY`, user id as additional data); sessions carry `mfa_ok`, the
+    API answers 403 `mfa_required` outside `/auth` until the second step,
+    and the session id changes when it succeeds; throttle of wrong codes;
+    password change ends the other sessions; tenant administrators
+    deactivate people and reset authenticators (sessions end); audit of
+    every step. MFA mandatory unless `EQ_MFA_REQUIRED=false`.
+  - panel-ui: login steps (code from the app or a recovery code), first
+    login with QR code (drawn in the browser) and manual key, recovery codes
+    with copy and download, account page with password change, people page
+    with authenticator status, reset and deactivate; activity sentences for
+    the new actions.
+  - Compose: `secrets/mfa.key` for panel-api. INSTALL updated.
+- **Why:** the panel signs what the gateway lets through: a stolen password
+  alone must not be enough to publish a map.
+- **Status:** Go tests with the race detector green (TOTP vectors,
+  replay, recovery code single use, throttle, password change logging out
+  other browsers, deactivation, reset) against a real PostgreSQL. Driven in
+  Chrome: first login forced to the authenticator setup, code accepted,
+  recovery codes shown, panel opened; second login refuses a wrong code and
+  accepts the next one; people and account pages. Not done: recovery code
+  regeneration, WebAuthn keys, platform users management from the panel,
+  forced password change on first login.
+- **Next steps:**
+  1. Test the whole stack on the VPS with the remote vulnerable server.
+  2. Map diff between versions; form helpers for common map edits.
+  3. Service status page; log search.
+  4. Gateway serving several sites by host name.
+  5. File uploads with AV/CDR scanning.
 
 ### 2026-11-18 — Add the web panel (panel-ui)
 

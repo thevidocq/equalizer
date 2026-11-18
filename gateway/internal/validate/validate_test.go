@@ -139,3 +139,16 @@ func TestPassword(t *testing.T) {
 		}
 	}
 }
+
+func TestDeny(t *testing.T) {
+	v := New(map[string]mapmodel.TypeDef{"slug": {Base: "string", Pattern: "^[a-z-]+$", Deny: []string{"wp-admin"}}}, mapmodel.StringDefaults{})
+	for value, ok := range map[string]bool{"about": true, "wp-admin": false, "WP-ADMIN": false} {
+		_, _, err := v.Value("slug", mapmodel.FieldSpec{Type: "slug", Pattern: "^[A-Za-z-]+$"}, value, true)
+		if (err == nil) != ok {
+			t.Errorf("%s: %v", value, err)
+		}
+	}
+	if _, _, err := v.Value("slug", mapmodel.FieldSpec{Type: "slug", Deny: []string{"about"}}, "about", true); err == nil {
+		t.Error("a field's own deny list is ignored")
+	}
+}

@@ -1,0 +1,338 @@
+{
+ "meta": {
+  "schema": "gateway-map/1.0",
+  "tenant": "x",
+  "app": "x",
+  "version": 1,
+  "status": "draft"
+ },
+ "legacy": {
+  "base_url": "__BASE_URL__",
+  "reach": {
+   "mode": "connector",
+   "connector_id": "__CONNECTOR__",
+   "address": "__ADDRESS__",
+   "allow": [
+    "__ADDRESS__"
+   ]
+  },
+  "timeout_ms": 10000
+ },
+ "roles": {
+  "anonymous": "guest",
+  "list": {
+   "guest": {}
+  }
+ },
+ "defaults": {
+  "rate_limit": {
+   "per_ip": "120/min"
+  },
+  "legacy_budget": {
+   "max_concurrency": 10
+  },
+  "string": {
+   "max_length": 200
+  }
+ },
+ "types": {
+  "slug": {
+   "base": "string",
+   "pattern": "^[A-Za-z0-9][A-Za-z0-9_-]{0,119}$",
+   "deny": [
+    "admin",
+    "administrator",
+    "backup",
+    "backups",
+    "cgi-bin",
+    "config",
+    "console",
+    "cpanel",
+    "install",
+    "jsonapi",
+    "manager",
+    "phpmyadmin",
+    "plesk",
+    "pma",
+    "server-info",
+    "server-status",
+    "setup",
+    "webmail",
+    "wp-admin",
+    "wp-login",
+    "xmlrpc"
+   ]
+  },
+  "id": {
+   "base": "int",
+   "min": 1,
+   "max": 999999999
+  },
+  "search": {
+   "base": "string",
+   "max_length": 100,
+   "pattern": "^[^<>{}\\x00-\\x1f]{1,100}$"
+  }
+ },
+ "routes": [
+  {
+   "id": "home",
+   "path": "/",
+   "method": "GET",
+   "roles": [
+    "guest"
+   ],
+   "legacy_request": {
+    "method": "GET",
+    "path": "/"
+   },
+   "render": "faithful",
+   "origin": "human",
+   "risk": "low"
+  },
+  {
+   "id": "course",
+   "path": "/course/view.php",
+   "method": "GET",
+   "roles": [
+    "guest"
+   ],
+   "legacy_request": {
+    "method": "GET",
+    "path": "/course/view.php",
+    "query": {
+     "id": "{{query.id}}",
+     "section": "{{query.section}}"
+    }
+   },
+   "render": "faithful",
+   "origin": "human",
+   "risk": "low",
+   "query": {
+    "id": {
+     "type": "id"
+    },
+    "section": {
+     "type": "int",
+     "min": 0,
+     "max": 1000,
+     "required": false
+    }
+   }
+  },
+  {
+   "id": "course_index",
+   "path": "/course/index.php",
+   "method": "GET",
+   "roles": [
+    "guest"
+   ],
+   "legacy_request": {
+    "method": "GET",
+    "path": "/course/index.php",
+    "query": {
+     "categoryid": "{{query.categoryid}}"
+    }
+   },
+   "render": "faithful",
+   "origin": "human",
+   "risk": "low",
+   "query": {
+    "categoryid": {
+     "type": "id",
+     "required": false
+    }
+   }
+  },
+  {
+   "id": "activity",
+   "path": "/mod/{module}/view.php",
+   "method": "GET",
+   "roles": [
+    "guest"
+   ],
+   "legacy_request": {
+    "method": "GET",
+    "path": "/mod/{{params.module}}/view.php",
+    "query": {
+     "id": "{{query.id}}"
+    }
+   },
+   "render": "faithful",
+   "origin": "human",
+   "risk": "low",
+   "params": {
+    "module": {
+     "type": "enum",
+     "values": [
+      "page",
+      "resource",
+      "forum",
+      "assign",
+      "quiz",
+      "url",
+      "book",
+      "folder",
+      "label",
+      "lesson",
+      "glossary",
+      "choice"
+     ]
+    }
+   },
+   "query": {
+    "id": {
+     "type": "id"
+    }
+   }
+  },
+  {
+   "id": "login_page",
+   "path": "/login/index.php",
+   "method": "GET",
+   "roles": [
+    "guest"
+   ],
+   "legacy_request": {
+    "method": "GET",
+    "path": "/login/index.php"
+   },
+   "render": "faithful",
+   "origin": "human",
+   "risk": "low"
+  },
+  {
+   "id": "logout",
+   "path": "/login/logout.php",
+   "method": "GET",
+   "roles": [
+    "guest"
+   ],
+   "legacy_request": {
+    "method": "GET",
+    "path": "/login/logout.php",
+    "query": {
+     "sesskey": "{{query.sesskey}}"
+    }
+   },
+   "render": "faithful",
+   "origin": "human",
+   "risk": "low",
+   "query": {
+    "sesskey": {
+     "type": "string",
+     "max_length": 20,
+     "pattern": "^[A-Za-z0-9]{1,20}$",
+     "required": false
+    }
+   }
+  },
+  {
+   "id": "dashboard",
+   "path": "/my/",
+   "method": "GET",
+   "roles": [
+    "guest"
+   ],
+   "legacy_request": {
+    "method": "GET",
+    "path": "/my/"
+   },
+   "render": "faithful",
+   "origin": "human",
+   "risk": "low"
+  }
+ ],
+ "forms": [
+  {
+   "id": "login",
+   "route": "/login/index.php",
+   "roles": [
+    "guest"
+   ],
+   "origin": "human",
+   "risk": "high",
+   "fields": {
+    "username": {
+     "type": "string",
+     "max_length": 100,
+     "pattern": "^[A-Za-z0-9._@-]{1,100}$"
+    },
+    "password": {
+     "type": "password",
+     "max_length": 128,
+     "rules": [
+      "no_template_meta"
+     ]
+    }
+   },
+   "legacy_request": {
+    "method": "POST",
+    "path": "/login/index.php",
+    "form": {
+     "username": "{{fields.username}}",
+     "password": "{{fields.password}}",
+     "logintoken": "{{hidden.logintoken}}"
+    }
+   },
+   "rate_limit": {
+    "per_ip": "10/min"
+   }
+  }
+ ],
+ "assets": [
+  {
+   "prefix": "/theme/",
+   "types": [
+    "text/css",
+    "application/javascript",
+    "text/javascript",
+    "image/png",
+    "image/jpeg",
+    "image/gif",
+    "image/svg+xml",
+    "image/webp",
+    "image/x-icon",
+    "font/woff",
+    "font/woff2",
+    "font/ttf",
+    "application/font-woff"
+   ]
+  },
+  {
+   "prefix": "/lib/",
+   "types": [
+    "text/css",
+    "application/javascript",
+    "text/javascript",
+    "image/png",
+    "image/jpeg",
+    "image/gif",
+    "image/svg+xml",
+    "image/webp",
+    "image/x-icon",
+    "font/woff",
+    "font/woff2",
+    "font/ttf",
+    "application/font-woff"
+   ]
+  },
+  {
+   "prefix": "/pluginfile.php/",
+   "types": [
+    "image/png",
+    "image/jpeg",
+    "image/gif",
+    "image/webp",
+    "image/svg+xml",
+    "application/pdf",
+    "video/mp4"
+   ],
+   "max_size_kb": 51200
+  }
+ ],
+ "_template": {
+  "name": "Moodle",
+  "description": "Front page, course and activity pages, the login form (the legacy session stays on the gateway) and theme/script/uploaded files. Closed: /admin, web services, upgrade and install pages. Review roles before opening courses to the public."
+ }
+}

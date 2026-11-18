@@ -78,6 +78,8 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("POST /v1/tenants/{tenant}/connectors/{id}/rotate", s.authed(s.rotateConnector))
 	mux.HandleFunc("DELETE /v1/tenants/{tenant}/connectors/{id}", s.authed(s.deleteConnector))
 	// Maps
+	mux.HandleFunc("GET /v1/map-templates", s.authed(s.listTemplates))
+	mux.HandleFunc("POST /v1/apps/{app}/map-template", s.authed(s.mapTemplate))
 	mux.HandleFunc("GET /v1/apps/{app}/maps", s.authed(s.listMaps))
 	mux.HandleFunc("POST /v1/apps/{app}/maps", s.authed(s.createMap))
 	mux.HandleFunc("GET /v1/apps/{app}/maps/{version}", s.authed(s.getMap))

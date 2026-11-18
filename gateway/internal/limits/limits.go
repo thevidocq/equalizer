@@ -137,6 +137,11 @@ func Compile(m *mapmodel.Model, store Store) (*Set, []string, error) {
 			return nil, nil, fmt.Errorf("route %q, rate_limit: %w", r.ID, err)
 		}
 	}
+	for _, a := range m.API {
+		if s.entries[a.ID], err = rates(a.RateLimit); err != nil {
+			return nil, nil, fmt.Errorf("api %q: %w", a.ID, err)
+		}
+	}
 	for _, f := range m.Forms {
 		if s.entries[f.ID], err = rates(f.RateLimit); err != nil {
 			return nil, nil, fmt.Errorf("form %q, rate_limit: %w", f.ID, err)

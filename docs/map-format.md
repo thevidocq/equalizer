@@ -236,6 +236,55 @@ forms (the legacy app has answered) the rule applies from the next request.
 If Redis is unreachable, limits are not applied (fail open) and the error is
 logged every 10 seconds at most.
 
+## JSON APIs
+
+For the parts of a site that JavaScript loads in the background.
+
+```yaml
+api:
+  - id: permit_list
+    path: /api/permits          # the same path the site's JavaScript calls
+    method: GET
+    roles: [citizen]
+    query: { page: { type: int, min: 1, max: 500, required: false } }
+    legacy_request: { method: GET, path: /rest/permits, query: { p: "{{query.page}}" } }
+    response:
+      list: true
+      path: data.items          # where the list is in the legacy JSON
+      fields: { id: { type: int }, title: { type: string, max_length: 200 } }
+  - id: permit_save
+    path: /api/permits/{id}
+    method: PUT
+    roles: [citizen]
+    params: { id: { type: permit_id } }
+    body: { title: { type: string, max_length: 200 }, urgent: { type: bool, required: false } }
+    legacy_request:
+      method: PUT
+      path: /rest/permits/{{params.id}}
+      json: { title: "{{body.title}}", urgent: "{{body.urgent}}" }
+    response: { fields: { id: { type: int }, title: { type: string } } }
+```
+
+- The body must be a JSON object with `Content-Type: application/json`:
+  an undeclared key, a nested object or a value of the wrong type is a
+  400. Values are checked with the same types as forms.
+- `legacy_request.json` is rebuilt from scratch: `"{{body.urgent}}"` becomes
+  `true`, an `int` becomes a number, an absent optional value is left out.
+- Only `response.fields` reach the browser, each with its declared type; a
+  value of another type is dropped. A legacy error never shows its body:
+  the client gets `{"error": "unavailable"}`, `not_found` or `forbidden`.
+- Writes (`POST`, `PUT`, `PATCH`, `DELETE`) are refused when the browser
+  says they come from another site (`Origin`, `Sec-Fetch-Site`).
+
+## Templates
+
+When a site is protected its CMS can be chosen (WordPress, Joomla, Drupal,
+Moodle, or a generic site): the first draft can start from a template with
+its pages, assets and forms. Admin areas stay out of the map, and the page
+slugs refuse their names (`deny`), so `/wp-admin/` is a 400 even though
+`/{slug}/` exists. Templates are a start: add the site's own pages and
+review everything before approval.
+
 ## Field types
 
 | Type | Constraints | Default risk |
@@ -249,6 +298,9 @@ logged every 10 seconds at most.
 | `password` | `max_length`, `rules` (required); never logged | high |
 | `file` | `mime`, `max_size_kb`, `scan` (required) | high |
 
+
+A type or a field can list refused values in `deny` (compared without
+case): `slug: { base: string, pattern: "^[a-z0-9-]+$", deny: [wp-admin, admin] }`.
 ## Rules for text fields
 
 | Rule | Rejects |

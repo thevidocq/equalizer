@@ -23,6 +23,11 @@ email from the platform with a link to choose a password. Then **People →
 Invite a person** (name, email, role): the link works once and expires in 48
 hours; pending invitations can be revoked.
 
+**Templates** *(available)*: when you protect a site, choose what it is
+built with (WordPress, Joomla, Drupal, Moodle or another site). The first
+map can start from a template with its pages, files and forms; admin areas
+stay closed. Add the pages that are only yours, then send it for review.
+
 **Connectors and isolation** *(available)*: install one connector per
 server (**Connectors**); it serves all the sites on that server. In each
 site, **Isolation** checks that the site no longer answers on its old public

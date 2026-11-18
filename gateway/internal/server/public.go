@@ -118,6 +118,9 @@ func (p *Public) handle(w http.ResponseWriter, r *http.Request) string {
 	case router.KindForm:
 		p.serveForm(w, r, active, m)
 		return m.Entry.ID
+	case router.KindAPI:
+		p.serveAPI(w, r, active, m)
+		return m.Entry.ID
 	}
 	p.Log.DebugContext(r.Context(), "entry matched, kind not served yet",
 		slog.Group("detail", slog.String("route", m.Entry.ID), slog.String("kind", string(m.Entry.Kind))))

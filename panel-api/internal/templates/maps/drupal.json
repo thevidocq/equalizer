@@ -1,0 +1,304 @@
+{
+ "meta": {
+  "schema": "gateway-map/1.0",
+  "tenant": "x",
+  "app": "x",
+  "version": 1,
+  "status": "draft"
+ },
+ "legacy": {
+  "base_url": "__BASE_URL__",
+  "reach": {
+   "mode": "connector",
+   "connector_id": "__CONNECTOR__",
+   "address": "__ADDRESS__",
+   "allow": [
+    "__ADDRESS__"
+   ]
+  },
+  "timeout_ms": 10000
+ },
+ "roles": {
+  "anonymous": "guest",
+  "list": {
+   "guest": {}
+  }
+ },
+ "defaults": {
+  "rate_limit": {
+   "per_ip": "120/min"
+  },
+  "legacy_budget": {
+   "max_concurrency": 10
+  },
+  "string": {
+   "max_length": 200
+  }
+ },
+ "types": {
+  "slug": {
+   "base": "string",
+   "pattern": "^[A-Za-z0-9][A-Za-z0-9_-]{0,119}$",
+   "deny": [
+    "admin",
+    "administrator",
+    "backup",
+    "backups",
+    "batch",
+    "cgi-bin",
+    "config",
+    "console",
+    "core",
+    "cpanel",
+    "cron",
+    "install",
+    "jsonapi",
+    "manager",
+    "modules",
+    "node",
+    "phpmyadmin",
+    "plesk",
+    "pma",
+    "profiles",
+    "rest",
+    "server-info",
+    "server-status",
+    "setup",
+    "sites",
+    "update",
+    "user",
+    "vendor",
+    "webmail",
+    "wp-admin",
+    "wp-login",
+    "xmlrpc"
+   ]
+  },
+  "id": {
+   "base": "int",
+   "min": 1,
+   "max": 999999999
+  },
+  "search": {
+   "base": "string",
+   "max_length": 100,
+   "pattern": "^[^<>{}\\x00-\\x1f]{1,100}$"
+  }
+ },
+ "routes": [
+  {
+   "id": "home",
+   "path": "/",
+   "method": "GET",
+   "roles": [
+    "guest"
+   ],
+   "legacy_request": {
+    "method": "GET",
+    "path": "/"
+   },
+   "render": "faithful",
+   "origin": "human",
+   "risk": "low"
+  },
+  {
+   "id": "node",
+   "path": "/node/{id}",
+   "method": "GET",
+   "roles": [
+    "guest"
+   ],
+   "legacy_request": {
+    "method": "GET",
+    "path": "/node/{{params.id}}"
+   },
+   "render": "faithful",
+   "origin": "human",
+   "risk": "low",
+   "params": {
+    "id": {
+     "type": "id"
+    }
+   }
+  },
+  {
+   "id": "term",
+   "path": "/taxonomy/term/{id}",
+   "method": "GET",
+   "roles": [
+    "guest"
+   ],
+   "legacy_request": {
+    "method": "GET",
+    "path": "/taxonomy/term/{{params.id}}"
+   },
+   "render": "faithful",
+   "origin": "human",
+   "risk": "low",
+   "params": {
+    "id": {
+     "type": "id"
+    }
+   }
+  },
+  {
+   "id": "search",
+   "path": "/search/node",
+   "method": "GET",
+   "roles": [
+    "guest"
+   ],
+   "legacy_request": {
+    "method": "GET",
+    "path": "/search/node",
+    "query": {
+     "keys": "{{query.keys}}",
+     "page": "{{query.page}}"
+    }
+   },
+   "render": "faithful",
+   "origin": "human",
+   "risk": "low",
+   "query": {
+    "keys": {
+     "type": "search",
+     "required": false
+    },
+    "page": {
+     "type": "int",
+     "min": 0,
+     "max": 10000,
+     "required": false
+    }
+   }
+  },
+  {
+   "id": "page",
+   "path": "/{slug}",
+   "method": "GET",
+   "roles": [
+    "guest"
+   ],
+   "legacy_request": {
+    "method": "GET",
+    "path": "/{{params.slug}}"
+   },
+   "render": "faithful",
+   "origin": "human",
+   "risk": "low",
+   "params": {
+    "slug": {
+     "type": "slug"
+    }
+   }
+  },
+  {
+   "id": "sub_page",
+   "path": "/{section}/{slug}",
+   "method": "GET",
+   "roles": [
+    "guest"
+   ],
+   "legacy_request": {
+    "method": "GET",
+    "path": "/{{params.section}}/{{params.slug}}"
+   },
+   "render": "faithful",
+   "origin": "human",
+   "risk": "low",
+   "params": {
+    "section": {
+     "type": "slug"
+    },
+    "slug": {
+     "type": "slug"
+    }
+   }
+  }
+ ],
+ "assets": [
+  {
+   "prefix": "/sites/default/files/",
+   "types": [
+    "image/png",
+    "image/jpeg",
+    "image/gif",
+    "image/webp",
+    "image/svg+xml",
+    "application/pdf",
+    "text/css",
+    "application/javascript",
+    "text/javascript",
+    "image/png",
+    "image/jpeg",
+    "image/gif",
+    "image/svg+xml",
+    "image/webp",
+    "image/x-icon",
+    "font/woff",
+    "font/woff2",
+    "font/ttf",
+    "application/font-woff"
+   ],
+   "max_size_kb": 20480
+  },
+  {
+   "prefix": "/core/",
+   "types": [
+    "text/css",
+    "application/javascript",
+    "text/javascript",
+    "image/png",
+    "image/jpeg",
+    "image/gif",
+    "image/svg+xml",
+    "image/webp",
+    "image/x-icon",
+    "font/woff",
+    "font/woff2",
+    "font/ttf",
+    "application/font-woff"
+   ]
+  },
+  {
+   "prefix": "/themes/",
+   "types": [
+    "text/css",
+    "application/javascript",
+    "text/javascript",
+    "image/png",
+    "image/jpeg",
+    "image/gif",
+    "image/svg+xml",
+    "image/webp",
+    "image/x-icon",
+    "font/woff",
+    "font/woff2",
+    "font/ttf",
+    "application/font-woff"
+   ]
+  },
+  {
+   "prefix": "/modules/",
+   "types": [
+    "text/css",
+    "application/javascript",
+    "text/javascript",
+    "image/png",
+    "image/jpeg",
+    "image/gif",
+    "image/svg+xml",
+    "image/webp",
+    "image/x-icon",
+    "font/woff",
+    "font/woff2",
+    "font/ttf",
+    "application/font-woff"
+   ]
+  }
+ ],
+ "_template": {
+  "name": "Drupal",
+  "description": "Home, nodes, path aliases, taxonomy terms, search and core/theme/module/uploaded files. Closed: /admin, /user, /jsonapi, install.php and update.php."
+ }
+}

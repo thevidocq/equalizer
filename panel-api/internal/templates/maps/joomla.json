@@ -1,0 +1,283 @@
+{
+ "meta": {
+  "schema": "gateway-map/1.0",
+  "tenant": "x",
+  "app": "x",
+  "version": 1,
+  "status": "draft"
+ },
+ "legacy": {
+  "base_url": "__BASE_URL__",
+  "reach": {
+   "mode": "connector",
+   "connector_id": "__CONNECTOR__",
+   "address": "__ADDRESS__",
+   "allow": [
+    "__ADDRESS__"
+   ]
+  },
+  "timeout_ms": 10000
+ },
+ "roles": {
+  "anonymous": "guest",
+  "list": {
+   "guest": {}
+  }
+ },
+ "defaults": {
+  "rate_limit": {
+   "per_ip": "120/min"
+  },
+  "legacy_budget": {
+   "max_concurrency": 10
+  },
+  "string": {
+   "max_length": 200
+  }
+ },
+ "types": {
+  "slug": {
+   "base": "string",
+   "pattern": "^[A-Za-z0-9][A-Za-z0-9_-]{0,119}$",
+   "deny": [
+    "admin",
+    "administrator",
+    "api",
+    "backup",
+    "backups",
+    "bin",
+    "cache",
+    "cgi-bin",
+    "cli",
+    "components",
+    "config",
+    "console",
+    "cpanel",
+    "includes",
+    "install",
+    "installation",
+    "jsonapi",
+    "language",
+    "layouts",
+    "libraries",
+    "logs",
+    "manager",
+    "modules",
+    "phpmyadmin",
+    "plesk",
+    "plugins",
+    "pma",
+    "server-info",
+    "server-status",
+    "setup",
+    "tmp",
+    "webmail",
+    "wp-admin",
+    "wp-login",
+    "xmlrpc"
+   ]
+  },
+  "id": {
+   "base": "int",
+   "min": 1,
+   "max": 999999999
+  },
+  "search": {
+   "base": "string",
+   "max_length": 100,
+   "pattern": "^[^<>{}\\x00-\\x1f]{1,100}$"
+  }
+ },
+ "routes": [
+  {
+   "id": "home",
+   "path": "/",
+   "method": "GET",
+   "roles": [
+    "guest"
+   ],
+   "legacy_request": {
+    "method": "GET",
+    "path": "/"
+   },
+   "render": "faithful",
+   "origin": "human",
+   "risk": "low"
+  },
+  {
+   "id": "index",
+   "path": "/index.php",
+   "method": "GET",
+   "roles": [
+    "guest"
+   ],
+   "legacy_request": {
+    "method": "GET",
+    "path": "/index.php",
+    "query": {
+     "option": "{{query.option}}",
+     "view": "{{query.view}}",
+     "id": "{{query.id}}",
+     "catid": "{{query.catid}}",
+     "Itemid": "{{query.itemid}}",
+     "searchword": "{{query.searchword}}",
+     "q": "{{query.q}}",
+     "limitstart": "{{query.limitstart}}"
+    }
+   },
+   "render": "faithful",
+   "origin": "human",
+   "risk": "low",
+   "query": {
+    "option": {
+     "type": "enum",
+     "values": [
+      "com_content",
+      "com_contact",
+      "com_search",
+      "com_finder",
+      "com_tags"
+     ],
+     "required": false
+    },
+    "view": {
+     "type": "enum",
+     "values": [
+      "article",
+      "category",
+      "categories",
+      "featured",
+      "search",
+      "tag",
+      "contact"
+     ],
+     "required": false
+    },
+    "id": {
+     "type": "id",
+     "required": false
+    },
+    "catid": {
+     "type": "id",
+     "required": false
+    },
+    "searchword": {
+     "type": "search",
+     "required": false
+    },
+    "q": {
+     "type": "search",
+     "required": false
+    },
+    "limitstart": {
+     "type": "int",
+     "min": 0,
+     "max": 100000,
+     "required": false
+    },
+    "itemid": {
+     "type": "id",
+     "required": false
+    }
+   }
+  },
+  {
+   "id": "page",
+   "path": "/{slug}",
+   "method": "GET",
+   "roles": [
+    "guest"
+   ],
+   "legacy_request": {
+    "method": "GET",
+    "path": "/{{params.slug}}"
+   },
+   "render": "faithful",
+   "origin": "human",
+   "risk": "low",
+   "params": {
+    "slug": {
+     "type": "slug"
+    }
+   }
+  },
+  {
+   "id": "sub_page",
+   "path": "/{section}/{slug}",
+   "method": "GET",
+   "roles": [
+    "guest"
+   ],
+   "legacy_request": {
+    "method": "GET",
+    "path": "/{{params.section}}/{{params.slug}}"
+   },
+   "render": "faithful",
+   "origin": "human",
+   "risk": "low",
+   "params": {
+    "section": {
+     "type": "slug"
+    },
+    "slug": {
+     "type": "slug"
+    }
+   }
+  }
+ ],
+ "assets": [
+  {
+   "prefix": "/media/",
+   "types": [
+    "text/css",
+    "application/javascript",
+    "text/javascript",
+    "image/png",
+    "image/jpeg",
+    "image/gif",
+    "image/svg+xml",
+    "image/webp",
+    "image/x-icon",
+    "font/woff",
+    "font/woff2",
+    "font/ttf",
+    "application/font-woff",
+    "application/pdf"
+   ]
+  },
+  {
+   "prefix": "/templates/",
+   "types": [
+    "text/css",
+    "application/javascript",
+    "text/javascript",
+    "image/png",
+    "image/jpeg",
+    "image/gif",
+    "image/svg+xml",
+    "image/webp",
+    "image/x-icon",
+    "font/woff",
+    "font/woff2",
+    "font/ttf",
+    "application/font-woff"
+   ]
+  },
+  {
+   "prefix": "/images/",
+   "types": [
+    "image/png",
+    "image/jpeg",
+    "image/gif",
+    "image/webp",
+    "image/svg+xml",
+    "application/pdf"
+   ],
+   "max_size_kb": 20480
+  }
+ ],
+ "_template": {
+  "name": "Joomla",
+  "description": "Home, menu pages by alias, articles and categories (index.php with option/view/id), search and media/template files. Closed: /administrator, /api, /installation."
+ }
+}

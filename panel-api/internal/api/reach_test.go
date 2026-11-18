@@ -92,3 +92,32 @@ func TestMapReach(t *testing.T) {
 		t.Fatalf("internal maps without token: %d", code)
 	}
 }
+
+func TestTemplates(t *testing.T) {
+	e := setup(t)
+	root := e.client()
+	root.must(200, "POST", "/v1/auth/login", map[string]string{"email": "root@example.com", "password": "platform-admin-password"}, nil)
+	root.must(201, "POST", "/v1/tenants", map[string]string{"id": "acme", "name": "Acme", "admin_email": "boss@acme.test", "admin_name": "Boss"}, nil)
+	boss := e.join("boss@acme.test")
+	boss.must(422, "POST", "/v1/tenants/acme/apps", map[string]any{"id": "blog", "name": "Blog", "public_domain": "blog.acme.test", "kind": "typo3"}, nil)
+	var app struct{ Kind *string }
+	boss.must(201, "POST", "/v1/tenants/acme/apps", map[string]any{"id": "blog", "name": "Blog", "public_domain": "blog.acme.test", "kind": "wordpress"}, &app)
+	if app.Kind == nil || *app.Kind != "wordpress" {
+		t.Fatalf("kind: %+v", app)
+	}
+	var tl struct{ Items []struct{ ID string } }
+	boss.must(200, "GET", "/v1/map-templates", nil, &tl)
+	if len(tl.Items) != 5 {
+		t.Fatalf("templates: %+v", tl)
+	}
+	boss.must(201, "POST", "/v1/tenants/acme/connectors", map[string]string{"id": "cn-web01"}, nil)
+	var out struct{ Document json.RawMessage }
+	boss.must(200, "POST", "/v1/apps/blog/map-template", map[string]string{"template": "wordpress", "connector_id": "cn-web01", "address": "127.0.0.1:8443"}, &out)
+	if !strings.Contains(string(out.Document), `"https://blog.acme.test"`) || !strings.Contains(string(out.Document), `"wp-admin"`) {
+		t.Fatalf("rendered template: %s", out.Document)
+	}
+	// The filled template is a valid draft.
+	boss.must(201, "POST", "/v1/apps/blog/maps", map[string]any{"document": out.Document}, nil)
+	boss.must(404, "POST", "/v1/apps/blog/map-template", map[string]string{"template": "nope", "connector_id": "cn-web01", "address": "127.0.0.1:8443"}, nil)
+	boss.must(422, "POST", "/v1/apps/blog/map-template", map[string]string{"template": "wordpress", "connector_id": "cn-web01", "address": "no-port"}, nil)
+}

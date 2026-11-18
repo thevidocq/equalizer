@@ -15,10 +15,12 @@ Go control-plane API. Contract: [`schema/api/panel-api.yaml`](../schema/api/pane
 | Sites | `GET/POST /v1/tenants/{tenant}/apps`, `GET /v1/apps/{app}` | create: tenant admin |
 | Connectors | `GET/POST /v1/tenants/{tenant}/connectors`, `POST …/{id}/rotate`, `DELETE …/{id}` (409 while a published map uses it) | tenant admin; token shown once; one per server, shared by the sites |
 | Templates | `GET /v1/map-templates`, `POST /v1/apps/{app}/map-template` (fills a template for the site, saves nothing); sites take `kind` (wordpress, joomla, drupal, moodle, generic) | everyone; editors and administrators |
+| Discovery | `GET/POST /v1/apps/{app}/discoveries`, `GET …/{id}`; `PATCH /v1/apps/{app}` (`discovery_schedule`: off, daily, weekly) | read: tenant people; start: editors and administrators |
+| Tenant AI | `GET/PUT/DELETE /v1/tenants/{tenant}/llm` (key sealed, never returned) | tenant admin; the platform has no AI settings |
 | Isolation | `PATCH /v1/apps/{app}` (`legacy_ip`), `POST /v1/apps/{app}/exposure/check` (once a minute) | tenant admin |
 | Maps | `GET/POST /v1/apps/{app}/maps`, `GET …/{version}`, `POST …/{version}/{submit,approve,reject,publish}` | draft/submit: editor; approve/reject/publish: approver, never the author |
 | Audit | `GET /v1/audit`: the tenant's own actions, or the platform's own for platform users | tenant admin, approver, auditor; platform |
-| Internal | `GET /v1/internal/maps` (every published map, ETag), `GET /v1/internal/apps/{app}/map`, `GET /v1/internal/connectors` (relay) | service token |
+| Internal | `POST /v1/internal/discoveries/claim`, `…/{id}/progress`, `…/{id}/result` (agent), `POST /v1/internal/unmapped` (gateway), `GET /v1/internal/maps` (every published map, ETag), `GET /v1/internal/apps/{app}/map`, `GET /v1/internal/connectors` (relay) | service token |
 
 Security:
 
@@ -46,6 +48,12 @@ Security:
   towards `EQ_DIRECT_DESTINATIONS` (422 `direct_not_allowed`), so no map can
   point the gateway at the platform's own services; `meta.public_domain` is
   set from the site.
+- Discovery: one active per site; the test account password and the
+  tenant's AI key are sealed with `EQ_MFA_KEY` (label per tenant or site);
+  the password is erased when the discovery ends. The proposed map gets the
+  same checks as any draft and becomes a draft by whoever started it (for
+  continuous discovery, whoever turned it on), never published by itself; no
+  draft when nothing changed. A run silent for two hours is failed.
 - Exposure check (`internal/exposure`): every `EQ_EXPOSURE_INTERVAL` each
   site with a `legacy_ip` is probed on ports 443 and 80 with its name in SNI
   and `Host`, comparing with the answer for a random name. Only public

@@ -68,6 +68,17 @@ Prometheus + Alertmanager (metrics and alerts), Grafana (analysis).
 - **Direct mode** is limited to destinations the platform allows, so no
   map can aim the gateway at the platform's own network.
 
+## Discovery
+
+The agent explores a site read-only through its connector and proposes a
+draft map: crawl, fixed exclusions (admin, backups, actions), fingerprint
+(CMS, version, components), deterministic routes and types, then an
+optional AI review with the tenant's own model that can only rename,
+exclude or narrow. The gateway reports the paths it refused, so discovery
+also sees what real visitors miss. Continuous discovery (daily or weekly)
+proposes a draft only when something changed. Every proposal goes through
+the usual approval.
+
 ## Platform and tenants
 
 Two kinds of people use the panel, and they never share a view.

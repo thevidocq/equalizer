@@ -22,13 +22,29 @@ func (s *Server) patchApp(w http.ResponseWriter, r *http.Request, u *auth.User) 
 	}
 	var in struct {
 		LegacyIP json.RawMessage `json:"legacy_ip"`
+		Schedule *string         `json:"discovery_schedule"`
 	}
 	if !decode(w, r, &in) {
 		return
 	}
-	if in.LegacyIP == nil {
+	if in.LegacyIP == nil && in.Schedule == nil {
 		fail(w, http.StatusUnprocessableEntity, "invalid", "nothing to change")
 		return
+	}
+	if in.Schedule != nil {
+		if *in.Schedule != "off" && *in.Schedule != "daily" && *in.Schedule != "weekly" {
+			fail(w, http.StatusUnprocessableEntity, "invalid", "discovery_schedule: off, daily or weekly")
+			return
+		}
+		if err := s.Store.SetDiscoverySchedule(r.Context(), a.ID, *in.Schedule, u.ID); err != nil {
+			s.storeError(w, r, err)
+			return
+		}
+		_ = s.Store.Record(r.Context(), &u.ID, &a.Tenant, "discovery.schedule", a.ID, map[string]any{"schedule": *in.Schedule})
+		if in.LegacyIP == nil {
+			s.writeApp(w, r, a.ID)
+			return
+		}
 	}
 	var ip *string
 	if string(in.LegacyIP) != "null" {

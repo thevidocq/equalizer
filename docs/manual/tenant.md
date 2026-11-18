@@ -23,6 +23,16 @@ email from the platform with a link to choose a password. Then **People →
 Invite a person** (name, email, role): the link works once and expires in 48
 hours; pending invitations can be revoked.
 
+**Discovery** *(available)*: **Site → Discovery → Start discovery**. The
+agent explores the site through the connector, never from the Internet, and
+opens no admin area. With a test account it also explores as a logged-in
+user. The report shows what was found, what was kept out and why, and what
+visitors asked for; if the map should change it proposes a draft, which you
+review and send for approval. **Continuous discovery** (every day or week)
+does it again and proposes only what changed. **Settings → AI**: your own
+model (Claude, OpenAI or your server) makes the proposal better; without it
+discovery still works.
+
 **Templates** *(available)*: when you protect a site, choose what it is
 built with (WordPress, Joomla, Drupal, Moodle or another site). The first
 map can start from a template with its pages, files and forms; admin areas

@@ -14,6 +14,7 @@ type App struct {
 	CreatedAt    time.Time `json:"created_at"`
 	Published    *int      `json:"published_version"` // nil: no published map
 	Kind         *string   `json:"kind"`              // wordpress, joomla, ... or nil
+	Schedule     string    `json:"discovery_schedule"`
 	Exposure     Exposure  `json:"exposure"`
 }
 
@@ -29,21 +30,21 @@ type Exposure struct {
 func (s *Store) CreateApp(ctx context.Context, a App) (App, error) {
 	err := s.DB.QueryRowContext(ctx, `
 		INSERT INTO apps (id, tenant_id, name, public_domain, kind) VALUES ($1, $2, $3, lower($4), $5)
-		RETURNING public_domain, created_at, exposure_status`,
-		a.ID, a.Tenant, a.Name, a.PublicDomain, a.Kind).Scan(&a.PublicDomain, &a.CreatedAt, &a.Exposure.Status)
+		RETURNING public_domain, created_at, exposure_status, discovery_schedule`,
+		a.ID, a.Tenant, a.Name, a.PublicDomain, a.Kind).Scan(&a.PublicDomain, &a.CreatedAt, &a.Exposure.Status, &a.Schedule)
 	return a, translate(err)
 }
 
 const appColumns = `a.id, a.tenant_id, a.name, a.public_domain, a.created_at,
 	(SELECT version FROM map_versions m WHERE m.app_id = a.id AND m.status = 'published'),
-	a.legacy_ip, a.exposure_status, a.exposure_reason, a.exposure_checked_at, a.kind`
+	a.legacy_ip, a.exposure_status, a.exposure_reason, a.exposure_checked_at, a.kind, a.discovery_schedule`
 
 type scanner interface{ Scan(...any) error }
 
 func scanApp(row scanner) (App, error) {
 	var a App
 	err := row.Scan(&a.ID, &a.Tenant, &a.Name, &a.PublicDomain, &a.CreatedAt, &a.Published,
-		&a.Exposure.LegacyIP, &a.Exposure.Status, &a.Exposure.Reason, &a.Exposure.CheckedAt, &a.Kind)
+		&a.Exposure.LegacyIP, &a.Exposure.Status, &a.Exposure.Reason, &a.Exposure.CheckedAt, &a.Kind, &a.Schedule)
 	return a, err
 }
 

@@ -857,6 +857,8 @@ export interface paths {
             requestBody: {
                 content: {
                     "application/json": {
+                        /** @enum {unknown} */
+                        discovery_schedule?: "off" | "daily" | "weekly";
                         /** @description Public IP the site answered on before Equalizer: the exposure check probes it. A public unicast IPv4 or IPv6 address; null stops the checks */
                         legacy_ip?: string | null;
                     };
@@ -1280,186 +1282,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/apps/{app}/proposals": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Proposal queue */
-        get: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path: {
-                    app: components["parameters"]["app"];
-                };
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                200: components["responses"]["List"];
-            };
-        };
-        put?: never;
-        /** New change proposal (agent or import) */
-        post: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path: {
-                    app: components["parameters"]["app"];
-                };
-                cookie?: never;
-            };
-            requestBody: {
-                content: {
-                    "application/json": components["schemas"]["Proposal"];
-                };
-            };
-            responses: {
-                201: components["responses"]["Object"];
-            };
-        };
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/proposals/{id}/approve": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Approve a proposal (never by its author) */
-        post: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path: {
-                    id: components["parameters"]["id"];
-                };
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                200: components["responses"]["Object"];
-                /** @description The author cannot approve their own proposal */
-                403: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content?: never;
-                };
-            };
-        };
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/proposals/{id}/reject": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Reject a proposal */
-        post: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path: {
-                    id: components["parameters"]["id"];
-                };
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                200: components["responses"]["Object"];
-            };
-        };
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/apps/{app}/crawls": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Start a crawl */
-        post: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path: {
-                    app: components["parameters"]["app"];
-                };
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                202: components["responses"]["Object"];
-            };
-        };
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/crawls/next": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** The agent takes the next queued job */
-        get: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                200: components["responses"]["Object"];
-                /** @description No job queued */
-                204: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content?: never;
-                };
-            };
-        };
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/tenants/{tenant}/llm": {
         parameters: {
             query?: never;
@@ -1467,7 +1289,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Tenant LLM provider configuration (keys never returned) */
+        /** The tenant's AI model (the key is never returned; tenant administrators). The platform has no AI settings */
         get: {
             parameters: {
                 query?: never;
@@ -1479,7 +1301,7 @@ export interface paths {
             };
             requestBody?: never;
             responses: {
-                /** @description Configuration */
+                /** @description Configuration; provider null when none */
                 200: {
                     headers: {
                         [name: string]: unknown;
@@ -1490,7 +1312,7 @@ export interface paths {
                 };
             };
         };
-        /** Update the LLM configuration */
+        /** Set the tenant's AI model. An empty api_key keeps the saved one */
         put: {
             parameters: {
                 query?: never;
@@ -1506,27 +1328,21 @@ export interface paths {
                 };
             };
             responses: {
-                200: components["responses"]["Object"];
+                /** @description Configuration */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["LLMConfig"];
+                    };
+                };
+                422: components["responses"]["Error"];
             };
         };
         post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/tenants/{tenant}/llm/test": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Test the connection to the provider */
-        post: {
+        /** Remove the tenant's AI model and its key; discovery goes on without AI */
+        delete: {
             parameters: {
                 query?: never;
                 header?: never;
@@ -1537,7 +1353,80 @@ export interface paths {
             };
             requestBody?: never;
             responses: {
-                200: components["responses"]["Object"];
+                /** @description Removed */
+                204: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/apps/{app}/discoveries": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Discoveries of the site, newest first */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    app: components["parameters"]["app"];
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Discoveries */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            items: components["schemas"]["Discovery"][];
+                        };
+                    };
+                };
+            };
+        };
+        put?: never;
+        /** Start a discovery: the agent explores the site through its connector, read-only, and proposes a draft map. Without a published map, connector_id and address say how to reach it (editors and administrators). 409 while another one is queued or running */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    app: components["parameters"]["app"];
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["DiscoveryStart"];
+                };
+            };
+            responses: {
+                /** @description Queued */
+                201: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Discovery"];
+                    };
+                };
+                409: components["responses"]["Error"];
+                422: components["responses"]["Error"];
             };
         };
         delete?: never;
@@ -1546,15 +1435,57 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/agent/llm-config": {
+    "/apps/{app}/discoveries/{id}": {
         parameters: {
             query?: never;
             header?: never;
             path?: never;
             cookie?: never;
         };
-        /** Effective LLM configuration for the agent */
+        /** One discovery with its report */
         get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    app: components["parameters"]["app"];
+                    id: components["parameters"]["id"];
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Discovery */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Discovery"];
+                    };
+                };
+                404: components["responses"]["Error"];
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/internal/discoveries/claim": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** The agent takes the next queued discovery, with what it needs to run it */
+        post: {
             parameters: {
                 query?: never;
                 header?: never;
@@ -1563,11 +1494,161 @@ export interface paths {
             };
             requestBody?: never;
             responses: {
-                200: components["responses"]["Object"];
+                /** @description Job */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["DiscoveryJob"];
+                    };
+                };
+                /** @description Nothing queued */
+                204: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
             };
         };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/internal/discoveries/{id}/progress": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
         put?: never;
-        post?: never;
+        /** Pages explored so far */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: components["parameters"]["id"];
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            responses: {
+                /** @description Saved */
+                204: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/internal/discoveries/{id}/result": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Report and proposed map of a finished discovery. The map is checked like any draft and saved as a draft by whoever started the discovery; it still needs someone else's approval */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: components["parameters"]["id"];
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": {
+                        report?: {
+                            [key: string]: unknown;
+                        };
+                        document?: {
+                            [key: string]: unknown;
+                        };
+                        error?: string;
+                    };
+                };
+            };
+            responses: {
+                /** @description Saved */
+                204: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/internal/unmapped": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Requests the gateway refused because their path is not in the map, counted per site (path only, never the query). Discovery uses them to find what real visitors miss */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": {
+                        items: {
+                            app: string;
+                            method: string;
+                            path: string;
+                            hits: number;
+                            /** @description Distinct client addresses (counted */
+                            clients: number;
+                        }[];
+                    };
+                };
+            };
+            responses: {
+                /** @description Saved */
+                204: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
         delete?: never;
         options?: never;
         head?: never;
@@ -2622,6 +2703,11 @@ export interface components {
             created_at: string;
             published_version: number | null;
             kind?: components["schemas"]["SiteKind"];
+            /**
+             * @description Continuous discovery: run again and propose what changed
+             * @enum {unknown}
+             */
+            discovery_schedule?: "off" | "daily" | "weekly";
             exposure?: components["schemas"]["Exposure"];
         };
         /** @description Whether the site still answers directly, bypassing Equalizer */
@@ -2701,29 +2787,101 @@ export interface components {
             signature: string;
             key_id: string;
         };
-        Proposal: {
-            base_version: number;
-            changes: Record<string, never>[];
-            /** @description agent:<run> or user:<id> */
-            author: string;
-            rationale?: string;
-        };
         LLMConfig: {
-            /** @enum {unknown} */
-            provider?: "anthropic" | "openai" | "local";
+            /**
+             * @description null: no AI, discovery runs without it
+             * @enum {unknown}
+             */
+            provider: "anthropic" | "openai" | "local" | null;
             /** @example claude-haiku-5-5 */
-            model?: string;
-            /** @description Local provider only */
+            model?: string | null;
+            /** @description OpenAI-compatible URL, for local models (Ollama, vLLM) */
             endpoint?: string | null;
-            has_api_key?: boolean;
-            timeout_s?: number;
-            max_tokens?: number;
-            retries?: number;
-            fallback_provider?: string | null;
-            mask_personal_data?: boolean;
+            has_api_key: boolean;
         };
-        LLMConfigUpdate: components["schemas"]["LLMConfig"] & {
+        LLMConfigUpdate: {
+            /** @enum {unknown} */
+            provider: "anthropic" | "openai" | "local";
+            model: string;
+            endpoint?: string | null;
             api_key?: string;
+        };
+        DiscoveryStart: {
+            /**
+             * @description Ignored when the tenant has no AI model
+             * @default true
+             */
+            use_ai: boolean;
+            /** @default 500 */
+            max_pages: number;
+            /** @description Test account to explore as a logged-in user; kept encrypted, deleted when the discovery ends */
+            account?: {
+                username?: string;
+                password?: string;
+            } | null;
+            /** @description Needed while the site has no published map */
+            connector_id?: string;
+            /** @description host:port the connector reaches */
+            address?: string;
+            /** @enum {unknown} */
+            scheme?: "https" | "http";
+        };
+        Discovery: {
+            id: number;
+            app: string;
+            /** @enum {unknown} */
+            status: "queued" | "running" | "done" | "failed";
+            /** @enum {unknown} */
+            trigger?: "manual" | "schedule";
+            use_ai?: boolean;
+            with_account?: boolean;
+            requested_by?: string | null;
+            /** Format: date-time */
+            created_at: string;
+            /** Format: date-time */
+            started_at?: string | null;
+            /** Format: date-time */
+            finished_at?: string | null;
+            progress?: {
+                [key: string]: unknown;
+            };
+            /** @description CMS, coverage, routes found and excluded, components with known issues, notes */
+            report?: {
+                [key: string]: unknown;
+            } | null;
+            /** @description The draft proposed, if the map changes */
+            draft_version?: number | null;
+            error?: string | null;
+        };
+        DiscoveryJob: {
+            id: number;
+            tenant: string;
+            app: string;
+            domain: string;
+            kind?: string | null;
+            base_url: string;
+            /** @description legacy.reach for the agent's requests */
+            reach: {
+                [key: string]: unknown;
+            };
+            /** @description The published map, to propose only differences */
+            current_map?: {
+                [key: string]: unknown;
+            } | null;
+            template?: {
+                [key: string]: unknown;
+            } | null;
+            account?: {
+                [key: string]: unknown;
+            } | null;
+            /** @description provider, model, endpoint, api_key; null without AI */
+            llm?: {
+                [key: string]: unknown;
+            } | null;
+            max_pages: number;
+            unmapped?: {
+                [key: string]: unknown;
+            }[];
         };
         Capacity: {
             replicas_min?: number;

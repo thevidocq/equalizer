@@ -3,12 +3,14 @@
 > **Status:** prototype under construction. Steps marked *(available)* already
 > have code and configuration in the repository; the others describe the
 > planned installation and will be completed over time (see `CHANGELOG.md`).
-> Today the gateway serves pages and urlencoded POST forms of a legacy
-> application reached **directly** (`legacy.reach.mode: direct`) or **through
-> the connector** (`mode: connector`), with faithful rendering and
-> pass-through login (sessions in Redis), and the web panel (tenants, sites,
-> connectors, people, maps with approval and signing, activity). File
-> uploads, service status and log pages are not available yet.
+> Today the gateway serves pages, forms (with file uploads) and JSON APIs of
+> legacy applications reached **directly** (`legacy.reach.mode: direct`) or
+> **through the connector** (`mode: connector`), with faithful rendering,
+> pass-through login and authorisation per object; the web panel has
+> tenants, sites, connectors, people, maps with templates, discovery, review
+> aid, approval, signing, import and export, isolation, status, logs and
+> activity. Not available yet: SIEM forwarding, capacity from the panel,
+> OIDC.
 
 The prototype runs on **one VPS** with Docker Compose. The legacy application
 to protect can be anywhere: the **connector**, installed next to it, reaches it.
@@ -258,11 +260,11 @@ docker compose logs tunnel-relay | grep "connector connected"
 
 | Check | How |
 | --- | --- |
-| Services running | Panel → **Service status**, everything "operational" |
-| Connector | Panel → **Connectors**: sites using it; tunnel in `docker compose logs tunnel-relay` |
-| Isolation | Panel → site → **Isolation**: "Not reachable directly" |
-| Full path | End-to-end synthetic check green |
-| Logs | Panel → **Logs**, filter by service |
+| Services running | `docker compose ps`; as platform administrator, **Platform status**: everything "Working" |
+| Connector | Tenant → **Status**: the site's connector "online"; tunnel in `docker compose logs tunnel-relay` |
+| Isolation | Tenant → site → **Isolation**: "Not reachable directly" |
+| Full path | Open the site's domain: the page answers; tenant → **Logs** shows it as served |
+| Logs | Tenant → **Logs**; platform logs in Grafana (above) |
 | Exposure | After cutover, the legacy application does not answer from the Internet |
 
 ## 9. Update

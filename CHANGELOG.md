@@ -22,7 +22,7 @@ Add a section at the top of "Entries" for every commit:
 | Area | Status |
 | --- | --- |
 | Contracts (`schema/`) | First version, validated in CI |
-| Documentation | Architecture, map format, installation and manuals (planned features) |
+| Documentation | Architecture, map format, installation, manuals of what exists, screenshots (`docs/screenshots`) |
 | gateway | JSON APIs, many sites by host, virtual hosts (`reach.address`), GET routes, assets and urlencoded POST forms in direct or connector mode, validation, faithful rendering (UTF-8, cleanup, form binding, URL rewriting, redirects), pass-through login with sessions in Redis, rate limits and behaviour rules, file uploads (real type, size, image rebuild; no virus scan) |
 | tunnel-relay | Token-authenticated tunnels, forwarding with tenant check, admin endpoints; several replicas with handover |
 | connector | Outbound tunnel, local allowlist, reconnection; one per server, virtual hosts |
@@ -34,6 +34,23 @@ Add a section at the top of "Entries" for every commit:
 | tools (eqtool) | Map signing keys, form key, relay token, connector registration, map signing |
 
 ## Entries
+
+### 2026-11-18 — Documentation aligned, screenshots
+
+- **Branch:** `docs/align-screenshots` (on top of `feat/status-page`)
+- **What:**
+  - Manuals rewritten on what the panel does today (tenant and platform),
+    with a roles table and a "Not available yet" section; planned features
+    no longer described as present.
+  - Screenshots in `docs/screenshots/` (fictitious company Acme, domains
+    under `example`), used by the manuals and the README.
+  - Architecture: panel-api and agent responsibilities, relay replicas,
+    observability, status and logs; INSTALL: status line and checks;
+    gateway README: uploads no longer listed as to do.
+- **Why:** several documents still described the prototype of a few weeks
+  ago; earlier screenshots used a real organisation's name.
+- **Status:** documentation only.
+- **Next steps:** SIEM forwarding; lab campaign.
 
 ### 2026-11-18 — Status page
 

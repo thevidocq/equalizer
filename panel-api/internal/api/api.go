@@ -90,6 +90,8 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("GET /v1/apps/{app}/maps", s.authed(s.listMaps))
 	mux.HandleFunc("POST /v1/apps/{app}/maps", s.authed(s.createMap))
 	mux.HandleFunc("GET /v1/apps/{app}/maps/{version}", s.authed(s.getMap))
+	mux.HandleFunc("GET /v1/apps/{app}/maps/{version}/review", s.authed(s.getReview))
+	mux.HandleFunc("POST /v1/apps/{app}/maps/{version}/review", s.authed(s.askReview))
 	mux.HandleFunc("POST /v1/apps/{app}/maps/{version}/{action}", s.authed(s.mapAction))
 	// Audit
 	mux.HandleFunc("GET /v1/audit", s.authed(s.listAudit))
@@ -100,6 +102,8 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("POST /v1/internal/discoveries/{id}/progress", s.internal(s.discoveryProgress))
 	mux.HandleFunc("POST /v1/internal/discoveries/{id}/result", s.internal(s.discoveryResult))
 	mux.HandleFunc("POST /v1/internal/unmapped", s.internal(s.internalUnmapped))
+	mux.HandleFunc("POST /v1/internal/reviews/claim", s.internal(s.claimReview))
+	mux.HandleFunc("POST /v1/internal/reviews/{id}/result", s.internal(s.reviewResult))
 	mux.HandleFunc("GET /v1/internal/connectors", s.internal(s.internalConnectors))
 	mux.HandleFunc("/v1/", func(w http.ResponseWriter, r *http.Request) { fail(w, http.StatusNotFound, "not_found", "") })
 	if s.UI != nil {

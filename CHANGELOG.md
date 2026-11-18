@@ -35,6 +35,29 @@ Add a section at the top of "Entries" for every commit:
 
 ## Entries
 
+### 2026-11-18 — Review aid for approvers (human in the loop)
+
+- **Branch:** `feat/review-assistant`
+- **What:**
+  - Contract: `GET/POST /apps/{app}/maps/{version}/review`, agent
+    `/internal/reviews/claim` and `/{id}/result`, `MapReview`.
+  - panel-api: `internal/review` compares a version with the published map
+    and flags risks with fixed rules (type widened, pattern, rules or deny
+    removed, authz removed, opened to anonymous, sensitive or personal
+    paths, direct mode, reach or allow changed, rate limits raised, assets
+    served as is, new APIs, removals); migration `0007` for the AI part;
+    an AI review is queued when a version is sent for review.
+  - agent: review jobs, a plain summary and questions from the tenant's
+    model, given the changes and findings only.
+  - panel-ui: "Review aid" on each version (risks, AI summary and
+    questions, changes, "Ask the AI again").
+- **Why:** the approver is the last barrier: they must see at once what a
+  change opens and what to check, whoever (person or agent) wrote it.
+- **Status:** tests pass (rules, API flow, agent); checked in a browser.
+  Not run with a real AI provider.
+- **Next steps:** authorisation rules (`owned_by_user`) and rollback;
+  uploads; relay replicas.
+
 ### 2026-11-18 — Discovery agent, continuous discovery, tenant AI settings
 
 - **Branch:** `feat/discovery-agent`

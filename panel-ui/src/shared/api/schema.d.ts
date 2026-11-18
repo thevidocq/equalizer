@@ -1128,6 +1128,67 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/apps/{app}/maps/{version}/review": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Review aid for a version: what changes against the published map and the risks found by fixed rules, plus the summary and questions of the tenant's AI model when there is one. It never approves anything */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    app: components["parameters"]["app"];
+                    version: components["parameters"]["version"];
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Review */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["MapReview"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        /** Ask the AI model again for this version (editors, approvers, administrators) */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    app: components["parameters"]["app"];
+                    version: components["parameters"]["version"];
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Queued */
+                202: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                409: components["responses"]["Error"];
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/apps/{app}/maps/{version}/{action}": {
         parameters: {
             query?: never;
@@ -1588,6 +1649,85 @@ export interface paths {
                         document?: {
                             [key: string]: unknown;
                         };
+                        error?: string;
+                    };
+                };
+            };
+            responses: {
+                /** @description Saved */
+                204: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/internal/reviews/claim": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** The agent takes the next AI review, with the changes, the findings and the tenant's model */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                200: components["responses"]["Object"];
+                /** @description Nothing queued */
+                204: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/internal/reviews/{id}/result": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Summary and questions written by the AI for the approver */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: components["parameters"]["id"];
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": {
+                        summary?: string;
+                        questions?: string[];
                         error?: string;
                     };
                 };
@@ -2852,6 +2992,33 @@ export interface components {
             /** @description The draft proposed, if the map changes */
             draft_version?: number | null;
             error?: string | null;
+        };
+        MapReview: {
+            version: number;
+            /** @description The published version compared with; null when none */
+            base_version?: number | null;
+            changes: {
+                /** @enum {unknown} */
+                section: "legacy" | "roles" | "defaults" | "types" | "routes" | "forms" | "api" | "assets" | "behavior" | "other";
+                entry: string;
+                /** @enum {unknown} */
+                change: "added" | "removed" | "changed";
+                detail?: string;
+            }[];
+            findings: {
+                /** @enum {unknown} */
+                severity: "high" | "medium" | "low";
+                entry: string;
+                rule?: string;
+                message: string;
+            }[];
+            ai: {
+                /** @enum {unknown} */
+                status: "off" | "queued" | "running" | "done" | "failed";
+                summary?: string | null;
+                questions?: string[];
+                error?: string | null;
+            };
         };
         DiscoveryJob: {
             id: number;

@@ -6,6 +6,7 @@ import { useMapVersion } from "../hooks/useMaps";
 import { LifecycleRail, StatusLabel } from "../components/LifecycleRail";
 import { VersionActions } from "../components/VersionActions";
 import { toEditorYaml } from "../components/yaml";
+import { ReviewPanel } from "../components/ReviewPanel";
 
 export function VersionPage() {
   const { tenant = "", app = "", version = "0" } = useParams();
@@ -23,6 +24,9 @@ export function VersionPage() {
           <Link to=".." relative="path" className="text-sm text-signal hover:underline">All versions</Link>
         </div>
         <LifecycleRail v={v.data} />
+        {v.data.status !== "retired" ? (
+          <ReviewPanel app={app} version={v.data.version} canAsk={hasRole(me.data, tenant, "admin", "editor", "approver")} />
+        ) : null}
         <pre className="overflow-x-auto rounded-[var(--radius-panel)] border border-rule bg-surface p-4 font-mono text-[13px] leading-[1.6]">
           {toEditorYaml(v.data.document as Record<string, unknown>)}
         </pre>

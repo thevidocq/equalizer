@@ -145,7 +145,6 @@ forms:
         type: file
         mime: [application/pdf]
         max_size_kb: 5120
-        scan: av+cdr
     legacy_request:
       method: POST
       path: /permits/supplement.do

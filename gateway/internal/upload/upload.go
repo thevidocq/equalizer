@@ -1,13 +1,13 @@
 // Package upload checks the files of a form before anything reaches the
 // legacy application: size, real type (sniffed from the bytes, never the
-// name or the browser's word), a virus scan, and for images a rebuild from
-// the pixels (content disarm: metadata and appended payloads are dropped).
-// The legacy application gets a new random file name.
+// name or the browser's word) and, when the map asks for it, a rebuild of
+// images from their pixels (content disarm: metadata and appended payloads
+// are dropped). The legacy application gets a new random file name. Virus
+// scanning is left to the security stack around the legacy application.
 package upload
 
 import (
 	"bytes"
-	"context"
 	"crypto/rand"
 	"encoding/hex"
 	"errors"
@@ -25,9 +25,7 @@ import (
 const (
 	ReasonTooLarge   = "file_too_large"
 	ReasonType       = "file_type_not_allowed"
-	ReasonInfected   = "file_infected"
 	ReasonUnreadable = "file_unreadable"
-	ReasonScan       = "scan_unavailable"
 )
 
 // Error is a refused file; it never carries the content.
@@ -41,14 +39,6 @@ type File struct {
 	Type string // sniffed content type
 	Data []byte
 }
-
-// Scanner looks for malware. Clean files return nil.
-type Scanner interface {
-	Scan(ctx context.Context, data []byte) error
-}
-
-// ErrInfected is returned by scanners for malware.
-var ErrInfected = errors.New("malware found")
 
 // CDRTypes are the types the gateway can rebuild.
 var CDRTypes = []string{"image/png", "image/jpeg", "image/gif"}
@@ -64,7 +54,7 @@ var extensions = map[string]string{
 }
 
 // Check applies the field's rules to an uploaded file.
-func Check(ctx context.Context, field string, spec mapmodel.FieldSpec, data []byte, scanner Scanner) (File, error) {
+func Check(field string, spec mapmodel.FieldSpec, data []byte) (File, error) {
 	if spec.MaxSizeKB > 0 && len(data) > spec.MaxSizeKB*1024 {
 		return File{}, &Error{field, ReasonTooLarge}
 	}
@@ -72,17 +62,7 @@ func Check(ctx context.Context, field string, spec mapmodel.FieldSpec, data []by
 	if !slices.Contains(spec.MIME, t) {
 		return File{}, &Error{field, ReasonType}
 	}
-	if spec.Scan == "av" || spec.Scan == "av+cdr" {
-		if scanner == nil {
-			return File{}, &Error{field, ReasonScan}
-		}
-		if err := scanner.Scan(ctx, data); errors.Is(err, ErrInfected) {
-			return File{}, &Error{field, ReasonInfected}
-		} else if err != nil {
-			return File{}, &Error{field, ReasonScan} // fail closed
-		}
-	}
-	if spec.Scan == "av+cdr" {
+	if spec.Scan == "cdr" {
 		clean, err := Rebuild(t, data)
 		if err != nil {
 			return File{}, &Error{field, ReasonUnreadable}

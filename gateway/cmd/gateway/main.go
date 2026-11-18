@@ -28,7 +28,6 @@ import (
 	"github.com/thevidocq/equalizer/gateway/internal/telemetry"
 	"github.com/thevidocq/equalizer/gateway/internal/transport"
 	"github.com/thevidocq/equalizer/gateway/internal/unmapped"
-	"github.com/thevidocq/equalizer/gateway/internal/upload"
 )
 
 // version is set at build time (-ldflags "-X main.version=...").
@@ -80,13 +79,7 @@ func run() error {
 		source = &mapstore.HTTPSource{URL: cfg.MapURL, Token: cfg.MapToken, Client: &http.Client{Timeout: 10 * time.Second}}
 	}
 	log.Info("map source", slog.Group("detail", slog.String("source", source.String())))
-	var scanner upload.Scanner
-	if cfg.ClamdAddr != "" {
-		scanner = &upload.Clamd{Addr: cfg.ClamdAddr}
-	} else {
-		log.Warn("EQ_CLAMD_ADDR not set: forms with files answer 503")
-	}
-	store := mapstore.NewStoreFrom(source, pub, cfg.MapPublicKeyID, site.Options{Relay: relay, Limits: counters, Scanner: scanner})
+	store := mapstore.NewStoreFrom(source, pub, cfg.MapPublicKeyID, site.Options{Relay: relay, Limits: counters})
 	rep, err := store.Reload()
 	logReload(log, rep, err)
 
@@ -119,7 +112,6 @@ func run() error {
 	}
 	public := &server.Public{
 		Unmapped: reporter,
-		Scanner:  scanner,
 		Forms:    sealer,
 		Sessions: sessions,
 		Maps:     store,

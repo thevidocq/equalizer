@@ -23,7 +23,7 @@ Add a section at the top of "Entries" for every commit:
 | --- | --- |
 | Contracts (`schema/`) | First version, validated in CI |
 | Documentation | Architecture, map format, installation and manuals (planned features) |
-| gateway | JSON APIs, many sites by host, virtual hosts (`reach.address`), GET routes, assets and urlencoded POST forms in direct or connector mode, validation, faithful rendering (UTF-8, cleanup, form binding, URL rewriting, redirects), pass-through login with sessions in Redis, rate limits and behaviour rules, file uploads with scanning |
+| gateway | JSON APIs, many sites by host, virtual hosts (`reach.address`), GET routes, assets and urlencoded POST forms in direct or connector mode, validation, faithful rendering (UTF-8, cleanup, form binding, URL rewriting, redirects), pass-through login with sessions in Redis, rate limits and behaviour rules, file uploads (real type, size, image rebuild; no virus scan) |
 | tunnel-relay | Token-authenticated tunnels, forwarding with tenant check, admin endpoints; several replicas with handover |
 | connector | Outbound tunnel, local allowlist, reconnection; one per server, virtual hosts |
 | orchestrator | Not implemented yet |
@@ -34,6 +34,27 @@ Add a section at the top of "Entries" for every commit:
 | tools (eqtool) | Map signing keys, form key, relay token, connector registration, map signing |
 
 ## Entries
+
+### 2026-11-18 — Uploads without ClamAV; uploads and relay replicas reach main
+
+- **Branch:** `feat/uploads-no-av`
+- **What:**
+  - Brings the work of #19 (uploads, relay replicas) to `main`: that pull
+    request was merged into `feat/authz-rollback` instead of `main`.
+  - Removes ClamAV: no `clamav` service, no `EQ_CLAMD_ADDR`, no scanner in
+    the gateway. `scan` in the map is now `cdr` (rebuild images) or `none`;
+    file fields need `mime` and `max_size_kb`. Forms with files no longer
+    answer 503 when nothing else is installed.
+- **Why:** the project owner prefers to leave virus scanning to the security
+  stack around the legacy application, and ClamAV needed about 3 GB of
+  memory.
+- **Status:** gateway tests pass (type, size, image rebuild, undeclared
+  file, multipart towards the legacy app). Replicas not yet run in Docker.
+- **Next steps:**
+  1. Lab campaign (DVWA, WordPress, Juice Shop) with discovery, review aid,
+     authorisation and uploads.
+  2. Advisories feed; issue values from API responses for `owned_by_user`.
+  3. SIEM forwarding, status page, import/export.
 
 ### 2026-11-18 — File uploads, relay replicas
 

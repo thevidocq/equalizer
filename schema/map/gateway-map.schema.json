@@ -349,17 +349,16 @@
         "rules": { "type": "array", "items": { "type": "string" } },
         "mime": { "type": "array", "items": { "type": "string" } },
         "max_size_kb": { "type": "integer", "minimum": 1 },
-        "scan": { "enum": ["av", "av+cdr", "none"] }
+        "scan": { "enum": ["cdr", "none"], "description": "cdr: images (PNG, JPEG, GIF) are rebuilt from their pixels" }
       },
       "allOf": [
         {
-          "if": { "properties": { "type": { "enum": ["text", "password", "file"] } } },
-          "then": {
-            "anyOf": [
-              { "required": ["rules"], "properties": { "rules": { "minItems": 1 } } },
-              { "required": ["scan"], "properties": { "scan": { "enum": ["av", "av+cdr"] } } }
-            ]
-          }
+          "if": { "properties": { "type": { "enum": ["text", "password"] } } },
+          "then": { "required": ["rules"], "properties": { "rules": { "minItems": 1 } } }
+        },
+        {
+          "if": { "properties": { "type": { "const": "file" } } },
+          "then": { "required": ["mime", "max_size_kb"] }
         }
       ]
     },

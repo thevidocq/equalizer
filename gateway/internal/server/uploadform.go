@@ -85,7 +85,7 @@ func splitFiles(fields map[string]mapmodel.FieldSpec) (map[string]mapmodel.Field
 	return text, files
 }
 
-// checkFiles applies type, size, scan and rebuild to every file.
+// checkFiles applies type, size and rebuild to every file.
 func (p *Public) checkFiles(r *http.Request, specs map[string]mapmodel.FieldSpec, blobs map[string][]byte) (map[string]upload.File, error) {
 	out := map[string]upload.File{}
 	for name, spec := range specs {
@@ -96,7 +96,7 @@ func (p *Public) checkFiles(r *http.Request, specs map[string]mapmodel.FieldSpec
 			}
 			continue
 		}
-		f, err := upload.Check(r.Context(), name, spec, data, p.Scanner)
+		f, err := upload.Check(name, spec, data)
 		if err != nil {
 			var ue *upload.Error
 			if errors.As(err, &ue) {

@@ -2,7 +2,6 @@ package server
 
 import (
 	"bytes"
-	"context"
 	"image"
 	"image/png"
 	"io"
@@ -19,12 +18,7 @@ import (
 	"github.com/thevidocq/equalizer/gateway/internal/mapmodel"
 	"github.com/thevidocq/equalizer/gateway/internal/site"
 	"github.com/thevidocq/equalizer/gateway/internal/telemetry"
-	"github.com/thevidocq/equalizer/gateway/internal/upload"
 )
-
-type cleanScanner struct{ calls int }
-
-func (c *cleanScanner) Scan(context.Context, []byte) error { c.calls++; return nil }
 
 func TestUpload(t *testing.T) {
 	var got struct {
@@ -62,18 +56,17 @@ func TestUpload(t *testing.T) {
 		Forms: []mapmodel.Form{{ID: "upload", Route: "/send/upload", Roles: []string{"guest"},
 			Fields: map[string]mapmodel.FieldSpec{
 				"title":      {Type: "string", MaxLength: 50},
-				"attachment": {Type: "file", MIME: []string{"image/png"}, MaxSizeKB: 64, Scan: "av+cdr", Required: &no},
+				"attachment": {Type: "file", MIME: []string{"image/png"}, MaxSizeKB: 64, Scan: "cdr", Required: &no},
 			},
 			LegacyRequest: mapmodel.LegacyRequest{Method: "POST", Path: "/upload.do",
 				Form: map[string]string{"title": "{{fields.title}}"}, Files: map[string]string{"attachment": "{{fields.attachment}}"}}}},
 	}
-	scanner := &cleanScanner{}
-	st, err := site.BuildWith(m, site.Options{Scanner: scanner})
+	st, err := site.BuildWith(m, site.Options{})
 	if err != nil {
 		t.Fatal(err)
 	}
 	sealer, _ := formtoken.New(formtoken.RandomKey())
-	h := (&Public{Maps: fixedMaps{st}, IPs: clientip.New(nil), Forms: sealer, Scanner: scanner,
+	h := (&Public{Maps: fixedMaps{st}, IPs: clientip.New(nil), Forms: sealer,
 		Log: slog.New(slog.NewJSONHandler(io.Discard, nil)), Events: telemetry.NewEmitter(io.Discard, "test")}).Handler()
 
 	page := get(h, "GET", "/send", nil)
@@ -111,8 +104,8 @@ func TestUpload(t *testing.T) {
 		t.Fatalf("upload: %d %s", rec.Code, rec.Body.String())
 	}
 	if got.title != "Shed" || got.ctype != "image/png" || !strings.HasSuffix(got.name, ".png") || strings.Contains(got.name, "shell") ||
-		bytes.Contains(got.data, []byte("<?php")) || scanner.calls != 1 {
-		t.Fatalf("legacy got %q %q %q payload kept=%v scans=%d", got.title, got.name, got.ctype, bytes.Contains(got.data, []byte("<?php")), scanner.calls)
+		bytes.Contains(got.data, []byte("<?php")) {
+		t.Fatalf("legacy got %q %q %q payload kept=%v", got.title, got.name, got.ctype, bytes.Contains(got.data, []byte("<?php")))
 	}
 	if rec := post([]byte("<html><script>x</script>"), "a.png", nil); rec.Code != 400 {
 		t.Errorf("html as png: %d", rec.Code)
@@ -126,11 +119,4 @@ func TestUpload(t *testing.T) {
 	if rec := post(nil, "", nil); rec.Code != 200 {
 		t.Errorf("optional file absent: %d", rec.Code)
 	}
-
-	// Without a scanner the form is not served.
-	st2, _ := site.BuildWith(m, site.Options{})
-	if st2.FormUnsupported("upload") == "" {
-		t.Error("a form with files served without a scanner")
-	}
-	var _ upload.Scanner = scanner
 }

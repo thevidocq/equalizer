@@ -79,6 +79,13 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("DELETE /v1/tenants/{tenant}/connectors/{id}", s.authed(s.deleteConnector))
 	// Maps
 	mux.HandleFunc("GET /v1/map-templates", s.authed(s.listTemplates))
+	// Discovery and the tenant's AI
+	mux.HandleFunc("GET /v1/tenants/{tenant}/llm", s.authed(s.getLLM))
+	mux.HandleFunc("PUT /v1/tenants/{tenant}/llm", s.authed(s.putLLM))
+	mux.HandleFunc("DELETE /v1/tenants/{tenant}/llm", s.authed(s.deleteLLM))
+	mux.HandleFunc("GET /v1/apps/{app}/discoveries", s.authed(s.listDiscoveries))
+	mux.HandleFunc("POST /v1/apps/{app}/discoveries", s.authed(s.startDiscovery))
+	mux.HandleFunc("GET /v1/apps/{app}/discoveries/{id}", s.authed(s.getDiscovery))
 	mux.HandleFunc("POST /v1/apps/{app}/map-template", s.authed(s.mapTemplate))
 	mux.HandleFunc("GET /v1/apps/{app}/maps", s.authed(s.listMaps))
 	mux.HandleFunc("POST /v1/apps/{app}/maps", s.authed(s.createMap))
@@ -89,6 +96,10 @@ func (s *Server) Handler() http.Handler {
 	// Internal services
 	mux.HandleFunc("GET /v1/internal/apps/{app}/map", s.internal(s.internalMap))
 	mux.HandleFunc("GET /v1/internal/maps", s.internal(s.internalMaps))
+	mux.HandleFunc("POST /v1/internal/discoveries/claim", s.internal(s.claimDiscovery))
+	mux.HandleFunc("POST /v1/internal/discoveries/{id}/progress", s.internal(s.discoveryProgress))
+	mux.HandleFunc("POST /v1/internal/discoveries/{id}/result", s.internal(s.discoveryResult))
+	mux.HandleFunc("POST /v1/internal/unmapped", s.internal(s.internalUnmapped))
 	mux.HandleFunc("GET /v1/internal/connectors", s.internal(s.internalConnectors))
 	mux.HandleFunc("/v1/", func(w http.ResponseWriter, r *http.Request) { fail(w, http.StatusNotFound, "not_found", "") })
 	if s.UI != nil {

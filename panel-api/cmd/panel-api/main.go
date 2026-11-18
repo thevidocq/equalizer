@@ -122,6 +122,7 @@ func run() error {
 	if cfg.UIDir != "" {
 		srv.UI = ui.Handler(cfg.UIDir)
 	}
+	go scheduleDiscoveries(ctx, srv, log.With(slog.String("module", "discovery")))
 	ready := func(w http.ResponseWriter, r *http.Request) {
 		if err := conn.PingContext(r.Context()); err != nil {
 			http.Error(w, `{"status":"not_ready","reason":"database"}`, http.StatusServiceUnavailable)
@@ -160,6 +161,24 @@ func run() error {
 	}
 	log.Info("panel-api stopped")
 	return nil
+}
+
+// scheduleDiscoveries queues the continuous discoveries that are due.
+func scheduleDiscoveries(ctx context.Context, srv *api.Server, log *slog.Logger) {
+	t := time.NewTicker(10 * time.Minute)
+	defer t.Stop()
+	for {
+		if n, err := srv.ScheduleDiscoveries(ctx); err != nil {
+			log.Warn("continuous discovery not scheduled", slog.String("error", err.Error()))
+		} else if n > 0 {
+			log.Info("continuous discoveries queued", slog.Group("detail", slog.Int("count", n)))
+		}
+		select {
+		case <-ctx.Done():
+			return
+		case <-t.C:
+		}
+	}
 }
 
 func purge(ctx context.Context, s *auth.Sessions, log *slog.Logger) {

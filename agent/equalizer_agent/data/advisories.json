@@ -1,0 +1,4 @@
+{
+  "about": "Components with known security issues. Fill from a vendor feed (WPScan, Joomla and Drupal advisories, NVD): each entry flags versions below 'fixed'. Shipped empty: the agent reports components and versions, and flags only what is listed here.",
+  "entries": []
+}

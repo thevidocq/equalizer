@@ -156,6 +156,31 @@ services:
     networks: [control, edge]
     depends_on: [panel-api]
 
+  # Discovery: explores the sites read-only through their connector (as the
+  # gateway does) and proposes draft maps. AI calls go to each tenant's own
+  # provider, with the tenant's key.
+  agent:
+    <<: *collect
+    build:
+      context: ../../agent
+      args:
+        VERSION: ${EQ_VERSION:-dev}
+    restart: unless-stopped
+    user: *owner
+    environment:
+      EQ_PANEL_URL: http://panel-api:8080
+      EQ_INTERNAL_TOKEN_FILE: /secrets/panel-internal.token
+      EQ_RELAY_URL: http://tunnel-relay:8082
+      EQ_RELAY_TOKEN_FILE: /secrets/relay.token
+      EQ_DIRECT_DESTINATIONS: ${EQ_DIRECT_DESTINATIONS:-}
+      EQ_RATE: ${EQ_DISCOVERY_RATE:-2}
+      EQ_LOG_LEVEL: ${EQ_LOG_LEVEL:-info}
+    volumes:
+      - ./secrets/panel-internal.token:/secrets/panel-internal.token:ro
+      - ./secrets/relay.token:/secrets/relay.token:ro
+    networks: [control]
+    depends_on: [panel-api, tunnel-relay]
+
   redis:
     image: redis:7.4-alpine
     restart: unless-stopped

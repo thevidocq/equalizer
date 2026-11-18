@@ -32,8 +32,7 @@ tags:
   - name: apps
   - name: internal
   - name: maps
-  - name: proposals
-  - name: crawls
+  - name: discovery
   - name: connectors
   - name: capacity
   - name: llm
@@ -377,6 +376,7 @@ paths:
             schema:
               type: object
               properties:
+                discovery_schedule: { enum: [off, daily, weekly] }
                 legacy_ip:
                   type: [string, "null"]
                   description: "Public IP the site answered on before Equalizer: the exposure check probes it. A public unicast IPv4 or IPv6 address; null stops the checks"
@@ -551,69 +551,20 @@ paths:
       security: [{ serviceToken: [] }]
       responses:
         "200": { $ref: "#/components/responses/Object" }
-  /apps/{app}/proposals:
-    get:
-      tags: [proposals]
-      summary: Proposal queue
-      parameters: [{ $ref: "#/components/parameters/app" }]
-      responses:
-        "200": { $ref: "#/components/responses/List" }
-    post:
-      tags: [proposals]
-      summary: New change proposal (agent or import)
-      security: [{ serviceToken: [] }, { oidc: [] }]
-      parameters: [{ $ref: "#/components/parameters/app" }]
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema: { $ref: "#/components/schemas/Proposal" }
-      responses:
-        "201": { $ref: "#/components/responses/Object" }
-  /proposals/{id}/approve:
-    post:
-      tags: [proposals]
-      summary: Approve a proposal (never by its author)
-      parameters: [{ $ref: "#/components/parameters/id" }]
-      responses:
-        "200": { $ref: "#/components/responses/Object" }
-        "403": { description: The author cannot approve their own proposal }
-  /proposals/{id}/reject:
-    post:
-      tags: [proposals]
-      summary: Reject a proposal
-      parameters: [{ $ref: "#/components/parameters/id" }]
-      responses:
-        "200": { $ref: "#/components/responses/Object" }
-  /apps/{app}/crawls:
-    post:
-      tags: [crawls]
-      summary: Start a crawl
-      parameters: [{ $ref: "#/components/parameters/app" }]
-      responses:
-        "202": { $ref: "#/components/responses/Object" }
-  /crawls/next:
-    get:
-      tags: [crawls]
-      summary: The agent takes the next queued job
-      security: [{ serviceToken: [] }]
-      responses:
-        "200": { $ref: "#/components/responses/Object" }
-        "204": { description: No job queued }
   /tenants/{tenant}/llm:
     get:
       tags: [llm]
-      summary: Tenant LLM provider configuration (keys never returned)
+      summary: The tenant's AI model (the key is never returned; tenant administrators). The platform has no AI settings
       parameters: [{ $ref: "#/components/parameters/tenant" }]
       responses:
         "200":
-          description: Configuration
+          description: Configuration; provider null when none
           content:
             application/json:
               schema: { $ref: "#/components/schemas/LLMConfig" }
     put:
       tags: [llm]
-      summary: Update the LLM configuration
+      summary: Set the tenant's AI model. An empty api_key keeps the saved one
       parameters: [{ $ref: "#/components/parameters/tenant" }]
       requestBody:
         required: true
@@ -621,21 +572,139 @@ paths:
           application/json:
             schema: { $ref: "#/components/schemas/LLMConfigUpdate" }
       responses:
-        "200": { $ref: "#/components/responses/Object" }
-  /tenants/{tenant}/llm/test:
-    post:
+        "200":
+          description: Configuration
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/LLMConfig" }
+        "422": { $ref: "#/components/responses/Error" }
+    delete:
       tags: [llm]
-      summary: Test the connection to the provider
+      summary: Remove the tenant's AI model and its key; discovery goes on without AI
       parameters: [{ $ref: "#/components/parameters/tenant" }]
       responses:
-        "200": { $ref: "#/components/responses/Object" }
-  /agent/llm-config:
+        "204": { description: Removed }
+  /apps/{app}/discoveries:
     get:
-      tags: [llm]
-      summary: Effective LLM configuration for the agent
+      tags: [discovery]
+      summary: Discoveries of the site, newest first
+      parameters: [{ $ref: "#/components/parameters/app" }]
+      responses:
+        "200":
+          description: Discoveries
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items: { type: array, items: { $ref: "#/components/schemas/Discovery" } }
+    post:
+      tags: [discovery]
+      summary: >-
+        Start a discovery: the agent explores the site through its connector, read-only, and proposes a
+        draft map. Without a published map, connector_id and address say how to reach it (editors and
+        administrators). 409 while another one is queued or running
+      parameters: [{ $ref: "#/components/parameters/app" }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/DiscoveryStart" }
+      responses:
+        "201":
+          description: Queued
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Discovery" }
+        "409": { $ref: "#/components/responses/Error" }
+        "422": { $ref: "#/components/responses/Error" }
+  /apps/{app}/discoveries/{id}:
+    get:
+      tags: [discovery]
+      summary: One discovery with its report
+      parameters: [{ $ref: "#/components/parameters/app" }, { $ref: "#/components/parameters/id" }]
+      responses:
+        "200":
+          description: Discovery
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Discovery" }
+        "404": { $ref: "#/components/responses/Error" }
+  /internal/discoveries/claim:
+    post:
+      tags: [internal]
+      summary: The agent takes the next queued discovery, with what it needs to run it
       security: [{ serviceToken: [] }]
       responses:
-        "200": { $ref: "#/components/responses/Object" }
+        "200":
+          description: Job
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/DiscoveryJob" }
+        "204": { description: Nothing queued }
+  /internal/discoveries/{id}/progress:
+    post:
+      tags: [internal]
+      summary: Pages explored so far
+      security: [{ serviceToken: [] }]
+      parameters: [{ $ref: "#/components/parameters/id" }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { type: object, additionalProperties: true }
+      responses:
+        "204": { description: Saved }
+  /internal/discoveries/{id}/result:
+    post:
+      tags: [internal]
+      summary: >-
+        Report and proposed map of a finished discovery. The map is checked like any draft and saved as a
+        draft by whoever started the discovery; it still needs someone else's approval
+      security: [{ serviceToken: [] }]
+      parameters: [{ $ref: "#/components/parameters/id" }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                report: { type: object, additionalProperties: true }
+                document: { type: object, additionalProperties: true }
+                error: { type: string, maxLength: 500 }
+      responses:
+        "204": { description: Saved }
+  /internal/unmapped:
+    post:
+      tags: [internal]
+      summary: >-
+        Requests the gateway refused because their path is not in the map, counted per site (path only,
+        never the query). Discovery uses them to find what real visitors miss
+      security: [{ serviceToken: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [items]
+              properties:
+                items:
+                  type: array
+                  maxItems: 1000
+                  items:
+                    type: object
+                    required: [app, method, path, hits, clients]
+                    properties:
+                      app: { type: string }
+                      method: { type: string }
+                      path: { type: string, maxLength: 512 }
+                      hits: { type: integer, minimum: 1 }
+                      clients: { type: integer, minimum: 1, description: Distinct client addresses (counted, never sent) }
+      responses:
+        "204": { description: Saved }
   /tenants/{tenant}/connectors:
     get:
       tags: [connectors]
@@ -1139,6 +1208,7 @@ components:
         created_at: { type: string, format: date-time }
         published_version: { type: [integer, "null"] }
         kind: { $ref: "#/components/schemas/SiteKind" }
+        discovery_schedule: { enum: [off, daily, weekly], description: "Continuous discovery: run again and propose what changed" }
         exposure: { $ref: "#/components/schemas/Exposure" }
     Exposure:
       type: object
@@ -1215,32 +1285,71 @@ components:
           description: "Base64 of the compact map JSON (schema/map/gateway-map.schema.json)"
         signature: { type: string, contentEncoding: base64, description: "Ed25519 signature of the payload bytes" }
         key_id: { type: string }
-    Proposal:
-      type: object
-      required: [base_version, changes, author]
-      properties:
-        base_version: { type: integer }
-        changes: { type: array, items: { type: object } }
-        author: { type: string, description: "agent:<run> or user:<id>" }
-        rationale: { type: string }
     LLMConfig:
       type: object
+      required: [provider, has_api_key]
+      properties:
+        provider: { enum: [anthropic, openai, local, null], description: "null: no AI, discovery runs without it" }
+        model: { type: [string, "null"], examples: [claude-haiku-5-5] }
+        endpoint: { type: [string, "null"], description: "OpenAI-compatible URL, for local models (Ollama, vLLM)" }
+        has_api_key: { type: boolean }
+    LLMConfigUpdate:
+      type: object
+      required: [provider, model]
       properties:
         provider: { enum: [anthropic, openai, local] }
-        model: { type: string, examples: [claude-haiku-5-5] }
-        endpoint: { type: [string, "null"], description: Local provider only }
-        has_api_key: { type: boolean }
-        timeout_s: { type: integer }
-        max_tokens: { type: integer }
-        retries: { type: integer }
-        fallback_provider: { type: [string, "null"] }
-        mask_personal_data: { type: boolean }
-    LLMConfigUpdate:
-      allOf:
-        - { $ref: "#/components/schemas/LLMConfig" }
-        - type: object
+        model: { type: string, maxLength: 100 }
+        endpoint: { type: [string, "null"], maxLength: 300 }
+        api_key: { type: string, writeOnly: true, maxLength: 300 }
+    DiscoveryStart:
+      type: object
+      properties:
+        use_ai: { type: boolean, default: true, description: "Ignored when the tenant has no AI model" }
+        max_pages: { type: integer, minimum: 10, maximum: 2000, default: 500 }
+        account:
+          type: [object, "null"]
+          description: Test account to explore as a logged-in user; kept encrypted, deleted when the discovery ends
           properties:
-            api_key: { type: string, writeOnly: true }
+            username: { type: string, maxLength: 200 }
+            password: { type: string, writeOnly: true, maxLength: 200 }
+        connector_id: { type: string, description: "Needed while the site has no published map" }
+        address: { type: string, description: "host:port the connector reaches" }
+        scheme: { enum: [https, http] }
+    Discovery:
+      type: object
+      required: [id, app, status, created_at]
+      properties:
+        id: { type: integer }
+        app: { type: string }
+        status: { enum: [queued, running, done, failed] }
+        trigger: { enum: [manual, schedule] }
+        use_ai: { type: boolean }
+        with_account: { type: boolean }
+        requested_by: { type: [string, "null"] }
+        created_at: { type: string, format: date-time }
+        started_at: { type: [string, "null"], format: date-time }
+        finished_at: { type: [string, "null"], format: date-time }
+        progress: { type: object, additionalProperties: true }
+        report: { type: [object, "null"], additionalProperties: true, description: "CMS, coverage, routes found and excluded, components with known issues, notes" }
+        draft_version: { type: [integer, "null"], description: "The draft proposed, if the map changes" }
+        error: { type: [string, "null"] }
+    DiscoveryJob:
+      type: object
+      required: [id, tenant, app, domain, base_url, reach, max_pages]
+      properties:
+        id: { type: integer }
+        tenant: { type: string }
+        app: { type: string }
+        domain: { type: string }
+        kind: { type: [string, "null"] }
+        base_url: { type: string }
+        reach: { type: object, additionalProperties: true, description: "legacy.reach for the agent's requests" }
+        current_map: { type: [object, "null"], additionalProperties: true, description: "The published map, to propose only differences" }
+        template: { type: [object, "null"], additionalProperties: true }
+        account: { type: [object, "null"], additionalProperties: true }
+        llm: { type: [object, "null"], additionalProperties: true, description: "provider, model, endpoint, api_key; null without AI" }
+        max_pages: { type: integer }
+        unmapped: { type: array, items: { type: object, additionalProperties: true } }
     Capacity:
       type: object
       properties:

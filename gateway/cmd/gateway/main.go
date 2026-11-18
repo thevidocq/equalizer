@@ -27,6 +27,7 @@ import (
 	"github.com/thevidocq/equalizer/gateway/internal/site"
 	"github.com/thevidocq/equalizer/gateway/internal/telemetry"
 	"github.com/thevidocq/equalizer/gateway/internal/transport"
+	"github.com/thevidocq/equalizer/gateway/internal/unmapped"
 )
 
 // version is set at build time (-ldflags "-X main.version=...").
@@ -103,7 +104,14 @@ func run() error {
 		return err
 	}
 
+	var reporter *unmapped.Reporter
+	if cfg.UnmappedURL != "" {
+		reporter = &unmapped.Reporter{URL: cfg.UnmappedURL, Token: cfg.MapToken, Client: &http.Client{Timeout: 10 * time.Second},
+			Log: log.With(slog.String("module", "unmapped"))}
+		go reporter.Run(ctx, time.Minute)
+	}
 	public := &server.Public{
+		Unmapped: reporter,
 		Forms:    sealer,
 		Sessions: sessions,
 		Maps:     store,

@@ -27,13 +27,53 @@ Add a section at the top of "Entries" for every commit:
 | tunnel-relay | Token-authenticated tunnels, forwarding with tenant check, admin endpoints; single replica |
 | connector | Outbound tunnel, local allowlist, reconnection; one per server, virtual hosts |
 | orchestrator | Not implemented yet |
-| panel-api | Map templates per CMS, auth with mandatory TOTP, tenants, email invitations, tenant connectors, map reach checks, exposure check, platform/tenant privacy, users, sites, connectors, maps with approval and signing, audit, internal endpoints |
-| panel-ui | Login, joining by invitation, platform tenant overview, sites with isolation, tenant connectors, people with invitations, maps with editor and approval, activity |
-| agent | Not implemented yet |
+| panel-api | Discovery jobs and continuous discovery, tenant AI settings, map templates per CMS, auth with mandatory TOTP, tenants, email invitations, tenant connectors, map reach checks, exposure check, platform/tenant privacy, users, sites, connectors, maps with approval and signing, audit, internal endpoints |
+| panel-ui | Discovery tab and tenant AI settings, login, joining by invitation, platform tenant overview, sites with isolation, tenant connectors, people with invitations, maps with editor and approval, activity |
+| agent | Discovery: read-only crawl through the connector, fixed exclusions, CMS fingerprint, deterministic routes and types, optional AI review with the tenant's model, proposed drafts |
 | deploy/compose | Caddy (on-demand certificates for protected sites, relay and panel domains), SMTP settings, gateway (2 replicas), Redis, PostgreSQL, panel-api, panel-ui, tunnel-relay, Vector, Loki, Grafana; statically validated |
 | tools (eqtool) | Map signing keys, form key, relay token, connector registration, map signing |
 
 ## Entries
+
+### 2026-11-18 — Discovery agent, continuous discovery, tenant AI settings
+
+- **Branch:** `feat/discovery-agent`
+- **What:**
+  - Contracts: `/tenants/{tenant}/llm` (tenant only: the platform has no AI
+    settings), `/apps/{app}/discoveries`, agent endpoints
+    `/internal/discoveries/claim|{id}/progress|{id}/result`, gateway
+    `/internal/unmapped`, site `discovery_schedule`; old planned
+    proposals/crawls endpoints removed.
+  - agent (new, Python standard library): crawler (read-only, rate limited,
+    per-shape cap, second pass with a test account), fixed exclusions
+    (admin, tooling, backups, actions), fingerprint (CMS, version,
+    components, advisories file), clustering into typed routes, forms and
+    assets, map built on the published map or the CMS template, report,
+    AI review that can only rename, exclude or narrow (Anthropic, OpenAI,
+    OpenAI-compatible servers; endpoint must be public). Tests with a fake
+    WordPress site; Dockerfile; CI workflow; image published.
+  - panel-api: migration `0006`; discoveries with secrets sealed and the
+    test password erased at the end; proposals saved as drafts by the
+    requester (no draft when nothing changed); scheduler for continuous
+    discovery; unmapped paths from the gateway.
+  - gateway: `internal/unmapped`, refused paths counted per site and sent
+    every minute (path only, clients counted not sent).
+  - panel-ui: Site → Discovery (start, AI on by default with a notice when
+    none is configured, test account, continuous discovery, history,
+    report, link to the draft); tenant Settings with the AI model.
+  - Compose: `agent` service. Docs: agent README, READMEs, architecture,
+    tenant manual.
+- **Why:** knowing what to cover is the core of the product; discovery
+  gives a working first map from day one and keeps it current.
+- **Status:** tests pass in every module; checked end to end locally
+  (panel-api + agent + fake site + UI): discovery done, draft proposed,
+  report shown. Not run against a real CMS or a real AI provider; the
+  advisories file is empty until a feed is connected.
+- **Next steps:**
+  1. Lab: discovery on DVWA and a real WordPress through a connector.
+  2. Advisories feed (WPScan, Joomla, Drupal, NVD) into `advisories.json`.
+  3. AI review assistant for approvers (explains a map diff).
+  4. Map authorisation rules (`owned_by_user`) and map rollback.
 
 ### 2026-11-18 — Serve JSON APIs, start maps from CMS templates
 

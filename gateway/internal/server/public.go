@@ -13,6 +13,7 @@ import (
 	"github.com/thevidocq/equalizer/gateway/internal/session"
 	"github.com/thevidocq/equalizer/gateway/internal/site"
 	"github.com/thevidocq/equalizer/gateway/internal/telemetry"
+	"github.com/thevidocq/equalizer/gateway/internal/unmapped"
 )
 
 // MapSource provides the site (compiled map) served on a host.
@@ -29,8 +30,9 @@ type Public struct {
 	IPs      *clientip.Resolver
 	Log      *slog.Logger
 	Events   *telemetry.Emitter
-	Forms    *formtoken.Sealer // nil: forms are neither bound nor accepted
-	Sessions *session.Manager  // nil: no sessions, every visitor is anonymous
+	Forms    *formtoken.Sealer  // nil: forms are neither bound nor accepted
+	Sessions *session.Manager   // nil: no sessions, every visitor is anonymous
+	Unmapped *unmapped.Reporter // nil: refused paths are not reported to the panel
 	nowFunc  func() time.Time
 }
 
@@ -89,6 +91,7 @@ func (p *Public) handle(w http.ResponseWriter, r *http.Request) string {
 	m, err := active.Router.Match(r.Method, r.URL.Path)
 	switch {
 	case errors.Is(err, router.ErrNotMapped):
+		p.Unmapped.Record(active.Model.Meta.App, r.Method, r.URL.Path, p.IPs.IP(r))
 		p.block(w, r, active, http.StatusNotFound, "route_not_mapped")
 		return ""
 	case errors.Is(err, router.ErrMethodNotAllowed):

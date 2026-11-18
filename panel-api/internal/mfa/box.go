@@ -47,3 +47,22 @@ func (b *Box) Open(userID int64, sealed []byte) ([]byte, error) {
 	}
 	return b.aead.Open(nil, sealed[:n], sealed[n:], ad(userID))
 }
+
+// SealFor encrypts another secret (a tenant's AI key, a test account's
+// password). label is the additional data: the secret opens only for it.
+func (b *Box) SealFor(label string, secret []byte) []byte {
+	nonce := make([]byte, b.aead.NonceSize())
+	if _, err := rand.Read(nonce); err != nil {
+		panic(err)
+	}
+	return b.aead.Seal(nonce, nonce, secret, []byte("equalizer-secret-v1:"+label))
+}
+
+// OpenFor decrypts a secret sealed with SealFor.
+func (b *Box) OpenFor(label string, sealed []byte) ([]byte, error) {
+	n := b.aead.NonceSize()
+	if len(sealed) < n {
+		return nil, errors.New("sealed secret too short")
+	}
+	return b.aead.Open(nil, sealed[:n], sealed[n:], []byte("equalizer-secret-v1:"+label))
+}

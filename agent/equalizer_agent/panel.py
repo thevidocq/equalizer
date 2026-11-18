@@ -1,0 +1,37 @@
+"""panel-api internal endpoints used by the agent (service token)."""
+
+import json
+import urllib.error
+import urllib.request
+
+
+class Panel:
+    def __init__(self, base: str, token: str, timeout: float = 30):
+        self.base, self.token, self.timeout = base, token, timeout
+
+    def _post(self, path: str, body=None):
+        data = json.dumps(body if body is not None else {}).encode()
+        req = urllib.request.Request(self.base + path, data=data, method="POST", headers={
+            "Authorization": "Bearer " + self.token, "Content-Type": "application/json"})
+        try:
+            with urllib.request.urlopen(req, timeout=self.timeout) as resp:
+                raw = resp.read()
+                return resp.status, (json.loads(raw) if raw else None)
+        except urllib.error.HTTPError as e:
+            return e.code, None
+
+    def claim(self):
+        status, job = self._post("/v1/internal/discoveries/claim")
+        return job if status == 200 else None
+
+    def progress(self, job_id: int, progress: dict):
+        self._post(f"/v1/internal/discoveries/{job_id}/progress", progress)
+
+    def result(self, job_id: int, report=None, document=None, error=None):
+        body = {"report": report}
+        if document is not None:
+            body["document"] = document
+        if error:
+            body["error"] = error[:500]
+        status, _ = self._post(f"/v1/internal/discoveries/{job_id}/result", body)
+        return status == 204

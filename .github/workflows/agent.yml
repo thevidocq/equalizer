@@ -1,0 +1,27 @@
+name: agent
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  agent:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: agent
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - name: Byte-compile
+        run: python -m compileall -q equalizer_agent
+      - name: Tests
+        run: python -m unittest discover -s tests -t . -v
+      - name: Image
+        run: docker build -t equalizer/agent:ci .

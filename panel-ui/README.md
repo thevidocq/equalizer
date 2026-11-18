@@ -17,6 +17,8 @@ CSS. Talks only to panel-api, through the client generated from
 | Site → Map: versions with their approval path, YAML editor with syntax check, send for review, approve, reject, publish | editors write; approvers and administrators decide (never on their own version) |
 | Connectors (tenant level, one per server): add (the token and the `docker run` command shown once), sites using each one, rotate, remove | administrators |
 | Protect a site with its CMS; Site → Map → New version: start from the CMS template (connector, address, protocol) | administrators; editors |
+| Site → Discovery: start (AI on by default, optional test account), continuous discovery, history, report (CMS, coverage, routes and forms added, what was kept out, what visitors miss), link to the proposed draft | editors and administrators start; everyone reads |
+| Settings: the organisation's AI model (provider, model, key) | administrators |
 | Site → Isolation: exposure status and "Check now", old public IP, configuration to copy for Apache, nginx or IIS (internal listener or connector-only) and the matching map lines | administrators |
 | People (invite a person with a role, pending invitations with revoke, who set up an authenticator, reset an authenticator, deactivate) | administrators |
 | Activity (audit log in plain sentences): the tenant's own, or the platform's own | administrators, approvers, auditors; platform users |

@@ -4,7 +4,6 @@
 package site
 
 import (
-	"errors"
 	"fmt"
 	"net/http"
 	"slices"
@@ -26,9 +25,14 @@ import (
 	"github.com/thevidocq/equalizer/gateway/internal/validate"
 )
 
-// ErrConnectorUnavailable is returned until the connector transport is
-// implemented (it arrives with tunnel-relay).
-var ErrConnectorUnavailable = errors.New("connector transport not available yet")
+// ErrConnectorUnavailable is returned in connector mode when no relay is
+// configured or no tunnel is open.
+var ErrConnectorUnavailable = transport.ErrConnectorUnavailable
+
+// Options are the installation settings a map cannot carry.
+type Options struct {
+	Relay *transport.RelayConfig // nil: connector mode answers 502
+}
 
 // How long to wait when the legacy application is saturated.
 const budgetWait = 2 * time.Second
@@ -53,8 +57,12 @@ func DefaultSteps() []pipeline.Step {
 	return []pipeline.Step{clean.Step{}, forms.Step{}, rewrite.Step{}}
 }
 
-// Build compiles the map. It rejects inconsistent maps instead of serving them half-working.
-func Build(m *mapmodel.Model) (*Site, error) {
+// Build compiles the map without installation options (tests, direct mode).
+func Build(m *mapmodel.Model) (*Site, error) { return BuildWith(m, Options{}) }
+
+// BuildWith compiles the map. It rejects inconsistent maps instead of
+// serving them half-working.
+func BuildWith(m *mapmodel.Model, opts Options) (*Site, error) {
 	rt, err := router.New(Entries(m))
 	if err != nil {
 		return nil, fmt.Errorf("routes: %w", err)
@@ -100,7 +108,14 @@ func Build(m *mapmodel.Model) (*Site, error) {
 			return nil, fmt.Errorf("legacy.reach: %w", err)
 		}
 	case "connector":
-		tr = unavailable{}
+		if opts.Relay == nil {
+			tr = unavailable{}
+			break
+		}
+		tr, err = transport.Relay(opts.Relay, m.Legacy.Reach.ConnectorID, m.Legacy.Reach.Allow, timeout)
+		if err != nil {
+			return nil, fmt.Errorf("legacy.reach: %w", err)
+		}
 	default:
 		return nil, fmt.Errorf("unknown legacy.reach.mode: %q", m.Legacy.Reach.Mode)
 	}

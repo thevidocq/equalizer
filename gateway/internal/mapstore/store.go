@@ -16,12 +16,13 @@ type Store struct {
 	path   string
 	pub    ed25519.PublicKey
 	keyID  string
+	opts   site.Options
 	active atomic.Pointer[site.Site]
 }
 
 // NewStore creates a store that reads the signed document from path.
-func NewStore(path string, pub ed25519.PublicKey, keyID string) *Store {
-	return &Store{path: path, pub: pub, keyID: keyID}
+func NewStore(path string, pub ed25519.PublicKey, keyID string, opts site.Options) *Store {
+	return &Store{path: path, pub: pub, keyID: keyID, opts: opts}
 }
 
 // Current returns the active site, or nil if no map has been loaded.
@@ -40,7 +41,7 @@ func (s *Store) Reload() (*site.Site, error) {
 	if err != nil {
 		return nil, err
 	}
-	st, err := site.Build(m)
+	st, err := site.BuildWith(m, s.opts)
 	if err != nil {
 		return nil, fmt.Errorf("unusable map: %w", err)
 	}

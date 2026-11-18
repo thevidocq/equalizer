@@ -21,6 +21,8 @@ type Config struct {
 	MapPublicKeyID  string         // expected key identifier
 	TrustedProxies  []netip.Prefix // networks allowed to set X-Forwarded-For
 	FormKey         []byte         // 32-byte key sealing form tokens; nil: random per instance
+	RelayURL        string         // tunnel-relay internal address; empty: no connector mode
+	RelayToken      string         // token presented to the relay
 	ShutdownTimeout time.Duration
 }
 
@@ -48,6 +50,11 @@ func FromEnv() (Config, error) {
 		return Config{}, err
 	}
 	cfg.FormKey = formKey
+
+	cfg.RelayURL = os.Getenv("EQ_RELAY_URL")
+	if cfg.RelayToken, err = secretValue("EQ_RELAY_TOKEN"); err != nil {
+		return Config{}, err
+	}
 
 	proxies, err := parsePrefixes(env("EQ_TRUSTED_PROXIES", ""))
 	if err != nil {
@@ -100,6 +107,22 @@ func formKey() ([]byte, error) {
 		return nil, fmt.Errorf("the form key must be 32 bytes in base64")
 	}
 	return key, nil
+}
+
+// secretValue reads NAME, or the file named by NAME_FILE.
+func secretValue(name string) (string, error) {
+	if v := strings.TrimSpace(os.Getenv(name)); v != "" {
+		return v, nil
+	}
+	path := os.Getenv(name + "_FILE")
+	if path == "" {
+		return "", nil
+	}
+	b, err := os.ReadFile(path)
+	if err != nil {
+		return "", fmt.Errorf("reading %s_FILE: %w", name, err)
+	}
+	return strings.TrimSpace(string(b)), nil
 }
 
 func parsePrefixes(raw string) ([]netip.Prefix, error) {

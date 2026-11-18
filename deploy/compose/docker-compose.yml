@@ -1,6 +1,6 @@
 # Equalizer — prototype on a VPS.
 # Networks:
-#   edge     exposed: edge proxy (Caddy) and, later, tunnel-relay
+#   edge     exposed: edge proxy (Caddy) and tunnel-relay (behind Caddy)
 #   control  internal: gateway, observability, panel (later)
 #   lab      internal, with no way out to the Internet: test apps
 # Start: docker compose up -d   (see INSTALL.md)
@@ -32,12 +32,13 @@ services:
       - "443:443"
     environment:
       EQ_GATEWAY_DOMAIN: ${EQ_GATEWAY_DOMAIN:?set EQ_GATEWAY_DOMAIN in .env}
+      EQ_RELAY_DOMAIN: ${EQ_RELAY_DOMAIN:?set EQ_RELAY_DOMAIN in .env}
       EQ_ACME_EMAIL: ${EQ_ACME_EMAIL:-}
     volumes:
       - ./caddy/Caddyfile:/etc/caddy/Caddyfile:ro
       - caddy-data:/data
     networks: [edge]
-    depends_on: [gateway]
+    depends_on: [gateway, tunnel-relay]
 
   gateway:
     <<: *collect
@@ -57,12 +58,37 @@ services:
       EQ_MAP_KEY_ID: ${EQ_MAP_KEY_ID:-k1}
       # shared by every replica: a form rendered by one is accepted by the others
       EQ_FORM_KEY_FILE: /secrets/form.key
+      # connector mode: requests go to tunnel-relay on the control network
+      EQ_RELAY_URL: http://tunnel-relay:8082
+      EQ_RELAY_TOKEN_FILE: /secrets/relay.token
       # edge network: only Caddy may state the client IP
       EQ_TRUSTED_PROXIES: ${EQ_TRUSTED_PROXIES:-172.16.0.0/12}
     volumes:
       - ./maps:/maps:ro
       - ./secrets/map-signing.pub:/secrets/map-signing.pub:ro
       - ./secrets/form.key:/secrets/form.key:ro
+      - ./secrets/relay.token:/secrets/relay.token:ro
+    networks: [edge, control]
+
+  tunnel-relay:
+    <<: *collect
+    build:
+      context: ../../tunnel-relay
+      args:
+        VERSION: ${EQ_VERSION:-dev}
+    restart: unless-stopped
+    # One replica: a tunnel lives on one relay instance (see CHANGELOG).
+    environment:
+      EQ_TUNNEL_ADDR: ":8081"
+      EQ_INTERNAL_ADDR: ":8082"
+      EQ_ADMIN_ADDR: ":9091"
+      EQ_LOG_LEVEL: ${EQ_LOG_LEVEL:-info}
+      EQ_CONNECTORS_FILE: /secrets/connectors.json
+      EQ_GATEWAY_TOKEN_FILE: /secrets/relay.token
+    volumes:
+      - ./secrets/connectors.json:/secrets/connectors.json:ro
+      - ./secrets/relay.token:/secrets/relay.token:ro
+    # edge: Caddy brings the connectors' tunnels; control: the gateway calls it
     networks: [edge, control]
 
   loki:

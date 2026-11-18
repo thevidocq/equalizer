@@ -19,15 +19,10 @@ jobs:
           python-version: "3.12"
 
       - name: Install dependencies
-        run: pip install jsonschema pyyaml openapi-spec-validator grpcio-tools
+        run: pip install jsonschema pyyaml openapi-spec-validator
 
       - name: Validate JSON Schema, map examples and OpenAPI
         run: python scripts/validate_schemas.py
-
-      - name: Compile the tunnel protocol
-        run: |
-          mkdir -p /tmp/proto-out
-          python -m grpc_tools.protoc -I schema/tunnel --python_out=/tmp/proto-out schema/tunnel/tunnel.proto
 
       - name: The changelog must change in every PR
         if: github.event_name == 'pull_request'

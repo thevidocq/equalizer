@@ -27,7 +27,7 @@ requests to the legacy application and renders pages with faithful rendering.
 | Forms (urlencoded POST): binding in pages, sealed token bound to the browser (CSRF), legacy hidden fields kept server-side, typed fields, re-encoding into the legacy charset, success check and redirect | Done |
 | File uploads (multipart), per-form rate limits | To do |
 | APIs, login and sessions | To do |
-| Connector mode | To do (today: 502 `connector_unavailable`) |
+| Connector mode through tunnel-relay (destination checked against `legacy.reach.allow`, relay and connector errors mapped to 502) | Done |
 | Prometheus metrics | To do |
 
 ## Layout
@@ -50,7 +50,7 @@ internal/formtoken/   sealed form state (AES-256-GCM), browser binding
 internal/charset/     page encoding and conversion to UTF-8
 internal/pipeline/    faithful rendering: Step, Context, clean/, forms/ and rewrite/ steps
 internal/thirdparty/xhtml/ HTML5 parser (copy of golang.org/x/net/html)
-internal/transport/   link to the legacy application (direct; connector coming)
+internal/transport/   link to the legacy application (direct, or relay → connector)
 internal/budget/      concurrent requests to the legacy application
 internal/server/      public and admin handlers
 ```
@@ -68,6 +68,8 @@ internal/server/      public and admin handlers
 | `EQ_MAP_KEY_ID` | — | Expected key id (optional) |
 | `EQ_TRUSTED_PROXIES` | — | CIDR networks from which the client IP in headers is accepted |
 | `EQ_FORM_KEY` or `EQ_FORM_KEY_FILE` | random | Key sealing form tokens (32 bytes, base64); must be the same on every replica |
+| `EQ_RELAY_URL` | — | tunnel-relay internal address (e.g. `http://tunnel-relay:8082`); without it connector mode answers 502 |
+| `EQ_RELAY_TOKEN` or `EQ_RELAY_TOKEN_FILE` | — | Token presented to the relay (at least 32 characters) |
 
 ## Development
 

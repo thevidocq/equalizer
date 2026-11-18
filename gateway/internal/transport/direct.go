@@ -1,8 +1,8 @@
 // Package transport carries the rebuilt requests to the legacy application.
 //
 // Direct connects the gateway to a legacy application on the same network
-// (direct mode). The connector mode will arrive with tunnel-relay and will
-// use the same http.RoundTripper interface.
+// (direct mode); Relay sends the requests through tunnel-relay and the
+// connector (connector mode). Both are http.RoundTripper.
 package transport
 
 import (

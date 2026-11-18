@@ -35,13 +35,16 @@ internal address of the legacy application (e.g. `http://10.20.0.15:8080`).
 
 ```bash
 docker run -d --name eq-connector --restart unless-stopped \
-  -e RELAY_URL=<relay address> \
-  -e ENROLL_TOKEN=<token> \
-  equalizer/connector:latest
+  -e EQ_RELAY_URL=<relay address> \
+  -e EQ_CONNECTOR_ID=<connector id> \
+  -e EQ_CONNECTOR_TOKEN=<token> \
+  -e EQ_ALLOW=<legacy host:port> \
+  ghcr.io/thevidocq/equalizer-connector:latest
 ```
 
-3. The panel shows **Connector online**. Only outbound Internet access on
-   port 8443 is needed: no inbound port.
+3. The panel shows **Connector online**. Only outbound HTTPS (port 443) is
+   needed: no inbound port. `EQ_ALLOW` is yours: the connector reaches
+   nothing else, whatever it is asked.
 
 For redundancy you can install a second connector with a new token.
 

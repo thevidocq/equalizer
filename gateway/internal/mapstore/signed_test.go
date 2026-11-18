@@ -6,6 +6,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"errors"
+	"github.com/thevidocq/equalizer/gateway/internal/site"
 	"os"
 	"path/filepath"
 	"testing"
@@ -71,7 +72,7 @@ func TestStoreKeepsPreviousMapOnError(t *testing.T) {
 	pub, priv, _ := ed25519.GenerateKey(rand.Reader)
 	_, otherPriv, _ := ed25519.GenerateKey(rand.Reader)
 	path := filepath.Join(t.TempDir(), "current.json")
-	s := NewStore(path, pub, "")
+	s := NewStore(path, pub, "", site.Options{})
 
 	if _, err := s.Reload(); err == nil {
 		t.Fatal("expected an error without a file")

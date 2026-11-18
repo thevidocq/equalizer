@@ -36,8 +36,8 @@ Internet ──► gateway ──► tunnel-relay ◄══ outbound tunnel ═�
 | Service | Language | Responsibility | Contract |
 | --- | --- | --- | --- |
 | `gateway` | Go | Public traffic, allowlist, rebuilding, faithful rendering | Signed map, events, metrics |
-| `tunnel-relay` | Go | Terminates connector tunnels, routes requests | `schema/tunnel/tunnel.proto` |
-| `connector` | Go | Next to the legacy app; outbound tunnel; allowed destinations only | `schema/tunnel/tunnel.proto` |
+| `tunnel-relay` | Go | Terminates connector tunnels, routes requests | `schema/tunnel/tunnel.md` |
+| `connector` | Go | Next to the legacy app; outbound tunnel; allowed destinations only | `schema/tunnel/tunnel.md` |
 | `orchestrator` | Go | Applies the configured capacity (replicas, autoscaling, pools) | Desired state from panel-api |
 | `panel-api` | Go | Tenants, maps, proposals, approvals, LLM, connectors, capacity, metrics, status, logs, SIEM, import/export, audit, signing | `schema/api/panel-api.yaml` |
 | `panel-ui` | TypeScript, React | Panel | Client generated from OpenAPI |
@@ -82,12 +82,18 @@ write, and every proposal that widens the surface needs human approval.
 
 ## Connector and tunnel
 
-- The connector always opens the connection to the relay (TLS, port 8443),
-  bidirectional gRPC with mTLS.
-- Enrolment with a one-time token from the panel → client certificate.
-- Destination allowlist **signed by the panel**: a compromised relay cannot
-  widen it.
-- Several connectors per app, active-active.
+- The connector always opens the connection to the relay: HTTPS on 443
+  through the edge proxy, upgraded to `equalizer-tunnel/1`, then yamux
+  streams carrying plain HTTP/1.1 (contract in `schema/tunnel/tunnel.md`).
+- Prototype authentication: per-connector token (the relay stores only its
+  SHA-256). Planned: enrolment with a one-time token from the panel → client
+  certificate (mTLS).
+- The connector's **local allowlist** (`EQ_ALLOW`) is the last barrier: a
+  compromised relay or gateway cannot widen it. A panel-signed allowlist
+  will be added on top.
+- Several connector instances per app, active-active (round robin).
+- The relay keeps tunnels in memory: one replica for now; several replicas
+  need a shared directory of tunnels (Redis).
 
 ## Horizontal scaling
 

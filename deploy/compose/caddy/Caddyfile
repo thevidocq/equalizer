@@ -26,3 +26,19 @@
 		format json
 	}
 }
+
+# Connectors open their tunnel here (Upgrade: equalizer-tunnel/1). Only the
+# tunnel path is published; everything else answers 404.
+{$EQ_RELAY_DOMAIN} {
+	handle /v1/tunnel {
+		reverse_proxy tunnel-relay:8081
+	}
+	handle {
+		respond 404
+	}
+
+	log {
+		output stdout
+		format json
+	}
+}

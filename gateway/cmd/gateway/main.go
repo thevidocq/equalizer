@@ -24,6 +24,7 @@ import (
 	"github.com/thevidocq/equalizer/gateway/internal/server"
 	"github.com/thevidocq/equalizer/gateway/internal/site"
 	"github.com/thevidocq/equalizer/gateway/internal/telemetry"
+	"github.com/thevidocq/equalizer/gateway/internal/transport"
 )
 
 // version is set at build time (-ldflags "-X main.version=...").
@@ -53,7 +54,14 @@ func run() error {
 	if err != nil {
 		return err
 	}
-	store := mapstore.NewStore(cfg.MapFile, pub, cfg.MapPublicKeyID)
+	relay, err := transport.ParseRelay(cfg.RelayURL, cfg.RelayToken)
+	if err != nil {
+		return fmt.Errorf("EQ_RELAY_URL/EQ_RELAY_TOKEN: %w", err)
+	}
+	if relay == nil {
+		log.Warn("EQ_RELAY_URL not set: maps in connector mode answer 502")
+	}
+	store := mapstore.NewStore(cfg.MapFile, pub, cfg.MapPublicKeyID, site.Options{Relay: relay})
 	active, err := store.Reload()
 	logReload(log, active, err)
 

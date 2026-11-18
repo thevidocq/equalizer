@@ -23,17 +23,76 @@ Add a section at the top of "Entries" for every commit:
 | --- | --- |
 | Contracts (`schema/`) | First version, validated in CI |
 | Documentation | Architecture, map format, installation and manuals (planned features) |
-| gateway | GET routes, assets and urlencoded POST forms in direct mode, validation, faithful rendering (UTF-8, cleanup, form binding, URL rewriting, redirects); no file uploads, sessions or connector yet |
-| tunnel-relay | Not implemented yet |
-| connector | Not implemented yet |
+| gateway | GET routes, assets and urlencoded POST forms in direct or connector mode, validation, faithful rendering (UTF-8, cleanup, form binding, URL rewriting, redirects); no file uploads or sessions yet |
+| tunnel-relay | Token-authenticated tunnels, forwarding, admin endpoints; single replica |
+| connector | Outbound tunnel, local allowlist, reconnection |
 | orchestrator | Not implemented yet |
 | panel-api | Not implemented yet |
 | panel-ui | Not implemented yet |
 | agent | Not implemented yet |
-| deploy/compose | Caddy, gateway (2 replicas), Vector, Loki, Grafana; statically validated |
-| tools (eqtool) | Map signing keys, form key, map signing |
+| deploy/compose | Caddy (gateway and relay domains), gateway (2 replicas), tunnel-relay, Vector, Loki, Grafana; statically validated |
+| tools (eqtool) | Map signing keys, form key, relay token, connector registration, map signing |
 
 ## Entries
+
+### 2026-11-18 — Add tunnel-relay and connector
+
+- **Branch:** `feat/tunnel`
+- **What:**
+  - Contract: `schema/tunnel/tunnel.md` (`equalizer-tunnel/1`) replaces
+    the gRPC draft `tunnel.proto`. The connector opens HTTPS on 443, the
+    connection is upgraded and carries yamux streams with plain HTTP/1.1;
+    the gateway → relay API on the control network is in the same document.
+    Why not gRPC: its modules cannot be downloaded in the development
+    environment, it would add a large dependency tree, and an upgraded
+    HTTPS connection goes through Caddy on 443 with an automatic
+    certificate (no extra port).
+  - `tunnel-relay/` (new Go module): `connectors.json` registry (SHA-256
+    of tokens, reloaded every 15 s and on SIGHUP; removed or rotated
+    connectors lose their tunnels), upgrade and yamux server, session pool
+    (max 8 per connector, round robin among sessions that declared the
+    destination), gateway forwarding with a bearer token, errors in
+    `X-Eq-Error`, admin `/healthz`, `/readyz`, `/v1/tunnels`, JSON logs,
+    `connector.down` and `request.blocked` (`tunnel_unauthorized`) events.
+  - `connector/` (new Go module): local allowlist `EQ_ALLOW` checked on the
+    request and again in the dialer, executor without redirect following
+    (30 s timeout), TLS options for legacy apps with self-signed
+    certificates, reconnection with exponential backoff and jitter,
+    `HTTPS_PROXY` support, Docker healthcheck while the tunnel is open.
+  - Gateway: `transport.Relay` (destination checked against
+    `legacy.reach.allow`, request id propagated, relay/connector errors
+    mapped), `EQ_RELAY_URL` and `EQ_RELAY_TOKEN[_FILE]`, `site.BuildWith`
+    with installation options.
+  - `eqtool secret` (gateway ↔ relay token) and `eqtool connector`
+    (registers a connector, prints its token once, `-rotate`).
+  - Compose: `tunnel-relay` service (1 replica), Caddy site on
+    `EQ_RELAY_DOMAIN` publishing only `/v1/tunnel`; port 8443 removed.
+  - CI: Go matrix with the two new modules and their images;
+    `publish.yml` pushes images to GHCR on every merge to `main`.
+  - Docs: INSTALL (relay domain, connector registration and `docker run`),
+    architecture, tenant manual, READMEs, CLAUDE.md decision.
+- **Why:** the connector is what makes an already running vulnerable server
+  protectable without exposing it: the legacy network needs only outbound
+  HTTPS.
+- **Status:** tests green with the race detector in all four modules. End
+  to end with the real binaries (fake ISO-8859-1 legacy app, relay,
+  connector, gateway in connector mode): 502 before the connector starts;
+  then pages served, links rewritten, the form bound and submitted (the
+  legacy app received `permitId=7&text=Caff%E8+ok`), 303 on success;
+  relay restart → connector reconnects within seconds; a wrong connector
+  token is refused; all 42 log and event lines validate against the
+  schemas. **Not tested yet:** Caddy in front of the relay (upgrade through
+  the real edge proxy) and the GHCR publication: both need the VPS and the
+  first merge. Not done: mTLS enrolment from the panel, panel-signed
+  allowlist, several relay replicas (tunnels are in memory), Prometheus
+  metrics.
+- **Next steps:**
+  1. Test on the VPS: `docker compose up`, connector on the remote
+     vulnerable server, map in connector mode (INSTALL steps 5–7).
+  2. Pass-through login and sessions in Redis.
+  3. File uploads with AV/CDR scanning; per-form rate limits.
+  4. Scripts by hash with CSP, URLs inside CSS, `external_links`.
+  5. Prometheus metrics (gateway, relay); panel-api.
 
 ### 2026-11-18 — Serve POST forms
 

@@ -15,7 +15,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        service: [gateway, tunnel-relay, connector, panel-api, tools]
+        service: [gateway, tunnel-relay, connector, panel-api, panel-ui, tools]
     steps:
       - uses: actions/checkout@v4
       - uses: docker/login-action@v3

@@ -28,6 +28,7 @@ import (
 	"github.com/thevidocq/equalizer/panel-api/internal/db"
 	"github.com/thevidocq/equalizer/panel-api/internal/logging"
 	"github.com/thevidocq/equalizer/panel-api/internal/store"
+	"github.com/thevidocq/equalizer/panel-api/internal/ui"
 )
 
 // version is set at build time (-ldflags "-X main.version=...").
@@ -84,7 +85,7 @@ func run() error {
 		InternalToken: cfg.InternalToken,
 	}
 	if cfg.UIDir != "" {
-		srv.UI = http.FileServer(http.Dir(cfg.UIDir))
+		srv.UI = ui.Handler(cfg.UIDir)
 	}
 	ready := func(w http.ResponseWriter, r *http.Request) {
 		if err := conn.PingContext(r.Context()); err != nil {

@@ -56,5 +56,7 @@ jobs:
         run: docker build -t equalizer/connector:ci connector
       - name: Build panel-api image
         run: docker build -t equalizer/panel-api:ci panel-api
+      - name: Build panel-ui image
+        run: docker build -t equalizer/panel-ui:ci panel-ui
       - name: Build eqtool image
         run: docker build -t equalizer/eqtool:ci tools

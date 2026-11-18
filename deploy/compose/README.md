@@ -8,7 +8,8 @@ Docker Compose for the prototype on a VPS. Full guide in [`INSTALL.md`](../../IN
 | `gateway` | edge, control | no | 2 replicas by default |
 | `redis` | control | no | Gateway sessions; no persistence |
 | `postgres` | control | no | Control-plane data (volume `postgres-data`) |
-| `panel-api` | control | `127.0.0.1:8088` only | Panel API, over an SSH tunnel |
+| `panel-api` | control | no | Panel API |
+| `panel-ui` | control | `127.0.0.1:8088` only | Web panel (and `/v1` to panel-api), over an SSH tunnel |
 | `tunnel-relay` | edge, control | no (through Caddy on `EQ_RELAY_DOMAIN`) | Connector tunnels; 1 replica |
 | `loki` | control | no | Log store, 30 days |
 | `vector` | control | no | Collects logs from containers labelled `eq.collect=true` |

@@ -1,0 +1,32 @@
+name: ui
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  panel-ui:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: panel-ui
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: panel-ui/package-lock.json
+      - run: npm ci --no-audit --no-fund
+      - name: Generated API client matches the contract
+        run: npm run check:api
+      - name: Module boundaries and file size
+        run: npm run lint:boundaries
+      - name: Type check and build
+        run: npm run build
+      - name: Tests
+        run: npm test

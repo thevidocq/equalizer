@@ -6,9 +6,9 @@
 > Today the gateway serves pages and urlencoded POST forms of a legacy
 > application reached **directly** (`legacy.reach.mode: direct`) or **through
 > the connector** (`mode: connector`), with faithful rendering and
-> pass-through login (sessions in Redis), and the panel API (tenants, sites,
-> connectors, maps with approval and signing). The panel web interface and
-> file uploads are not available yet.
+> pass-through login (sessions in Redis), and the web panel (tenants, sites,
+> connectors, people, maps with approval and signing, activity). File
+> uploads, service status and log pages are not available yet.
 
 The prototype runs on **one VPS** with Docker Compose. The legacy application
 to protect can be anywhere: the **connector**, installed next to it, reaches it.
@@ -126,27 +126,22 @@ The panel listens only on the VPS localhost. From your computer:
 ssh -L 8088:localhost:8088 user@vps
 ```
 
-The web interface arrives with panel-ui (next step); until then, the panel
-API at `http://localhost:8088` does everything. With `curl`:
+Open `http://localhost:8088` and log in. Then:
 
-```bash
-P=http://localhost:8088
-api() { curl -s -b .panel -c .panel -H "X-Eq-Panel: 1" -H "Content-Type: application/json" -X "$1" "$P$2" ${3:+-d "$3"}; }
+1. **Tenants → Add a tenant** (for the lab, e.g. "Lab").
+2. In the tenant: **+ Protect a site**, with its name and public domain.
+3. **Connectors → Add a connector**: copy the `docker run` command it shows
+   (the token appears only once) and run it next to the legacy server
+   (step 7).
+4. **People → Add a person** with the *Approver* role: maps are approved by
+   someone other than their author.
+5. **Map → New version**: write the map in YAML (the editor checks the
+   syntax, the panel checks the format), **Save draft**, **Send for
+   review**. The approver opens the version, **Approve**, **Publish**.
 
-api POST /v1/auth/login '{"email":"you@example.com","password":"..."}'
-api POST /v1/tenants '{"id":"lab","name":"Lab"}'
-api POST /v1/tenants/lab/apps '{"id":"vuln-app","name":"Vulnerable app","public_domain":"vuln.example.com"}'
-api POST /v1/tenants/lab/users '{"email":"approver@example.com","name":"Approver","password":"...","role":"approver"}'
-api POST /v1/apps/vuln-app/connectors '{"id":"cn-lab-01"}'     # prints the connector token, once
-
-# a map: YAML → JSON (validated), then a draft in the panel
-python3 scripts/map_to_json.py my-map.yaml > /tmp/map.json
-api POST /v1/apps/vuln-app/maps "$(python3 -c 'import json;print(json.dumps({"document":json.load(open("/tmp/map.json"))}))')"
-api POST /v1/apps/vuln-app/maps/1/submit
-# the approver (another person, logged in with their own account):
-api POST /v1/apps/vuln-app/maps/1/approve
-api POST /v1/apps/vuln-app/maps/1/publish
-```
+The same steps are available on the API (`/v1`, see
+`schema/api/panel-api.yaml`); every request that changes something needs
+the header `X-Eq-Panel: 1`.
 
 Then set `EQ_APP=vuln-app` in `.env` and run `docker compose up -d`: the
 gateway downloads the published map from the panel (checked every 15

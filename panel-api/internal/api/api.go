@@ -8,6 +8,7 @@ import (
 	"encoding/hex"
 	"log/slog"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/thevidocq/equalizer/panel-api/internal/auth"
@@ -77,8 +78,12 @@ func (s *Server) middleware(next http.Handler) http.Handler {
 		h.Set("X-Content-Type-Options", "nosniff")
 		h.Set("X-Frame-Options", "DENY")
 		h.Set("Referrer-Policy", "no-referrer")
-		h.Set("Content-Security-Policy", "default-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'self'")
-		h.Set("Cache-Control", "no-store")
+		// Inline style attributes are allowed (dialog positioning); scripts only from this origin.
+		h.Set("Content-Security-Policy", "default-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; "+
+			"object-src 'none'; frame-ancestors 'none'; base-uri 'none'; form-action 'self'")
+		if strings.HasPrefix(r.URL.Path, "/v1/") {
+			h.Set("Cache-Control", "no-store")
+		}
 
 		// CSRF: state-changing requests must carry a header a cross-site form
 		// cannot set (together with SameSite=Strict cookies).

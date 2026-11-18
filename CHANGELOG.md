@@ -28,12 +28,55 @@ Add a section at the top of "Entries" for every commit:
 | connector | Outbound tunnel, local allowlist, reconnection |
 | orchestrator | Not implemented yet |
 | panel-api | Auth, tenants, users, sites, connectors, maps with approval and signing, audit, internal endpoints |
-| panel-ui | Not implemented yet |
+| panel-ui | Login, tenants, sites, connectors, people, maps with editor and approval, activity |
 | agent | Not implemented yet |
-| deploy/compose | Caddy (gateway and relay domains), gateway (2 replicas), Redis, PostgreSQL, panel-api, tunnel-relay, Vector, Loki, Grafana; statically validated |
+| deploy/compose | Caddy (gateway and relay domains), gateway (2 replicas), Redis, PostgreSQL, panel-api, panel-ui, tunnel-relay, Vector, Loki, Grafana; statically validated |
 | tools (eqtool) | Map signing keys, form key, relay token, connector registration, map signing |
 
 ## Entries
+
+### 2026-11-18 — Add the web panel (panel-ui)
+
+- **Branch:** `feat/panel-ui`
+- **What:**
+  - Contract: typed responses for tenants, users, apps, connectors, map
+    versions and audit entries (the UI client is generated from them);
+    `document` and `detail` declared as free objects.
+  - `panel-ui/` (TypeScript, React 19, Vite, React Router, TanStack Query,
+    Radix, Tailwind 4): login; tenants; protected sites with sidebar and
+    status; site tabs Map (version list with the approval rail, version
+    page with document and next action, new version from scratch or from a
+    version with a YAML editor that checks syntax and shows the panel's
+    format errors) and Connectors (add with the `docker run` command and the
+    token shown once, rotate, remove); people with roles; activity in plain
+    sentences. Generated client (`openapi-typescript` + `openapi-fetch`)
+    with the CSRF header; error messages that say what to do.
+  - Rules enforced in CI (`ui.yml`): generated client equal to the
+    contract, module boundaries, files ≤ 200 lines, type check, build,
+    tests.
+  - Docker image on Caddy (static files, `/v1` to panel-api on the same
+    origin, CSP); Compose `panel-ui` on `127.0.0.1:8088` (panel-api no
+    longer published). panel-api can serve the build with `EQ_UI_DIR`
+    (SPA fallback, cache for hashed assets); its CSP now allows inline
+    style attributes.
+  - INSTALL: first site through the web panel.
+- **Why:** the panel API alone still meant `curl` on the VPS; now the whole
+  first-site flow is done from the browser.
+- **Status:** type check, unit tests and boundary check green. Driven in a
+  real browser (Chrome via Playwright) against panel-api and PostgreSQL:
+  login, protect a site, add a connector (command shown), editor writes
+  version 2 from version 1 and sends it for review, administrator approves
+  and publishes it (version 1 retired), activity page, no console errors.
+  Not done: MFA, password change and user deactivation, map diff between
+  versions, service status, logs, SIEM, LLM settings, import/export,
+  dark mode.
+- **Next steps:**
+  1. Test the whole stack on the VPS with the remote vulnerable server.
+  2. MFA (TOTP) and password change for panel users.
+  3. Map diff between versions and form-based helpers for common map
+     edits.
+  4. Service status page; log search.
+  5. Gateway serving several sites by host name.
 
 ### 2026-11-18 — Add panel-api: tenants, sites, connectors, maps
 

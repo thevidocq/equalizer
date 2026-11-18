@@ -1,0 +1,50 @@
+@import "tailwindcss";
+@import "@fontsource/public-sans/400.css";
+@import "@fontsource/public-sans/500.css";
+@import "@fontsource/public-sans/600.css";
+@import "@fontsource/public-sans/700.css";
+@import "@fontsource/jetbrains-mono/400.css";
+
+/* Design tokens. States of a map version carry meaning: draft, in review,
+   approved, published, rejected, retired. */
+@theme {
+  --font-sans: "Public Sans", system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, monospace;
+
+  --color-ink: #1c2633;
+  --color-ink-soft: #4a5666;
+  --color-paper: #f4f6f8;
+  --color-surface: #ffffff;
+  --color-rule: #cbd3dc;
+  --color-rule-soft: #e3e8ed;
+  --color-signal: #1f4fb8;
+  --color-signal-soft: #e5ecfa;
+
+  --color-state-draft: #6b7684;
+  --color-state-review: #a86a12;
+  --color-state-approved: #1f4fb8;
+  --color-state-published: #2b7a4b;
+  --color-state-rejected: #b42318;
+  --color-state-retired: #9aa3ae;
+
+  --radius-control: 4px;
+  --radius-panel: 6px;
+}
+
+html {
+  font-family: var(--font-sans);
+  color: var(--color-ink);
+  background: var(--color-paper);
+  font-size: 15px;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+}
+
+:focus-visible {
+  outline: 2px solid var(--color-signal);
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation: none !important; transition: none !important; }
+}

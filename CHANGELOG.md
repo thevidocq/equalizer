@@ -28,12 +28,26 @@ Add a section at the top of "Entries" for every commit:
 | connector | Outbound tunnel, local allowlist, reconnection; one per server, virtual hosts |
 | orchestrator | Not implemented yet |
 | panel-api | Discovery jobs and continuous discovery, tenant AI settings, map templates per CMS, auth with mandatory TOTP, tenants, email invitations, tenant connectors, map reach checks, exposure check, Logs page backend (Loki), platform/tenant privacy, users, sites, connectors, maps with approval and signing, audit, internal endpoints |
-| panel-ui | Discovery tab and tenant AI settings, login, joining by invitation, platform tenant overview, sites with isolation, tenant connectors, people with invitations, maps with editor and approval, activity, logs |
+| panel-ui | Discovery tab and tenant AI settings, login, joining by invitation, platform tenant overview, sites with isolation, tenant connectors, people with invitations, maps with editor, approval, import and export, activity, logs |
 | agent | Discovery: read-only crawl through the connector, fixed exclusions, CMS fingerprint, deterministic routes and types, optional AI review with the tenant's model, proposed drafts |
 | deploy/compose | Caddy (on-demand certificates for protected sites, relay and panel domains), SMTP settings, gateway (2 replicas), Redis, PostgreSQL, panel-api, panel-ui, tunnel-relay, Vector, Loki, Grafana; statically validated |
 | tools (eqtool) | Map signing keys, form key, relay token, connector registration, map signing |
 
 ## Entries
+
+### 2026-11-18 — Map import and export
+
+- **Branch:** `feat/map-import-export` (on top of `feat/discovery-issues`)
+- **What:** panel-ui: **Download as YAML** on every version (without the
+  meta the panel owns); **Import a map file** on New version loads a YAML or
+  JSON file (at most 2 MB, must have `legacy` and `roles`) into the editor.
+  No new endpoint: the import is saved as a draft through the usual
+  creation, so schema, reach and connector checks and approval apply.
+- **Why:** backups, moving a map from a test site to the real one, reusing
+  a map on a similar site, keeping maps in git.
+- **Status:** tests pass (YAML and JSON read, meta dropped, non-maps and
+  large files refused).
+- **Next steps:** status page; docs and screenshots.
 
 ### 2026-11-18 — Discovery proposes IDOR protection for JSON APIs
 

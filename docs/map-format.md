@@ -348,6 +348,16 @@ the version → **Roll back to this version**, approvers and administrators):
 it was approved when it first went live, and its signed document is the
 same.
 
+## Import and export
+
+Every version can be downloaded as YAML (**Download as YAML**), without the
+meta the panel owns. **New version → Import a map file** loads a YAML or
+JSON map into the editor, for a backup, a move from a test site to the real
+one, or a site like another: tenant, site and domain are set from the site
+it is imported into, and the draft gets the same checks (schema, reach,
+connector of the tenant) and approval as any other. A file is never
+published as it is.
+
 ## Templates
 
 When a site is protected its CMS can be chosen (WordPress, Joomla, Drupal,

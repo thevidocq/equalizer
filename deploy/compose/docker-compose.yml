@@ -133,6 +133,8 @@ services:
       EQ_DIRECT_DESTINATIONS: ${EQ_DIRECT_DESTINATIONS:-}
       # how often each protected site is checked for direct exposure
       EQ_EXPOSURE_INTERVAL: ${EQ_EXPOSURE_INTERVAL:-1h}
+      # Logs page: security events read from Loki (control network)
+      EQ_LOKI_URL: http://loki:3100
     volumes:
       - ./secrets/mfa.key:/secrets/mfa.key:ro
       - ./secrets/smtp.password:/secrets/smtp.password:ro

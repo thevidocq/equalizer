@@ -2683,6 +2683,153 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/tenants/{tenant}/logs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Security events of the tenant's sites, newest first: what the gateway served and refused (tenant administrators, approvers and auditors; platform users see no tenant's events) */
+        get: {
+            parameters: {
+                query?: {
+                    /** @description Only this site */
+                    app?: components["parameters"]["logApp"];
+                    /** @description Comma-separated event types; empty means all */
+                    types?: components["parameters"]["logTypes"];
+                    /** @description Text the event must contain (IP address, path, request ID) */
+                    q?: components["parameters"]["logSearch"];
+                    since?: components["parameters"]["logSince"];
+                    /** @description Cursor from next_cursor (older events) */
+                    before?: string;
+                };
+                header?: never;
+                path: {
+                    tenant: components["parameters"]["tenant"];
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description At most 50 events */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            items: components["schemas"]["LogEvent"][];
+                            next_cursor?: string | null;
+                        };
+                    };
+                };
+                422: components["responses"]["Error"];
+                503: components["responses"]["Error"];
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/tenants/{tenant}/logs/stats": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Events per type and refused requests per interval, for the same filters as the list */
+        get: {
+            parameters: {
+                query?: {
+                    /** @description Only this site */
+                    app?: components["parameters"]["logApp"];
+                    /** @description Text the event must contain (IP address, path, request ID) */
+                    q?: components["parameters"]["logSearch"];
+                    since?: components["parameters"]["logSince"];
+                };
+                header?: never;
+                path: {
+                    tenant: components["parameters"]["tenant"];
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Counts */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["LogStats"];
+                    };
+                };
+                422: components["responses"]["Error"];
+                503: components["responses"]["Error"];
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/tenants/{tenant}/logs/export": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The filtered events as CSV, newest first, at most 10000 */
+        get: {
+            parameters: {
+                query?: {
+                    /** @description Only this site */
+                    app?: components["parameters"]["logApp"];
+                    /** @description Comma-separated event types; empty means all */
+                    types?: components["parameters"]["logTypes"];
+                    /** @description Text the event must contain (IP address, path, request ID) */
+                    q?: components["parameters"]["logSearch"];
+                    since?: components["parameters"]["logSince"];
+                };
+                header?: never;
+                path: {
+                    tenant: components["parameters"]["tenant"];
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description CSV file */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "text/csv": string;
+                    };
+                };
+                422: components["responses"]["Error"];
+                503: components["responses"]["Error"];
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/audit": {
         parameters: {
             query?: never;
@@ -2894,6 +3041,38 @@ export interface components {
             document?: {
                 [key: string]: unknown;
             };
+        };
+        /** @description A security event, with the fields the panel shows (never field values) */
+        LogEvent: {
+            /** Format: date-time */
+            ts: string;
+            /** @enum {unknown} */
+            type: "request.served" | "request.blocked" | "field.rejected" | "ratelimit.hit" | "behavior.alert" | "parse.failed" | "legacy.error" | "connector.down" | "exposure.alert";
+            reason?: string | null;
+            app?: string | null;
+            /** @description Map entry */
+            route?: string | null;
+            map_version?: number | null;
+            request_id?: string | null;
+            src_ip?: string | null;
+            method?: string | null;
+            path?: string | null;
+            status?: number | null;
+            /** @description Name of the refused field */
+            field?: string | null;
+        };
+        LogStats: {
+            /** @description Events per type in the period */
+            counts: {
+                [key: string]: number;
+            };
+            /** @description Refused events (every type but request.served) per interval, oldest first */
+            refused: {
+                /** Format: date-time */
+                ts: string;
+                count: number;
+            }[];
+            step_seconds: number;
         };
         AuditEntry: {
             id: number;
@@ -3141,6 +3320,13 @@ export interface components {
         };
     };
     parameters: {
+        /** @description Only this site */
+        logApp: string;
+        /** @description Comma-separated event types; empty means all */
+        logTypes: string;
+        /** @description Text the event must contain (IP address, path, request ID) */
+        logSearch: string;
+        logSince: "1h" | "24h" | "7d" | "30d";
         app: string;
         tenant: string;
         id: string;

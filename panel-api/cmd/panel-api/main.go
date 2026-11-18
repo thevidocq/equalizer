@@ -28,6 +28,7 @@ import (
 	"github.com/thevidocq/equalizer/panel-api/internal/db"
 	"github.com/thevidocq/equalizer/panel-api/internal/exposure"
 	"github.com/thevidocq/equalizer/panel-api/internal/logging"
+	"github.com/thevidocq/equalizer/panel-api/internal/logsearch"
 	"github.com/thevidocq/equalizer/panel-api/internal/mail"
 	"github.com/thevidocq/equalizer/panel-api/internal/mfa"
 	"github.com/thevidocq/equalizer/panel-api/internal/store"
@@ -121,6 +122,11 @@ func run() error {
 	}
 	if cfg.UIDir != "" {
 		srv.UI = ui.Handler(cfg.UIDir)
+	}
+	if cfg.LokiURL != "" {
+		srv.Logs = &logsearch.Loki{URL: cfg.LokiURL}
+	} else {
+		log.Warn("EQ_LOKI_URL not set: the Logs page is not available")
 	}
 	go scheduleDiscoveries(ctx, srv, log.With(slog.String("module", "discovery")))
 	ready := func(w http.ResponseWriter, r *http.Request) {

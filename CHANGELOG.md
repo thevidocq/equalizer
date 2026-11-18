@@ -27,13 +27,39 @@ Add a section at the top of "Entries" for every commit:
 | tunnel-relay | Token-authenticated tunnels, forwarding with tenant check, admin endpoints; several replicas with handover |
 | connector | Outbound tunnel, local allowlist, reconnection; one per server, virtual hosts |
 | orchestrator | Not implemented yet |
-| panel-api | Discovery jobs and continuous discovery, tenant AI settings, map templates per CMS, auth with mandatory TOTP, tenants, email invitations, tenant connectors, map reach checks, exposure check, platform/tenant privacy, users, sites, connectors, maps with approval and signing, audit, internal endpoints |
-| panel-ui | Discovery tab and tenant AI settings, login, joining by invitation, platform tenant overview, sites with isolation, tenant connectors, people with invitations, maps with editor and approval, activity |
+| panel-api | Discovery jobs and continuous discovery, tenant AI settings, map templates per CMS, auth with mandatory TOTP, tenants, email invitations, tenant connectors, map reach checks, exposure check, Logs page backend (Loki), platform/tenant privacy, users, sites, connectors, maps with approval and signing, audit, internal endpoints |
+| panel-ui | Discovery tab and tenant AI settings, login, joining by invitation, platform tenant overview, sites with isolation, tenant connectors, people with invitations, maps with editor and approval, activity, logs |
 | agent | Discovery: read-only crawl through the connector, fixed exclusions, CMS fingerprint, deterministic routes and types, optional AI review with the tenant's model, proposed drafts |
 | deploy/compose | Caddy (on-demand certificates for protected sites, relay and panel domains), SMTP settings, gateway (2 replicas), Redis, PostgreSQL, panel-api, panel-ui, tunnel-relay, Vector, Loki, Grafana; statically validated |
 | tools (eqtool) | Map signing keys, form key, relay token, connector registration, map signing |
 
 ## Entries
+
+### 2026-11-18 — Logs page
+
+- **Branch:** `feat/logs-page` (on top of `feat/authz-json`)
+- **What:**
+  - Contract: `GET /tenants/{tenant}/logs`, `/logs/stats`, `/logs/export`
+    (`LogEvent`, `LogStats`).
+  - panel-api: `internal/logsearch` reads security events from Loki; the
+    tenant always comes from the user, filters are validated (site, types,
+    period) and quoted (search) before they enter LogQL; only the shown
+    fields leave, never field values. Stats: events per type and refused
+    per interval. CSV export up to 10000 events, formulas neutralised,
+    recorded in the activity. Admins, approvers and auditors; platform users
+    see no tenant's events. `EQ_LOKI_URL` (set in Compose).
+  - panel-ui: `features/logs` as in the approved mockup: filters, chips with
+    counts, refused chart, event table, detail in plain words with "Add to
+    the map" (unmapped paths), "Show this IP only", "Copy request ID", live
+    refresh, CSV. Opens on refused events (served is off by default).
+- **Why:** the project owner asked for a Logs page in the panel.
+- **Status:** tests pass (LogQL quoting against injection, tenant filter,
+  paging, stats; handler permissions and CSV); checked with screenshots on a
+  fake Loki. Not yet on the real Loki of the Compose stack.
+- **Next steps:**
+  1. Run it against the Compose stack's Loki.
+  2. SIEM forwarding configured from the panel.
+  3. Lab campaign (DVWA, WordPress, Juice Shop).
 
 ### 2026-11-18 — owned_by_user for JSON APIs
 

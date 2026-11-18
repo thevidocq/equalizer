@@ -23,6 +23,14 @@ email from the platform with a link to choose a password. Then **People →
 Invite a person** (name, email, role): the link works once and expires in 48
 hours; pending invitations can be revoked.
 
+**Connectors and isolation** *(available)*: install one connector per
+server (**Connectors**); it serves all the sites on that server. In each
+site, **Isolation** checks that the site no longer answers on its old public
+IP, and gives the lines to copy for Apache, nginx or IIS: move the site to
+an internal address, or let only the connector in. The other sites of the
+server stay as they are. If a protected site becomes reachable again, it
+turns red and the event appears in **Activity**.
+
 **Privacy** *(available)*: the platform operator sees your tenant's name and
 the names of your sites with their status (protected or being set up),
 nothing else: not your maps, connectors, people or activity.

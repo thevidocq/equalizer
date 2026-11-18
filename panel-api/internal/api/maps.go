@@ -69,7 +69,7 @@ func (s *Server) createMap(w http.ResponseWriter, r *http.Request, u *auth.User)
 	// The panel owns the identity fields: whatever the document says.
 	doc, err := store.SetMeta(in.Document, map[string]any{
 		"schema": "gateway-map/1.0", "tenant": a.Tenant, "app": a.ID, "version": 1, "status": "draft",
-		"created_by": "user:" + u.Email,
+		"created_by": "user:" + u.Email, "public_domain": a.PublicDomain,
 	})
 	if err != nil {
 		fail(w, http.StatusUnprocessableEntity, "invalid_map", "the document must be a JSON object")
@@ -82,6 +82,10 @@ func (s *Server) createMap(w http.ResponseWriter, r *http.Request, u *auth.User)
 			return
 		}
 		s.storeError(w, r, err)
+		return
+	}
+	if err := s.checkReach(r.Context(), a.Tenant, doc); err != nil {
+		s.reachFail(w, r, err, http.StatusUnprocessableEntity)
 		return
 	}
 	version, err := s.Store.CreateDraft(r.Context(), a.ID, doc, strings.TrimSpace(in.Note), u.ID)
@@ -132,9 +136,15 @@ func (s *Server) mapAction(w http.ResponseWriter, r *http.Request, u *auth.User)
 			forbidden(w)
 			return
 		}
-		err = s.publish(r, v)
+		err = s.publish(r, a, v)
 	default:
 		fail(w, http.StatusNotFound, "not_found", "")
+		return
+	}
+	var re *reachError
+	if errors.As(err, &re) {
+		// The connector was removed or the platform's rules changed since the draft.
+		s.reachFail(w, r, err, http.StatusConflict)
 		return
 	}
 	if err != nil {
@@ -152,16 +162,19 @@ func (s *Server) mapAction(w http.ResponseWriter, r *http.Request, u *auth.User)
 }
 
 // publish signs the approved document and makes it the published version.
-func (s *Server) publish(r *http.Request, v store.MapVersion) error {
+func (s *Server) publish(r *http.Request, a store.App, v store.MapVersion) error {
 	if v.Status != "approved" {
 		return store.ErrState
+	}
+	if err := s.checkReach(r.Context(), a.Tenant, v.Document); err != nil {
+		return err
 	}
 	approver := ""
 	if v.Approver != nil {
 		approver = "user:" + *v.Approver
 	}
 	doc, err := store.SetMeta(v.Document, map[string]any{
-		"version": v.Version, "status": "published", "approved_by": approver,
+		"version": v.Version, "status": "published", "approved_by": approver, "public_domain": a.PublicDomain,
 		"published_at": time.Now().UTC().Format(time.RFC3339),
 	})
 	if err != nil {

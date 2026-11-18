@@ -19,10 +19,13 @@ to protect can be anywhere: the **connector**, installed next to it, reaches it.
 
 - 4 vCPU, 16 GB RAM, 160 GB SSD.
 - Ubuntu 24.04 LTS.
-- A DNS name for the gateway (e.g. `gw.example.com`) and one for the relay
-  (e.g. `relay.example.com`), both pointing to the VPS IP. If you use
+- Two DNS names pointing to the VPS IP: the panel (e.g.
+  `panel.example.com`) and the relay (e.g. `relay.example.com`). If you use
   Cloudflare, leave the relay record **DNS only** (grey cloud): the tunnel is
   a long-lived upgraded connection.
+- The gateway has no name of its own: each protected site keeps its domain
+  (e.g. `permits.example-city.gov`), and its DNS record moves to the VPS IP
+  when the site goes live (section 6).
 
 ### Connector machine
 
@@ -78,9 +81,11 @@ Main values in `.env`:
 
 | Variable | Example | Meaning |
 | --- | --- | --- |
-| `EQ_GATEWAY_DOMAIN` | `gw.example.com` | Public domain of the gateway (automatic certificate) |
 | `EQ_RELAY_DOMAIN` | `relay.example.com` | Public domain of the relay, where connectors open their tunnel |
+| `EQ_PANEL_DOMAIN` | `panel.example.com` | Public domain of the panel (customers, invitation links) |
 | `EQ_ACME_EMAIL` | `admin@example.com` | Email for Let's Encrypt |
+| `EQ_DIRECT_DESTINATIONS` | `vuln-app:80` | Lab only: destinations a map may reach without a connector |
+| `EQ_EXPOSURE_INTERVAL` | `1h` | How often protected sites are checked on their old IP |
 | `EQ_GATEWAY_REPLICAS` | `2` | Gateway replicas |
 | `EQ_LOG_LEVEL` | `info` | Log level (`debug`, `info`, `warn`, `error`) |
 | `EQ_MAP_KEY_ID` | `k1` | Identifier of the map signing key |
@@ -119,8 +124,9 @@ docker compose ps            # gateway "healthy", two replicas
 Quick checks:
 
 ```bash
-curl -I https://gw.example.com/            # 503 until a map is published, then the legacy page
-curl -I https://gw.example.com/wp-admin    # not mapped: 404
+curl -I https://panel.example.com/                  # the panel
+curl -I https://permits.example-city.gov/           # once its map is published: the site
+curl -I https://permits.example-city.gov/wp-admin   # not in the map: 404
 ```
 
 ### First administrator and first site *(available)*
@@ -144,9 +150,9 @@ of the app. Then:
    and status: everything below is done by the tenant's administrator.
    (For a lab you can invite yourself with a second email address.)
 2. In the tenant: **+ Protect a site**, with its name and public domain.
-3. **Connectors → Add a connector**: copy the `docker run` command it shows
-   (the token appears only once) and run it next to the legacy server
-   (step 7).
+3. **Connectors → Add a connector**, one per legacy server: copy the
+   `docker run` command it shows (the token appears only once) and run it
+   on that server (step 7). The same connector serves all its sites.
 4. **People → Invite a person** with the *Approver* role: maps are approved by
    someone other than their author.
 5. **Map → New version**: write the map in YAML (the editor checks the
@@ -157,29 +163,35 @@ The same steps are available on the API (`/v1`, see
 `schema/api/panel-api.yaml`); every request that changes something needs
 the header `X-Eq-Panel: 1`.
 
-Then set `EQ_APP=vuln-app` in `.env` and run `docker compose up -d`: the
-gateway downloads the published map from the panel (checked every 15
-seconds) and verifies its signature. A version is approved and published by
-someone other than its author; every action is in `GET /v1/audit`.
+6. Point the site's DNS record to the VPS. The gateway downloads every
+   published map from the panel (checked every 15 seconds), verifies its
+   signature and serves it on the site's domain; Caddy gets the certificate
+   at the first visit, only for domains with a published map.
+7. **Site → Isolation**: enter the site's old public IP and apply the
+   configuration it shows on the web server, so the site no longer answers
+   there. The status turns green when the check cannot reach it.
 
-For a legacy app reached through the connector, the map says:
+A version is approved and published by someone other than its author;
+every action is in `GET /v1/audit`.
+
+For a site reached through the connector, the map says:
 
 ```yaml
 legacy:
-  base_url: http://10.20.0.15:8080        # address as seen from the connector
+  base_url: https://permits.example-city.gov   # name the web server knows
   reach:
     mode: connector
-    connector_id: cn-lab-01                # as registered in the panel
-    allow: ["10.20.0.15:8080"]
+    connector_id: cn-lab-01                    # a connector of this tenant
+    address: "10.20.0.15:443"                  # where to connect (virtual hosts)
+    allow: ["10.20.0.15:443"]
 ```
 
 The relay reads the connectors from the panel every 15 seconds: new
-connectors need no restart; deleting one or rotating its token
-(`POST /v1/apps/vuln-app/connectors/cn-lab-01/rotate`) closes its open
-tunnels.
+connectors need no restart; deleting one or rotating its token closes its
+open tunnels.
 
-Without the panel (`EQ_APP` empty) the gateway still reads
-`maps/current.json`, signed with `eqtool sign`.
+With `EQ_MAP_URL=` (empty) in `.env` the gateway reads
+`maps/current.json` instead, signed with `eqtool sign` (lab without panel).
 
 ### Viewing logs *(available)*
 
@@ -201,23 +213,25 @@ Open `http://localhost:3000` (user `admin`, password from `.env`), go to
 
 The panel's Logs page will arrive with panel-ui; Grafana stays for in-depth analysis.
 
-## 7. Install the connector next to the legacy application *(available)*
+## 7. Install the connector on the legacy server *(available)*
 
-On a machine with Docker on the legacy application's network (the remote
-server itself is fine):
+One per server, whatever the number of sites on it. On the server itself
+(or a machine with Docker on its network):
 
 ```bash
-docker run -d --name eq-connector --restart unless-stopped \
+docker run -d --name eq-connector --restart unless-stopped --network host \
   -e EQ_RELAY_URL=https://relay.example.com \
   -e EQ_CONNECTOR_ID=cn-lab-01 \
   -e EQ_CONNECTOR_TOKEN=<token printed by the panel> \
-  -e EQ_ALLOW=10.20.0.15:8080 \
+  -e EQ_ALLOW=127.0.0.1:8443,10.20.0.15:443 \
   ghcr.io/thevidocq/equalizer-connector:latest
 ```
 
 - `EQ_ALLOW` lists the only `host:port` destinations the connector will
-  reach, whatever it is asked. If the legacy app runs on the same machine,
-  use its LAN address or, with `--network host`, `127.0.0.1:<port>`.
+  reach, whatever it is asked: the addresses of the protected sites.
+  Virtual hosts on one address need one entry; the site is chosen by name.
+- `--network host` lets it reach sites that listen only on `127.0.0.1`,
+  the recommended way to take a protected site off the public IP.
 - For an `https` legacy app with a self-signed certificate: mount its CA and
   set `EQ_LEGACY_CA_FILE`, or as a last resort `EQ_LEGACY_INSECURE_TLS=true`.
 - The image is published by CI on every merge to `main`. GitHub packages
@@ -238,7 +252,8 @@ docker compose logs tunnel-relay | grep "connector connected"
 | Check | How |
 | --- | --- |
 | Services running | Panel → **Service status**, everything "operational" |
-| Connector | Panel → site → **Connectors**: online, latency shown |
+| Connector | Panel → **Connectors**: sites using it; tunnel in `docker compose logs tunnel-relay` |
+| Isolation | Panel → site → **Isolation**: "Not reachable directly" |
 | Full path | End-to-end synthetic check green |
 | Logs | Panel → **Logs**, filter by service |
 | Exposure | After cutover, the legacy application does not answer from the Internet |

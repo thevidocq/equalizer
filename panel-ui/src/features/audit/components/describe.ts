@@ -17,6 +17,8 @@ const verbs: Record<string, string> = {
   "user.invite_revoked": "revoked the invitation of",
   "user.join": "joined with the invitation for",
   "app.create": "protected site",
+  "app.legacy_ip": "changed the old IP of",
+  "site.exposure": "exposure check changed for",
   "connector.create": "added connector",
   "connector.rotate": "rotated the token of",
   "connector.delete": "removed connector",

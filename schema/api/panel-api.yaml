@@ -366,6 +366,42 @@ paths:
             application/json:
               schema: { $ref: "#/components/schemas/App" }
         "404": { $ref: "#/components/responses/Error" }
+    patch:
+      tags: [apps]
+      summary: Change site settings (tenant administrators)
+      parameters: [{ $ref: "#/components/parameters/app" }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                legacy_ip:
+                  type: [string, "null"]
+                  description: "Public IP the site answered on before Equalizer: the exposure check probes it. A public unicast IPv4 or IPv6 address; null stops the checks"
+      responses:
+        "200":
+          description: Site
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/App" }
+        "422": { $ref: "#/components/responses/Error" }
+  /apps/{app}/exposure/check:
+    post:
+      tags: [apps]
+      summary: >-
+        Check now whether the site still answers directly on its old public IP (ports 443 and 80, with its name in
+        TLS SNI and Host). At most once a minute per site (tenant administrators)
+      parameters: [{ $ref: "#/components/parameters/app" }]
+      responses:
+        "200":
+          description: Site with the new result
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/App" }
+        "409": { $ref: "#/components/responses/Error" }
+        "429": { $ref: "#/components/responses/Error" }
   /apps/{app}/maps:
     get:
       tags: [maps]
@@ -445,6 +481,24 @@ paths:
             application/json:
               schema: { $ref: "#/components/schemas/SignedMap" }
         "404": { $ref: "#/components/responses/Error" }
+  /internal/maps:
+    get:
+      tags: [internal]
+      summary: >-
+        Every published map with its signature (used by the gateway, which serves each one on its
+        meta.public_domain). ETag changes when any published version changes
+      security: [{ serviceToken: [] }]
+      responses:
+        "200":
+          description: Signed maps
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items: { type: array, items: { $ref: "#/components/schemas/SignedMap" } }
+        "304": { description: Not modified }
   /internal/connectors:
     get:
       tags: [internal]
@@ -537,11 +591,11 @@ paths:
       security: [{ serviceToken: [] }]
       responses:
         "200": { $ref: "#/components/responses/Object" }
-  /apps/{app}/connectors:
+  /tenants/{tenant}/connectors:
     get:
       tags: [connectors]
-      summary: Connectors of the site (token never returned)
-      parameters: [{ $ref: "#/components/parameters/app" }]
+      summary: Connectors of the tenant, one per server, shared by its sites (token never returned; tenant administrators)
+      parameters: [{ $ref: "#/components/parameters/tenant" }]
       responses:
         "200":
           description: Connectors
@@ -555,8 +609,8 @@ paths:
                   next_cursor: { type: [string, "null"] }
     post:
       tags: [connectors]
-      summary: Register a connector; the token is returned only in this answer
-      parameters: [{ $ref: "#/components/parameters/app" }]
+      summary: Register a connector; the token is returned only in this answer (tenant administrators)
+      parameters: [{ $ref: "#/components/parameters/tenant" }]
       requestBody:
         required: true
         content:
@@ -565,7 +619,7 @@ paths:
               type: object
               required: [id]
               properties:
-                id: { type: string, pattern: "^[a-z0-9][a-z0-9_-]{1,62}$" }
+                id: { type: string, pattern: "^[a-z0-9][a-z0-9_-]{1,62}$", description: "Unique in the installation, e.g. the server's name" }
       responses:
         "201":
           description: Connector and its token
@@ -573,24 +627,25 @@ paths:
             application/json:
               schema: { $ref: "#/components/schemas/ConnectorCreated" }
         "409": { $ref: "#/components/responses/Error" }
-  /apps/{app}/connectors/{id}/rotate:
+  /tenants/{tenant}/connectors/{id}/rotate:
     post:
       tags: [connectors]
       summary: New token; open tunnels with the old one are closed
-      parameters: [{ $ref: "#/components/parameters/app" }, { $ref: "#/components/parameters/id" }]
+      parameters: [{ $ref: "#/components/parameters/tenant" }, { $ref: "#/components/parameters/id" }]
       responses:
         "200":
           description: Connector and its new token
           content:
             application/json:
               schema: { $ref: "#/components/schemas/ConnectorCreated" }
-  /apps/{app}/connectors/{id}:
+  /tenants/{tenant}/connectors/{id}:
     delete:
       tags: [connectors]
-      summary: Remove a connector; its tunnels are closed
-      parameters: [{ $ref: "#/components/parameters/app" }, { $ref: "#/components/parameters/id" }]
+      summary: Remove a connector; its tunnels are closed. 409 while a published map uses it
+      parameters: [{ $ref: "#/components/parameters/tenant" }, { $ref: "#/components/parameters/id" }]
       responses:
         "204": { description: Removed }
+        "409": { $ref: "#/components/responses/Error" }
   /apps/{app}/capacity:
     get:
       tags: [capacity]
@@ -993,7 +1048,7 @@ components:
             required: [name, status]
             properties:
               name: { type: string }
-              status: { enum: [protected, setting_up], description: "protected: a map is published" }
+              status: { enum: [protected, setting_up, exposed], description: "protected: a map is published and the site is not reachable directly; exposed: the exposure check reached it on its old IP" }
     TenantCreate:
       type: object
       required: [id, name, admin_email, admin_name]
@@ -1026,13 +1081,30 @@ components:
         public_domain: { type: string }
         created_at: { type: string, format: date-time }
         published_version: { type: [integer, "null"] }
+        exposure: { $ref: "#/components/schemas/Exposure" }
+    Exposure:
+      type: object
+      description: Whether the site still answers directly, bypassing Equalizer
+      required: [status]
+      properties:
+        legacy_ip: { type: [string, "null"] }
+        status:
+          enum: [not_configured, pending, closed, exposed, error]
+          description: "not_configured: no legacy_ip; pending: not checked yet; closed: not reachable directly; exposed: reachable directly; error: the check could not run"
+        reason:
+          type: [string, "null"]
+          description: "Why: refused, timeout, forbidden, default_site (the server answers with another site), answers_https, answers_http, probe_failed"
+        checked_at: { type: [string, "null"], format: date-time }
     Connector:
       type: object
-      required: [id, app, tenant, created_at, rotated_at]
+      required: [id, tenant, created_at, rotated_at]
       properties:
         id: { type: string }
-        app: { type: string }
         tenant: { type: string }
+        used_by:
+          type: array
+          items: { type: string }
+          description: Sites whose published map uses this connector
         created_at: { type: string, format: date-time }
         rotated_at: { type: [string, "null"], format: date-time }
     MapVersion:
@@ -1068,7 +1140,7 @@ components:
       required: [id, token]
       properties:
         id: { type: string }
-        app: { type: string }
+        tenant: { type: string }
         token: { type: string, description: "Shown only once; the panel keeps its SHA-256" }
     SignedMap:
       type: object

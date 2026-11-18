@@ -26,6 +26,7 @@ import (
 	"github.com/thevidocq/equalizer/panel-api/internal/auth"
 	"github.com/thevidocq/equalizer/panel-api/internal/config"
 	"github.com/thevidocq/equalizer/panel-api/internal/db"
+	"github.com/thevidocq/equalizer/panel-api/internal/exposure"
 	"github.com/thevidocq/equalizer/panel-api/internal/logging"
 	"github.com/thevidocq/equalizer/panel-api/internal/mail"
 	"github.com/thevidocq/equalizer/panel-api/internal/mfa"
@@ -98,7 +99,20 @@ func run() error {
 	default:
 		log.Warn("email not configured (EQ_SMTP_ADDR): invitations are created but not sent")
 	}
+	direct, err := api.ParseDestinations(cfg.DirectDestinations)
+	if err != nil {
+		return fmt.Errorf("EQ_DIRECT_DESTINATIONS: %w", err)
+	}
+	var checker *exposure.Runner
+	if cfg.ExposureInterval > 0 {
+		checker = &exposure.Runner{Store: st, Prober: &exposure.Prober{Timeout: 10 * time.Second},
+			Interval: cfg.ExposureInterval, Log: log.With(slog.String("module", "exposure"))}
+		go checker.Run(ctx)
+	} else {
+		log.Warn("EQ_EXPOSURE_INTERVAL=0: protected sites are not checked for direct exposure")
+	}
 	srv := &api.Server{
+		DirectDestinations: direct, Exposure: checker, ExposureThrottle: auth.NewThrottle(1, time.Minute),
 		Mail: sender, PanelURL: cfg.PanelURL,
 		MFA: box, MFARequired: cfg.MFARequired, MFAThrottle: auth.NewThrottle(5, 15*time.Minute),
 		Store: st, Sessions: sessions, Throttle: auth.NewThrottle(5, 15*time.Minute),

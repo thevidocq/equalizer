@@ -28,7 +28,7 @@ func TestBuildAndDo(t *testing.T) {
 	defer legacy.Close()
 	u, _ := url.Parse(legacy.URL)
 
-	rt, err := transport.Direct([]string{u.Host}, 5*time.Second)
+	rt, err := transport.Direct([]string{u.Host}, "", 5*time.Second)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -76,7 +76,7 @@ func TestRedirectNotFollowed(t *testing.T) {
 	}))
 	defer legacy.Close()
 	u, _ := url.Parse(legacy.URL)
-	rt, _ := transport.Direct([]string{u.Host}, 5*time.Second)
+	rt, _ := transport.Direct([]string{u.Host}, "", 5*time.Second)
 	c, _ := New(legacy.URL, rt, "", 0)
 	req, _ := c.Build(t.Context(), mapmodel.LegacyRequest{Method: "GET", Path: "/x"}, nil)
 	resp, err := c.Do(req)
@@ -91,7 +91,7 @@ func TestRedirectNotFollowed(t *testing.T) {
 func TestTransportAllowlist(t *testing.T) {
 	legacy := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {}))
 	defer legacy.Close()
-	rt, _ := transport.Direct([]string{"10.255.255.1:8080"}, time.Second)
+	rt, _ := transport.Direct([]string{"10.255.255.1:8080"}, "", time.Second)
 	c, _ := New(legacy.URL, rt, "", time.Second)
 	req, _ := c.Build(t.Context(), mapmodel.LegacyRequest{Method: "GET", Path: "/"}, nil)
 	if _, err := c.Do(req); !errors.Is(err, transport.ErrDestinationNotAllowed) {

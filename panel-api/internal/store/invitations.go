@@ -117,7 +117,8 @@ type SiteSummary struct {
 func (s *Store) Overview(ctx context.Context) ([]TenantOverview, error) {
 	rows, err := s.DB.QueryContext(ctx, `
 		SELECT t.id, t.name, t.created_at, EXISTS (SELECT 1 FROM users u WHERE u.tenant_id = t.id), a.name,
-			EXISTS (SELECT 1 FROM map_versions m WHERE m.app_id = a.id AND m.status = 'published')
+			EXISTS (SELECT 1 FROM map_versions m WHERE m.app_id = a.id AND m.status = 'published'),
+			a.exposure_status = 'exposed'
 		FROM tenants t LEFT JOIN apps a ON a.tenant_id = t.id
 		ORDER BY t.name, t.id, a.name`)
 	if err != nil {
@@ -128,8 +129,8 @@ func (s *Store) Overview(ctx context.Context) ([]TenantOverview, error) {
 	for rows.Next() {
 		var t TenantOverview
 		var site *string
-		var published *bool
-		if err := rows.Scan(&t.ID, &t.Name, &t.CreatedAt, &t.Joined, &site, &published); err != nil {
+		var published, exposed *bool
+		if err := rows.Scan(&t.ID, &t.Name, &t.CreatedAt, &t.Joined, &site, &published, &exposed); err != nil {
 			return nil, err
 		}
 		if len(out) == 0 || out[len(out)-1].ID != t.ID {
@@ -141,6 +142,9 @@ func (s *Store) Overview(ctx context.Context) ([]TenantOverview, error) {
 			status := "setting_up"
 			if published != nil && *published {
 				status = "protected"
+			}
+			if exposed != nil && *exposed {
+				status = "exposed"
 			}
 			cur.Sites = append(cur.Sites, SiteSummary{Name: *site, Status: status})
 			cur.SiteCount++

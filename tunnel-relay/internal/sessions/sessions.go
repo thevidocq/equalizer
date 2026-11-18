@@ -26,6 +26,7 @@ var (
 // Session is one open tunnel.
 type Session struct {
 	ConnectorID string
+	Tenant      string // owner: a map of another tenant can never use this tunnel
 	Version     string
 	Allow       []string // destinations declared by the connector
 	Since       time.Time

@@ -45,19 +45,31 @@ func ParseRelay(raw, token string) (*RelayConfig, error) {
 // relay, which forwards them into the connector's tunnel
 // (schema/tunnel/tunnel.md, section 3). Only destinations listed in allow
 // (legacy.reach.allow) are sent; the connector checks its own allowlist too.
-func Relay(cfg *RelayConfig, connectorID string, allow []string, timeout time.Duration) (http.RoundTripper, error) {
+// tenant (the map's) lets the relay refuse another tenant's connector.
+// With address set, the destination is always address and the URL's host
+// travels in X-Eq-Host, for the connector to present (virtual hosts).
+func Relay(cfg *RelayConfig, connectorID, tenant string, allow []string, address string, timeout time.Duration) (http.RoundTripper, error) {
 	if cfg == nil {
 		return nil, errors.New("no relay configured (EQ_RELAY_URL)")
 	}
 	if connectorID == "" {
 		return nil, errors.New("legacy.reach.connector_id is required in connector mode")
 	}
+	if tenant == "" {
+		return nil, errors.New("the map has no meta.tenant")
+	}
 	allowed, err := allowSet(allow)
 	if err != nil {
 		return nil, err
 	}
+	if address != "" {
+		address = normalize(address)
+		if !allowed[address] {
+			return nil, fmt.Errorf("legacy.reach.address %q is not in allow", address)
+		}
+	}
 	return &relayTransport{
-		cfg: cfg, connector: connectorID, allowed: allowed,
+		cfg: cfg, connector: connectorID, tenant: tenant, address: address, allowed: allowed,
 		inner: &http.Transport{
 			Proxy:                 nil,
 			DialContext:           (&net.Dialer{Timeout: 5 * time.Second, KeepAlive: 30 * time.Second}).DialContext,
@@ -72,12 +84,17 @@ func Relay(cfg *RelayConfig, connectorID string, allow []string, timeout time.Du
 type relayTransport struct {
 	cfg       *RelayConfig
 	connector string
+	tenant    string
+	address   string
 	allowed   map[string]bool
 	inner     http.RoundTripper
 }
 
 func (t *relayTransport) RoundTrip(req *http.Request) (*http.Response, error) {
 	dest := destination(req.URL)
+	if t.address != "" {
+		dest = t.address
+	}
 	if !t.allowed[dest] {
 		closeBody(req)
 		return nil, fmt.Errorf("%w: %s", ErrDestinationNotAllowed, dest)
@@ -91,6 +108,10 @@ func (t *relayTransport) RoundTrip(req *http.Request) (*http.Response, error) {
 	out.Host = t.cfg.URL.Host
 	out.Header.Set("Authorization", "Bearer "+t.cfg.Token)
 	out.Header.Set("X-Eq-Connector", t.connector)
+	out.Header.Set("X-Eq-Tenant", t.tenant)
+	if t.address != "" {
+		out.Header.Set("X-Eq-Host", strings.ToLower(req.URL.Host))
+	}
 	out.Header.Set("X-Eq-Destination", dest)
 	out.Header.Set("X-Eq-Scheme", req.URL.Scheme)
 	if id := telemetry.RequestID(req.Context()); id != "" {

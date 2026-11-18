@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/thevidocq/equalizer/panel-api/internal/auth"
+	"github.com/thevidocq/equalizer/panel-api/internal/exposure"
 	"github.com/thevidocq/equalizer/panel-api/internal/logging"
 	"github.com/thevidocq/equalizer/panel-api/internal/mail"
 	"github.com/thevidocq/equalizer/panel-api/internal/mfa"
@@ -33,6 +34,11 @@ type Server struct {
 	MFAThrottle   *auth.Throttle
 	Mail          mail.Sender // invitations
 	PanelURL      string      // base of the links in emails, e.g. https://panel.example.com
+	// Destinations a map may reach in direct mode (EQ_DIRECT_DESTINATIONS);
+	// empty: tenant maps must use a connector.
+	DirectDestinations map[string]bool
+	Exposure           *exposure.Runner // nil: no exposure checks
+	ExposureThrottle   *auth.Throttle
 }
 
 type userKey struct{}
@@ -65,10 +71,12 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("GET /v1/tenants/{tenant}/apps", s.authed(s.listApps))
 	mux.HandleFunc("POST /v1/tenants/{tenant}/apps", s.authed(s.createApp))
 	mux.HandleFunc("GET /v1/apps/{app}", s.authed(s.getApp))
-	mux.HandleFunc("GET /v1/apps/{app}/connectors", s.authed(s.listConnectors))
-	mux.HandleFunc("POST /v1/apps/{app}/connectors", s.authed(s.createConnector))
-	mux.HandleFunc("POST /v1/apps/{app}/connectors/{id}/rotate", s.authed(s.rotateConnector))
-	mux.HandleFunc("DELETE /v1/apps/{app}/connectors/{id}", s.authed(s.deleteConnector))
+	mux.HandleFunc("PATCH /v1/apps/{app}", s.authed(s.patchApp))
+	mux.HandleFunc("POST /v1/apps/{app}/exposure/check", s.authed(s.checkExposure))
+	mux.HandleFunc("GET /v1/tenants/{tenant}/connectors", s.authed(s.listConnectors))
+	mux.HandleFunc("POST /v1/tenants/{tenant}/connectors", s.authed(s.createConnector))
+	mux.HandleFunc("POST /v1/tenants/{tenant}/connectors/{id}/rotate", s.authed(s.rotateConnector))
+	mux.HandleFunc("DELETE /v1/tenants/{tenant}/connectors/{id}", s.authed(s.deleteConnector))
 	// Maps
 	mux.HandleFunc("GET /v1/apps/{app}/maps", s.authed(s.listMaps))
 	mux.HandleFunc("POST /v1/apps/{app}/maps", s.authed(s.createMap))
@@ -78,6 +86,7 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("GET /v1/audit", s.authed(s.listAudit))
 	// Internal services
 	mux.HandleFunc("GET /v1/internal/apps/{app}/map", s.internal(s.internalMap))
+	mux.HandleFunc("GET /v1/internal/maps", s.internal(s.internalMaps))
 	mux.HandleFunc("GET /v1/internal/connectors", s.internal(s.internalConnectors))
 	mux.HandleFunc("/v1/", func(w http.ResponseWriter, r *http.Request) { fail(w, http.StatusNotFound, "not_found", "") })
 	if s.UI != nil {

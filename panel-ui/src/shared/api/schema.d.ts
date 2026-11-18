@@ -844,6 +844,76 @@ export interface paths {
         delete?: never;
         options?: never;
         head?: never;
+        /** Change site settings (tenant administrators) */
+        patch: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    app: components["parameters"]["app"];
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": {
+                        /** @description Public IP the site answered on before Equalizer: the exposure check probes it. A public unicast IPv4 or IPv6 address; null stops the checks */
+                        legacy_ip?: string | null;
+                    };
+                };
+            };
+            responses: {
+                /** @description Site */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["App"];
+                    };
+                };
+                422: components["responses"]["Error"];
+            };
+        };
+        trace?: never;
+    };
+    "/apps/{app}/exposure/check": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Check now whether the site still answers directly on its old public IP (ports 443 and 80, with its name in TLS SNI and Host). At most once a minute per site (tenant administrators) */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    app: components["parameters"]["app"];
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Site with the new result */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["App"];
+                    };
+                };
+                409: components["responses"]["Error"];
+                429: components["responses"]["Error"];
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
         patch?: never;
         trace?: never;
     };
@@ -1031,6 +1101,51 @@ export interface paths {
                     };
                 };
                 404: components["responses"]["Error"];
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/internal/maps": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Every published map with its signature (used by the gateway, which serves each one on its meta.public_domain). ETag changes when any published version changes */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Signed maps */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            items: components["schemas"]["SignedMap"][];
+                        };
+                    };
+                };
+                /** @description Not modified */
+                304: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
             };
         };
         put?: never;
@@ -1363,20 +1478,20 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/apps/{app}/connectors": {
+    "/tenants/{tenant}/connectors": {
         parameters: {
             query?: never;
             header?: never;
             path?: never;
             cookie?: never;
         };
-        /** Connectors of the site (token never returned) */
+        /** Connectors of the tenant, one per server, shared by its sites (token never returned; tenant administrators) */
         get: {
             parameters: {
                 query?: never;
                 header?: never;
                 path: {
-                    app: components["parameters"]["app"];
+                    tenant: components["parameters"]["tenant"];
                 };
                 cookie?: never;
             };
@@ -1397,19 +1512,20 @@ export interface paths {
             };
         };
         put?: never;
-        /** Register a connector; the token is returned only in this answer */
+        /** Register a connector; the token is returned only in this answer (tenant administrators) */
         post: {
             parameters: {
                 query?: never;
                 header?: never;
                 path: {
-                    app: components["parameters"]["app"];
+                    tenant: components["parameters"]["tenant"];
                 };
                 cookie?: never;
             };
             requestBody: {
                 content: {
                     "application/json": {
+                        /** @description Unique in the installation, e.g. the server's name */
                         id: string;
                     };
                 };
@@ -1433,7 +1549,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/apps/{app}/connectors/{id}/rotate": {
+    "/tenants/{tenant}/connectors/{id}/rotate": {
         parameters: {
             query?: never;
             header?: never;
@@ -1448,7 +1564,7 @@ export interface paths {
                 query?: never;
                 header?: never;
                 path: {
-                    app: components["parameters"]["app"];
+                    tenant: components["parameters"]["tenant"];
                     id: components["parameters"]["id"];
                 };
                 cookie?: never;
@@ -1472,7 +1588,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/apps/{app}/connectors/{id}": {
+    "/tenants/{tenant}/connectors/{id}": {
         parameters: {
             query?: never;
             header?: never;
@@ -1482,13 +1598,13 @@ export interface paths {
         get?: never;
         put?: never;
         post?: never;
-        /** Remove a connector; its tunnels are closed */
+        /** Remove a connector; its tunnels are closed. 409 while a published map uses it */
         delete: {
             parameters: {
                 query?: never;
                 header?: never;
                 path: {
-                    app: components["parameters"]["app"];
+                    tenant: components["parameters"]["tenant"];
                     id: components["parameters"]["id"];
                 };
                 cookie?: never;
@@ -1502,6 +1618,7 @@ export interface paths {
                     };
                     content?: never;
                 };
+                409: components["responses"]["Error"];
             };
         };
         options?: never;
@@ -2365,10 +2482,10 @@ export interface components {
             sites: {
                 name: string;
                 /**
-                 * @description protected: a map is published
+                 * @description protected: a map is published and the site is not reachable directly; exposed: the exposure check reached it on its old IP
                  * @enum {unknown}
                  */
-                status: "protected" | "setting_up";
+                status: "protected" | "setting_up" | "exposed";
             }[];
         };
         TenantCreate: {
@@ -2397,11 +2514,26 @@ export interface components {
             /** Format: date-time */
             created_at: string;
             published_version: number | null;
+            exposure?: components["schemas"]["Exposure"];
+        };
+        /** @description Whether the site still answers directly, bypassing Equalizer */
+        Exposure: {
+            legacy_ip?: string | null;
+            /**
+             * @description not_configured: no legacy_ip; pending: not checked yet; closed: not reachable directly; exposed: reachable directly; error: the check could not run
+             * @enum {unknown}
+             */
+            status: "not_configured" | "pending" | "closed" | "exposed" | "error";
+            /** @description Why: refused, timeout, forbidden, default_site (the server answers with another site), answers_https, answers_http, probe_failed */
+            reason?: string | null;
+            /** Format: date-time */
+            checked_at?: string | null;
         };
         Connector: {
             id: string;
-            app: string;
             tenant: string;
+            /** @description Sites whose published map uses this connector */
+            used_by?: string[];
             /** Format: date-time */
             created_at: string;
             /** Format: date-time */
@@ -2443,7 +2575,7 @@ export interface components {
         };
         ConnectorCreated: {
             id: string;
-            app?: string;
+            tenant?: string;
             /** @description Shown only once; the panel keeps its SHA-256 */
             token: string;
         };

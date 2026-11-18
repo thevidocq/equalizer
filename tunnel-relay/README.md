@@ -25,7 +25,7 @@ gateway's rebuilt requests into them. Contract: [`schema/tunnel/tunnel.md`](../s
 ```json
 {
   "connectors": [
-    { "id": "cn-example-city-01", "tenant": "example-city", "app": "permits-portal",
+    { "id": "cn-example-city-01", "tenant": "example-city",
       "token_sha256": "<hex SHA-256 of the connector token>" }
   ]
 }

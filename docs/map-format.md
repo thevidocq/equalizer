@@ -21,7 +21,7 @@ Full example: [`schema/map/examples/permits-portal.yaml`](../schema/map/examples
 
 | Section | Contents |
 | --- | --- |
-| `meta` | Schema, tenant, app, version, status, author, approver |
+| `meta` | Schema, tenant, app, version, status, author, approver, `public_domain` (set by the panel: the host the map is served on) |
 | `legacy` | `base_url`, `reach` (connector or direct, allowed destinations), login, expired session, error detection |
 | `roles` | Role of unauthenticated visitors (`anonymous`), authentication on the gateway, legacy account per role |
 | `defaults` | Rate limits, budget towards the legacy app, cache, string constraints, error template |
@@ -35,6 +35,31 @@ Full example: [`schema/map/examples/permits-portal.yaml`](../schema/map/examples
 | `assets` | Static files served by prefix (CSS, images, scripts, fonts) with the allowed types |
 | `external_links` | Allowed external domains |
 | `behavior` | Behavioural thresholds |
+
+## Reaching the legacy site
+
+```yaml
+legacy:
+  base_url: https://permits.example-city.gov   # the site as its web server knows it
+  reach:
+    mode: connector
+    connector_id: cn-srv-web01                 # one connector per server, of your tenant
+    address: "127.0.0.1:8443"                  # where to connect (optional)
+    allow: ["127.0.0.1:8443"]
+```
+
+- The host of `base_url` goes in the `Host` header and in TLS SNI: the web
+  server picks the right virtual host. Links in pages that point to it are
+  recognised as internal.
+- `address` (optional) is where the connection actually goes, when it is
+  not the host of `base_url`: a site moved to an internal listener, or an
+  IP shared by several virtual hosts. It must be in `allow`.
+- One connector serves every site of the servers it reaches. The panel
+  refuses a map whose `connector_id` is not a connector of the same tenant,
+  and the relay refuses it again at every request.
+- `mode: direct` (the gateway connects itself) is accepted only towards the
+  destinations the platform allows (`EQ_DIRECT_DESTINATIONS`, e.g. lab
+  apps); customer sites always use a connector.
 
 ## Rendering
 

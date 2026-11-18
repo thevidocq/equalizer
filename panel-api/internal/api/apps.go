@@ -1,10 +1,6 @@
 package api
 
 import (
-	"crypto/rand"
-	"crypto/sha256"
-	"encoding/base64"
-	"encoding/hex"
 	"net/http"
 	"regexp"
 	"strings"
@@ -81,96 +77,4 @@ func (s *Server) getApp(w http.ResponseWriter, r *http.Request, u *auth.User) {
 	if a, ok := s.app(w, r, u); ok {
 		writeJSON(w, http.StatusOK, a)
 	}
-}
-
-func (s *Server) listConnectors(w http.ResponseWriter, r *http.Request, u *auth.User) {
-	a, ok := s.app(w, r, u)
-	if !ok {
-		return
-	}
-	cs, err := s.Store.Connectors(r.Context(), a.ID)
-	if err != nil {
-		s.storeError(w, r, err)
-		return
-	}
-	writeJSON(w, http.StatusOK, list(cs))
-}
-
-type connectorCreated struct {
-	ID    string `json:"id"`
-	App   string `json:"app"`
-	Token string `json:"token"`
-}
-
-func newToken() (string, string) {
-	b := make([]byte, 32)
-	_, _ = rand.Read(b)
-	tok := base64.RawURLEncoding.EncodeToString(b)
-	sum := sha256.Sum256([]byte(tok))
-	return tok, hex.EncodeToString(sum[:])
-}
-
-func (s *Server) createConnector(w http.ResponseWriter, r *http.Request, u *auth.User) {
-	a, ok := s.app(w, r, u)
-	if !ok {
-		return
-	}
-	if !u.HasTenantRole(a.Tenant, "admin") {
-		forbidden(w)
-		return
-	}
-	var in struct {
-		ID string `json:"id"`
-	}
-	if !decode(w, r, &in) {
-		return
-	}
-	if !connectorIDRe.MatchString(in.ID) {
-		fail(w, http.StatusUnprocessableEntity, "invalid", "id: lower case letters, digits, - and _")
-		return
-	}
-	tok, hash := newToken()
-	if _, err := s.Store.CreateConnector(r.Context(), a.ID, in.ID, hash); err != nil {
-		s.storeError(w, r, err)
-		return
-	}
-	_ = s.Store.Record(r.Context(), &u.ID, &a.Tenant, "connector.create", in.ID, map[string]any{"app": a.ID})
-	writeJSON(w, http.StatusCreated, connectorCreated{ID: in.ID, App: a.ID, Token: tok})
-}
-
-func (s *Server) rotateConnector(w http.ResponseWriter, r *http.Request, u *auth.User) {
-	a, ok := s.app(w, r, u)
-	if !ok {
-		return
-	}
-	if !u.HasTenantRole(a.Tenant, "admin") {
-		forbidden(w)
-		return
-	}
-	id := r.PathValue("id")
-	tok, hash := newToken()
-	if err := s.Store.RotateConnector(r.Context(), a.ID, id, hash); err != nil {
-		s.storeError(w, r, err)
-		return
-	}
-	_ = s.Store.Record(r.Context(), &u.ID, &a.Tenant, "connector.rotate", id, map[string]any{"app": a.ID})
-	writeJSON(w, http.StatusOK, connectorCreated{ID: id, App: a.ID, Token: tok})
-}
-
-func (s *Server) deleteConnector(w http.ResponseWriter, r *http.Request, u *auth.User) {
-	a, ok := s.app(w, r, u)
-	if !ok {
-		return
-	}
-	if !u.HasTenantRole(a.Tenant, "admin") {
-		forbidden(w)
-		return
-	}
-	id := r.PathValue("id")
-	if err := s.Store.DeleteConnector(r.Context(), a.ID, id); err != nil {
-		s.storeError(w, r, err)
-		return
-	}
-	_ = s.Store.Record(r.Context(), &u.ID, &a.Tenant, "connector.delete", id, map[string]any{"app": a.ID})
-	w.WriteHeader(http.StatusNoContent)
 }

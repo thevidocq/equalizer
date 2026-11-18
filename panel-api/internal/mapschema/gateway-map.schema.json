@@ -91,7 +91,12 @@
         "status": { "enum": ["draft", "in_review", "approved", "published", "retired"] },
         "created_by": { "type": "string" },
         "approved_by": { "type": "string" },
-        "published_at": { "type": "string", "format": "date-time" }
+        "published_at": { "type": "string", "format": "date-time" },
+        "public_domain": {
+          "type": "string",
+          "description": "Public domain of the site, set by the panel. The gateway serves this map only for requests to this host; a map without it (signed by hand, lab) is served for every host when it is the only one.",
+          "pattern": "^([a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?\\.)+[a-z]{2,63}$"
+        }
       }
     },
     "slug": {
@@ -127,7 +132,11 @@
       "additionalProperties": false,
       "required": ["base_url", "reach"],
       "properties": {
-        "base_url": { "type": "string", "pattern": "^https?://" },
+        "base_url": {
+          "type": "string",
+          "description": "URL of the site as its web server knows it (e.g. https://portal.example-city.gov). Its host goes in the Host header and in TLS SNI; reach.address says where to connect when it differs.",
+          "pattern": "^https?://"
+        },
         "reach": {
           "type": "object",
           "additionalProperties": false,
@@ -135,6 +144,11 @@
           "properties": {
             "mode": { "enum": ["connector", "direct"] },
             "connector_id": { "type": "string" },
+            "address": {
+              "type": "string",
+              "description": "host:port to connect to instead of the host of base_url, for virtual hosts and sites listening only on an internal address. Must be in allow.",
+              "pattern": "^[A-Za-z0-9.\\-]+:[0-9]{1,5}$"
+            },
             "allow": {
               "type": "array",
               "minItems": 1,

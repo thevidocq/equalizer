@@ -15,9 +15,10 @@ import (
 	"github.com/thevidocq/equalizer/gateway/internal/telemetry"
 )
 
-// MapSource provides the active site (compiled map).
+// MapSource provides the site (compiled map) served on a host.
 type MapSource interface {
-	Current() *site.Site
+	For(host string) *site.Site
+	Ready() bool // at least one site is loaded
 }
 
 // Public handles public traffic: it routes, validates, rebuilds the request
@@ -74,9 +75,14 @@ func (p *Public) handle(w http.ResponseWriter, r *http.Request) string {
 		return ""
 	}
 
-	active := p.Maps.Current()
+	active := p.Maps.For(r.Host)
 	if active == nil {
-		writePage(w, http.StatusServiceUnavailable, pageUnavailable)
+		if !p.Maps.Ready() {
+			writePage(w, http.StatusServiceUnavailable, pageUnavailable)
+			return ""
+		}
+		// No published map for this domain: it does not exist here.
+		p.block(w, r, nil, http.StatusNotFound, "unknown_host")
 		return ""
 	}
 

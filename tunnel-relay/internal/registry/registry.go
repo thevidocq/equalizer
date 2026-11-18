@@ -20,7 +20,6 @@ import (
 type Connector struct {
 	ID          string `json:"id"`
 	Tenant      string `json:"tenant"`
-	App         string `json:"app"`
 	TokenSHA256 string `json:"token_sha256"`
 }
 

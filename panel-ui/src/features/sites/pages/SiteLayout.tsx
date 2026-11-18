@@ -17,7 +17,7 @@ export function SiteLayout() {
         <span>{site.data.public_domain}</span><SiteStatus app={site.data} withLabel /></span>} />
       <TabNav label="Site sections" tabs={[
         { to: `${base}/maps`, label: "Map" },
-        { to: `${base}/connectors`, label: "Connectors" },
+        { to: `${base}/isolation`, label: "Isolation" },
       ]} />
       <Outlet />
     </div>

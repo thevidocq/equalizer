@@ -8,6 +8,9 @@ import (
 const (
 	pageNotFound    = "Pagina non trovata"
 	pageNotAllowed  = "Operazione non consentita"
+	pageForbidden   = "Accesso riservato"
+	pageBadRequest  = "Richiesta non valida"
+	pageBadGateway  = "Il servizio non risponde. Riprova tra poco."
 	pageUnavailable = "Servizio temporaneamente non disponibile. Riprova tra poco."
 	pageError       = "Si è verificato un errore. Riprova tra poco."
 )

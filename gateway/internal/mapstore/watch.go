@@ -4,12 +4,14 @@ import (
 	"context"
 	"os"
 	"time"
+
+	"github.com/thevidocq/equalizer/gateway/internal/site"
 )
 
 // Watch ricarica la mappa quando il file cambia (controllo ogni interval)
 // o quando arriva un valore su trigger (es. SIGHUP). onResult riceve
 // l'esito di ogni tentativo.
-func (s *Store) Watch(ctx context.Context, interval time.Duration, trigger <-chan struct{}, onResult func(*Active, error)) {
+func (s *Store) Watch(ctx context.Context, interval time.Duration, trigger <-chan struct{}, onResult func(*site.Site, error)) {
 	ticker := time.NewTicker(interval)
 	defer ticker.Stop()
 	last := s.modTime()

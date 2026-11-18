@@ -21,6 +21,7 @@ import (
 	"github.com/thevidocq/equalizer/gateway/internal/config"
 	"github.com/thevidocq/equalizer/gateway/internal/mapstore"
 	"github.com/thevidocq/equalizer/gateway/internal/server"
+	"github.com/thevidocq/equalizer/gateway/internal/site"
 	"github.com/thevidocq/equalizer/gateway/internal/telemetry"
 )
 
@@ -69,7 +70,7 @@ func run() error {
 			}
 		}
 	}()
-	go store.Watch(ctx, 15*time.Second, trigger, func(a *mapstore.Active, err error) { logReload(log, a, err) })
+	go store.Watch(ctx, 15*time.Second, trigger, func(st *site.Site, err error) { logReload(log, st, err) })
 
 	public := &server.Public{
 		Maps:   store,
@@ -111,7 +112,7 @@ func run() error {
 	return nil
 }
 
-func logReload(log *slog.Logger, a *mapstore.Active, err error) {
+func logReload(log *slog.Logger, a *site.Site, err error) {
 	if err != nil {
 		log.Error("mappa non caricata", slog.String("error", err.Error()))
 		return

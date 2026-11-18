@@ -13,8 +13,8 @@ import (
 
 const testMap = `{"meta":{"schema":"gateway-map/1.0","tenant":"t","app":"a","version":3,"status":"published"},
 "legacy":{"base_url":"http://10.0.0.1:8080","reach":{"mode":"direct","allow":["10.0.0.1:8080"]}},
-"roles":{"list":{"anonimo":{}}},
-"routes":[{"id":"home","path":"/","method":"GET","roles":["anonimo"],"render":"faithful"}],
+"roles":{"anonymous":"anonimo","list":{"anonimo":{}}},
+"routes":[{"id":"home","path":"/","method":"GET","roles":["anonimo"],"render":"faithful","legacy_request":{"method":"GET","path":"/index.jsp"}}],
 "forms":[{"id":"contatti","route":"/contatti","roles":["anonimo"]}]}`
 
 func sign(t *testing.T, priv ed25519.PrivateKey, payload string, version int, keyID string) []byte {

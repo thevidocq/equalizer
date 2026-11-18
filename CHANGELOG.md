@@ -23,7 +23,7 @@ Aggiungi in cima a "Voci" una sezione per ogni commit:
 | --- | --- |
 | Contratti (`schema/`) | Prima versione, validata in CI |
 | Documentazione | Architettura, formato mappa, installazione e manuali (funzionalità previste) |
-| gateway | Scheletro: mappa firmata, allowlist, log ed eventi; niente ricostruzione |
+| gateway | Serve le rotte GET in modalità diretta con validazione dei valori; niente resa fedele, form, sessioni, connettore |
 | tunnel-relay | Da implementare |
 | connector | Da implementare |
 | orchestrator | Da implementare |
@@ -34,6 +34,52 @@ Aggiungi in cima a "Voci" una sezione per ogni commit:
 | tools (eqtool) | Chiavi e firma delle mappe |
 
 ## Voci
+
+### 2026-11-18 — Ricostruisci le richieste GET verso il legacy
+
+- **Branch:** `feat/legacy-reconstruction`
+- **Cosa:**
+  - Contratto: `roles.anonymous` nello schema della mappa (ruolo dei
+    visitatori non autenticati) e nell'esempio.
+  - `gateway/internal/mapmodel`: tipi della mappa spostati in un pacchetto
+    proprio ed estesi (tipi, valori predefiniti, specifiche dei campi,
+    `legacy_request`).
+  - `internal/validate`: tipi `int`, `enum`, `bool`, `date`, `string`,
+    `email`, `text` con vincoli e regole `no_html`, `no_sql_meta`,
+    `no_template_meta`; query non dichiarate scartate, ripetute rifiutate;
+    pattern e regole verificati al caricamento della mappa.
+  - `internal/placeholder`: segnaposto `{{params.x}}`, `{{query.x}}`, ecc.
+  - `internal/legacyclient`: richiesta costruita da zero (percorso con
+    valori codificati, query dichiarate, header fissi), redirect non
+    seguiti, risposta limitata a 16 MiB, header del legacy filtrati.
+  - `internal/transport`: modalità diretta con allowlist host:porta nel
+    dialer (difesa anche contro redirect e DNS).
+  - `internal/budget`: richieste contemporanee verso il legacy, per replica.
+  - `internal/site`: compila una versione della mappa (router, validatore,
+    client, budget) e rifiuta mappe incoerenti.
+  - `internal/server/route.go`: ruolo anonimo (403 sulle rotte riservate),
+    validazione, ricostruzione, pagine generiche per 4xx/5xx del legacy
+    (mai stack trace), header di sicurezza, eventi `request.served` con
+    latenza divisa, `field.rejected` senza il valore, `legacy.error`.
+  - Documentazione: README del gateway, formato mappa (regole e ruolo
+    anonimo), INSTALL.
+- **Perché:** primo passo in cui il gateway serve davvero un sito: il
+  legacy riceve solo richieste ricostruite e valori validati.
+- **Stato:** test verdi con race detector. Prova end-to-end con un legacy
+  finto: `/` e `/pratiche/7` serviti (il legacy ha ricevuto solo
+  `GET /index.jsp` e `GET /detail.jsp?id=7`), `/pratiche/7abc` → 400,
+  `/index.jsp` e `/../../etc/passwd` → 404. Limiti noti: l'HTML del legacy
+  passa senza resa fedele (i link interni puntano ancora agli URL del
+  legacy); i redirect del legacy diventano 502; form, API, login e
+  sessioni non sono serviti; con `mode: connector` risposta 502; il budget
+  non è condiviso tra repliche; i tipi della mappa sono ancora scritti a mano.
+- **Prossimi passi:**
+  1. Pipeline di resa fedele: parser HTML5, pulizia, riscrittura dei link
+     (`links`, `compat`), traduzione dei redirect.
+  2. Form POST con campi tipizzati e token CSRF.
+  3. `tunnel-relay` e `connector`.
+  4. Login passante e sessioni in Redis.
+  5. Metriche Prometheus del gateway.
 
 ### 2026-11-18 — Aggiungi Compose di base, log e scheletro del gateway
 

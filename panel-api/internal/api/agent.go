@@ -65,17 +65,26 @@ func (s *Server) claimDiscovery(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	if c.UseAI {
-		if l, err := s.Store.TenantLLM(r.Context(), c.App.Tenant); err == nil {
-			job.LLM = map[string]any{"provider": l.Provider, "model": l.Model, "endpoint": l.Endpoint}
-			if len(l.Key) > 0 {
-				if key, err := s.MFA.OpenFor(llmLabel(c.App.Tenant), l.Key); err == nil {
-					job.LLM["api_key"] = string(key)
-				}
-			}
-		}
+		job.LLM = s.tenantModel(r, c.App.Tenant)
 	}
 	job.Unmapped, _ = s.Store.UnmappedOf(r.Context(), c.App.ID, 200)
 	writeJSON(w, http.StatusOK, job)
+}
+
+// tenantModel is the tenant's AI model with its key opened, for the agent;
+// nil when the tenant has none.
+func (s *Server) tenantModel(r *http.Request, tenant string) map[string]any {
+	l, err := s.Store.TenantLLM(r.Context(), tenant)
+	if err != nil {
+		return nil
+	}
+	out := map[string]any{"provider": l.Provider, "model": l.Model, "endpoint": l.Endpoint}
+	if len(l.Key) > 0 {
+		if key, err := s.MFA.OpenFor(llmLabel(tenant), l.Key); err == nil {
+			out["api_key"] = string(key)
+		}
+	}
+	return out
 }
 
 func (s *Server) discoveryProgress(w http.ResponseWriter, r *http.Request) {

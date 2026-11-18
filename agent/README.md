@@ -29,6 +29,13 @@ which panel-api saves as a draft: it still needs someone else's approval.
    exclude, and narrow a type when every observed value fits; anything else
    in its answer is ignored.
 
+## Review aid
+
+When a version is sent for review and the tenant has an AI model, the agent
+gets the changes and the risks the panel found with fixed rules, and writes
+a short summary and the questions to ask before approving. It never sees
+the map's values or the site's pages, and it never approves.
+
 ## Configuration
 
 | Variable | Default | Meaning |

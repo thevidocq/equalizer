@@ -4,7 +4,7 @@ them one at a time."""
 import signal
 import time
 
-from . import config, discovery
+from . import config, discovery, review
 from .log import Logger
 from .panel import Panel
 
@@ -23,6 +23,17 @@ def main():
             log.warn("panel unreachable", error=e)
             job = None
         if job is None:
+            try:
+                rv = panel.claim_review()
+            except OSError:
+                rv = None
+            if rv is not None:
+                try:
+                    review.run(rv, cfg, panel, log)
+                except Exception as e:  # never leave a review running
+                    log.error("review failed", review=rv["id"], error=type(e).__name__)
+                    panel.review_result(rv["id"], error="the agent failed: " + type(e).__name__)
+                continue
             time.sleep(cfg.poll_seconds)
             continue
         log.info("discovery started", discovery=job["id"], app=job["app"], ai=bool(job.get("llm")),

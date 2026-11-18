@@ -497,6 +497,26 @@ paths:
           content:
             application/json:
               schema: { $ref: "#/components/schemas/MapVersion" }
+  /apps/{app}/maps/{version}/review:
+    get:
+      tags: [maps]
+      summary: >-
+        Review aid for a version: what changes against the published map and the risks found by fixed rules,
+        plus the summary and questions of the tenant's AI model when there is one. It never approves anything
+      parameters: [{ $ref: "#/components/parameters/app" }, { $ref: "#/components/parameters/version" }]
+      responses:
+        "200":
+          description: Review
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/MapReview" }
+    post:
+      tags: [maps]
+      summary: Ask the AI model again for this version (editors, approvers, administrators)
+      parameters: [{ $ref: "#/components/parameters/app" }, { $ref: "#/components/parameters/version" }]
+      responses:
+        "202": { description: Queued }
+        "409": { $ref: "#/components/responses/Error" }
   /apps/{app}/maps/{version}/{action}:
     post:
       tags: [maps]
@@ -673,6 +693,32 @@ paths:
               properties:
                 report: { type: object, additionalProperties: true }
                 document: { type: object, additionalProperties: true }
+                error: { type: string, maxLength: 500 }
+      responses:
+        "204": { description: Saved }
+  /internal/reviews/claim:
+    post:
+      tags: [internal]
+      summary: The agent takes the next AI review, with the changes, the findings and the tenant's model
+      security: [{ serviceToken: [] }]
+      responses:
+        "200": { $ref: "#/components/responses/Object" }
+        "204": { description: Nothing queued }
+  /internal/reviews/{id}/result:
+    post:
+      tags: [internal]
+      summary: Summary and questions written by the AI for the approver
+      security: [{ serviceToken: [] }]
+      parameters: [{ $ref: "#/components/parameters/id" }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                summary: { type: string, maxLength: 3000 }
+                questions: { type: array, maxItems: 20, items: { type: string, maxLength: 400 } }
                 error: { type: string, maxLength: 500 }
       responses:
         "204": { description: Saved }
@@ -1333,6 +1379,40 @@ components:
         report: { type: [object, "null"], additionalProperties: true, description: "CMS, coverage, routes found and excluded, components with known issues, notes" }
         draft_version: { type: [integer, "null"], description: "The draft proposed, if the map changes" }
         error: { type: [string, "null"] }
+    MapReview:
+      type: object
+      required: [version, changes, findings, ai]
+      properties:
+        version: { type: integer }
+        base_version: { type: [integer, "null"], description: "The published version compared with; null when none" }
+        changes:
+          type: array
+          items:
+            type: object
+            required: [section, entry, change]
+            properties:
+              section: { enum: [legacy, roles, defaults, types, routes, forms, api, assets, behavior, other] }
+              entry: { type: string }
+              change: { enum: [added, removed, changed] }
+              detail: { type: string }
+        findings:
+          type: array
+          items:
+            type: object
+            required: [severity, entry, message]
+            properties:
+              severity: { enum: [high, medium, low] }
+              entry: { type: string }
+              rule: { type: string }
+              message: { type: string }
+        ai:
+          type: object
+          required: [status]
+          properties:
+            status: { enum: [off, queued, running, done, failed] }
+            summary: { type: [string, "null"] }
+            questions: { type: array, items: { type: string } }
+            error: { type: [string, "null"] }
     DiscoveryJob:
       type: object
       required: [id, tenant, app, domain, base_url, reach, max_pages]

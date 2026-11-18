@@ -120,6 +120,9 @@ func (s *Server) mapAction(w http.ResponseWriter, r *http.Request, u *auth.User)
 			return
 		}
 		err = s.Store.Transition(r.Context(), a.ID, version, []string{"draft"}, "in_review", nil)
+		if err == nil && s.hasLLM(r, a.Tenant) {
+			_ = s.Store.QueueReview(r.Context(), a.ID, version) // the approver finds the AI review ready
+		}
 	case "approve", "reject":
 		if !u.HasTenantRole(a.Tenant, "admin", "approver") {
 			forbidden(w)

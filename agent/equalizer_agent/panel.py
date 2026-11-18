@@ -24,6 +24,17 @@ class Panel:
         status, job = self._post("/v1/internal/discoveries/claim")
         return job if status == 200 else None
 
+    def claim_review(self):
+        status, job = self._post("/v1/internal/reviews/claim")
+        return job if status == 200 else None
+
+    def review_result(self, job_id: int, summary="", questions=None, error=None):
+        body = {"summary": summary[:3000], "questions": [q[:400] for q in (questions or [])][:20]}
+        if error:
+            body["error"] = error[:500]
+        status, _ = self._post(f"/v1/internal/reviews/{job_id}/result", body)
+        return status == 204
+
     def progress(self, job_id: int, progress: dict):
         self._post(f"/v1/internal/discoveries/{job_id}/progress", progress)
 

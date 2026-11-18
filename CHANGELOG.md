@@ -35,6 +35,21 @@ Add a section at the top of "Entries" for every commit:
 
 ## Entries
 
+### 2026-11-18 — Discovery proposes IDOR protection for JSON APIs
+
+- **Branch:** `feat/discovery-issues` (on top of `feat/logs-page`)
+- **What:** agent `idor.py`: when a GET list API and a GET detail API one
+  segment below it share an id of the same type, the draft gets
+  `response.issues` on the list and `owned_by_user` on the detail for the
+  roles without a rule; a rule a person chose is never replaced. The report
+  lists them ("Protection against IDOR proposed"); the review aid flags
+  `issues_added` as usual.
+- **Why:** `issues` had to be written by hand.
+- **Status:** tests pass (pair found, types must match, human rule kept,
+  idempotent). The crawler does not run JavaScript, so APIs are taken from
+  the map (template, manual edits, published map), not found by crawling.
+- **Next steps:** map import/export; status page; docs and screenshots.
+
 ### 2026-11-18 — Logs page
 
 - **Branch:** `feat/logs-page` (on top of `feat/authz-json`)

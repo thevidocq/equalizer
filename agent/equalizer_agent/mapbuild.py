@@ -6,7 +6,7 @@ import copy
 import re
 import urllib.parse
 
-from . import cluster, rules
+from . import cluster, idor, rules
 
 COMMON_DENY = ["admin", "administrator", "wp-admin", "wp-login", "phpmyadmin", "pma", "cpanel", "plesk", "webmail",
                "server-status", "server-info", "cgi-bin", "install", "setup", "backup", "backups", "config",
@@ -152,6 +152,7 @@ def build(job: dict, crawl, fp) -> tuple:
         added_assets.append({"prefix": prefix, "types": types})
     if not doc.get("forms"):
         doc.pop("forms", None)
+    issues = idor.propose(doc)
 
     after = sum(1 for p in paths if covered(doc, p))
     visitors = [u for u in job.get("unmapped", []) if u.get("method") == "GET" and not covered(doc, u.get("path", ""))
@@ -163,6 +164,7 @@ def build(job: dict, crawl, fp) -> tuple:
         "pages_found": len(paths), "covered_before": before, "covered_after": after,
         "coverage": round(100 * after / len(paths)) if paths else 0,
         "routes_added": added_routes, "forms_added": added_forms, "assets_added": added_assets,
+        "issues_proposed": issues,
         "excluded": [{"path": p.split("?")[0], "reason": r} for p, r in sorted(crawl.excluded.items())][:200],
         "skipped_actions": len(crawl.skipped_actions), "not_supported": not_supported,
         "visitors_missing": [{"path": u["path"], "clients": u.get("clients", 0)} for u in visitors][:50],

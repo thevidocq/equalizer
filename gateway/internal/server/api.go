@@ -46,6 +46,9 @@ func (p *Public) serveAPI(w http.ResponseWriter, r *http.Request, st *site.Site,
 		p.rejectAPI(w, r, st, api.ID, err)
 		return
 	}
+	if !p.authorize(w, r, st, api.ID, api.Authz, vals, true) {
+		return
+	}
 	if !p.observe(w, r, st, api.ID, limits.Observation{Params: merge(vals["params"], vals["query"])}, true) {
 		return
 	}

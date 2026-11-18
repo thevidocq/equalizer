@@ -140,6 +140,16 @@ func (s *Server) mapAction(w http.ResponseWriter, r *http.Request, u *auth.User)
 			return
 		}
 		err = s.publish(r, a, v)
+	case "rollback":
+		// Fast way back when a new version breaks the site: the version was
+		// approved and signed when it was first published.
+		if !u.HasTenantRole(a.Tenant, "admin", "approver") {
+			forbidden(w)
+			return
+		}
+		if err = s.checkReach(r.Context(), a.Tenant, v.Document); err == nil {
+			err = s.Store.Rollback(r.Context(), a.ID, version)
+		}
 	default:
 		fail(w, http.StatusNotFound, "not_found", "")
 		return

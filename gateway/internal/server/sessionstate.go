@@ -123,8 +123,7 @@ func (ss *sessionState) absorb(cookies []*http.Cookie) {
 		return
 	}
 	if ss.s == nil {
-		ss.s = &session.Session{Tenant: ss.tenant, App: ss.app}
-		ss.id = session.NewID()
+		ss.s = newSession(ss)
 	}
 	if ss.s.Cookies == nil {
 		ss.s.Cookies = map[string]string{}
@@ -166,13 +165,21 @@ func (ss *sessionState) login(role string) {
 	ss.dirty = true
 }
 
-// expire drops the role and the legacy cookies: the legacy session ended.
+// newSession starts a session for this visitor.
+func newSession(ss *sessionState) *session.Session {
+	ss.id = session.NewID()
+	return &session.Session{Tenant: ss.tenant, App: ss.app}
+}
+
+// expire drops the role, the legacy cookies and the issued values: the
+// legacy session ended.
 func (ss *sessionState) expire() {
 	if ss.s == nil {
 		return
 	}
 	ss.s.Role = ""
 	ss.s.Cookies = nil
+	ss.s.Issued = nil
 	ss.dirty = true
 }
 

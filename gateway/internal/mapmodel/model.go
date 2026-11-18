@@ -176,6 +176,13 @@ type Route struct {
 	Links         []Link               `json:"links"`
 	Session       *SessionAction       `json:"session"`
 	RateLimit     RateLimit            `json:"rate_limit"`
+	Authz         map[string]AuthzRule `json:"authz"` // by role
+}
+
+// AuthzRule says which objects a role may open on an entry.
+type AuthzRule struct {
+	Check  string `json:"check"`  // owned_by_user, always, never
+	Target string `json:"target"` // e.g. params.id: the value checked
 }
 
 // Link maps a legacy URL found in a page to a public route.
@@ -233,6 +240,7 @@ type APIRoute struct {
 	LegacyRequest LegacyRequest        `json:"legacy_request"`
 	Response      APIResponse          `json:"response"`
 	RateLimit     RateLimit            `json:"rate_limit"`
+	Authz         map[string]AuthzRule `json:"authz"`
 }
 
 // APIResponse says which part of the legacy JSON reaches the client: only

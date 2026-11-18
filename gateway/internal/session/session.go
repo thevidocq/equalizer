@@ -37,12 +37,15 @@ type Store interface {
 
 // Session is what the gateway remembers about one browser.
 type Session struct {
-	Tenant   string            `json:"t"`
-	App      string            `json:"a"`
-	Role     string            `json:"r,omitempty"` // empty: the map's anonymous role
-	Cookies  map[string]string `json:"c,omitempty"` // legacy cookies by name
-	Created  time.Time         `json:"cr"`
-	LastSeen time.Time         `json:"ls"`
+	Tenant  string            `json:"t"`
+	App     string            `json:"a"`
+	Role    string            `json:"r,omitempty"` // empty: the map's anonymous role
+	Cookies map[string]string `json:"c,omitempty"` // legacy cookies by name
+	// Issued holds, per entry and target ("permit:params.id"), the values
+	// the site showed this session: owned_by_user lets it open only those.
+	Issued   map[string][]string `json:"i,omitempty"`
+	Created  time.Time           `json:"cr"`
+	LastSeen time.Time           `json:"ls"`
 }
 
 // Policy limits a session's life.

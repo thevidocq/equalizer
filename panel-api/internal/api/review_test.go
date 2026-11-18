@@ -72,3 +72,39 @@ func TestReview(t *testing.T) {
 	ap.must(409, "POST", "/v1/apps/portal/maps/2/review", nil, nil)
 	e.client().must(401, "GET", "/v1/apps/portal/maps/2/review", nil, nil)
 }
+
+func TestRollback(t *testing.T) {
+	e := setup(t)
+	root := e.client()
+	root.must(200, "POST", "/v1/auth/login", map[string]string{"email": "root@example.com", "password": "platform-admin-password"}, nil)
+	root.must(201, "POST", "/v1/tenants", map[string]string{"id": "acme", "name": "Acme", "admin_email": "boss@acme.test", "admin_name": "Boss"}, nil)
+	boss := e.join("boss@acme.test")
+	boss.must(201, "POST", "/v1/tenants/acme/invitations", map[string]string{"email": "ap@acme.test", "name": "Ap", "role": "approver"}, nil)
+	boss.must(201, "POST", "/v1/tenants/acme/invitations", map[string]string{"email": "ed@acme.test", "name": "Ed", "role": "editor"}, nil)
+	ap, ed := e.join("ap@acme.test"), e.join("ed@acme.test")
+	boss.must(201, "POST", "/v1/tenants/acme/connectors", map[string]string{"id": "cn-1"}, nil)
+	boss.must(201, "POST", "/v1/tenants/acme/apps", map[string]string{"id": "portal", "name": "Portal", "public_domain": "portal.acme.test"}, nil)
+	for v := 1; v <= 2; v++ {
+		ed.must(201, "POST", "/v1/apps/portal/maps", map[string]any{"document": json.RawMessage(mapDoc)}, nil)
+		ed.must(200, "POST", "/v1/apps/portal/maps/"+itoa(int64(v))+"/submit", nil, nil)
+		ap.must(200, "POST", "/v1/apps/portal/maps/"+itoa(int64(v))+"/approve", nil, nil)
+		ap.must(200, "POST", "/v1/apps/portal/maps/"+itoa(int64(v))+"/publish", nil, nil)
+	}
+	ed.must(403, "POST", "/v1/apps/portal/maps/1/rollback", nil, nil)
+	ap.must(409, "POST", "/v1/apps/portal/maps/2/rollback", nil, nil) // already published
+	var v struct{ Status string }
+	ap.must(200, "POST", "/v1/apps/portal/maps/1/rollback", nil, &v)
+	if v.Status != "published" {
+		t.Fatalf("rolled back: %+v", v)
+	}
+	var signed struct{ Version int }
+	_ = json.Unmarshal(internalGet(t, e, "/v1/internal/apps/portal/map", internalToken), &signed)
+	if signed.Version != 1 {
+		t.Fatalf("the gateway gets version %d", signed.Version)
+	}
+	var audit struct{ Items []struct{ Action string } }
+	ap.must(200, "GET", "/v1/audit", nil, &audit)
+	if audit.Items[0].Action != "map.rollback" {
+		t.Fatalf("audit: %+v", audit.Items[0])
+	}
+}

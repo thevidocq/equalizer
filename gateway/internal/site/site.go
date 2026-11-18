@@ -53,7 +53,8 @@ type Site struct {
 	Limits    *limits.Set
 	Notes     []string // map features accepted but not applied yet
 
-	unsupported map[string]string // form id → reason it cannot be served yet
+	unsupported map[string]string            // form id → reason it cannot be served yet
+	owned       map[string]map[string]string // entry → role → owned_by_user target
 }
 
 // DefaultSteps is the default order of the faithful-rendering steps.
@@ -89,10 +90,16 @@ func BuildWith(m *mapmodel.Model, opts Options) (*Site, error) {
 		if err := checkTemplates(r.LegacyRequest); err != nil {
 			return nil, fmt.Errorf("route %q: %w", r.ID, err)
 		}
+		if err := checkAuthz(m, r.Authz, map[string]map[string]mapmodel.FieldSpec{"params": r.Params, "query": r.Query}); err != nil {
+			return nil, fmt.Errorf("route %q: %w", r.ID, err)
+		}
 	}
 
 	for _, a := range m.API {
 		if err := checkAPI(v, a); err != nil {
+			return nil, fmt.Errorf("api %q: %w", a.ID, err)
+		}
+		if err := checkAuthz(m, a.Authz, map[string]map[string]mapmodel.FieldSpec{"params": a.Params, "query": a.Query, "body": a.Body}); err != nil {
 			return nil, fmt.Errorf("api %q: %w", a.ID, err)
 		}
 	}
@@ -162,6 +169,7 @@ func BuildWith(m *mapmodel.Model, opts Options) (*Site, error) {
 		Pipeline:  pipeline.New(DefaultSteps()...),
 
 		unsupported: unsupported,
+		owned:       ownedTargets(m),
 	}, nil
 }
 

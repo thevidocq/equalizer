@@ -8,6 +8,8 @@ type User struct {
 	PlatformRole *string `json:"platform_role"`
 	Tenant       *string `json:"tenant"`
 	TenantRole   *string `json:"tenant_role"`
+	MFAEnabled   bool    `json:"mfa_enabled"`
+	MFAVerified  bool    `json:"mfa_verified"` // this session passed the second step
 }
 
 // Platform reports a platform user (administrator or operator).

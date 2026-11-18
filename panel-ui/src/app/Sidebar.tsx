@@ -47,7 +47,7 @@ export function Sidebar() {
         {platform ? <NavLink to="/activity" end className={link}>All activity</NavLink> : null}
       </nav>
       <div className="mt-auto flex flex-col gap-1 border-t border-paper/15 px-3 pt-4 text-sm">
-        <span className="truncate text-paper/75" title={me?.email}>{me?.email}</span>
+        <NavLink to="/account" className="truncate text-paper/75 hover:text-paper" title="Your account">{me?.email}</NavLink>
         <button type="button" className="text-left text-paper/75 hover:text-paper" onClick={() => logout.mutate(undefined, { onSettled: () => navigate("/login") })}>
           Log out
         </button>

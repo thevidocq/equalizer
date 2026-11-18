@@ -16,7 +16,7 @@ export function AuditPage() {
         {audit.data?.map((e) => (
           <li key={e.id} className="grid grid-cols-[11rem_1fr] gap-4 border-b border-rule-soft py-2.5 text-sm">
             <time dateTime={e.ts} className="text-ink-soft">{formatDate(e.ts)}</time>
-            <span className={e.action === "auth.login_failed" ? "text-state-rejected" : ""}>{describeEntry(e)}</span>
+            <span className={e.action === "auth.login_failed" || e.action === "auth.mfa_failed" ? "text-state-rejected" : ""}>{describeEntry(e)}</span>
           </li>
         ))}
       </ol>

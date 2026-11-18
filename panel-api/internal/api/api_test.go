@@ -21,6 +21,7 @@ import (
 	"github.com/thevidocq/equalizer/panel-api/internal/api"
 	"github.com/thevidocq/equalizer/panel-api/internal/auth"
 	"github.com/thevidocq/equalizer/panel-api/internal/dbtest"
+	"github.com/thevidocq/equalizer/panel-api/internal/mfa"
 	"github.com/thevidocq/equalizer/panel-api/internal/store"
 )
 
@@ -45,7 +46,17 @@ type env struct {
 	pub ed25519.PublicKey
 }
 
-func setup(t *testing.T) *env {
+func setup(t *testing.T) *env { return setupWith(t, false) }
+
+func testBox() *mfa.Box {
+	b, err := mfa.NewBox(make([]byte, 32))
+	if err != nil {
+		panic(err)
+	}
+	return b
+}
+
+func setupWith(t *testing.T, mfaRequired bool) *env {
 	t.Helper()
 	if pg == nil {
 		t.Skip("PostgreSQL not installed")
@@ -56,6 +67,7 @@ func setup(t *testing.T) *env {
 	s := &api.Server{
 		Store: st, Sessions: &auth.Sessions{DB: conn, TTL: time.Hour}, Throttle: auth.NewThrottle(5, time.Minute),
 		Log: slog.New(slog.NewJSONHandler(io.Discard, nil)), SigningKey: priv, KeyID: "k1", InternalToken: internalToken,
+		MFA: testBox(), MFARequired: mfaRequired, MFAThrottle: auth.NewThrottle(5, time.Minute),
 	}
 	srv := httptest.NewTLSServer(s.Handler())
 	t.Cleanup(srv.Close)

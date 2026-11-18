@@ -13,6 +13,7 @@ import (
 
 	"github.com/thevidocq/equalizer/panel-api/internal/auth"
 	"github.com/thevidocq/equalizer/panel-api/internal/logging"
+	"github.com/thevidocq/equalizer/panel-api/internal/mfa"
 	"github.com/thevidocq/equalizer/panel-api/internal/store"
 )
 
@@ -26,6 +27,9 @@ type Server struct {
 	KeyID         string
 	InternalToken string
 	UI            http.Handler // static panel-ui files; nil: API only
+	MFA           *mfa.Box     // encrypts authenticator secrets
+	MFARequired   bool         // every panel user must enrol an authenticator
+	MFAThrottle   *auth.Throttle
 }
 
 type userKey struct{}
@@ -35,13 +39,19 @@ func (s *Server) Handler() http.Handler {
 	mux := http.NewServeMux()
 	// Auth
 	mux.HandleFunc("POST /v1/auth/login", s.login)
-	mux.HandleFunc("POST /v1/auth/logout", s.authed(s.logout))
-	mux.HandleFunc("GET /v1/auth/me", s.authed(s.me))
+	mux.HandleFunc("POST /v1/auth/logout", s.partial(s.logout))
+	mux.HandleFunc("GET /v1/auth/me", s.partial(s.me))
+	mux.HandleFunc("POST /v1/auth/mfa/setup", s.partial(s.mfaSetup))
+	mux.HandleFunc("POST /v1/auth/mfa/enable", s.partial(s.mfaEnable))
+	mux.HandleFunc("POST /v1/auth/mfa/verify", s.partial(s.mfaVerify))
+	mux.HandleFunc("POST /v1/auth/password", s.authed(s.changePassword))
 	// Tenants and users
 	mux.HandleFunc("GET /v1/tenants", s.authed(s.listTenants))
 	mux.HandleFunc("POST /v1/tenants", s.authed(s.createTenant))
 	mux.HandleFunc("GET /v1/tenants/{tenant}/users", s.authed(s.listUsers))
 	mux.HandleFunc("POST /v1/tenants/{tenant}/users", s.authed(s.createUser))
+	mux.HandleFunc("DELETE /v1/tenants/{tenant}/users/{id}", s.authed(s.deactivateUser))
+	mux.HandleFunc("POST /v1/tenants/{tenant}/users/{id}/reset-mfa", s.authed(s.resetMFA))
 	// Apps and connectors
 	mux.HandleFunc("GET /v1/tenants/{tenant}/apps", s.authed(s.listApps))
 	mux.HandleFunc("POST /v1/tenants/{tenant}/apps", s.authed(s.createApp))
@@ -105,8 +115,20 @@ func (s *Server) logRequest(r *http.Request, status int, start time.Time) {
 		slog.Float64("duration_ms", float64(time.Since(start).Microseconds())/1000)))
 }
 
-// authed requires a valid panel session.
+// authed requires a session that passed the second step.
 func (s *Server) authed(h func(http.ResponseWriter, *http.Request, *auth.User)) http.HandlerFunc {
+	return s.partial(func(w http.ResponseWriter, r *http.Request, u *auth.User) {
+		if !u.MFAVerified {
+			fail(w, http.StatusForbidden, "mfa_required", "complete the second login step")
+			return
+		}
+		h(w, r, u)
+	})
+}
+
+// partial requires a session, even one still waiting for the second step
+// (only the /auth endpoints use it).
+func (s *Server) partial(h func(http.ResponseWriter, *http.Request, *auth.User)) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		c, err := r.Cookie(auth.CookieName)
 		if err != nil {

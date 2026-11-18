@@ -118,7 +118,10 @@ services:
       EQ_MAP_SIGNING_KEY_FILE: /secrets/map-signing.key
       EQ_MAP_KEY_ID: ${EQ_MAP_KEY_ID:-k1}
       EQ_INTERNAL_TOKEN_FILE: /secrets/panel-internal.token
+      # encrypts the panel users' authenticator secrets
+      EQ_MFA_KEY_FILE: /secrets/mfa.key
     volumes:
+      - ./secrets/mfa.key:/secrets/mfa.key:ro
       - ./secrets/postgres.password:/secrets/postgres.password:ro
       - ./secrets/map-signing.key:/secrets/map-signing.key:ro
       - ./secrets/panel-internal.token:/secrets/panel-internal.token:ro

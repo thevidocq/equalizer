@@ -21,6 +21,8 @@ type Config struct {
 	SigningKey      ed25519.PrivateKey
 	SigningKeyID    string
 	InternalToken   string // presented by gateway and tunnel-relay on /v1/internal
+	MFAKey          []byte // encrypts authenticator secrets (32 bytes)
+	MFARequired     bool   // every panel user must use an authenticator app (default true)
 	SessionTTL      time.Duration
 	UIDir           string // static files of panel-ui; empty: API only
 	ShutdownTimeout time.Duration
@@ -61,6 +63,14 @@ func FromEnv() (Config, error) {
 	if len(cfg.InternalToken) < 32 {
 		return Config{}, fmt.Errorf("EQ_INTERNAL_TOKEN or EQ_INTERNAL_TOKEN_FILE is required (at least 32 characters)")
 	}
+	mfaKey, err := Secret("EQ_MFA_KEY")
+	if err != nil {
+		return Config{}, err
+	}
+	if cfg.MFAKey, err = base64.StdEncoding.DecodeString(mfaKey); err != nil || len(cfg.MFAKey) != 32 {
+		return Config{}, fmt.Errorf("EQ_MFA_KEY or EQ_MFA_KEY_FILE is required: 32 bytes in base64 (eqtool formkey)")
+	}
+	cfg.MFARequired = os.Getenv("EQ_MFA_REQUIRED") != "false"
 	return cfg, nil
 }
 

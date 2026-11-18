@@ -1,5 +1,6 @@
 import { createBrowserRouter, Navigate } from "react-router";
-import { LoginPage, RequireAuth } from "@/features/auth";
+import { AuthenticatorPage, CodePage, LoginPage, RequireAuth } from "@/features/auth";
+import { AccountPage } from "@/features/account";
 import { TenantsPage } from "@/features/tenants";
 import { SiteLayout, SitesPage } from "@/features/sites";
 import { ConnectorsPage } from "@/features/connectors";
@@ -11,12 +12,15 @@ import { Home } from "./Home";
 
 export const router = createBrowserRouter([
   { path: "/login", element: <LoginPage /> },
+  { path: "/login/code", element: <CodePage /> },
+  { path: "/login/authenticator", element: <AuthenticatorPage /> },
   {
     element: <RequireAuth><Shell /></RequireAuth>,
     children: [
       { index: true, element: <Home /> },
       { path: "tenants", element: <TenantsPage /> },
       { path: "activity", element: <AuditPage /> },
+      { path: "account", element: <AccountPage /> },
       { path: "t/:tenant", element: <SitesPage /> },
       { path: "t/:tenant/people", element: <UsersPage /> },
       { path: "t/:tenant/activity", element: <AuditPage /> },

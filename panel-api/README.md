@@ -6,9 +6,9 @@ Go control-plane API. Contract: [`schema/api/panel-api.yaml`](../schema/api/pane
 
 | Area | Endpoints | Who |
 | --- | --- | --- |
-| Auth | `POST /v1/auth/login`, `POST /v1/auth/logout`, `GET /v1/auth/me` | everyone |
+| Auth | `POST /v1/auth/login`, `POST /v1/auth/logout`, `GET /v1/auth/me`, `POST /v1/auth/mfa/{setup,enable,verify}`, `POST /v1/auth/password` | everyone |
 | Tenants | `GET/POST /v1/tenants` | create: platform admin |
-| Users | `GET/POST /v1/tenants/{tenant}/users` | tenant admin, platform admin |
+| Users | `GET/POST /v1/tenants/{tenant}/users`, `DELETE …/{id}` (deactivate), `POST …/{id}/reset-mfa` | tenant admin, platform admin |
 | Sites | `GET/POST /v1/tenants/{tenant}/apps`, `GET /v1/apps/{app}` | create: tenant admin |
 | Connectors | `GET/POST /v1/apps/{app}/connectors`, `POST …/{id}/rotate`, `DELETE …/{id}` | tenant admin; token shown once |
 | Maps | `GET/POST /v1/apps/{app}/maps`, `GET …/{version}`, `POST …/{version}/{submit,approve,reject,publish}` | draft/submit: editor; approve/reject/publish: approver, never the author |
@@ -19,6 +19,15 @@ Security:
 
 - Passwords: PBKDF2-HMAC-SHA256, 600 000 iterations, at least 12
   characters. Five failed logins per IP or email within 15 minutes → 429.
+- Two-step login: a password opens a session limited to `/v1/auth/*`; the
+  rest answers 403 `mfa_required` until a TOTP code (RFC 6238; a code is
+  never accepted twice) or a recovery code (10, single use, stored as
+  SHA-256) is given; the session id changes then. Authenticator secrets
+  are encrypted with `EQ_MFA_KEY` (AES-256-GCM, user id as additional
+  data). Five wrong codes in 15 minutes → 429. Mandatory by default
+  (`EQ_MFA_REQUIRED=false` only for tests).
+- Password change ends the user's other sessions; deactivating a user or
+  resetting their authenticator ends all of them.
 - Session cookie `__Host-eq_panel` (Secure, HttpOnly, SameSite=Strict, 8
   hours), stored as SHA-256 in PostgreSQL. Every state-changing request
   needs `X-Eq-Panel: 1` (CSRF).
@@ -41,6 +50,8 @@ Security:
 | `EQ_MAP_SIGNING_KEY` or `_FILE` | — | Ed25519 seed in base64 (`eqtool keygen`) |
 | `EQ_MAP_KEY_ID` | `k1` | Key id written in signed maps |
 | `EQ_INTERNAL_TOKEN` or `_FILE` | — | Token of gateway and relay on `/v1/internal` |
+| `EQ_MFA_KEY` or `_FILE` | — | 32 bytes in base64 (`eqtool formkey`): encrypts authenticator secrets |
+| `EQ_MFA_REQUIRED` | `true` | `false` lets users log in with a password only (tests) |
 | `EQ_UI_DIR` | — | Static files of panel-ui, served on `/` |
 | `EQ_LOG_LEVEL` | `info` | `debug`, `info`, `warn`, `error` |
 
@@ -56,6 +67,7 @@ internal/logging/    JSON logs
 internal/db/         connection, embedded migrations (migrations/*.sql)
 internal/dbtest/     throwaway PostgreSQL for tests
 internal/auth/       passwords, sessions, roles, login throttle
+internal/mfa/        TOTP, recovery codes, secret encryption
 internal/store/      tenants, users, apps, connectors, maps, audit
 internal/mapschema/  map validation (embedded schema copy)
 internal/signing/    SignedMap

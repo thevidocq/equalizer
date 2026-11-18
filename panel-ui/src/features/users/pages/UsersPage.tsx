@@ -6,6 +6,7 @@ import type { User } from "@/shared/api/client";
 import { canManage, useMe } from "@/features/auth";
 import { useUsers, type Role } from "../hooks/useUsers";
 import { AddUserDialog } from "../components/AddUserDialog";
+import { UserActions } from "../components/UserActions";
 import { roleText } from "../components/roles";
 
 export function UsersPage() {
@@ -26,6 +27,8 @@ export function UsersPage() {
           { header: "Name", cell: (u) => <span className="font-semibold">{u.name}</span> },
           { header: "Email", cell: (u) => u.email },
           { header: "Role", cell: (u) => (u.tenant_role ? roleText[u.tenant_role as Role].name : "") },
+          { header: "Authenticator", cell: (u) => (u.mfa_enabled ? "Set up" : <span className="text-state-review">Not set up yet</span>) },
+          ...(manage ? [{ header: "", className: "text-right", cell: (u: User) => <UserActions tenant={tenant} user={u} isMe={u.id === me.data?.id} /> }] : []),
         ]} />
       ) : null}
       <AddUserDialog tenant={tenant} open={adding} onOpenChange={setAdding} />

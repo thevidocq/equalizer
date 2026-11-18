@@ -18,3 +18,17 @@ export function useCreateUser(tenant: string) {
     onSuccess: () => qc.invalidateQueries({ queryKey: ["users", tenant] }),
   });
 }
+
+export function useUserActions(tenant: string) {
+  const qc = useQueryClient();
+  const refresh = () => qc.invalidateQueries({ queryKey: ["users", tenant] });
+  const deactivate = useMutation({
+    mutationFn: (id: number) => unwrap(api.DELETE("/tenants/{tenant}/users/{id}", { params: { path: { tenant, id: String(id) } } })),
+    onSuccess: refresh,
+  });
+  const resetMfa = useMutation({
+    mutationFn: (id: number) => unwrap(api.POST("/tenants/{tenant}/users/{id}/reset-mfa", { params: { path: { tenant, id: String(id) } } })),
+    onSuccess: refresh,
+  });
+  return { deactivate, resetMfa };
+}

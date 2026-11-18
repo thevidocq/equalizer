@@ -91,6 +91,12 @@ func BuildWith(m *mapmodel.Model, opts Options) (*Site, error) {
 		}
 	}
 
+	for _, a := range m.API {
+		if err := checkAPI(v, a); err != nil {
+			return nil, fmt.Errorf("api %q: %w", a.ID, err)
+		}
+	}
+
 	unsupported := map[string]string{}
 	for _, f := range m.Forms {
 		if err := checkForm(m, v, f); err != nil {
@@ -195,6 +201,27 @@ func checkForm(m *mapmodel.Model, v *validate.Validator, f mapmodel.Form) error 
 		}
 	}
 	return nil
+}
+
+func checkAPI(v *validate.Validator, a mapmodel.APIRoute) error {
+	for part, specs := range map[string]map[string]mapmodel.FieldSpec{"params": a.Params, "query": a.Query, "body": a.Body, "response.fields": a.Response.Fields} {
+		if err := v.Check(specs); err != nil {
+			return fmt.Errorf("%s: %w", part, err)
+		}
+	}
+	if len(a.Response.Fields) == 0 {
+		return fmt.Errorf("response.fields: declare at least one field")
+	}
+	if len(a.Body) > 0 && (a.Method == http.MethodGet || a.Method == http.MethodDelete) {
+		return fmt.Errorf("body: %s requests carry no body", a.Method)
+	}
+	if len(a.LegacyRequest.Files) > 0 {
+		return fmt.Errorf("legacy_request.files: not supported for APIs")
+	}
+	if err := checkTemplates(a.LegacyRequest); err != nil {
+		return err
+	}
+	return legacyclient.CheckJSON(map[string]any(a.LegacyRequest.JSON))
 }
 
 // formUnsupported lists the features a form needs that the gateway does not

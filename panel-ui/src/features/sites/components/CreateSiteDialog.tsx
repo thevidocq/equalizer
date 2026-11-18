@@ -1,9 +1,14 @@
 import { useState, type FormEvent } from "react";
 import { useNavigate } from "react-router";
-import { Button, Dialog, Notice, TextField, useToast } from "@/shared/ui";
+import { Button, Dialog, Notice, SelectField, TextField, useToast } from "@/shared/ui";
 import { describeError } from "@/shared/api/errors";
 import { slugify } from "@/features/tenants";
-import { useCreateApp } from "../hooks/useSites";
+import { useCreateApp, type SiteKind } from "../hooks/useSites";
+
+const kinds: { value: string; label: string }[] = [
+  { value: "wordpress", label: "WordPress" }, { value: "joomla", label: "Joomla" }, { value: "drupal", label: "Drupal" },
+  { value: "moodle", label: "Moodle" }, { value: "generic", label: "Another CMS or a custom site" }, { value: "", label: "I don't know" },
+];
 
 type Props = { tenant: string; open: boolean; onOpenChange: (o: boolean) => void };
 
@@ -13,18 +18,20 @@ export function CreateSiteDialog({ tenant, open, onOpenChange }: Props) {
   const navigate = useNavigate();
   const [name, setName] = useState("");
   const [domain, setDomain] = useState("");
+  const [kind, setKind] = useState("");
 
   function submit(e: FormEvent) {
     e.preventDefault();
     create.mutate(
-      { id: slugify(name), name, public_domain: domain.trim().toLowerCase() },
+      { id: slugify(name), name, public_domain: domain.trim().toLowerCase(), kind: (kind || null) as SiteKind },
       {
         onSuccess: (a) => {
           toast(`${a.name} added`);
           onOpenChange(false);
           setName("");
           setDomain("");
-          navigate(`/t/${tenant}/sites/${a.id}/connectors`);
+          setKind("");
+          navigate(`/t/${tenant}/sites/${a.id}/maps/new`);
         },
       },
     );
@@ -39,6 +46,10 @@ export function CreateSiteDialog({ tenant, open, onOpenChange }: Props) {
           hint={name ? `Id: ${slugify(name) || "—"}` : "For example: Permits portal"} />
         <TextField label="Public domain" required placeholder="portal.example.gov" value={domain}
           onChange={(e) => setDomain(e.target.value)} hint="The address visitors type today." />
+        <SelectField label="Built with" value={kind} onChange={(e) => setKind(e.target.value)}
+          hint="The first map starts from a template for it: you review and complete it before publishing.">
+          {kinds.map((k) => <option key={k.value} value={k.value}>{k.label}</option>)}
+        </SelectField>
         <div className="flex justify-end gap-2">
           <Button onClick={() => onOpenChange(false)}>Cancel</Button>
           <Button type="submit" variant="primary" busy={create.isPending}>Protect site</Button>

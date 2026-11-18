@@ -66,6 +66,12 @@ func New(baseURL string, rt http.RoundTripper, userAgent string, timeout time.Du
 
 // Build builds the legacy request from legacy_request and the values.
 func (c *Client) Build(ctx context.Context, lr mapmodel.LegacyRequest, vals placeholder.Values) (*http.Request, error) {
+	return c.BuildTyped(ctx, lr, vals, nil)
+}
+
+// BuildTyped is Build for API routes: JSON bodies get each value with its
+// JSON type, and the legacy application is asked for JSON.
+func (c *Client) BuildTyped(ctx context.Context, lr mapmodel.LegacyRequest, vals placeholder.Values, kinds Kinds) (*http.Request, error) {
 	path, rawPath, err := resolvePath(lr.Path, vals)
 	if err != nil {
 		return nil, err
@@ -92,13 +98,26 @@ func (c *Client) Build(ctx context.Context, lr mapmodel.LegacyRequest, vals plac
 
 	method := strings.ToUpper(lr.Method)
 	var body io.Reader
-	contentType := ""
-	switch method {
-	case http.MethodGet:
-		if len(lr.Form) > 0 {
-			return nil, errors.New("a GET request cannot carry a form body")
+	contentType, accept := "", "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8"
+	if kinds != nil { // an API call: the legacy application answers JSON
+		accept = "application/json"
+	}
+	if lr.JSON != nil && len(lr.Form) > 0 {
+		return nil, errors.New("legacy_request has both form and json")
+	}
+	switch {
+	case method == http.MethodGet || method == http.MethodDelete && lr.JSON == nil && len(lr.Form) == 0:
+		if len(lr.Form) > 0 || lr.JSON != nil {
+			return nil, errors.New("a GET request cannot carry a body")
 		}
-	case http.MethodPost:
+	case lr.JSON != nil && (method == http.MethodPost || method == http.MethodPut || method == http.MethodPatch || method == http.MethodDelete):
+		b, err := renderJSON(lr.JSON, vals, kinds)
+		if err != nil {
+			return nil, err
+		}
+		body = strings.NewReader(string(b))
+		contentType, accept = "application/json", "application/json"
+	case method == http.MethodPost || method == http.MethodPut || method == http.MethodPatch:
 		form := url.Values{}
 		for _, key := range sortedKeys(lr.Form) {
 			v, absent, err := placeholder.Resolve(lr.Form[key], vals)
@@ -137,7 +156,7 @@ func (c *Client) Build(ctx context.Context, lr mapmodel.LegacyRequest, vals plac
 		req.Header.Set("Content-Type", contentType)
 	}
 	req.Header.Set("User-Agent", c.userAgent)
-	req.Header.Set("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8")
+	req.Header.Set("Accept", accept)
 	return req, nil
 }
 

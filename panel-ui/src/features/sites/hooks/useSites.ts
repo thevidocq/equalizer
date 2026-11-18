@@ -1,6 +1,8 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api, unwrap } from "@/shared/api/client";
 
+export type SiteKind = "wordpress" | "joomla" | "drupal" | "moodle" | "generic" | null;
+
 export function useApps(tenant: string) {
   return useQuery({
     queryKey: ["apps", tenant],
@@ -20,7 +22,7 @@ export function useApp(app: string) {
 export function useCreateApp(tenant: string) {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (body: { id: string; name: string; public_domain: string }) =>
+    mutationFn: (body: { id: string; name: string; public_domain: string; kind: SiteKind }) =>
       unwrap(api.POST("/tenants/{tenant}/apps", { params: { path: { tenant } }, body })),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["apps", tenant] }),
   });

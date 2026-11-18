@@ -1,7 +1,8 @@
 // Package placeholder resolves the {{namespace.name}} placeholders of
 // legacy_request.
 //
-// Allowed namespaces: params (path), query, fields (form), hidden (legacy
+// Allowed namespaces: params (path), query, fields (form), body (JSON API
+// body), hidden (legacy
 // hidden fields kept server-side), account (legacy account of the role),
 // user (authenticated user). Values arrive already
 // validated: this package only substitutes them.
@@ -15,7 +16,7 @@ import (
 // Values holds values by namespace: Values["params"]["id"].
 type Values map[string]map[string]string
 
-var namespaces = map[string]bool{"params": true, "query": true, "fields": true, "hidden": true, "account": true, "user": true}
+var namespaces = map[string]bool{"params": true, "query": true, "fields": true, "body": true, "hidden": true, "account": true, "user": true}
 
 // Resolve substitutes the placeholders in tpl.
 //

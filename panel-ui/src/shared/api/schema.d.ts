@@ -917,6 +917,102 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/map-templates": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Starting maps for common CMS (WordPress, Joomla, Drupal, Moodle) and generic sites */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Templates */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            items: components["schemas"]["MapTemplate"][];
+                        };
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/apps/{app}/map-template": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** A first map for the site from a template, filled with its domain, connector and address. Nothing is saved: the document goes into the editor and becomes a draft like any other (editors and administrators) */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    app: components["parameters"]["app"];
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": {
+                        template: string;
+                        connector_id: string;
+                        /** @description host:port the connector connects to */
+                        address: string;
+                        /**
+                         * @default https
+                         * @enum {unknown}
+                         */
+                        scheme?: "https" | "http";
+                    };
+                };
+            };
+            responses: {
+                /** @description Map document */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            document: {
+                                [key: string]: unknown;
+                            };
+                        };
+                    };
+                };
+                404: components["responses"]["Error"];
+                422: components["responses"]["Error"];
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/apps/{app}/maps": {
         parameters: {
             query?: never;
@@ -2499,6 +2595,17 @@ export interface components {
             id: string;
             name: string;
             public_domain: string;
+            kind?: components["schemas"]["SiteKind"];
+        };
+        /**
+         * @description What the site is built with; selects the template offered for its first map
+         * @enum {string|null}
+         */
+        SiteKind: "wordpress" | "joomla" | "drupal" | "moodle" | "generic" | null;
+        MapTemplate: {
+            id: string;
+            name: string;
+            description: string;
         };
         Tenant: {
             id: string;
@@ -2514,6 +2621,7 @@ export interface components {
             /** Format: date-time */
             created_at: string;
             published_version: number | null;
+            kind?: components["schemas"]["SiteKind"];
             exposure?: components["schemas"]["Exposure"];
         };
         /** @description Whether the site still answers directly, bypassing Equalizer */

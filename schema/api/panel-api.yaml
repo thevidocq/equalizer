@@ -402,6 +402,51 @@ paths:
               schema: { $ref: "#/components/schemas/App" }
         "409": { $ref: "#/components/responses/Error" }
         "429": { $ref: "#/components/responses/Error" }
+  /map-templates:
+    get:
+      tags: [maps]
+      summary: Starting maps for common CMS (WordPress, Joomla, Drupal, Moodle) and generic sites
+      responses:
+        "200":
+          description: Templates
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items: { type: array, items: { $ref: "#/components/schemas/MapTemplate" } }
+  /apps/{app}/map-template:
+    post:
+      tags: [maps]
+      summary: >-
+        A first map for the site from a template, filled with its domain, connector and address. Nothing is
+        saved: the document goes into the editor and becomes a draft like any other (editors and administrators)
+      parameters: [{ $ref: "#/components/parameters/app" }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [template, connector_id, address]
+              properties:
+                template: { type: string }
+                connector_id: { type: string, pattern: "^[a-z0-9][a-z0-9_-]{1,62}$" }
+                address: { type: string, pattern: "^[A-Za-z0-9.\\-]+:[0-9]{1,5}$", description: "host:port the connector connects to" }
+                scheme: { enum: [https, http], default: https }
+      responses:
+        "200":
+          description: Map document
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [document]
+                properties:
+                  document: { type: object, additionalProperties: true }
+        "404": { $ref: "#/components/responses/Error" }
+        "422": { $ref: "#/components/responses/Error" }
   /apps/{app}/maps:
     get:
       tags: [maps]
@@ -1064,6 +1109,18 @@ components:
         id: { type: string, pattern: "^[a-z0-9][a-z0-9-]{0,62}$" }
         name: { type: string, maxLength: 200 }
         public_domain: { type: string, maxLength: 253 }
+        kind: { $ref: "#/components/schemas/SiteKind" }
+    SiteKind:
+      type: [string, "null"]
+      enum: [wordpress, joomla, drupal, moodle, generic, null]
+      description: What the site is built with; selects the template offered for its first map
+    MapTemplate:
+      type: object
+      required: [id, name, description]
+      properties:
+        id: { type: string }
+        name: { type: string }
+        description: { type: string }
     Tenant:
       type: object
       required: [id, name, created_at]
@@ -1081,6 +1138,7 @@ components:
         public_domain: { type: string }
         created_at: { type: string, format: date-time }
         published_version: { type: [integer, "null"] }
+        kind: { $ref: "#/components/schemas/SiteKind" }
         exposure: { $ref: "#/components/schemas/Exposure" }
     Exposure:
       type: object

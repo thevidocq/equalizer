@@ -315,6 +315,11 @@
         "min": { "type": "number" },
         "max": { "type": "number" },
         "values": { "type": "array", "items": { "type": "string" }, "minItems": 1 },
+        "deny": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Values refused even when the type allows them, compared without case (e.g. wp-admin for a page slug)"
+        },
         "pattern": { "type": "string" },
         "charset": { "type": "string" },
         "max_length": { "type": "integer", "minimum": 1 }
@@ -332,6 +337,11 @@
         "min": { "type": "number" },
         "max": { "type": "number" },
         "values": { "type": "array", "items": { "type": "string" } },
+        "deny": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Values refused even when the type allows them, compared without case (e.g. wp-admin for a page slug)"
+        },
         "pattern": { "type": "string" },
         "charset": { "type": "string" },
         "max_length": { "type": "integer", "minimum": 1 },

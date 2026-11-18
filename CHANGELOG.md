@@ -23,17 +23,46 @@ Add a section at the top of "Entries" for every commit:
 | --- | --- |
 | Contracts (`schema/`) | First version, validated in CI |
 | Documentation | Architecture, map format, installation and manuals (planned features) |
-| gateway | Many sites by host, virtual hosts (`reach.address`), GET routes, assets and urlencoded POST forms in direct or connector mode, validation, faithful rendering (UTF-8, cleanup, form binding, URL rewriting, redirects), pass-through login with sessions in Redis, rate limits and behaviour rules; no file uploads yet |
+| gateway | JSON APIs, many sites by host, virtual hosts (`reach.address`), GET routes, assets and urlencoded POST forms in direct or connector mode, validation, faithful rendering (UTF-8, cleanup, form binding, URL rewriting, redirects), pass-through login with sessions in Redis, rate limits and behaviour rules; no file uploads yet |
 | tunnel-relay | Token-authenticated tunnels, forwarding with tenant check, admin endpoints; single replica |
 | connector | Outbound tunnel, local allowlist, reconnection; one per server, virtual hosts |
 | orchestrator | Not implemented yet |
-| panel-api | Auth with mandatory TOTP, tenants, email invitations, tenant connectors, map reach checks, exposure check, platform/tenant privacy, users, sites, connectors, maps with approval and signing, audit, internal endpoints |
+| panel-api | Map templates per CMS, auth with mandatory TOTP, tenants, email invitations, tenant connectors, map reach checks, exposure check, platform/tenant privacy, users, sites, connectors, maps with approval and signing, audit, internal endpoints |
 | panel-ui | Login, joining by invitation, platform tenant overview, sites with isolation, tenant connectors, people with invitations, maps with editor and approval, activity |
 | agent | Not implemented yet |
 | deploy/compose | Caddy (on-demand certificates for protected sites, relay and panel domains), SMTP settings, gateway (2 replicas), Redis, PostgreSQL, panel-api, panel-ui, tunnel-relay, Vector, Loki, Grafana; statically validated |
 | tools (eqtool) | Map signing keys, form key, relay token, connector registration, map signing |
 
 ## Entries
+
+### 2026-11-18 — Serve JSON APIs, start maps from CMS templates
+
+- **Branch:** `feat/json-api` (on top of `feat/shared-connectors`)
+- **What:**
+  - Contracts: map `deny` on types and fields; panel `GET /map-templates`,
+    `POST /apps/{app}/map-template`, site `kind`.
+  - gateway: `internal/jsonshape` (client JSON bodies checked key by key,
+    unknown keys and nested values refused; legacy JSON rebuilt with only
+    the declared fields and types); `serveAPI` with roles, limits,
+    same-origin check on writes, JSON errors that never show the legacy
+    body; legacy client with PUT, PATCH, DELETE and typed JSON bodies;
+    validator `deny` lists.
+  - panel-api: migration `0005` (site kind); `internal/templates`
+    (WordPress, Joomla, Drupal, Moodle, generic), each tested against the
+    map schema; template endpoints.
+  - panel-ui: "Built with" when protecting a site; "Start from a template"
+    in New version (template, connector, address, protocol).
+  - Docs: map format (JSON APIs, templates, deny), READMEs, tenant manual.
+- **Why:** modern sites and the dynamic parts of old ones load data with
+  JavaScript; templates make the first map of a common CMS quick, with the
+  admin areas closed from the start.
+- **Status:** tests pass (gateway API end to end with a fake legacy JSON
+  service, shaper, templates valid and compiled); template flow checked in a
+  browser. Not tested on a real CMS.
+- **Next steps:**
+  1. Lab: DVWA and a real WordPress behind the gateway, then Juice Shop.
+  2. Map authorisation rules (`owned_by_user`) and map rollback.
+  3. Limit platform logins to the VPN; per-site fail-closed rate limits.
 
 ### 2026-11-18 — One connector per server, many sites per gateway, isolation check
 

@@ -129,6 +129,7 @@ type TypeDef struct {
 	Min       *float64 `json:"min"`
 	Max       *float64 `json:"max"`
 	Values    []string `json:"values"`
+	Deny      []string `json:"deny"` // refused values, without case
 	Pattern   string   `json:"pattern"`
 	Charset   string   `json:"charset"`
 	MaxLength int      `json:"max_length"`
@@ -142,6 +143,7 @@ type FieldSpec struct {
 	Min       *float64 `json:"min"`
 	Max       *float64 `json:"max"`
 	Values    []string `json:"values"`
+	Deny      []string `json:"deny"`
 	Pattern   string   `json:"pattern"`
 	Charset   string   `json:"charset"`
 	MaxLength int      `json:"max_length"`
@@ -156,6 +158,9 @@ type LegacyRequest struct {
 	Form    map[string]string `json:"form"`
 	Files   map[string]string `json:"files"`
 	Headers map[string]string `json:"headers"`
+	// JSON is a template of the JSON body: strings like "{{body.x}}" are
+	// replaced by the validated value, with its JSON type.
+	JSON map[string]any `json:"json"`
 }
 
 // Route is a read-only page.
@@ -218,10 +223,34 @@ type OnSuccess struct {
 
 // APIRoute is a JSON endpoint for dynamic parts of a page.
 type APIRoute struct {
-	ID     string   `json:"id"`
-	Path   string   `json:"path"`
-	Method string   `json:"method"`
-	Roles  []string `json:"roles"`
+	ID            string               `json:"id"`
+	Path          string               `json:"path"`
+	Method        string               `json:"method"`
+	Roles         []string             `json:"roles"`
+	Params        map[string]FieldSpec `json:"params"`
+	Query         map[string]FieldSpec `json:"query"`
+	Body          map[string]FieldSpec `json:"body"`
+	LegacyRequest LegacyRequest        `json:"legacy_request"`
+	Response      APIResponse          `json:"response"`
+	RateLimit     RateLimit            `json:"rate_limit"`
+}
+
+// APIResponse says which part of the legacy JSON reaches the client: only
+// the declared fields, with their types.
+type APIResponse struct {
+	List   bool                 `json:"list"`
+	Path   string               `json:"path"` // e.g. data.items; empty: the whole document
+	Fields map[string]FieldSpec `json:"fields"`
+}
+
+// APIByID returns the API route with the given id.
+func (m *Model) APIByID(id string) (*APIRoute, bool) {
+	for i := range m.API {
+		if m.API[i].ID == id {
+			return &m.API[i], true
+		}
+	}
+	return nil, false
 }
 
 // Compat is a historical legacy URL.

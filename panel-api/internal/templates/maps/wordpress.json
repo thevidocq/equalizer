@@ -1,0 +1,406 @@
+{
+ "meta": {
+  "schema": "gateway-map/1.0",
+  "tenant": "x",
+  "app": "x",
+  "version": 1,
+  "status": "draft"
+ },
+ "legacy": {
+  "base_url": "__BASE_URL__",
+  "reach": {
+   "mode": "connector",
+   "connector_id": "__CONNECTOR__",
+   "address": "__ADDRESS__",
+   "allow": [
+    "__ADDRESS__"
+   ]
+  },
+  "timeout_ms": 10000
+ },
+ "roles": {
+  "anonymous": "guest",
+  "list": {
+   "guest": {}
+  }
+ },
+ "defaults": {
+  "rate_limit": {
+   "per_ip": "120/min"
+  },
+  "legacy_budget": {
+   "max_concurrency": 10
+  },
+  "string": {
+   "max_length": 200
+  }
+ },
+ "types": {
+  "slug": {
+   "base": "string",
+   "pattern": "^[A-Za-z0-9][A-Za-z0-9_-]{0,119}$",
+   "deny": [
+    "admin",
+    "administrator",
+    "author",
+    "backup",
+    "backups",
+    "cgi-bin",
+    "config",
+    "console",
+    "cpanel",
+    "dashboard",
+    "embed",
+    "install",
+    "jsonapi",
+    "login",
+    "manager",
+    "phpmyadmin",
+    "plesk",
+    "pma",
+    "server-info",
+    "server-status",
+    "setup",
+    "trackback",
+    "webmail",
+    "wp-activate",
+    "wp-admin",
+    "wp-content",
+    "wp-cron",
+    "wp-includes",
+    "wp-json",
+    "wp-login",
+    "wp-signup",
+    "wp-trackback",
+    "xmlrpc"
+   ]
+  },
+  "id": {
+   "base": "int",
+   "min": 1,
+   "max": 999999999
+  },
+  "search": {
+   "base": "string",
+   "max_length": 100,
+   "pattern": "^[^<>{}\\x00-\\x1f]{1,100}$"
+  }
+ },
+ "routes": [
+  {
+   "id": "home",
+   "path": "/",
+   "method": "GET",
+   "roles": [
+    "guest"
+   ],
+   "legacy_request": {
+    "method": "GET",
+    "path": "/",
+    "query": {
+     "p": "{{query.p}}",
+     "page_id": "{{query.page_id}}",
+     "s": "{{query.s}}",
+     "cat": "{{query.cat}}",
+     "paged": "{{query.paged}}"
+    }
+   },
+   "render": "faithful",
+   "origin": "human",
+   "risk": "low",
+   "query": {
+    "p": {
+     "type": "id",
+     "required": false
+    },
+    "page_id": {
+     "type": "id",
+     "required": false
+    },
+    "s": {
+     "type": "search",
+     "required": false
+    },
+    "cat": {
+     "type": "id",
+     "required": false
+    },
+    "paged": {
+     "type": "id",
+     "required": false
+    }
+   }
+  },
+  {
+   "id": "page",
+   "path": "/{slug}/",
+   "method": "GET",
+   "roles": [
+    "guest"
+   ],
+   "legacy_request": {
+    "method": "GET",
+    "path": "/{{params.slug}}/"
+   },
+   "render": "faithful",
+   "origin": "human",
+   "risk": "low",
+   "params": {
+    "slug": {
+     "type": "slug"
+    }
+   }
+  },
+  {
+   "id": "child_page",
+   "path": "/{parent}/{slug}/",
+   "method": "GET",
+   "roles": [
+    "guest"
+   ],
+   "legacy_request": {
+    "method": "GET",
+    "path": "/{{params.parent}}/{{params.slug}}/"
+   },
+   "render": "faithful",
+   "origin": "human",
+   "risk": "low",
+   "params": {
+    "parent": {
+     "type": "slug"
+    },
+    "slug": {
+     "type": "slug"
+    }
+   }
+  },
+  {
+   "id": "dated_post",
+   "path": "/{year}/{month}/{slug}/",
+   "method": "GET",
+   "roles": [
+    "guest"
+   ],
+   "legacy_request": {
+    "method": "GET",
+    "path": "/{{params.year}}/{{params.month}}/{{params.slug}}/"
+   },
+   "render": "faithful",
+   "origin": "human",
+   "risk": "low",
+   "params": {
+    "year": {
+     "type": "int",
+     "min": 1990,
+     "max": 2100
+    },
+    "month": {
+     "type": "int",
+     "min": 1,
+     "max": 12
+    },
+    "slug": {
+     "type": "slug"
+    }
+   }
+  },
+  {
+   "id": "category",
+   "path": "/category/{slug}/",
+   "method": "GET",
+   "roles": [
+    "guest"
+   ],
+   "legacy_request": {
+    "method": "GET",
+    "path": "/category/{{params.slug}}/"
+   },
+   "render": "faithful",
+   "origin": "human",
+   "risk": "low",
+   "params": {
+    "slug": {
+     "type": "slug"
+    }
+   }
+  },
+  {
+   "id": "tag",
+   "path": "/tag/{slug}/",
+   "method": "GET",
+   "roles": [
+    "guest"
+   ],
+   "legacy_request": {
+    "method": "GET",
+    "path": "/tag/{{params.slug}}/"
+   },
+   "render": "faithful",
+   "origin": "human",
+   "risk": "low",
+   "params": {
+    "slug": {
+     "type": "slug"
+    }
+   }
+  },
+  {
+   "id": "page_n",
+   "path": "/page/{n}/",
+   "method": "GET",
+   "roles": [
+    "guest"
+   ],
+   "legacy_request": {
+    "method": "GET",
+    "path": "/page/{{params.n}}/"
+   },
+   "render": "faithful",
+   "origin": "human",
+   "risk": "low",
+   "params": {
+    "n": {
+     "type": "id"
+    }
+   }
+  },
+  {
+   "id": "feed",
+   "path": "/feed/",
+   "method": "GET",
+   "roles": [
+    "guest"
+   ],
+   "legacy_request": {
+    "method": "GET",
+    "path": "/feed/"
+   },
+   "render": "faithful",
+   "origin": "human",
+   "risk": "low"
+  }
+ ],
+ "forms": [
+  {
+   "id": "comment",
+   "route": "/wp-comments-post.php",
+   "roles": [
+    "guest"
+   ],
+   "origin": "human",
+   "risk": "medium",
+   "fields": {
+    "comment": {
+     "type": "text",
+     "max_length": 3000,
+     "rules": [
+      "no_html",
+      "no_template_meta"
+     ]
+    },
+    "author": {
+     "type": "string",
+     "max_length": 100
+    },
+    "email": {
+     "type": "email"
+    },
+    "post_id": {
+     "type": "id"
+    },
+    "parent_id": {
+     "type": "int",
+     "min": 0,
+     "max": 999999999,
+     "required": false
+    }
+   },
+   "legacy_request": {
+    "method": "POST",
+    "path": "/wp-comments-post.php",
+    "form": {
+     "comment": "{{fields.comment}}",
+     "author": "{{fields.author}}",
+     "email": "{{fields.email}}",
+     "comment_post_ID": "{{fields.post_id}}",
+     "comment_parent": "{{fields.parent_id}}"
+    }
+   },
+   "rate_limit": {
+    "per_ip": "5/min"
+   }
+  }
+ ],
+ "assets": [
+  {
+   "prefix": "/wp-content/themes/",
+   "types": [
+    "text/css",
+    "application/javascript",
+    "text/javascript",
+    "image/png",
+    "image/jpeg",
+    "image/gif",
+    "image/svg+xml",
+    "image/webp",
+    "image/x-icon",
+    "font/woff",
+    "font/woff2",
+    "font/ttf",
+    "application/font-woff"
+   ]
+  },
+  {
+   "prefix": "/wp-content/plugins/",
+   "types": [
+    "text/css",
+    "application/javascript",
+    "text/javascript",
+    "image/png",
+    "image/jpeg",
+    "image/gif",
+    "image/svg+xml",
+    "image/webp",
+    "image/x-icon",
+    "font/woff",
+    "font/woff2",
+    "font/ttf",
+    "application/font-woff"
+   ]
+  },
+  {
+   "prefix": "/wp-content/uploads/",
+   "types": [
+    "image/png",
+    "image/jpeg",
+    "image/gif",
+    "image/webp",
+    "image/svg+xml",
+    "application/pdf"
+   ],
+   "max_size_kb": 20480
+  },
+  {
+   "prefix": "/wp-includes/",
+   "types": [
+    "text/css",
+    "application/javascript",
+    "text/javascript",
+    "image/png",
+    "image/jpeg",
+    "image/gif",
+    "image/svg+xml",
+    "image/webp",
+    "image/x-icon",
+    "font/woff",
+    "font/woff2",
+    "font/ttf",
+    "application/font-woff"
+   ]
+  }
+ ],
+ "_template": {
+  "name": "WordPress",
+  "description": "Home, pages and posts by slug, categories, tags, search, comments and theme/plugin/upload files. Closed: /wp-admin, /wp-login.php, /xmlrpc.php, /wp-json and author listings."
+ }
+}

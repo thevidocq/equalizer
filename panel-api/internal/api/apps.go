@@ -29,10 +29,13 @@ func (s *Server) listApps(w http.ResponseWriter, r *http.Request, u *auth.User) 
 }
 
 type appCreate struct {
-	ID           string `json:"id"`
-	Name         string `json:"name"`
-	PublicDomain string `json:"public_domain"`
+	ID           string  `json:"id"`
+	Name         string  `json:"name"`
+	PublicDomain string  `json:"public_domain"`
+	Kind         *string `json:"kind"`
 }
+
+var siteKinds = map[string]bool{"wordpress": true, "joomla": true, "drupal": true, "moodle": true, "generic": true}
 
 func (s *Server) createApp(w http.ResponseWriter, r *http.Request, u *auth.User) {
 	tenant := r.PathValue("tenant")
@@ -49,7 +52,11 @@ func (s *Server) createApp(w http.ResponseWriter, r *http.Request, u *auth.User)
 		fail(w, http.StatusUnprocessableEntity, "invalid", "id (slug), name and a valid public_domain are required")
 		return
 	}
-	a, err := s.Store.CreateApp(r.Context(), store.App{ID: in.ID, Tenant: tenant, Name: in.Name, PublicDomain: in.PublicDomain})
+	if in.Kind != nil && !siteKinds[*in.Kind] {
+		fail(w, http.StatusUnprocessableEntity, "invalid", "kind: wordpress, joomla, drupal, moodle or generic")
+		return
+	}
+	a, err := s.Store.CreateApp(r.Context(), store.App{ID: in.ID, Tenant: tenant, Name: in.Name, PublicDomain: in.PublicDomain, Kind: in.Kind})
 	if err != nil {
 		s.storeError(w, r, err)
 		return

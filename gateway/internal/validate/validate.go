@@ -8,6 +8,7 @@ import (
 	"net/url"
 	"regexp"
 	"strconv"
+	"strings"
 	"sync"
 	"time"
 	"unicode"
@@ -126,6 +127,11 @@ func (v *Validator) Value(name string, spec mapmodel.FieldSpec, raw string, pres
 	if reason != "" {
 		return "", false, &Error{Field: name, Reason: reason}
 	}
+	for _, d := range r.deny {
+		if strings.EqualFold(canon, d) {
+			return "", false, &Error{Field: name, Reason: ReasonValue}
+		}
+	}
 	return canon, true, nil
 }
 
@@ -203,6 +209,7 @@ type resolved struct {
 	def       any
 	min, max  *float64
 	values    []string
+	deny      []string
 	pattern   string
 	charset   string
 	maxLength int
@@ -216,7 +223,7 @@ func (v *Validator) resolve(s mapmodel.FieldSpec) (resolved, error) {
 		if !ok || !isBase(t.Base) {
 			return resolved{}, fmt.Errorf("unknown type %q", s.Type)
 		}
-		r = resolved{base: t.Base, min: t.Min, max: t.Max, values: t.Values,
+		r = resolved{base: t.Base, min: t.Min, max: t.Max, values: t.Values, deny: t.Deny,
 			pattern: t.Pattern, charset: t.Charset, maxLength: t.MaxLength}
 	}
 	// Field constraints override those of the type.
@@ -231,6 +238,8 @@ func (v *Validator) resolve(s mapmodel.FieldSpec) (resolved, error) {
 	if len(s.Values) > 0 {
 		r.values = s.Values
 	}
+	// A field can only add refused values to those of its type.
+	r.deny = append(append([]string{}, r.deny...), s.Deny...)
 	if s.Pattern != "" {
 		r.pattern = s.Pattern
 	}
@@ -298,4 +307,13 @@ func (v *Validator) mustRegexp(expr string) *regexp.Regexp {
 		return regexp.MustCompile(`\A\z.`)
 	}
 	return re
+}
+
+// Base returns the base type of a field ("" when unknown).
+func (v *Validator) Base(spec mapmodel.FieldSpec) string {
+	r, err := v.resolve(spec)
+	if err != nil {
+		return ""
+	}
+	return r.base
 }

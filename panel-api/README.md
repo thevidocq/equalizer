@@ -14,6 +14,7 @@ Go control-plane API. Contract: [`schema/api/panel-api.yaml`](../schema/api/pane
 | Users | `GET /v1/tenants/{tenant}/users`, `DELETE …/{id}` (deactivate), `POST …/{id}/reset-mfa` | tenant admin |
 | Sites | `GET/POST /v1/tenants/{tenant}/apps`, `GET /v1/apps/{app}` | create: tenant admin |
 | Connectors | `GET/POST /v1/tenants/{tenant}/connectors`, `POST …/{id}/rotate`, `DELETE …/{id}` (409 while a published map uses it) | tenant admin; token shown once; one per server, shared by the sites |
+| Templates | `GET /v1/map-templates`, `POST /v1/apps/{app}/map-template` (fills a template for the site, saves nothing); sites take `kind` (wordpress, joomla, drupal, moodle, generic) | everyone; editors and administrators |
 | Isolation | `PATCH /v1/apps/{app}` (`legacy_ip`), `POST /v1/apps/{app}/exposure/check` (once a minute) | tenant admin |
 | Maps | `GET/POST /v1/apps/{app}/maps`, `GET …/{version}`, `POST …/{version}/{submit,approve,reject,publish}` | draft/submit: editor; approve/reject/publish: approver, never the author |
 | Audit | `GET /v1/audit`: the tenant's own actions, or the platform's own for platform users | tenant admin, approver, auditor; platform |

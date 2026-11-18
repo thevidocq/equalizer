@@ -30,7 +30,8 @@ requests to the legacy application and renders pages with faithful rendering.
 | Rate limits (defaults, routes, forms; per IP, session, user), behaviour rules (enumeration, brute force, request rate: throttle, block, alert), legacy requests per second across replicas | Done |
 | File uploads (multipart), challenge (CAPTCHA), `missing_predecessor` | To do |
 | Pass-through login and sessions: legacy cookies kept server-side (Redis, encrypted), role after login, new id at login, legacy expiry, logout | Done |
-| APIs, OIDC, per-user legacy accounts | To do |
+| JSON APIs: params, query and body checked field by field (unknown keys refused), JSON body rebuilt with typed values, only the declared response fields returned, legacy errors hidden, same-origin check on writes | Done |
+| OIDC, per-user legacy accounts | To do |
 | Connector mode through tunnel-relay (destination checked against `legacy.reach.allow`, relay and connector errors mapped to 502) | Done |
 | Prometheus metrics | To do |
 

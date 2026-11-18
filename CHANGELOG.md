@@ -27,13 +27,55 @@ Add a section at the top of "Entries" for every commit:
 | tunnel-relay | Token-authenticated tunnels, forwarding, admin endpoints; single replica |
 | connector | Outbound tunnel, local allowlist, reconnection |
 | orchestrator | Not implemented yet |
-| panel-api | Auth with mandatory TOTP, tenants, users, sites, connectors, maps with approval and signing, audit, internal endpoints |
-| panel-ui | Login, tenants, sites, connectors, people, maps with editor and approval, activity |
+| panel-api | Auth with mandatory TOTP, tenants, email invitations, platform/tenant privacy, users, sites, connectors, maps with approval and signing, audit, internal endpoints |
+| panel-ui | Login, joining by invitation, platform tenant overview, sites, connectors, people with invitations, maps with editor and approval, activity |
 | agent | Not implemented yet |
-| deploy/compose | Caddy (gateway and relay domains), gateway (2 replicas), Redis, PostgreSQL, panel-api, panel-ui, tunnel-relay, Vector, Loki, Grafana; statically validated |
+| deploy/compose | Caddy (gateway, relay and panel domains), SMTP settings, gateway (2 replicas), Redis, PostgreSQL, panel-api, panel-ui, tunnel-relay, Vector, Loki, Grafana; statically validated |
 | tools (eqtool) | Map signing keys, form key, relay token, connector registration, map signing |
 
 ## Entries
+
+### 2026-11-18 — Separate the platform from tenants, invite people by email
+
+- **Branch:** `feat/tenant-privacy`
+- **What:**
+  - Contract: `/tenants/{tenant}/invitations` (list, invite, revoke),
+    public `/invitations/{token}` and `/invitations/{token}/accept`,
+    `/platform/tenants` (overview) and `/platform/tenants/{tenant}/invitation`
+    (invite the first administrator again); `POST /tenants` now takes the
+    first administrator's name and email; `POST /tenants/{tenant}/users`
+    removed; `/audit` lost its `tenant` parameter.
+  - panel-api: migration `0003_invitations.sql`; `internal/mail` (SMTP with
+    STARTTLS or implicit TLS, `off`, `log` for development); invitation
+    tokens of 32 random bytes stored as SHA-256, single use, 48 hours,
+    revocable, sent only by email; accepting creates the user and logs in.
+    Platform users hold no tenant role any more: every tenant endpoint
+    answers them 403/404; they see tenant names, whether anyone joined, and
+    per site only name and status. Audit split: platform actions vs tenant
+    actions. Re-inviting the first administrator works only while nobody
+    has joined. Tests rewritten around invitations, plus privacy checks.
+  - panel-ui: `/invite/:token` page; platform tenants overview with status
+    dots, "Add a customer" (with the administrator's email) and "Invite
+    again"; tenant picker removed (platform and tenant panels never mix);
+    people page invites and lists pending invitations with revoke; role
+    helpers mirror the backend; activity sentences for the new actions.
+  - Compose and Caddy: `EQ_PANEL_DOMAIN` publishes the panel to customers
+    (`/v1/internal` answers 404 there and in panel-ui's Caddy); SMTP
+    settings and `secrets/smtp.password`. Docs: INSTALL, READMEs,
+    architecture ("Platform and tenants"), both manuals.
+- **Why:** customers own their tenant; the platform operator must see only
+  high-level status, never configuration, maps or people.
+- **Status:** `go test -race` for panel-api, UI build, tests and boundary
+  check pass; flow checked in a browser (create customer, join, invite,
+  revoke, reused link refused, platform reading a site gets 404). Not
+  tested against a real SMTP server.
+- **Next steps:**
+  1. Lab campaign: Juice Shop behind the gateway, measure compatibility,
+     false blocks and bypasses.
+  2. Limit platform logins to the VPN / localhost address.
+  3. Optional support access granted by the tenant (time-limited, audited).
+  4. Per-site fail-closed option for rate limits when Redis is down.
+  5. Map authorisation rules (`owned_by_user`) and map rollback.
 
 ### 2026-11-18 — Add two-step login, password change and user deactivation
 

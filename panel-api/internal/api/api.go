@@ -13,6 +13,7 @@ import (
 
 	"github.com/thevidocq/equalizer/panel-api/internal/auth"
 	"github.com/thevidocq/equalizer/panel-api/internal/logging"
+	"github.com/thevidocq/equalizer/panel-api/internal/mail"
 	"github.com/thevidocq/equalizer/panel-api/internal/mfa"
 	"github.com/thevidocq/equalizer/panel-api/internal/store"
 )
@@ -30,6 +31,8 @@ type Server struct {
 	MFA           *mfa.Box     // encrypts authenticator secrets
 	MFARequired   bool         // every panel user must enrol an authenticator
 	MFAThrottle   *auth.Throttle
+	Mail          mail.Sender // invitations
+	PanelURL      string      // base of the links in emails, e.g. https://panel.example.com
 }
 
 type userKey struct{}
@@ -49,7 +52,13 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("GET /v1/tenants", s.authed(s.listTenants))
 	mux.HandleFunc("POST /v1/tenants", s.authed(s.createTenant))
 	mux.HandleFunc("GET /v1/tenants/{tenant}/users", s.authed(s.listUsers))
-	mux.HandleFunc("POST /v1/tenants/{tenant}/users", s.authed(s.createUser))
+	mux.HandleFunc("GET /v1/tenants/{tenant}/invitations", s.authed(s.listInvitations))
+	mux.HandleFunc("POST /v1/tenants/{tenant}/invitations", s.authed(s.createInvitation))
+	mux.HandleFunc("DELETE /v1/tenants/{tenant}/invitations/{id}", s.authed(s.revokeInvitation))
+	mux.HandleFunc("GET /v1/invitations/{token}", s.viewInvitation)
+	mux.HandleFunc("POST /v1/invitations/{token}/accept", s.acceptInvitation)
+	mux.HandleFunc("GET /v1/platform/tenants", s.authed(s.platformTenants))
+	mux.HandleFunc("POST /v1/platform/tenants/{tenant}/invitation", s.authed(s.reinviteFirstAdmin))
 	mux.HandleFunc("DELETE /v1/tenants/{tenant}/users/{id}", s.authed(s.deactivateUser))
 	mux.HandleFunc("POST /v1/tenants/{tenant}/users/{id}/reset-mfa", s.authed(s.resetMFA))
 	// Apps and connectors

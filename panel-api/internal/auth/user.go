@@ -18,17 +18,16 @@ func (u *User) Platform() bool { return u.PlatformRole != nil }
 // PlatformAdmin may do everything.
 func (u *User) PlatformAdmin() bool { return u.PlatformRole != nil && *u.PlatformRole == "admin" }
 
-// CanRead reports whether the user may read the tenant's data.
+// CanRead reports whether the user may read the tenant's data. Only the
+// tenant's own people may: platform users run the service but do not see
+// inside tenants (privacy), they get /platform/tenants instead.
 func (u *User) CanRead(tenant string) bool {
-	return u.Platform() || (u.Tenant != nil && *u.Tenant == tenant)
+	return u.Tenant != nil && *u.Tenant == tenant
 }
 
 // HasTenantRole reports whether the user has one of the roles in the tenant.
-// Platform administrators have every role; operators none (read-only).
+// Platform users have none.
 func (u *User) HasTenantRole(tenant string, roles ...string) bool {
-	if u.PlatformAdmin() {
-		return true
-	}
 	if u.Tenant == nil || *u.Tenant != tenant || u.TenantRole == nil {
 		return false
 	}

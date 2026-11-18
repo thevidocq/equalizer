@@ -39,7 +39,7 @@ Internet ──► gateway ──► tunnel-relay ◄══ outbound tunnel ═�
 | `tunnel-relay` | Go | Terminates connector tunnels, routes requests | `schema/tunnel/tunnel.md` |
 | `connector` | Go | Next to the legacy app; outbound tunnel; allowed destinations only | `schema/tunnel/tunnel.md` |
 | `orchestrator` | Go | Applies the configured capacity (replicas, autoscaling, pools) | Desired state from panel-api |
-| `panel-api` | Go | Tenants, users, sites, connectors, maps with approval and signing, audit (done); proposals, LLM, capacity, metrics, status, logs, SIEM, import/export (planned) | `schema/api/panel-api.yaml` |
+| `panel-api` | Go | Tenants, email invitations, users, sites, connectors, maps with approval and signing, audit, platform/tenant privacy (done); proposals, LLM, capacity, metrics, status, logs, SIEM, import/export (planned) | `schema/api/panel-api.yaml` |
 | `panel-ui` | TypeScript, React | Panel | Client generated from OpenAPI |
 | `agent` | Python | Per-role crawling, analysis, map proposals | OpenAPI, `LLMProvider` interface |
 | `postgres` | — | Control-plane data | Versioned migrations |
@@ -47,6 +47,23 @@ Internet ──► gateway ──► tunnel-relay ◄══ outbound tunnel ═�
 
 Observability: Vector (log collection), Loki (logs), Tempo (traces),
 Prometheus + Alertmanager (metrics and alerts), Grafana (analysis).
+
+## Platform and tenants
+
+Two kinds of people use the panel, and they never share a view.
+
+- **Platform team** (`platform_role` admin or operator): runs the
+  installation. Sees the list of tenants with, per site, only its name and
+  whether a map is published. Creates a tenant by giving the email of its
+  first administrator, who receives a single-use invitation link (48 hours)
+  and chooses their own password. The platform holds no tenant role: maps,
+  connectors, people and the tenant's activity are closed to it, and its own
+  activity log holds platform actions only.
+- **Tenant people** (`tenant_role` admin, editor, approver, auditor):
+  manage their own sites. The tenant administrator invites the others.
+
+Support access to a tenant (time-limited and audited, granted by the tenant)
+is not implemented: today the platform cannot see tenant data at all.
 
 ## Faithful rendering (gateway pipeline)
 

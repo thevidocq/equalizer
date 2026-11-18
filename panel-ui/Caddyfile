@@ -14,6 +14,11 @@
 		-Server
 	}
 
+	# Service-to-service API: never through the browser-facing address.
+	handle /v1/internal/* {
+		respond 404
+	}
+
 	# The API lives in panel-api: same origin, so the session cookie works.
 	handle /v1/* {
 		reverse_proxy {$EQ_PANEL_API:panel-api:8080}

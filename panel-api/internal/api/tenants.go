@@ -1,6 +1,7 @@
 package api
 
 import (
+	"errors"
 	"net/http"
 	"strings"
 
@@ -21,11 +22,30 @@ func (s *Server) listTenants(w http.ResponseWriter, r *http.Request, u *auth.Use
 	writeJSON(w, http.StatusOK, list(ts))
 }
 
-type tenantCreate struct {
-	ID   string `json:"id"`
-	Name string `json:"name"`
+// platformTenants is what people who run the service see: tenants, their
+// sites' names and status. Nothing of their configuration.
+func (s *Server) platformTenants(w http.ResponseWriter, r *http.Request, u *auth.User) {
+	if !u.Platform() {
+		forbidden(w)
+		return
+	}
+	ov, err := s.Store.Overview(r.Context())
+	if err != nil {
+		s.storeError(w, r, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, list(ov))
 }
 
+type tenantCreate struct {
+	ID         string `json:"id"`
+	Name       string `json:"name"`
+	AdminEmail string `json:"admin_email"`
+	AdminName  string `json:"admin_name"`
+}
+
+// createTenant adds a tenant and invites its first administrator, who
+// chooses their own password: the platform never knows it.
 func (s *Server) createTenant(w http.ResponseWriter, r *http.Request, u *auth.User) {
 	if !u.PlatformAdmin() {
 		forbidden(w)
@@ -35,9 +55,9 @@ func (s *Server) createTenant(w http.ResponseWriter, r *http.Request, u *auth.Us
 	if !decode(w, r, &in) {
 		return
 	}
-	in.Name = strings.TrimSpace(in.Name)
-	if !slugRe.MatchString(in.ID) || in.Name == "" || len(in.Name) > 200 {
-		fail(w, http.StatusUnprocessableEntity, "invalid", "id: lower case letters, digits and -; name: 1 to 200 characters")
+	in.Name, in.AdminName, in.AdminEmail = strings.TrimSpace(in.Name), strings.TrimSpace(in.AdminName), strings.TrimSpace(in.AdminEmail)
+	if !slugRe.MatchString(in.ID) || in.Name == "" || len(in.Name) > 200 || !validEmail(in.AdminEmail) || in.AdminName == "" || len(in.AdminName) > 200 {
+		fail(w, http.StatusUnprocessableEntity, "invalid", "id (lower case letters, digits, -), name, administrator's name and email are required")
 		return
 	}
 	t, err := s.Store.CreateTenant(r.Context(), in.ID, in.Name)
@@ -45,13 +65,59 @@ func (s *Server) createTenant(w http.ResponseWriter, r *http.Request, u *auth.Us
 		s.storeError(w, r, err)
 		return
 	}
-	_ = s.Store.Record(r.Context(), &u.ID, &t.ID, "tenant.create", t.ID, nil)
-	writeJSON(w, http.StatusCreated, t)
+	inv, err := s.invite(r, u, store.Invitation{Tenant: t.ID, TenantName: t.Name, Email: in.AdminEmail, Name: in.AdminName, Role: "admin"})
+	if err != nil {
+		s.storeError(w, r, err)
+		return
+	}
+	// A platform action: recorded in the platform's activity, not the tenant's.
+	_ = s.Store.Record(r.Context(), &u.ID, nil, "tenant.create", t.ID, map[string]any{"invitation_sent": inv.Sent})
+	writeJSON(w, http.StatusCreated, map[string]any{"tenant": t, "invitation": inv})
+}
+
+type firstAdmin struct {
+	Email string `json:"admin_email"`
+	Name  string `json:"admin_name"`
+}
+
+// reinviteFirstAdmin replaces the invitation of a tenant's first
+// administrator (lost or unsent email, wrong address). Refused with 409 once
+// anyone has joined: from then on only the tenant invites people.
+func (s *Server) reinviteFirstAdmin(w http.ResponseWriter, r *http.Request, u *auth.User) {
+	if !u.PlatformAdmin() {
+		forbidden(w)
+		return
+	}
+	var in firstAdmin
+	if !decode(w, r, &in) {
+		return
+	}
+	in.Email, in.Name = strings.TrimSpace(in.Email), strings.TrimSpace(in.Name)
+	if !validEmail(in.Email) || in.Name == "" || len(in.Name) > 200 {
+		fail(w, http.StatusUnprocessableEntity, "invalid", "administrator's name and email are required")
+		return
+	}
+	t, err := s.Store.RestartTenant(r.Context(), r.PathValue("tenant"))
+	if errors.Is(err, store.ErrState) {
+		fail(w, http.StatusConflict, "tenant_in_use", "people already joined this tenant: its administrators invite the others")
+		return
+	}
+	if err != nil {
+		s.storeError(w, r, err)
+		return
+	}
+	inv, err := s.invite(r, u, store.Invitation{Tenant: t.ID, TenantName: t.Name, Email: in.Email, Name: in.Name, Role: "admin"})
+	if err != nil {
+		s.storeError(w, r, err)
+		return
+	}
+	_ = s.Store.Record(r.Context(), &u.ID, nil, "tenant.reinvite", t.ID, map[string]any{"invitation_sent": inv.Sent})
+	writeJSON(w, http.StatusCreated, inv)
 }
 
 func (s *Server) listUsers(w http.ResponseWriter, r *http.Request, u *auth.User) {
 	tenant := r.PathValue("tenant")
-	if !u.Platform() && !u.HasTenantRole(tenant, "admin") {
+	if !u.HasTenantRole(tenant, "admin") {
 		forbidden(w)
 		return
 	}
@@ -61,44 +127,6 @@ func (s *Server) listUsers(w http.ResponseWriter, r *http.Request, u *auth.User)
 		return
 	}
 	writeJSON(w, http.StatusOK, list(users))
-}
-
-type userCreate struct {
-	Email    string `json:"email"`
-	Name     string `json:"name"`
-	Password string `json:"password"`
-	Role     string `json:"role"`
-}
-
-var tenantRoles = map[string]bool{"admin": true, "editor": true, "approver": true, "auditor": true}
-
-func (s *Server) createUser(w http.ResponseWriter, r *http.Request, u *auth.User) {
-	tenant := r.PathValue("tenant")
-	if !u.HasTenantRole(tenant, "admin") {
-		forbidden(w)
-		return
-	}
-	var in userCreate
-	if !decode(w, r, &in) {
-		return
-	}
-	in.Email, in.Name = strings.TrimSpace(in.Email), strings.TrimSpace(in.Name)
-	if !validEmail(in.Email) || in.Name == "" || len(in.Name) > 200 || !tenantRoles[in.Role] {
-		fail(w, http.StatusUnprocessableEntity, "invalid", "email, name and role (admin, editor, approver, auditor) are required")
-		return
-	}
-	hash, err := auth.HashPassword(in.Password)
-	if err != nil {
-		fail(w, http.StatusUnprocessableEntity, "weak_password", err.Error())
-		return
-	}
-	created, err := s.Store.CreateUser(r.Context(), store.NewUser{Email: in.Email, Name: in.Name, PasswordHash: hash, Tenant: &tenant, TenantRole: &in.Role})
-	if err != nil {
-		s.storeError(w, r, err)
-		return
-	}
-	_ = s.Store.Record(r.Context(), &u.ID, &tenant, "user.create", created.Email, map[string]any{"role": in.Role})
-	writeJSON(w, http.StatusCreated, created)
 }
 
 func validEmail(e string) bool {

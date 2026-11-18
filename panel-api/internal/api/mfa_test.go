@@ -79,12 +79,13 @@ func TestPasswordChangeAndUsers(t *testing.T) {
 	e := setup(t)
 	root := e.client()
 	root.must(200, "POST", "/v1/auth/login", map[string]string{"email": "root@example.com", "password": "platform-admin-password"}, nil)
-	root.must(201, "POST", "/v1/tenants", map[string]string{"id": "acme", "name": "Acme"}, nil)
+	root.must(201, "POST", "/v1/tenants", map[string]string{"id": "acme", "name": "Acme", "admin_email": "boss@acme.test", "admin_name": "Boss"}, nil)
+	boss := e.join("boss@acme.test")
+	boss.must(201, "POST", "/v1/tenants/acme/invitations", map[string]string{"email": "ed@acme.test", "name": "Ed", "role": "editor"}, nil)
+	a := e.join("ed@acme.test")
 	var ed auth.User
-	root.must(201, "POST", "/v1/tenants/acme/users", map[string]string{"email": "ed@acme.test", "name": "Ed", "password": "a-long-password-1", "role": "editor"}, &ed)
-
-	a, b := e.client(), e.client()
-	a.must(200, "POST", "/v1/auth/login", map[string]string{"email": "ed@acme.test", "password": "a-long-password-1"}, nil)
+	a.must(200, "GET", "/v1/auth/me", nil, &ed)
+	b := e.client()
 	b.must(200, "POST", "/v1/auth/login", map[string]string{"email": "ed@acme.test", "password": "a-long-password-1"}, nil)
 	a.must(400, "POST", "/v1/auth/password", map[string]string{"current_password": "wrong", "new_password": "another-long-pass"}, nil)
 	a.must(400, "POST", "/v1/auth/password", map[string]string{"current_password": "a-long-password-1", "new_password": "short"}, nil)
@@ -96,14 +97,15 @@ func TestPasswordChangeAndUsers(t *testing.T) {
 	}
 
 	path := "/v1/tenants/acme/users/" + itoa(ed.ID)
-	a.must(403, "DELETE", path, nil, nil) // editors do not manage people
-	root.must(204, "POST", path+"/reset-mfa", nil, nil)
+	a.must(403, "DELETE", path, nil, nil)    // editors do not manage people
+	root.must(403, "DELETE", path, nil, nil) // nor does the platform
+	boss.must(204, "POST", path+"/reset-mfa", nil, nil)
 	a.must(401, "GET", "/v1/auth/me", nil, nil) // reset ends the sessions
-	root.must(204, "DELETE", path, nil, nil)
+	boss.must(204, "DELETE", path, nil, nil)
 	if e.client().login("ed@acme.test", "another-long-pass") != http.StatusUnauthorized {
 		t.Fatal("deactivated user can log in")
 	}
-	root.must(404, "DELETE", path, nil, nil)
+	boss.must(404, "DELETE", path, nil, nil)
 }
 
 func itoa(n int64) string {

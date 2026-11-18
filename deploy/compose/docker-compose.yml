@@ -38,6 +38,7 @@ services:
     environment:
       EQ_GATEWAY_DOMAIN: ${EQ_GATEWAY_DOMAIN:?set EQ_GATEWAY_DOMAIN in .env}
       EQ_RELAY_DOMAIN: ${EQ_RELAY_DOMAIN:?set EQ_RELAY_DOMAIN in .env}
+      EQ_PANEL_DOMAIN: ${EQ_PANEL_DOMAIN:?set EQ_PANEL_DOMAIN in .env}
       EQ_ACME_EMAIL: ${EQ_ACME_EMAIL:-}
     volumes:
       - ./caddy/Caddyfile:/etc/caddy/Caddyfile:ro
@@ -120,8 +121,16 @@ services:
       EQ_INTERNAL_TOKEN_FILE: /secrets/panel-internal.token
       # encrypts the panel users' authenticator secrets
       EQ_MFA_KEY_FILE: /secrets/mfa.key
+      # invitation emails: links point to the panel's public address
+      EQ_PANEL_URL: https://${EQ_PANEL_DOMAIN}
+      EQ_MAIL_MODE: ${EQ_MAIL_MODE:-smtp}
+      EQ_SMTP_ADDR: ${EQ_SMTP_ADDR:-}
+      EQ_SMTP_USER: ${EQ_SMTP_USER:-}
+      EQ_SMTP_PASSWORD_FILE: /secrets/smtp.password
+      EQ_MAIL_FROM: ${EQ_MAIL_FROM:-}
     volumes:
       - ./secrets/mfa.key:/secrets/mfa.key:ro
+      - ./secrets/smtp.password:/secrets/smtp.password:ro
       - ./secrets/postgres.password:/secrets/postgres.password:ro
       - ./secrets/map-signing.key:/secrets/map-signing.key:ro
       - ./secrets/panel-internal.token:/secrets/panel-internal.token:ro
@@ -135,10 +144,11 @@ services:
     restart: unless-stopped
     environment:
       EQ_PANEL_API: panel-api:8080
-    # Never on the Internet: reach it over an SSH tunnel or VPN.
+    # Customers reach it through Caddy on EQ_PANEL_DOMAIN; the localhost port
+    # is for the platform team over an SSH tunnel or VPN.
     ports:
       - "127.0.0.1:8088:8080"
-    networks: [control]
+    networks: [control, edge]
     depends_on: [panel-api]
 
   redis:

@@ -24,6 +24,7 @@ import (
 	"github.com/thevidocq/equalizer/gateway/internal/router"
 	"github.com/thevidocq/equalizer/gateway/internal/session"
 	"github.com/thevidocq/equalizer/gateway/internal/transport"
+	"github.com/thevidocq/equalizer/gateway/internal/upload"
 	"github.com/thevidocq/equalizer/gateway/internal/validate"
 )
 
@@ -35,6 +36,9 @@ var ErrConnectorUnavailable = transport.ErrConnectorUnavailable
 type Options struct {
 	Relay  *transport.RelayConfig // nil: connector mode answers 502
 	Limits limits.Store           // nil: counters in this process only
+	// Scanner checks uploaded files (ClamAV); nil: forms with files answer
+	// 503, since every file field must be scanned.
+	Scanner upload.Scanner
 }
 
 // How long to wait when the legacy application is saturated.
@@ -109,7 +113,7 @@ func BuildWith(m *mapmodel.Model, opts Options) (*Site, error) {
 		if err := checkForm(m, v, f); err != nil {
 			return nil, fmt.Errorf("form %q: %w", f.ID, err)
 		}
-		if reason := formUnsupported(f); reason != "" {
+		if reason := formUnsupported(f, opts.Scanner != nil); reason != "" {
 			unsupported[f.ID] = reason
 		}
 	}
@@ -198,6 +202,21 @@ func checkForm(m *mapmodel.Model, v *validate.Validator, f mapmodel.Form) error 
 	if err := checkTemplates(f.LegacyRequest); err != nil {
 		return err
 	}
+	for name, spec := range f.Fields {
+		if spec.Type != "file" {
+			continue
+		}
+		if len(spec.MIME) == 0 || spec.MaxSizeKB <= 0 {
+			return fmt.Errorf("field %q: a file needs mime and max_size_kb", name)
+		}
+		if spec.Scan == "av+cdr" {
+			for _, t := range spec.MIME {
+				if !slices.Contains(upload.CDRTypes, t) {
+					return fmt.Errorf("field %q: av+cdr rebuilds only %v, not %s", name, upload.CDRTypes, t)
+				}
+			}
+		}
+	}
 	if f.Session != nil && f.Session.Start != "" {
 		if _, ok := m.Roles.List[f.Session.Start]; !ok {
 			return fmt.Errorf("session.start: role %q is not in roles.list", f.Session.Start)
@@ -232,16 +251,15 @@ func checkAPI(v *validate.Validator, a mapmodel.APIRoute) error {
 	return legacyclient.CheckJSON(map[string]any(a.LegacyRequest.JSON))
 }
 
-// formUnsupported lists the features a form needs that the gateway does not
-// have yet. Such forms are recognised in pages but answered with 503.
-func formUnsupported(f mapmodel.Form) string {
-	if len(f.LegacyRequest.Files) > 0 {
-		return "file_upload"
-	}
+// formUnsupported lists what a form needs and this installation lacks.
+// Such forms are recognised in pages but answered with 503.
+func formUnsupported(f mapmodel.Form, scanner bool) string {
+	files := len(f.LegacyRequest.Files) > 0
 	for _, spec := range f.Fields {
-		if spec.Type == "file" {
-			return "file_upload"
-		}
+		files = files || spec.Type == "file"
+	}
+	if files && !scanner {
+		return "file_upload_without_scanner"
 	}
 	if !strings.EqualFold(f.LegacyRequest.Method, http.MethodPost) {
 		return "legacy_method"

@@ -23,8 +23,8 @@ Add a section at the top of "Entries" for every commit:
 | --- | --- |
 | Contracts (`schema/`) | First version, validated in CI |
 | Documentation | Architecture, map format, installation and manuals (planned features) |
-| gateway | JSON APIs, many sites by host, virtual hosts (`reach.address`), GET routes, assets and urlencoded POST forms in direct or connector mode, validation, faithful rendering (UTF-8, cleanup, form binding, URL rewriting, redirects), pass-through login with sessions in Redis, rate limits and behaviour rules; no file uploads yet |
-| tunnel-relay | Token-authenticated tunnels, forwarding with tenant check, admin endpoints; single replica |
+| gateway | JSON APIs, many sites by host, virtual hosts (`reach.address`), GET routes, assets and urlencoded POST forms in direct or connector mode, validation, faithful rendering (UTF-8, cleanup, form binding, URL rewriting, redirects), pass-through login with sessions in Redis, rate limits and behaviour rules, file uploads with scanning |
+| tunnel-relay | Token-authenticated tunnels, forwarding with tenant check, admin endpoints; several replicas with handover |
 | connector | Outbound tunnel, local allowlist, reconnection; one per server, virtual hosts |
 | orchestrator | Not implemented yet |
 | panel-api | Discovery jobs and continuous discovery, tenant AI settings, map templates per CMS, auth with mandatory TOTP, tenants, email invitations, tenant connectors, map reach checks, exposure check, platform/tenant privacy, users, sites, connectors, maps with approval and signing, audit, internal endpoints |
@@ -34,6 +34,34 @@ Add a section at the top of "Entries" for every commit:
 | tools (eqtool) | Map signing keys, form key, relay token, connector registration, map signing |
 
 ## Entries
+
+### 2026-11-18 — File uploads, relay replicas
+
+- **Branch:** `feat/uploads-relay` (on top of `feat/authz-rollback`)
+- **What:**
+  - gateway: `internal/upload` (real type sniffed from the bytes, OOXML and
+    ODF recognised, size bound, ClamAV INSTREAM client failing closed,
+    images rebuilt from their pixels with `av+cdr`, random names); forms
+    with files read as multipart (declared file fields only, one file each)
+    and rebuilt as multipart towards the legacy application; map loading
+    checks `mime`, `max_size_kb` and what `av+cdr` can rebuild; without
+    `EQ_CLAMD_ADDR` such forms answer 503.
+  - tunnel-relay: replicas; a request for a connector whose tunnel is on
+    another replica is handed over to the peers found through DNS
+    (`EQ_PEERS`), never more than once; the peer checks everything again.
+  - Compose: relay replicas (`EQ_RELAY_REPLICAS`, default 2), Caddy spreads
+    tunnels over them; optional `clamav` service (profile `uploads`).
+  - Docs: map format (uploads), relay README (replicas), INSTALL.
+- **Why:** the last two limits of the prototype: legacy forms with
+  attachments, and a relay that was a single point of failure.
+- **Status:** tests pass (type, size, infected, scanner down, polyglot
+  image cleaned, undeclared file; handover between replicas, tenant check
+  after handover). Not run with a real ClamAV or with replicas in Docker.
+- **Next steps:**
+  1. Lab campaign (DVWA, WordPress, Juice Shop) with discovery, review aid,
+     authorisation and uploads.
+  2. Advisories feed; issue values from API responses for `owned_by_user`.
+  3. SIEM forwarding, status page, import/export.
 
 ### 2026-11-18 — Authorisation rules against IDOR, map rollback
 

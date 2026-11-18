@@ -14,6 +14,7 @@ import (
 	"github.com/thevidocq/equalizer/gateway/internal/site"
 	"github.com/thevidocq/equalizer/gateway/internal/telemetry"
 	"github.com/thevidocq/equalizer/gateway/internal/unmapped"
+	"github.com/thevidocq/equalizer/gateway/internal/upload"
 )
 
 // MapSource provides the site (compiled map) served on a host.
@@ -33,6 +34,7 @@ type Public struct {
 	Forms    *formtoken.Sealer  // nil: forms are neither bound nor accepted
 	Sessions *session.Manager   // nil: no sessions, every visitor is anonymous
 	Unmapped *unmapped.Reporter // nil: refused paths are not reported to the panel
+	Scanner  upload.Scanner     // nil: no form with files is served
 	nowFunc  func() time.Time
 }
 

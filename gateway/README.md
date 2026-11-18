@@ -32,7 +32,7 @@ requests to the legacy application and renders pages with faithful rendering.
 | Pass-through login and sessions: legacy cookies kept server-side (Redis, encrypted), role after login, new id at login, legacy expiry, logout | Done |
 | JSON APIs: params, query and body checked field by field (unknown keys refused), JSON body rebuilt with typed values, only the declared response fields returned, legacy errors hidden, same-origin check on writes | Done |
 | Refused paths counted per site (path only) and sent to the panel every minute (`EQ_UNMAPPED_URL`, default next to `EQ_MAP_URL`) | Done |
-| Authorisation `owned_by_user` / `never` / `always` per role on routes and APIs: values issued by the site's own links and redirects, kept in the session | Done |
+| Authorisation `owned_by_user` / `never` / `always` per role on routes and APIs: values issued by the site's own links, redirects and JSON answers (`response.issues`), kept in the session | Done |
 | File uploads: real type sniffed, size bound, images rebuilt with `scan: cdr`, random names, multipart rebuilt towards the legacy app; no virus scan (left to the security stack) | Done |
 | OIDC, per-user legacy accounts | To do |
 | Connector mode through tunnel-relay (destination checked against `legacy.reach.allow`, relay and connector errors mapped to 502) | Done |

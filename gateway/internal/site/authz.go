@@ -31,6 +31,25 @@ func checkAuthz(m *mapmodel.Model, rules map[string]mapmodel.AuthzRule, specs ma
 	return nil
 }
 
+// checkIssues validates the issues of an API response: a declared field,
+// towards an entry whose owned_by_user rule names that target.
+func checkIssues(owned map[string]map[string]string, resp mapmodel.APIResponse) error {
+	for field, to := range resp.Issues {
+		if _, ok := resp.Fields[field]; !ok {
+			return fmt.Errorf("response.issues: %q is not a field of the response", field)
+		}
+		entry, target, _ := strings.Cut(to, ".")
+		found := false
+		for _, t := range owned[entry] {
+			found = found || t == target
+		}
+		if !found {
+			return fmt.Errorf("response.issues %s: %q has no owned_by_user rule on %q", field, entry, target)
+		}
+	}
+	return nil
+}
+
 // IssueKey names the values of one target of one entry in a session.
 func IssueKey(entry, target string) string { return entry + ":" + target }
 

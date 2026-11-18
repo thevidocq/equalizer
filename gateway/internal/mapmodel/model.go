@@ -252,6 +252,10 @@ type APIResponse struct {
 	List   bool                 `json:"list"`
 	Path   string               `json:"path"` // e.g. data.items; empty: the whole document
 	Fields map[string]FieldSpec `json:"fields"`
+	// Issues: response field → "entry.ns.name". Every value of the field
+	// in the answer may then be opened by this session on that entry's
+	// owned_by_user target (e.g. id → permit_get.params.id).
+	Issues map[string]string `json:"issues"`
 }
 
 // APIByID returns the API route with the given id.

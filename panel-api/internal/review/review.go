@@ -182,6 +182,10 @@ func (c *cmp) entries(sec string, b, n map[string]obj) {
 		if rf := asObj(path(e, "response", "fields")); len(rf) > len(asObj(path(old, "response", "fields"))) {
 			c.find("low", label, "response_wider", "The API returns more fields: check none is personal or internal data.")
 		}
+		if ni := asObj(path(e, "response", "issues")); len(ni) > len(asObj(path(old, "response", "issues"))) {
+			c.find("medium", label, "issues_added",
+				"The answer now grants access to more objects (response.issues): check it lists only the user's own.")
+		}
 		if old["authz"] != nil && e["authz"] == nil {
 			c.find("high", label, "authz_removed", "Its authorisation rule was removed: anyone with the role can open any object.")
 		}

@@ -312,11 +312,28 @@ pages and APIs that show one person's objects, add a rule per role:
 ```
 
 - `owned_by_user`: the session may open only the values the legacy site
-  itself showed it, in links of its pages or in its redirects. If "My
+  itself showed it, in links of its pages, in its redirects, or in the
+  fields of its JSON answers named in `response.issues` (below). If "My
   permits" lists 5 and 7, `/permits/9` answers 403 (`authz_not_owned`), even
   though 9 exists. The values live in the session (at most 2000 per target)
   and go when the legacy session ends.
 - `never`: the role may not open the entry; `always`: no check.
+- Single-page apps load their lists as JSON. The API that returns the list
+  says which field carries the ids and where they open:
+
+  ```yaml
+  - id: permits_list
+    path: /api/permits
+    response:
+      list: true
+      path: items
+      fields: { id: { type: int }, title: { type: string } }
+      issues: { id: permit_get.params.id }   # entry.ns.name
+  ```
+
+  The entry named must have an `owned_by_user` rule on that target, and the
+  field must be in `fields`; otherwise the map does not load. The review aid
+  flags new `issues` (`issues_added`).
 - Forms need no rule: their parameters travel sealed in the form token.
 - The review aid flags new pages with personal-looking paths and no rule,
   and any rule removed.

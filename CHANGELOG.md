@@ -35,6 +35,28 @@ Add a section at the top of "Entries" for every commit:
 
 ## Entries
 
+### 2026-11-18 — owned_by_user for JSON APIs
+
+- **Branch:** `feat/authz-json`
+- **What:**
+  - Map: `response.issues` on API routes (response field → `entry.ns.name`).
+    Every value of that field in the answer is issued to the session for the
+    entry's `owned_by_user` target, as links in pages already are.
+  - Gateway: loading checks the field is declared and the entry has that
+    rule; `jsonshape.Values` reads the values from the rebuilt answer,
+    issued before the session is written.
+  - Review aid: `issues_added` (medium) when an answer grants more objects.
+  - Docs: map format, gateway README.
+- **Why:** single-page apps load their lists as JSON; without this,
+  `owned_by_user` on their APIs refused the user's own objects too, so
+  those sites stayed without IDOR protection.
+- **Status:** tests pass (list then detail: own ids 200, others 403; bad
+  `issues` refused at load; review finding). Not yet on a real SPA.
+- **Next steps:**
+  1. Logs page in the panel (mockup shown to the project owner).
+  2. Lab campaign (DVWA, WordPress, Juice Shop).
+  3. Discovery: propose `issues` when a list API and a detail API share an id.
+
 ### 2026-11-18 — Uploads without ClamAV; uploads and relay replicas reach main
 
 - **Branch:** `feat/uploads-no-av`

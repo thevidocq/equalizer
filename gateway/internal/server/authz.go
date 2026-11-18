@@ -5,6 +5,7 @@ import (
 	"net/url"
 	"strings"
 
+	"github.com/thevidocq/equalizer/gateway/internal/jsonshape"
 	"github.com/thevidocq/equalizer/gateway/internal/mapmodel"
 	"github.com/thevidocq/equalizer/gateway/internal/pipeline"
 	"github.com/thevidocq/equalizer/gateway/internal/placeholder"
@@ -14,7 +15,7 @@ import (
 
 // Authorisation by "issued values": with owned_by_user, a session may open
 // only the objects the legacy site itself showed it (links in its pages,
-// its redirects). A user who changes /permits/42 into /permits/43 gets 403
+// its redirects, the fields of its JSON answers named in response.issues). A user who changes /permits/42 into /permits/43 gets 403
 // unless the site listed 43 for them. Forms need no rule: their parameters
 // travel sealed in the form token.
 
@@ -87,6 +88,17 @@ func (p *Public) authorize(w http.ResponseWriter, r *http.Request, st *site.Site
 		writePage(w, http.StatusForbidden, pageForbidden)
 	}
 	return false
+}
+
+// issueFromJSON issues the values an API answer shows (response.issues),
+// before the session is written with the headers.
+func issueFromJSON(ss *sessionState, api *mapmodel.APIRoute, out []byte) {
+	for field, to := range api.Response.Issues {
+		entry, target, _ := strings.Cut(to, ".")
+		for _, v := range jsonshape.Values(out, field) {
+			ss.issue(site.IssueKey(entry, target), v)
+		}
+	}
 }
 
 // issuer wraps the page's URL mapper: every public link it produces towards

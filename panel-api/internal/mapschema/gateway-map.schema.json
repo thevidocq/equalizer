@@ -535,7 +535,13 @@
           "properties": {
             "list": { "type": "boolean" },
             "path": { "type": "string", "description": "Path in the legacy JSON, e.g. data.items" },
-            "fields": { "$ref": "#/$defs/fieldMap" }
+            "fields": { "$ref": "#/$defs/fieldMap" },
+            "issues": {
+              "type": "object",
+              "description": "Response field → entry.ns.name: each value of the field in the answer may then be opened by this session on that entry's owned_by_user target (e.g. id → permit_get.params.id)",
+              "propertyNames": { "$ref": "#/$defs/identifier" },
+              "additionalProperties": { "type": "string", "pattern": "^[a-z][a-z0-9_]*\\.(params|query|body)\\.[a-z][a-z0-9_]*$" }
+            }
           }
         },
         "rate_limit": { "$ref": "#/$defs/rateLimit" },

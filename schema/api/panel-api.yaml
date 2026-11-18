@@ -453,11 +453,18 @@ components:
   schemas:
     SignedMap:
       type: object
-      required: [version, map, signature, key_id]
+      description: |
+        Documento firmato letto dal gateway. La firma copre i byte esatti del
+        payload, così nessun passaggio intermedio può alterarla riformattando
+        il JSON.
+      required: [version, payload, signature, key_id]
       properties:
-        version: { type: integer }
-        map: { type: object, description: "Conforme a schema/map/gateway-map.schema.json" }
-        signature: { type: string, description: "Ed25519, base64" }
+        version: { type: integer, description: "Uguale a meta.version della mappa" }
+        payload:
+          type: string
+          contentEncoding: base64
+          description: "Base64 del JSON compatto della mappa (schema/map/gateway-map.schema.json)"
+        signature: { type: string, contentEncoding: base64, description: "Firma Ed25519 dei byte di payload" }
         key_id: { type: string }
     Proposal:
       type: object

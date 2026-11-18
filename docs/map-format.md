@@ -67,6 +67,15 @@ Esempio completo: [`schema/map/examples/portale-pratiche.yaml`](../schema/map/ex
 La classe è calcolata dal sistema sul diff, non dichiarata dall'agent. Una
 mappa importata entra come proposta e segue le stesse regole.
 
+## Firma
+
+Il gateway legge un documento `SignedMap` (vedi `schema/api/panel-api.yaml`):
+`payload` è il base64 del JSON compatto della mappa, `signature` la firma
+Ed25519 di quei byte. Il gateway accetta solo mappe con firma valida,
+`meta.schema` uguale a `gateway-map/1.0`, `meta.status` uguale a `published`
+e `version` uguale a `meta.version`. Nel prototipo si firma con
+`eqtool sign`; poi lo farà panel-api.
+
 ## Note
 
 - In YAML la chiave `on` viene letta come booleano: nella mappa si usa

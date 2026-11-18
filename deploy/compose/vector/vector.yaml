@@ -1,0 +1,55 @@
+# Vector raccoglie i log JSON dei container con etichetta eq.collect=true,
+# li divide nei flussi "security" (eventi, campo schema) e "application"
+# (log) e li invia a Loki. L'inoltro verso SIEM arriverà dal pannello.
+
+data_dir: /var/lib/vector
+
+sources:
+  docker:
+    type: docker_logs
+    include_labels:
+      - "eq.collect=true"
+
+transforms:
+  parsed:
+    type: remap
+    inputs: [docker]
+    source: |
+      parsed, err = parse_json(.message)
+      if err == null && is_object(parsed) {
+        . = merge(., object!(parsed))
+        del(.message)
+      } else {
+        .msg = .message
+        del(.message)
+      }
+      if exists(.schema) {
+        .stream = "security"
+      } else {
+        .stream = "application"
+      }
+      if !exists(.service) {
+        .service = .container_name
+      }
+      if !exists(.level) {
+        .level = "info"
+      }
+      del(.label)
+
+sinks:
+  loki:
+    type: loki
+    inputs: [parsed]
+    endpoint: http://loki:3100
+    encoding:
+      codec: json
+    # etichette a bassa cardinalità: il resto si cerca nel contenuto
+    labels:
+      service: "{{ service }}"
+      stream: "{{ stream }}"
+      level: "{{ level }}"
+    out_of_order_action: accept
+    buffer:
+      type: disk
+      max_size: 268435488
+      when_full: block

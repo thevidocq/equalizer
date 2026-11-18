@@ -52,6 +52,17 @@ codice.
 - Messaggi di commit in italiano, all'imperativo, prima riga sotto i 72
   caratteri.
 
+## Ambiente di sviluppo nelle sessioni Claude
+
+- Il proxy dei moduli Go (`proxy.golang.org`) può essere bloccato. I moduli
+  ospitati su GitHub si scaricano con `GOPROXY=direct GOSUMDB=off`.
+- I moduli `golang.org/x/...` non si scaricano direttamente: clonare il
+  mirror GitHub (es. `github.com/golang/net`) e usare un `go.work` locale con
+  `replace`, **senza committarlo**. `go.mod` e `go.sum` restano quelli
+  standard, così la build normale (CI, VPS) funziona.
+- Docker può non avere il demone: validare il Compose con
+  `docker compose config --quiet`; le immagini le costruisce la CI.
+
 ## Sicurezza del laboratorio
 
 - Le app vulnerabili del laboratorio non pubblicano porte e stanno su una

@@ -1,0 +1,110 @@
+# Equalizer — prototipo su una VPS.
+# Reti:
+#   edge     esposta: proxy edge (Caddy) e, in seguito, tunnel-relay
+#   control  interna: gateway, osservabilità, pannello (in seguito)
+#   lab      interna e senza uscita verso Internet: app di test
+# Avvio: docker compose up -d   (vedi INSTALL.md)
+
+name: equalizer
+
+networks:
+  edge: {}
+  control: {}
+  lab:
+    internal: true
+
+volumes:
+  caddy-data: {}
+  loki-data: {}
+  grafana-data: {}
+  vector-data: {}
+
+x-collect: &collect
+  labels:
+    eq.collect: "true"
+
+services:
+  caddy:
+    image: caddy:2.8
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      EQ_GATEWAY_DOMAIN: ${EQ_GATEWAY_DOMAIN:?imposta EQ_GATEWAY_DOMAIN in .env}
+      EQ_ACME_EMAIL: ${EQ_ACME_EMAIL:-}
+    volumes:
+      - ./caddy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+    networks: [edge]
+    depends_on: [gateway]
+
+  gateway:
+    <<: *collect
+    build:
+      context: ../../gateway
+      args:
+        VERSION: ${EQ_VERSION:-dev}
+    restart: unless-stopped
+    deploy:
+      replicas: ${EQ_GATEWAY_REPLICAS:-2}
+    environment:
+      EQ_PUBLIC_ADDR: ":8080"
+      EQ_ADMIN_ADDR: ":9090"
+      EQ_LOG_LEVEL: ${EQ_LOG_LEVEL:-info}
+      EQ_MAP_FILE: /maps/current.json
+      EQ_MAP_PUBKEY_FILE: /secrets/map-signing.pub
+      EQ_MAP_KEY_ID: ${EQ_MAP_KEY_ID:-k1}
+      # rete edge: solo Caddy può indicare l'IP del client
+      EQ_TRUSTED_PROXIES: ${EQ_TRUSTED_PROXIES:-172.16.0.0/12}
+    volumes:
+      - ./maps:/maps:ro
+      - ./secrets/map-signing.pub:/secrets/map-signing.pub:ro
+    networks: [edge, control]
+
+  loki:
+    image: grafana/loki:3.1.1
+    restart: unless-stopped
+    command: ["-config.file=/etc/loki/config.yaml"]
+    volumes:
+      - ./loki/config.yaml:/etc/loki/config.yaml:ro
+      - loki-data:/loki
+    networks: [control]
+
+  vector:
+    image: timberio/vector:0.40.1-alpine
+    restart: unless-stopped
+    command: ["--config", "/etc/vector/vector.yaml"]
+    volumes:
+      - ./vector/vector.yaml:/etc/vector/vector.yaml:ro
+      # sola lettura: Vector legge i log dei container con etichetta eq.collect
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - vector-data:/var/lib/vector
+    networks: [control]
+    depends_on: [loki]
+
+  grafana:
+    image: grafana/grafana:11.2.0
+    restart: unless-stopped
+    environment:
+      GF_SECURITY_ADMIN_USER: admin
+      GF_SECURITY_ADMIN_PASSWORD: ${EQ_GRAFANA_PASSWORD:?imposta EQ_GRAFANA_PASSWORD in .env}
+      GF_USERS_ALLOW_SIGN_UP: "false"
+      GF_ANALYTICS_REPORTING_ENABLED: "false"
+    # solo da localhost della VPS: si raggiunge con tunnel SSH o VPN
+    ports:
+      - "127.0.0.1:3000:3000"
+    volumes:
+      - ./grafana/provisioning:/etc/grafana/provisioning:ro
+      - grafana-data:/var/lib/grafana
+    networks: [control]
+    depends_on: [loki]
+
+  eqtool:
+    build: ../../tools
+    profiles: [tools]
+    # scrive i file con l'utente della VPS, non con root
+    user: "${EQ_UID:-1000}:${EQ_GID:-1000}"
+    volumes:
+      - ./:/work
+    network_mode: none

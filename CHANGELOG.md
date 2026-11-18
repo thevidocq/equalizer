@@ -23,16 +23,62 @@ Aggiungi in cima a "Voci" una sezione per ogni commit:
 | --- | --- |
 | Contratti (`schema/`) | Prima versione, validata in CI |
 | Documentazione | Architettura, formato mappa, installazione e manuali (funzionalità previste) |
-| gateway | Da implementare |
+| gateway | Scheletro: mappa firmata, allowlist, log ed eventi; niente ricostruzione |
 | tunnel-relay | Da implementare |
 | connector | Da implementare |
 | orchestrator | Da implementare |
 | panel-api | Da implementare |
 | panel-ui | Da implementare |
 | agent | Da implementare |
-| deploy/compose | Da implementare |
+| deploy/compose | Caddy, gateway (2 repliche), Vector, Loki, Grafana; validato staticamente |
+| tools (eqtool) | Chiavi e firma delle mappe |
 
 ## Voci
+
+### 2026-11-18 — Aggiungi Compose di base, log e scheletro del gateway
+
+- **Branch:** `feat/compose-gateway-skeleton`
+- **Cosa:**
+  - `gateway/`: servizio Go (solo libreria standard) con caricamento e
+    verifica della mappa firmata Ed25519, ricarica a caldo (file e SIGHUP),
+    router in allowlist (404 non mappato, 405 metodo non ammesso, OPTIONS e
+    HEAD gestiti dal gateway, TRACE/CONNECT rifiutati), fail closed senza
+    mappa (503), log JSON conformi allo schema, `request_id` generato dal
+    gateway e restituito in `X-Eq-Request-Id`, eventi `request.blocked`, IP
+    del client solo da proxy fidati, `/healthz` e `/readyz` su porta separata,
+    sottocomando `healthcheck`, Dockerfile distroless non root, test.
+  - `tools/`: `eqtool keygen` e `eqtool sign` (firma delle mappe finché non
+    c'è panel-api), Dockerfile.
+  - `scripts/map_to_json.py`: valida una mappa YAML e la converte in JSON.
+  - `deploy/compose/`: reti `edge`, `control`, `lab` (internal), Caddy con
+    TLS automatico e bilanciamento dinamico delle repliche, gateway con 2
+    repliche, Vector → Loki, Grafana solo su localhost, profilo `tools`,
+    `.env.example`.
+  - Contratto `SignedMap` (OpenAPI): la mappa viaggia come `payload` base64
+    firmato byte per byte invece che come oggetto JSON.
+  - CI `go.yml`: gofmt, vet, test con race detector, validazione Compose,
+    build delle immagini.
+  - `INSTALL.md`: passi 4–6 resi concreti (configurazione, chiave e firma,
+    avvio, log in Grafana). `CLAUDE.md`: note sull'ambiente di sviluppo.
+- **Perché:** avere dal primo giorno la base per fare debug (log strutturati
+  e cercabili) e un gateway che già applica il deny by default.
+- **Stato:** test Go verdi; prova end-to-end in locale con l'esempio firmato:
+  `/` e `/pratiche/42` → 503 (mappate, ricostruzione assente), `/wp-admin` →
+  404, metodo sbagliato → 405, TRACE → 405, `/readyz` pronto; le 12 righe di
+  log/eventi prodotte validano contro gli schemi. Il Compose è validato con
+  `docker compose config` ma **non è stato avviato** (nessun demone Docker
+  nella sessione di sviluppo): Caddy, Vector, Loki e Grafana vanno collaudati
+  sulla VPS. I tipi della mappa nel gateway sono scritti a mano (sottoinsieme)
+  perché qui non si scaricano strumenti di generazione: da sostituire.
+- **Prossimi passi:**
+  1. Collaudo del Compose sulla VPS e correzioni (in particolare la
+     configurazione di Vector).
+  2. Validazione dei tipi di parametri e campi nel gateway.
+  3. `legacyclient` e `transport` (modalità diretta), poi ricostruzione delle
+     richieste GET.
+  4. Pipeline di resa fedele con parser HTML5 (`golang.org/x/net/html`).
+  5. `tunnel-relay` e `connector` su `tunnel.proto`.
+  6. Metriche Prometheus del gateway e generazione dei tipi dagli schemi.
 
 ### 2026-11-18 — Inizializza repository, contratti e documentazione
 

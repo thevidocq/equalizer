@@ -1,7 +1,9 @@
 # segreti e configurazioni locali
 .env
 *.key
-secrets/
+**/secrets/*
+!**/secrets/.gitkeep
+deploy/compose/maps/*.json
 # build
 bin/
 dist/

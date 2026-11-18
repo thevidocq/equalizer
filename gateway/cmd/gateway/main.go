@@ -1,0 +1,150 @@
+// Comando gateway: avvia il traffico pubblico e gli endpoint di amministrazione.
+//
+// Uso:
+//
+//	gateway              avvia il servizio
+//	gateway healthcheck  controlla /healthz in locale (per il healthcheck di Docker)
+package main
+
+import (
+	"context"
+	"errors"
+	"fmt"
+	"log/slog"
+	"net/http"
+	"os"
+	"os/signal"
+	"syscall"
+	"time"
+
+	"github.com/thevidocq/equalizer/gateway/internal/clientip"
+	"github.com/thevidocq/equalizer/gateway/internal/config"
+	"github.com/thevidocq/equalizer/gateway/internal/mapstore"
+	"github.com/thevidocq/equalizer/gateway/internal/server"
+	"github.com/thevidocq/equalizer/gateway/internal/telemetry"
+)
+
+// version è impostata in fase di build (-ldflags "-X main.version=...").
+var version = "dev"
+
+func main() {
+	if len(os.Args) > 1 && os.Args[1] == "healthcheck" {
+		os.Exit(healthcheck())
+	}
+	if err := run(); err != nil {
+		fmt.Fprintln(os.Stderr, "gateway:", err)
+		os.Exit(1)
+	}
+}
+
+func run() error {
+	cfg, err := config.FromEnv()
+	if err != nil {
+		return err
+	}
+	level := new(slog.LevelVar)
+	level.Set(telemetry.ParseLevel(cfg.LogLevel))
+	log := telemetry.Logger(os.Stdout, cfg.Instance, level).With(slog.String("module", "main"))
+	events := telemetry.NewEmitter(os.Stdout, cfg.Instance)
+
+	pub, err := mapstore.ParsePublicKey(cfg.MapPublicKey)
+	if err != nil {
+		return err
+	}
+	store := mapstore.NewStore(cfg.MapFile, pub, cfg.MapPublicKeyID)
+	active, err := store.Reload()
+	logReload(log, active, err)
+
+	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
+	defer stop()
+
+	hup := make(chan os.Signal, 1)
+	signal.Notify(hup, syscall.SIGHUP)
+	trigger := make(chan struct{}, 1)
+	go func() {
+		for range hup {
+			select {
+			case trigger <- struct{}{}:
+			default:
+			}
+		}
+	}()
+	go store.Watch(ctx, 15*time.Second, trigger, func(a *mapstore.Active, err error) { logReload(log, a, err) })
+
+	public := &server.Public{
+		Maps:   store,
+		IPs:    clientip.New(cfg.TrustedProxies),
+		Log:    telemetry.Logger(os.Stdout, cfg.Instance, level).With(slog.String("module", "server.public")),
+		Events: events,
+	}
+	admin := &server.Admin{Maps: store, Version: version}
+
+	servers := []*http.Server{
+		{Addr: cfg.PublicAddr, Handler: public.Handler(), ReadHeaderTimeout: 10 * time.Second, MaxHeaderBytes: 32 << 10},
+		{Addr: cfg.AdminAddr, Handler: admin.Handler(), ReadHeaderTimeout: 5 * time.Second},
+	}
+	errs := make(chan error, len(servers))
+	for _, s := range servers {
+		go func(s *http.Server) {
+			if err := s.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
+				errs <- err
+			}
+		}(s)
+	}
+	log.Info("gateway avviato", slog.Group("detail",
+		slog.String("version", version),
+		slog.String("public_addr", cfg.PublicAddr),
+		slog.String("admin_addr", cfg.AdminAddr),
+	))
+
+	select {
+	case <-ctx.Done():
+	case err := <-errs:
+		log.Error("server terminato", slog.String("error", err.Error()))
+	}
+	shutdownCtx, cancel := context.WithTimeout(context.Background(), cfg.ShutdownTimeout)
+	defer cancel()
+	for _, s := range servers {
+		_ = s.Shutdown(shutdownCtx)
+	}
+	log.Info("gateway fermato")
+	return nil
+}
+
+func logReload(log *slog.Logger, a *mapstore.Active, err error) {
+	if err != nil {
+		log.Error("mappa non caricata", slog.String("error", err.Error()))
+		return
+	}
+	log.Info("mappa attiva", slog.Group("detail",
+		slog.String("tenant", a.Model.Meta.Tenant),
+		slog.String("app", a.Model.Meta.App),
+		slog.Int("map_version", a.Model.Meta.Version),
+	))
+}
+
+func healthcheck() int {
+	addr := os.Getenv("EQ_ADMIN_ADDR")
+	if addr == "" {
+		addr = ":9090"
+	}
+	client := &http.Client{Timeout: 3 * time.Second}
+	resp, err := client.Get("http://127.0.0.1" + portOf(addr) + "/healthz")
+	if err != nil {
+		return 1
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		return 1
+	}
+	return 0
+}
+
+func portOf(addr string) string {
+	for i := len(addr) - 1; i >= 0; i-- {
+		if addr[i] == ':' {
+			return addr[i:]
+		}
+	}
+	return ":" + addr
+}

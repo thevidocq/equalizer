@@ -1,9 +1,10 @@
 # Installazione
 
-> **Stato:** i servizi non sono ancora implementati. Questa guida descrive
-> l'installazione prevista del prototipo e verrà verificata e aggiornata
-> man mano che i servizi arrivano (vedi `CHANGELOG.md`). I passi marcati
-> *(disponibile)* funzionano già oggi.
+> **Stato:** prototipo in costruzione. I passi marcati *(disponibile)* hanno
+> già il codice e la configurazione nel repository; gli altri descrivono
+> l'installazione prevista e verranno completati man mano (vedi
+> `CHANGELOG.md`). Oggi il gateway instrada e blocca secondo la mappa, ma
+> non ricostruisce ancora le pagine del legacy: le rotte mappate rispondono 503.
 
 Il prototipo gira su **una VPS** con Docker Compose. Il legacy da proteggere
 può stare ovunque: lo raggiunge il **connettore**, installato accanto a lui.
@@ -57,45 +58,82 @@ pip install jsonschema pyyaml openapi-spec-validator
 python3 scripts/validate_schemas.py
 ```
 
-## 4. Configurare
+## 4. Configurare *(disponibile)*
 
 ```bash
 cd deploy/compose
 cp .env.example .env
+nano .env        # dominio, email, password di Grafana, EQ_UID/EQ_GID (id -u, id -g)
 ```
 
 Valori principali in `.env`:
 
 | Variabile | Esempio | Significato |
 | --- | --- | --- |
-| `EQ_GATEWAY_DOMAIN` | `gw.example.com` | Dominio pubblico del gateway |
-| `EQ_RELAY_DOMAIN` | `relay.example.com` | Dominio del relay per i connettori |
-| `EQ_ACME_EMAIL` | `admin@example.com` | Email per i certificati Let's Encrypt |
-| `EQ_ADMIN_EMAIL` | `admin@example.com` | Primo amministratore della piattaforma |
-| `EQ_POSTGRES_PASSWORD` | *(generata)* | Password del database |
-| `EQ_SIGNING_KEY_PATH` | `./secrets/map-signing.key` | Chiave Ed25519 per firmare le mappe |
-| `ANTHROPIC_API_KEY` | *(opzionale)* | Chiave per Claude; si può inserire anche dal pannello |
+| `EQ_GATEWAY_DOMAIN` | `gw.example.com` | Dominio pubblico del gateway (certificato automatico) |
+| `EQ_ACME_EMAIL` | `admin@example.com` | Email per Let's Encrypt |
+| `EQ_GATEWAY_REPLICAS` | `2` | Repliche del gateway |
+| `EQ_LOG_LEVEL` | `info` | Livello dei log (`debug`, `info`, `warn`, `error`) |
+| `EQ_MAP_KEY_ID` | `k1` | Identificativo della chiave di firma delle mappe |
+| `EQ_GRAFANA_PASSWORD` | *(scegline una)* | Password dell'utente `admin` di Grafana |
+| `EQ_UID` / `EQ_GID` | `1000` | Utente della VPS che possiede i file creati da `eqtool` |
 
-Generare la chiave di firma delle mappe:
+## 5. Chiave di firma e prima mappa *(disponibile)*
 
-```bash
-mkdir -p secrets
-docker run --rm -v "$PWD/secrets:/out" equalizer/tools keygen --out /out/map-signing.key
-```
-
-## 5. Avviare
+Finché il pannello non esiste, le mappe si firmano a mano con `eqtool`.
 
 ```bash
-docker compose up -d                       # piattaforma
-docker compose --profile lab up -d         # laboratorio locale (facoltativo)
-docker compose ps                          # tutti i servizi "healthy"
+# dalla cartella deploy/compose
+docker compose --profile tools run --rm eqtool keygen -out secrets/map-signing.key
+
+# converte e valida una mappa YAML (dalla radice del repository)
+cd ../..
+pip install jsonschema pyyaml
+python3 scripts/map_to_json.py schema/map/examples/portale-pratiche.yaml > deploy/compose/maps/mappa.json
+
+# firma la mappa: il gateway legge maps/current.json
+cd deploy/compose
+docker compose --profile tools run --rm eqtool sign \
+  -key secrets/map-signing.key -map maps/mappa.json -key-id k1 -out maps/current.json
 ```
 
-Primo accesso al pannello (via VPN o tunnel SSH): `http://localhost:8080`.
-L'amministratore indicato in `EQ_ADMIN_EMAIL` riceve il link di attivazione
-e configura l'MFA.
+Il gateway ricarica la mappa da solo quando `maps/current.json` cambia (entro 15 secondi).
 
-## 6. Installare il connettore accanto al legacy
+## 6. Avviare *(disponibile)*
+
+```bash
+docker compose up -d --build
+docker compose ps            # gateway "healthy", due repliche
+```
+
+Verifiche rapide:
+
+```bash
+curl -I https://gw.example.com/            # rotta mappata: 503 finché la ricostruzione non è implementata
+curl -I https://gw.example.com/wp-admin    # non mappata: 404
+```
+
+### Vedere i log *(disponibile)*
+
+Grafana ascolta solo su localhost della VPS. Dal tuo computer:
+
+```bash
+ssh -L 3000:localhost:3000 utente@vps
+```
+
+Apri `http://localhost:3000` (utente `admin`, password di `.env`), vai in
+**Explore**, sorgente **Loki**, e usa query come:
+
+```text
+{service="gateway"}                                  tutti i log del gateway
+{service="gateway", stream="security"}               solo eventi di sicurezza
+{service="gateway"} |= "r-4ffd4c18cbf386ec"           una richiesta precisa
+{service="gateway", level="error"}                    solo errori
+```
+
+La pagina Log del pannello arriverà con panel-ui; Grafana resta per le analisi approfondite.
+
+## 7. Installare il connettore accanto al legacy
 
 1. Nel pannello: **Siti protetti → Proteggi un sito**, inserisci dominio
    pubblico e indirizzo interno del legacy.
@@ -112,7 +150,7 @@ docker run -d --name eq-connector --restart unless-stopped \
 
 4. Nel pannello il connettore risulta **online** entro pochi secondi.
 
-## 7. Verifiche
+## 8. Verifiche
 
 | Controllo | Come |
 | --- | --- |
@@ -122,16 +160,16 @@ docker run -d --name eq-connector --restart unless-stopped \
 | Log | Pannello → **Log**, filtro per servizio |
 | Esposizione | Dopo il passaggio, il legacy non risponde da Internet |
 
-## 8. Aggiornare
+## 9. Aggiornare
 
 ```bash
 git pull
 cd deploy/compose
 docker compose pull
-docker compose up -d
+docker compose up -d --build
 ```
 
-## 9. Disinstallare
+## 10. Disinstallare
 
 ```bash
 cd deploy/compose

@@ -48,7 +48,8 @@ pannello → panel-api ← proposte ← agent AI (crawl del legacy)
 | `agent/` | Crawler e agent AI | Python |
 | `lab/` | Laboratorio di test (app vulnerabili isolate) | Docker |
 | `deploy/compose/` | Docker Compose del prototipo | YAML |
-| `scripts/` | Script di supporto (validazione contratti) | Python |
+| `tools/` | `eqtool`: chiavi e firma delle mappe (prototipo) | Go |
+| `scripts/` | Validazione contratti, conversione mappe YAML → JSON | Python |
 
 ## Verificare i contratti
 

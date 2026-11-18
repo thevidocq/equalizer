@@ -131,3 +131,10 @@ Relay errors (always with `X-Eq-Error`):
 
 The protocol version is the `Upgrade` token. A relay may accept several
 versions; a connector with an unknown version gets `426`.
+
+## Relay replicas
+
+A tunnel lives on one relay replica. A replica that receives a request for a
+connector it does not hold hands it to its peers (found through DNS) with the
+`X-Eq-Relay-Hop: 1` header; a request carrying that header is never handed
+over again. The receiving peer checks token, tenant and destination again.

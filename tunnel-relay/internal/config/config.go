@@ -13,6 +13,7 @@ type Config struct {
 	TunnelAddr      string // connectors (behind the edge proxy, which terminates TLS)
 	InternalAddr    string // gateway requests (control network only)
 	AdminAddr       string // /healthz, /readyz, /v1/tunnels (control network only)
+	Peers           string // DNS name of the replicas (EQ_PEERS); empty: a single relay
 	Instance        string
 	LogLevel        string
 	ConnectorsFile  string
@@ -43,6 +44,7 @@ func FromEnv() (Config, error) {
 	}
 	cfg.GatewayToken = token
 	cfg.ConnectorsURL = os.Getenv("EQ_CONNECTORS_URL")
+	cfg.Peers = os.Getenv("EQ_PEERS")
 	if cfg.PanelToken, err = secret("EQ_PANEL_TOKEN"); err != nil {
 		return Config{}, err
 	}

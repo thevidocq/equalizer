@@ -74,6 +74,8 @@ services:
       EQ_RELAY_TOKEN_FILE: /secrets/relay.token
       # sessions shared by the replicas (legacy cookies, role after login)
       EQ_REDIS_URL: redis://redis:6379/0
+      # uploads: every file is scanned; without ClamAV forms with files answer 503
+      EQ_CLAMD_ADDR: ${EQ_CLAMD_ADDR:-}
       # edge network: only Caddy may state the client IP
       EQ_TRUSTED_PROXIES: ${EQ_TRUSTED_PROXIES:-172.16.0.0/12}
     volumes:
@@ -196,8 +198,12 @@ services:
         VERSION: ${EQ_VERSION:-dev}
     restart: unless-stopped
     user: *owner
-    # One replica: a tunnel lives on one relay instance (see CHANGELOG).
+    # A tunnel lives on one replica; a request that reaches another one is
+    # handed over to it (replicas found through DNS, EQ_PEERS).
+    deploy:
+      replicas: ${EQ_RELAY_REPLICAS:-2}
     environment:
+      EQ_PEERS: tunnel-relay
       EQ_TUNNEL_ADDR: ":8081"
       EQ_INTERNAL_ADDR: ":8082"
       EQ_ADMIN_ADDR: ":9091"
@@ -211,6 +217,14 @@ services:
       - ./secrets/panel-internal.token:/secrets/panel-internal.token:ro
     # edge: Caddy brings the connectors' tunnels; control: the gateway calls it
     networks: [edge, control]
+
+  # Virus scanner for uploads (docker compose --profile uploads up -d, and
+  # EQ_CLAMD_ADDR=clamav:3310 in .env). Needs about 3 GB of memory.
+  clamav:
+    image: clamav/clamav:1.4
+    restart: unless-stopped
+    profiles: [uploads]
+    networks: [control]
 
   loki:
     image: grafana/loki:3.1.1

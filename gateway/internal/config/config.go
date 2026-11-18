@@ -20,6 +20,7 @@ type Config struct {
 	MapURL          string         // panel-api internal URL of the published map
 	MapToken        string         // token for MapURL
 	UnmappedURL     string         // panel endpoint for refused paths; default next to MapURL
+	ClamdAddr       string         // ClamAV daemon (host:port) for uploads; empty: no uploads
 	MapPublicKey    string         // Ed25519 public key, base64
 	MapPublicKeyID  string         // expected key identifier
 	TrustedProxies  []netip.Prefix // networks allowed to set X-Forwarded-For
@@ -59,6 +60,7 @@ func FromEnv() (Config, error) {
 	if cfg.MapToken, err = secretValue("EQ_MAP_TOKEN"); err != nil {
 		return Config{}, err
 	}
+	cfg.ClamdAddr = os.Getenv("EQ_CLAMD_ADDR")
 	cfg.UnmappedURL = os.Getenv("EQ_UNMAPPED_URL")
 	if cfg.UnmappedURL == "" && strings.HasSuffix(cfg.MapURL, "/v1/internal/maps") {
 		cfg.UnmappedURL = strings.TrimSuffix(cfg.MapURL, "/maps") + "/unmapped"

@@ -58,3 +58,12 @@ go vet ./... && go test -race ./...
 ```
 
 Dependency: `github.com/hashicorp/yamux` (MPL-2.0), stream multiplexing.
+
+## Replicas
+
+Several relays can run together (`deploy.replicas` in Compose). A tunnel
+lives on one replica; when a request reaches a replica without the
+connector's tunnel, it hands it to the others, found through DNS
+(`EQ_PEERS`, e.g. the Compose service name). The peer checks token, tenant
+and destination again, and a handed-over request (`X-Eq-Relay-Hop`) is never
+handed over again. No shared state is needed.

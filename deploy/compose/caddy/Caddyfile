@@ -62,7 +62,14 @@ https:// {
 # tunnel path is published; everything else answers 404.
 {$EQ_RELAY_DOMAIN} {
 	handle /v1/tunnel {
-		reverse_proxy tunnel-relay:8081
+		reverse_proxy {
+			dynamic a {
+				name tunnel-relay
+				port 8081
+				refresh 10s
+			}
+			lb_policy round_robin
+		}
 	}
 	handle {
 		respond 404

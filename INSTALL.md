@@ -213,6 +213,12 @@ Open `http://localhost:3000` (user `admin`, password from `.env`), go to
 
 The panel's Logs page will arrive with panel-ui; Grafana stays for in-depth analysis.
 
+### File uploads *(available)*
+
+Forms with files need a virus scanner. Start ClamAV with
+`docker compose --profile uploads up -d` (about 3 GB of memory) and set
+`EQ_CLAMD_ADDR=clamav:3310` in `.env`. Without it those forms answer 503.
+
 ## 7. Install the connector on the legacy server *(available)*
 
 One per server, whatever the number of sites on it. On the server itself

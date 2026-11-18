@@ -276,6 +276,27 @@ api:
 - Writes (`POST`, `PUT`, `PATCH`, `DELETE`) are refused when the browser
   says they come from another site (`Origin`, `Sec-Fetch-Site`).
 
+## File uploads
+
+```yaml
+fields:
+  attachment: { type: file, mime: [application/pdf, image/png], max_size_kb: 5120, scan: av, required: false }
+legacy_request:
+  method: POST
+  path: /upload.do
+  form: { title: "{{fields.title}}" }
+  files: { attachment: "{{fields.attachment}}" }
+```
+
+- The real type is read from the bytes (never the file name or what the
+  browser says) and must be in `mime`; the size is bounded by `max_size_kb`.
+- `scan: av` sends each file to ClamAV; if the scanner is down the upload
+  is refused. `av+cdr` also rebuilds images (PNG, JPEG, GIF) from their
+  pixels, dropping metadata and anything appended. Without a scanner
+  (`EQ_CLAMD_ADDR`) forms with files answer 503.
+- The legacy application receives a new random file name; undeclared file
+  fields are refused.
+
 ## Authorisation: who may open which object
 
 An allowlist checks the shape of `/permits/43`, not whose permit it is. For

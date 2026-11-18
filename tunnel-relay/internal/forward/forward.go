@@ -34,17 +34,30 @@ const ResponseTimeout = 40 * time.Second
 
 type sessionKey struct{}
 
+// HeaderHop marks a request handed over by another replica: it is never
+// handed over again.
+const HeaderHop = "X-Eq-Relay-Hop"
+
+// MaxHandover bounds a body kept to try it on the other replicas.
+const MaxHandover = 50 << 20
+
 // Handler forwards gateway requests into tunnels.
 type Handler struct {
 	Pool  *sessions.Pool
 	Token string // gateway token
 	Log   *slog.Logger
+	// Peers lists the other replicas; nil with a single relay.
+	Peers func(ctx context.Context) []string
 	proxy *httputil.ReverseProxy
+	peer  *http.Client
 }
 
 // New creates the handler.
 func New(pool *sessions.Pool, token string, log *slog.Logger) *Handler {
-	h := &Handler{Pool: pool, Token: token, Log: log}
+	h := &Handler{Pool: pool, Token: token, Log: log,
+		peer: &http.Client{Timeout: ResponseTimeout + 10*time.Second, CheckRedirect: func(*http.Request, []*http.Request) error {
+			return http.ErrUseLastResponse
+		}}}
 	h.proxy = &httputil.ReverseProxy{
 		Rewrite: func(pr *httputil.ProxyRequest) {
 			dest := pr.In.Header.Get(HeaderDestination)
@@ -88,6 +101,11 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 	ctx := logging.WithRequestID(r.Context(), r.Header.Get(logging.HeaderRequestID))
 	s, err := h.Pool.Pick(id, dest)
+	if errors.Is(err, sessions.ErrUnavailable) && h.Peers != nil && r.Header.Get(HeaderHop) == "" {
+		if h.handOver(w, r.WithContext(ctx), id) {
+			return
+		}
+	}
 	if err != nil {
 		reason := "connector_unavailable"
 		status := http.StatusBadGateway

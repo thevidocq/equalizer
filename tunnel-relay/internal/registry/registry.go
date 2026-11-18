@@ -8,9 +8,12 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"io"
+	"net/http"
 	"os"
 	"regexp"
 	"sync/atomic"
+	"time"
 )
 
 // Connector is a registered connector.
@@ -31,10 +34,15 @@ var idRe = regexp.MustCompile(`^[a-z0-9][a-z0-9_-]{1,62}$`)
 func ValidID(id string) bool { return idRe.MatchString(id) }
 
 // Registry is the active set of connectors, swapped atomically on reload.
+// It reads connectors.json, or panel-api when a URL is set.
 type Registry struct {
 	path    string
+	url     string
+	token   string
+	client  *http.Client
 	current atomic.Pointer[map[string]Connector]
 	modTime atomic.Int64
+	digest  atomic.Value // string: SHA-256 of the last document from the panel
 }
 
 // New creates a registry for the file at path. Call Reload to load it.
@@ -42,12 +50,31 @@ func New(path string) *Registry {
 	r := &Registry{path: path}
 	empty := map[string]Connector{}
 	r.current.Store(&empty)
+	r.digest.Store("")
 	return r
 }
 
-// Reload reads the file if it changed. It returns true when the set changed.
-// On error the previous set stays active.
+// NewFromPanel creates a registry that reads GET /v1/internal/connectors.
+func NewFromPanel(url, token string) *Registry {
+	r := New("")
+	r.url, r.token, r.client = url, token, &http.Client{Timeout: 10 * time.Second}
+	return r
+}
+
+// Source describes where the connectors come from.
+func (r *Registry) Source() string {
+	if r.url != "" {
+		return "panel " + r.url
+	}
+	return "file " + r.path
+}
+
+// Reload reads the connectors if they changed. It returns true when the set
+// changed. On error the previous set stays active.
 func (r *Registry) Reload() (bool, error) {
+	if r.url != "" {
+		return r.reloadPanel()
+	}
 	info, err := os.Stat(r.path)
 	if err != nil {
 		return false, fmt.Errorf("reading connectors: %w", err)
@@ -65,6 +92,38 @@ func (r *Registry) Reload() (bool, error) {
 	}
 	r.current.Store(&set)
 	r.modTime.Store(info.ModTime().UnixNano())
+	return true, nil
+}
+
+func (r *Registry) reloadPanel() (bool, error) {
+	req, err := http.NewRequest(http.MethodGet, r.url, nil)
+	if err != nil {
+		return false, err
+	}
+	req.Header.Set("Authorization", "Bearer "+r.token)
+	resp, err := r.client.Do(req)
+	if err != nil {
+		return false, fmt.Errorf("panel unreachable: %w", err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		return false, fmt.Errorf("panel answered %d", resp.StatusCode)
+	}
+	raw, err := io.ReadAll(io.LimitReader(resp.Body, 8<<20))
+	if err != nil {
+		return false, err
+	}
+	sum := sha256.Sum256(raw)
+	digest := hex.EncodeToString(sum[:])
+	if digest == r.digest.Load().(string) {
+		return false, nil
+	}
+	set, err := Parse(raw)
+	if err != nil {
+		return false, err
+	}
+	r.current.Store(&set)
+	r.digest.Store(digest)
 	return true, nil
 }
 

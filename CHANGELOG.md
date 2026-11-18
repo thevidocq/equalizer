@@ -27,13 +27,67 @@ Add a section at the top of "Entries" for every commit:
 | tunnel-relay | Token-authenticated tunnels, forwarding, admin endpoints; single replica |
 | connector | Outbound tunnel, local allowlist, reconnection |
 | orchestrator | Not implemented yet |
-| panel-api | Not implemented yet |
+| panel-api | Auth, tenants, users, sites, connectors, maps with approval and signing, audit, internal endpoints |
 | panel-ui | Not implemented yet |
 | agent | Not implemented yet |
-| deploy/compose | Caddy (gateway and relay domains), gateway (2 replicas), Redis, tunnel-relay, Vector, Loki, Grafana; statically validated |
+| deploy/compose | Caddy (gateway and relay domains), gateway (2 replicas), Redis, PostgreSQL, panel-api, tunnel-relay, Vector, Loki, Grafana; statically validated |
 | tools (eqtool) | Map signing keys, form key, relay token, connector registration, map signing |
 
 ## Entries
+
+### 2026-11-18 — Add panel-api: tenants, sites, connectors, maps
+
+- **Branch:** `feat/panel-api`
+- **What:**
+  - Contract: OpenAPI updated with auth, tenants, users, apps, connectors
+    (create, rotate, delete), map lifecycle (draft, submit, approve, reject,
+    publish), internal endpoints for gateway and relay, error body; the
+    `X-Eq-Panel` CSRF header. Planned sections kept.
+  - `panel-api/` (new Go module): PostgreSQL (`lib/pq`), embedded
+    migrations with an advisory lock; PBKDF2 passwords, sessions stored as
+    SHA-256, login throttle, roles (platform admin/operator; tenant admin,
+    editor, approver, auditor) with tenant isolation; maps validated against
+    the embedded schema copy, panel-owned `meta`, Ed25519 signing at
+    publication, one published version per site and approver ≠ author
+    enforced by the database; audit log of every change;
+    `create-admin` subcommand; health endpoints; Dockerfile.
+  - Gateway: map source abstraction — file (as before) or panel
+    (`EQ_MAP_URL`, `EQ_MAP_TOKEN[_FILE]`, ETag polling every 15 s, retry
+    after a rejected map).
+  - tunnel-relay: connectors from the panel (`EQ_CONNECTORS_URL`,
+    `EQ_PANEL_TOKEN[_FILE]`), changes detected by digest; file kept as
+    fallback.
+  - Compose: `postgres` (16, volume, health check) and `panel-api`
+    (`127.0.0.1:8088`); gateway reads the map of `EQ_APP` from the panel;
+    relay reads connectors from the panel. **Fix:** services that read
+    `secrets/` now run as `EQ_UID:EQ_GID` (the files are `0600`; as
+    distroless `nonroot` the gateway could not read `form.key`).
+  - CI: panel-api in the Go matrix (tests use the runner's PostgreSQL) and
+    in image build/publish. `scripts/validate_schemas.py` checks embedded
+    schema copies.
+  - Docs: INSTALL (secrets, first administrator, panel workflow with
+    `curl`), panel-api README, architecture.
+- **Why:** without a panel every change meant files and commands on the
+  VPS. Now sites, connectors and maps live in one place, with four-eyes
+  approval and an audit trail.
+- **Status:** tests green with the race detector, including the full API
+  flow against a real PostgreSQL (isolation, roles, CSRF, author cannot
+  approve, signature verified with the public key, relay view of
+  connectors, audit) and login throttling. End to end with real binaries
+  and PostgreSQL: admin created, tenant, site, user, connector, map drafted
+  by an editor, approved and published by the admin; the gateway downloaded
+  the signed map from the panel and served the legacy app through relay and
+  connector, whose token came from the panel. **No web interface yet.** Not
+  done: MFA, user deactivation and password change, change classes
+  (automatic approval of narrowing changes), map diff, per-request
+  semantic checks of maps (only the schema), gateway serving several sites.
+- **Next steps:**
+  1. panel-ui: login, sidebar with sites, site page (connectors, map
+     versions with editor, approve and publish), users, audit.
+  2. MFA (TOTP) for panel users.
+  3. Service status page and log search.
+  4. Test the whole stack on the VPS.
+  5. Gateway serving several sites by host name.
 
 ### 2026-11-18 — Add rate limits and behaviour rules
 

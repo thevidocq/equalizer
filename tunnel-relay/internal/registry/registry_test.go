@@ -1,6 +1,8 @@
 package registry
 
 import (
+	"net/http"
+	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"testing"
@@ -51,5 +53,37 @@ func TestParseRejects(t *testing.T) {
 		if _, err := Parse([]byte(body)); err == nil {
 			t.Errorf("accepted: %s", body)
 		}
+	}
+}
+
+func TestRegistryFromPanel(t *testing.T) {
+	body := `{"connectors":[{"id":"cn-1","tenant":"t","app":"a","token_sha256":"` + Hash("secret") + `"}]}`
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Header.Get("Authorization") != "Bearer panel-tok" {
+			w.WriteHeader(http.StatusUnauthorized)
+			return
+		}
+		_, _ = w.Write([]byte(body))
+	}))
+	defer srv.Close()
+	r := NewFromPanel(srv.URL, "panel-tok")
+	if changed, err := r.Reload(); err != nil || !changed {
+		t.Fatalf("first reload: %v %v", changed, err)
+	}
+	if _, ok := r.Authenticate("cn-1", "secret"); !ok {
+		t.Fatal("connector from the panel not accepted")
+	}
+	if changed, _ := r.Reload(); changed {
+		t.Error("same document reported as changed")
+	}
+	body = `{"connectors":[]}`
+	if changed, _ := r.Reload(); !changed {
+		t.Error("new document not seen")
+	}
+	if _, ok := r.Authenticate("cn-1", "secret"); ok {
+		t.Error("removed connector still accepted")
+	}
+	if _, err := NewFromPanel(srv.URL, "wrong").Reload(); err == nil {
+		t.Error("wrong token accepted")
 	}
 }

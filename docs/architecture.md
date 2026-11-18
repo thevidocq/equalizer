@@ -39,7 +39,7 @@ Internet ──► gateway ──► tunnel-relay ◄══ outbound tunnel ═�
 | `tunnel-relay` | Go | Terminates connector tunnels, routes requests | `schema/tunnel/tunnel.md` |
 | `connector` | Go | Next to the legacy app; outbound tunnel; allowed destinations only | `schema/tunnel/tunnel.md` |
 | `orchestrator` | Go | Applies the configured capacity (replicas, autoscaling, pools) | Desired state from panel-api |
-| `panel-api` | Go | Tenants, maps, proposals, approvals, LLM, connectors, capacity, metrics, status, logs, SIEM, import/export, audit, signing | `schema/api/panel-api.yaml` |
+| `panel-api` | Go | Tenants, users, sites, connectors, maps with approval and signing, audit (done); proposals, LLM, capacity, metrics, status, logs, SIEM, import/export (planned) | `schema/api/panel-api.yaml` |
 | `panel-ui` | TypeScript, React | Panel | Client generated from OpenAPI |
 | `agent` | Python | Per-role crawling, analysis, map proposals | OpenAPI, `LLMProvider` interface |
 | `postgres` | — | Control-plane data | Versioned migrations |

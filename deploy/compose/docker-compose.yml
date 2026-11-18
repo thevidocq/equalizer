@@ -15,6 +15,7 @@ networks:
 
 volumes:
   caddy-data: {}
+  postgres-data: {}
   loki-data: {}
   grafana-data: {}
   vector-data: {}
@@ -22,6 +23,10 @@ volumes:
 x-collect: &collect
   labels:
     eq.collect: "true"
+
+# Services that read files in ./secrets run as the VPS user that owns them
+# (the files are created 0600 by eqtool).
+x-owner: &owner "${EQ_UID:-1000}:${EQ_GID:-1000}"
 
 services:
   caddy:
@@ -47,12 +52,17 @@ services:
       args:
         VERSION: ${EQ_VERSION:-dev}
     restart: unless-stopped
+    user: *owner
     deploy:
       replicas: ${EQ_GATEWAY_REPLICAS:-2}
     environment:
       EQ_PUBLIC_ADDR: ":8080"
       EQ_ADMIN_ADDR: ":9090"
       EQ_LOG_LEVEL: ${EQ_LOG_LEVEL:-info}
+      # The published map of EQ_APP comes from the panel. Without EQ_APP the
+      # gateway reads maps/current.json (maps signed by hand with eqtool).
+      EQ_MAP_URL: ${EQ_APP:+http://panel-api:8080/v1/internal/apps/${EQ_APP}/map}
+      EQ_MAP_TOKEN_FILE: /secrets/panel-internal.token
       EQ_MAP_FILE: /maps/current.json
       EQ_MAP_PUBKEY_FILE: /secrets/map-signing.pub
       EQ_MAP_KEY_ID: ${EQ_MAP_KEY_ID:-k1}
@@ -70,8 +80,55 @@ services:
       - ./secrets/map-signing.pub:/secrets/map-signing.pub:ro
       - ./secrets/form.key:/secrets/form.key:ro
       - ./secrets/relay.token:/secrets/relay.token:ro
+      - ./secrets/panel-internal.token:/secrets/panel-internal.token:ro
     networks: [edge, control]
     depends_on: [redis]
+
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: equalizer
+      POSTGRES_DB: equalizer
+      POSTGRES_PASSWORD_FILE: /run/secrets/postgres.password
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      - ./secrets/postgres.password:/run/secrets/postgres.password:ro
+    networks: [control]
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "equalizer"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  panel-api:
+    <<: *collect
+    build:
+      context: ../../panel-api
+      args:
+        VERSION: ${EQ_VERSION:-dev}
+    restart: unless-stopped
+    user: *owner
+    environment:
+      EQ_ADDR: ":8080"
+      EQ_ADMIN_ADDR: ":9092"
+      EQ_LOG_LEVEL: ${EQ_LOG_LEVEL:-info}
+      EQ_DATABASE_URL: postgres://equalizer@postgres:5432/equalizer?sslmode=disable
+      EQ_DATABASE_PASSWORD_FILE: /secrets/postgres.password
+      EQ_MAP_SIGNING_KEY_FILE: /secrets/map-signing.key
+      EQ_MAP_KEY_ID: ${EQ_MAP_KEY_ID:-k1}
+      EQ_INTERNAL_TOKEN_FILE: /secrets/panel-internal.token
+    volumes:
+      - ./secrets/postgres.password:/secrets/postgres.password:ro
+      - ./secrets/map-signing.key:/secrets/map-signing.key:ro
+      - ./secrets/panel-internal.token:/secrets/panel-internal.token:ro
+    # Never on the Internet: reach it over an SSH tunnel or VPN.
+    ports:
+      - "127.0.0.1:8088:8080"
+    networks: [control]
+    depends_on:
+      postgres:
+        condition: service_healthy
 
   redis:
     image: redis:7.4-alpine
@@ -87,17 +144,20 @@ services:
       args:
         VERSION: ${EQ_VERSION:-dev}
     restart: unless-stopped
+    user: *owner
     # One replica: a tunnel lives on one relay instance (see CHANGELOG).
     environment:
       EQ_TUNNEL_ADDR: ":8081"
       EQ_INTERNAL_ADDR: ":8082"
       EQ_ADMIN_ADDR: ":9091"
       EQ_LOG_LEVEL: ${EQ_LOG_LEVEL:-info}
-      EQ_CONNECTORS_FILE: /secrets/connectors.json
+      # Connectors registered in the panel.
+      EQ_CONNECTORS_URL: http://panel-api:8080/v1/internal/connectors
+      EQ_PANEL_TOKEN_FILE: /secrets/panel-internal.token
       EQ_GATEWAY_TOKEN_FILE: /secrets/relay.token
     volumes:
-      - ./secrets/connectors.json:/secrets/connectors.json:ro
       - ./secrets/relay.token:/secrets/relay.token:ro
+      - ./secrets/panel-internal.token:/secrets/panel-internal.token:ro
     # edge: Caddy brings the connectors' tunnels; control: the gateway calls it
     networks: [edge, control]
 

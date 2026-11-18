@@ -16,7 +16,9 @@ type Config struct {
 	AdminAddr       string         // address of /healthz, /readyz (control network only)
 	Instance        string         // instance name in logs
 	LogLevel        string         // debug, info, warn, error
-	MapFile         string         // SignedMap file (JSON)
+	MapFile         string         // SignedMap file (JSON), used when MapURL is empty
+	MapURL          string         // panel-api internal URL of the published map
+	MapToken        string         // token for MapURL
 	MapPublicKey    string         // Ed25519 public key, base64
 	MapPublicKeyID  string         // expected key identifier
 	TrustedProxies  []netip.Prefix // networks allowed to set X-Forwarded-For
@@ -52,6 +54,13 @@ func FromEnv() (Config, error) {
 	}
 	cfg.FormKey = formKey
 
+	cfg.MapURL = os.Getenv("EQ_MAP_URL")
+	if cfg.MapToken, err = secretValue("EQ_MAP_TOKEN"); err != nil {
+		return Config{}, err
+	}
+	if cfg.MapURL != "" && cfg.MapToken == "" {
+		return Config{}, fmt.Errorf("EQ_MAP_URL needs EQ_MAP_TOKEN or EQ_MAP_TOKEN_FILE")
+	}
 	cfg.RelayURL = os.Getenv("EQ_RELAY_URL")
 	cfg.RedisURL = os.Getenv("EQ_REDIS_URL")
 	if cfg.RelayToken, err = secretValue("EQ_RELAY_TOKEN"); err != nil {

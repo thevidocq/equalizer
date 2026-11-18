@@ -7,6 +7,8 @@ Docker Compose for the prototype on a VPS. Full guide in [`INSTALL.md`](../../IN
 | `caddy` | edge | 80, 443 | Automatic TLS, balances the gateway replicas |
 | `gateway` | edge, control | no | 2 replicas by default |
 | `redis` | control | no | Gateway sessions; no persistence |
+| `postgres` | control | no | Control-plane data (volume `postgres-data`) |
+| `panel-api` | control | `127.0.0.1:8088` only | Panel API, over an SSH tunnel |
 | `tunnel-relay` | edge, control | no (through Caddy on `EQ_RELAY_DOMAIN`) | Connector tunnels; 1 replica |
 | `loki` | control | no | Log store, 30 days |
 | `vector` | control | no | Collects logs from containers labelled `eq.collect=true` |
@@ -16,4 +18,4 @@ Docker Compose for the prototype on a VPS. Full guide in [`INSTALL.md`](../../IN
 The `lab` network is `internal`: test apps have no way out to the Internet.
 Local folders: `maps/` (signed maps, not in the repository) and `secrets/`
 (keys, not in the repository: `map-signing.key`/`.pub`, `form.key`,
-`relay.token`, `connectors.json`).
+`relay.token`, `panel-internal.token`, `postgres.password`).

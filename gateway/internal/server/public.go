@@ -90,8 +90,12 @@ func (p *Public) handle(w http.ResponseWriter, r *http.Request) string {
 		return ""
 	}
 
-	if m.Entry.Kind == router.KindRoute {
+	switch m.Entry.Kind {
+	case router.KindRoute:
 		p.serveRoute(w, r, active, m)
+		return m.Entry.ID
+	case router.KindAsset:
+		p.serveAsset(w, r, active, m)
 		return m.Entry.ID
 	}
 	p.Log.DebugContext(r.Context(), "voce trovata, tipo non ancora servito",

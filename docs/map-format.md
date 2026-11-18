@@ -31,6 +31,7 @@ Esempio completo: [`schema/map/examples/portale-pratiche.yaml`](../schema/map/ex
 | `api` | Endpoint JSON per le parti dinamiche |
 | `compat` | URL storici serviti o reindirizzati |
 | `callbacks` | Chiamate in ingresso da terzi, con verifica |
+| `assets` | File statici serviti per prefisso (CSS, immagini, script, font) con i tipi ammessi |
 | `external_links` | Domini esterni ammessi |
 | `behavior` | Soglie comportamentali |
 
@@ -40,6 +41,25 @@ Esempio completo: [`schema/map/examples/portale-pratiche.yaml`](../schema/map/ex
   identico.
 - `render: template`: vista nuova del gateway; richiede `template` ed
   `extract`.
+
+## Link e asset nelle pagine
+
+La resa fedele riscrive ogni URL interno trovato in una pagina (`href`,
+`src`, `action`, `srcset`, `<base>`, ...):
+
+1. se corrisponde a un `links` di una rotta o a una voce `compat`, diventa la
+   rotta pubblica;
+2. altrimenti, se corrisponde al `legacy_request` di una rotta GET (stesso
+   percorso, stesse chiavi di query), diventa quella rotta: spesso non serve
+   dichiarare `links`;
+3. se è sotto un prefisso `assets`, resta lo stesso percorso;
+4. altrimenti diventa un percorso relativo, che il gateway rifiuta (404) e
+   conta come URL non mappato.
+
+L'host del legacy non compare mai nella pagina. Gli URL esterni restano
+invariati. Gli asset vengono serviti solo se il `Content-Type` del legacy è
+tra i `types` del prefisso; le immagini raster vengono controllate anche sul
+contenuto reale. La query degli asset non viene mai inviata al legacy.
 
 ## Tipi di campo
 

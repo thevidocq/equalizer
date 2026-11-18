@@ -7,6 +7,7 @@ import (
 	"net/url"
 
 	"github.com/thevidocq/equalizer/gateway/internal/legacyclient"
+	"github.com/thevidocq/equalizer/gateway/internal/pipeline"
 	"github.com/thevidocq/equalizer/gateway/internal/placeholder"
 	"github.com/thevidocq/equalizer/gateway/internal/router"
 	"github.com/thevidocq/equalizer/gateway/internal/site"
@@ -17,10 +18,7 @@ import (
 
 // serveRoute serve una rotta in lettura: controlla il ruolo, valida
 // parametri e query, ricostruisce la richiesta verso il legacy e restituisce
-// la risposta filtrata.
-//
-// TODO: la pipeline di resa fedele (pulizia e riscrittura dell'HTML) non è
-// ancora applicata: il corpo del legacy passa così com'è.
+// la risposta filtrata, con la resa fedele per le pagine HTML.
 func (p *Public) serveRoute(w http.ResponseWriter, r *http.Request, st *site.Site, m router.Match) {
 	start := p.now()
 	route, ok := st.Model.RouteByID(m.Entry.ID)
@@ -71,7 +69,7 @@ func (p *Public) serveRoute(w http.ResponseWriter, r *http.Request, st *site.Sit
 		return
 	}
 
-	status := p.writeLegacy(w, r, st, route.ID, resp)
+	status := p.writeLegacy(w, r, st, route.ID, req.URL, resp)
 	ev := p.event(r, st, "request.served", "", status, telemetry.Ptr(route.ID))
 	total := float64(p.now().Sub(start).Microseconds()) / 1000
 	legacyMS := float64(resp.Duration.Microseconds()) / 1000
@@ -80,7 +78,7 @@ func (p *Public) serveRoute(w http.ResponseWriter, r *http.Request, st *site.Sit
 }
 
 // writeLegacy scrive la risposta del legacy e restituisce lo status inviato.
-func (p *Public) writeLegacy(w http.ResponseWriter, r *http.Request, st *site.Site, routeID string, resp *legacyclient.Response) int {
+func (p *Public) writeLegacy(w http.ResponseWriter, r *http.Request, st *site.Site, routeID string, pageURL *url.URL, resp *legacyclient.Response) int {
 	switch {
 	case resp.Status >= 500:
 		writePage(w, http.StatusBadGateway, pageBadGateway)
@@ -89,28 +87,67 @@ func (p *Public) writeLegacy(w http.ResponseWriter, r *http.Request, st *site.Si
 		writePage(w, http.StatusNotFound, pageNotFound)
 		return http.StatusNotFound
 	case resp.Status >= 300 && resp.Status < 400:
-		// I redirect del legacy saranno tradotti con links/compat; per ora
-		// non si espone mai un URL del legacy.
-		p.Log.WarnContext(r.Context(), "redirect del legacy non ancora tradotto",
-			slog.Group("detail", slog.String("route", routeID), slog.Int("status", resp.Status)))
-		writePage(w, http.StatusBadGateway, pageBadGateway)
-		return http.StatusBadGateway
+		return p.redirect(w, r, st, routeID, pageURL, resp)
 	case resp.Status >= 400:
 		writePage(w, http.StatusBadRequest, pageBadRequest)
 		return http.StatusBadRequest
 	}
 
+	body := resp.Body
 	h := w.Header()
 	for k, vs := range resp.Header {
 		for _, v := range vs {
 			h.Add(k, v)
 		}
 	}
+	if pipeline.IsHTML(resp.Header.Get("Content-Type")) {
+		ctx := &pipeline.Context{PageURL: pageURL, URLs: st.URLs}
+		out, err := st.Pipeline.Render(resp.Body, resp.Header.Get("Content-Type"), ctx)
+		if err != nil {
+			// Fail closed: meglio un errore di una pagina resa male.
+			p.Log.ErrorContext(r.Context(), "resa fedele non riuscita",
+				slog.String("error", err.Error()), slog.Group("detail", slog.String("route", routeID)))
+			writePage(w, http.StatusBadGateway, pageBadGateway)
+			return http.StatusBadGateway
+		}
+		body = out
+		h.Set("Content-Type", pipeline.ContentType)
+		p.Log.DebugContext(r.Context(), "pagina resa", slog.Group("detail",
+			slog.String("route", routeID), slog.String("charset", ctx.Stats.Charset),
+			slog.Int("rewritten", ctx.Stats.Rewritten), slog.Int("unmapped", ctx.Stats.Unmapped),
+			slog.Int("removed", ctx.Stats.Removed), slog.Any("unmapped_paths", ctx.Stats.UnmappedPaths)))
+	}
 	securityHeaders(h)
 	w.WriteHeader(resp.Status)
 	if r.Method != http.MethodHead {
-		_, _ = w.Write(resp.Body)
+		_, _ = w.Write(body)
 	}
+	return resp.Status
+}
+
+// redirect traduce un redirect del legacy in un redirect verso il gateway.
+// Un redirect verso un host esterno viene bloccato: le destinazioni esterne
+// ammesse arriveranno con external_links.
+func (p *Public) redirect(w http.ResponseWriter, r *http.Request, st *site.Site, routeID string, pageURL *url.URL, resp *legacyclient.Response) int {
+	loc, err := url.Parse(resp.Location)
+	if err == nil {
+		loc = pageURL.ResolveReference(loc)
+	}
+	if err != nil || !st.URLs.Internal(loc) {
+		p.Log.WarnContext(r.Context(), "redirect del legacy verso destinazione non ammessa",
+			slog.Group("detail", slog.String("route", routeID), slog.Int("status", resp.Status)))
+		writePage(w, http.StatusBadGateway, pageBadGateway)
+		return http.StatusBadGateway
+	}
+	target, ok := st.URLs.Public(loc)
+	if !ok {
+		target = st.URLs.Fallback(loc)
+		p.Log.InfoContext(r.Context(), "redirect del legacy verso un percorso non mappato",
+			slog.Group("detail", slog.String("route", routeID), slog.String("legacy_path", loc.Path)))
+	}
+	securityHeaders(w.Header())
+	w.Header().Set("Location", target)
+	w.WriteHeader(resp.Status)
 	return resp.Status
 }
 

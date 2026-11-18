@@ -41,6 +41,11 @@
       "type": "array",
       "items": { "$ref": "#/$defs/callback" }
     },
+    "assets": {
+      "type": "array",
+      "description": "File statici del legacy (CSS, immagini, script, font) serviti dal gateway per prefisso, con verifica del tipo.",
+      "items": { "$ref": "#/$defs/asset" }
+    },
     "external_links": { "$ref": "#/$defs/externalLinks" },
     "behavior": {
       "type": "array",
@@ -509,6 +514,26 @@
         },
         "body": { "$ref": "#/$defs/fieldMap" },
         "legacy_request": { "$ref": "#/$defs/legacyRequest" }
+      }
+    },
+    "asset": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["prefix", "types"],
+      "properties": {
+        "prefix": {
+          "type": "string",
+          "description": "Prefisso del percorso, uguale per pubblico e legacy, es. /css/",
+          "pattern": "^/([A-Za-z0-9_.\\-]+/)*$",
+          "not": { "pattern": "(^|/)\\.{1,2}/" }
+        },
+        "types": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "type": "string", "pattern": "^[a-z]+/[a-z0-9.+\\-]+$" }
+        },
+        "max_size_kb": { "type": "integer", "minimum": 1 },
+        "roles": { "type": "array", "items": { "$ref": "#/$defs/identifier" } }
       }
     },
     "externalLinks": {

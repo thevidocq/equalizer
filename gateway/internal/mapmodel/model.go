@@ -17,6 +17,15 @@ type Model struct {
 	Forms    []Form             `json:"forms"`
 	API      []APIRoute         `json:"api"`
 	Compat   []Compat           `json:"compat"`
+	Assets   []Asset            `json:"assets"`
+}
+
+// Asset è un prefisso di file statici del legacy servito dal gateway.
+type Asset struct {
+	Prefix    string   `json:"prefix"`
+	Types     []string `json:"types"`
+	MaxSizeKB int      `json:"max_size_kb"`
+	Roles     []string `json:"roles"`
 }
 
 // Meta identifica tenant, app e versione.
@@ -111,6 +120,15 @@ type Route struct {
 	Params        map[string]FieldSpec `json:"params"`
 	Query         map[string]FieldSpec `json:"query"`
 	LegacyRequest LegacyRequest        `json:"legacy_request"`
+	Links         []Link               `json:"links"`
+}
+
+// Link traduce un URL del legacy trovato in una pagina in una rotta pubblica.
+// Formato di Legacy: "/percorso?chiave={nome}", dove {nome} è un parametro
+// o un valore di query della rotta di destinazione.
+type Link struct {
+	Legacy string `json:"legacy"`
+	Route  string `json:"route"`
 }
 
 // Form è un'azione di scrittura (POST) su un percorso pubblico.

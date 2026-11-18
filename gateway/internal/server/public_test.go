@@ -43,6 +43,12 @@ func testSite(t *testing.T, legacy http.Handler) *site.Site {
 				LegacyRequest: mapmodel.LegacyRequest{Method: "GET", Path: "/detail.jsp", Query: map[string]string{"id": "{{params.id}}", "t": "{{query.tab}}"}}},
 			{ID: "riservata", Path: "/area", Method: "GET", Roles: []string{"cittadino"},
 				LegacyRequest: mapmodel.LegacyRequest{Method: "GET", Path: "/area.jsp"}},
+			{ID: "vecchia", Path: "/vecchia", Method: "GET", Roles: []string{"anonimo"},
+				LegacyRequest: mapmodel.LegacyRequest{Method: "GET", Path: "/old.jsp"}},
+		},
+		Assets: []mapmodel.Asset{
+			{Prefix: "/css/", Types: []string{"text/css"}},
+			{Prefix: "/img/", Types: []string{"image/png"}},
 		},
 	}
 	st, err := site.Build(m)
@@ -99,7 +105,7 @@ func TestReconstructsRequest(t *testing.T) {
 		"X-Forwarded-For": {"6.6.6.6"},
 		"Authorization":   {"Basic YWRtaW46YWRtaW4="},
 	})
-	if rec.Code != http.StatusOK || rec.Body.String() != "<p>pratica</p>" {
+	if rec.Code != http.StatusOK || !strings.Contains(rec.Body.String(), "<p>pratica</p>") {
 		t.Fatalf("risposta %d %q", rec.Code, rec.Body.String())
 	}
 	if seen.URL.Path != "/detail.jsp" || seen.URL.Query().Get("id") != "42" || seen.URL.Query().Get("t") != "allegati" {
@@ -198,5 +204,72 @@ func TestPublicWithoutMapFailsClosed(t *testing.T) {
 	h := newPublic(t, nil, io.Discard)
 	if rec := get(h, "GET", "/", nil); rec.Code != http.StatusServiceUnavailable {
 		t.Fatalf("status %d, atteso 503", rec.Code)
+	}
+}
+
+var pngHeader = []byte("\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR")
+
+func TestAssets(t *testing.T) {
+	var paths []string
+	st := testSite(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		paths = append(paths, r.URL.RequestURI())
+		switch r.URL.Path {
+		case "/css/stile.css":
+			w.Header().Set("Content-Type", "text/css")
+			_, _ = w.Write([]byte("body{color:red}"))
+		case "/img/logo.png":
+			w.Header().Set("Content-Type", "image/png")
+			_, _ = w.Write(pngHeader)
+		case "/img/shell.png":
+			w.Header().Set("Content-Type", "image/png")
+			_, _ = w.Write([]byte("<?php system($_GET['c']); ?>"))
+		case "/css/finto.css":
+			w.Header().Set("Content-Type", "application/x-httpd-php")
+			_, _ = w.Write([]byte("<?php ?>"))
+		}
+	}))
+	h := newPublic(t, st, io.Discard)
+
+	if rec := get(h, "GET", "/css/stile.css?v=3", nil); rec.Code != 200 || rec.Body.String() != "body{color:red}" {
+		t.Errorf("css: %d %q", rec.Code, rec.Body.String())
+	}
+	if rec := get(h, "GET", "/img/logo.png", nil); rec.Code != 200 {
+		t.Errorf("png valido: %d", rec.Code)
+	}
+	for _, target := range []string{"/img/shell.png", "/css/finto.css", "/css/../WEB-INF/web.xml", "/css/a//b.css", "/css/%7B%7Bx%7D%7D.css"} {
+		if rec := get(h, "GET", target, nil); rec.Code != http.StatusNotFound {
+			t.Errorf("%s: status %d, atteso 404", target, rec.Code)
+		}
+	}
+	for _, p := range paths {
+		if strings.Contains(p, "?") || strings.Contains(p, "WEB-INF") {
+			t.Errorf("richiesta al legacy non ammessa: %s", p)
+		}
+	}
+}
+
+func TestRedirectAndLinks(t *testing.T) {
+	st := testSite(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/old.jsp":
+			http.Redirect(w, r, "/detail.jsp?id=5&t=dati", http.StatusMovedPermanently)
+		case "/index.jsp":
+			w.Header().Set("Content-Type", "text/html")
+			_, _ = w.Write([]byte(`<a href="detail.jsp?id=9&t=allegati">x</a><a href="http://` + r.Host + `/segreto.jsp">y</a>`))
+		}
+	}))
+	h := newPublic(t, st, io.Discard)
+
+	rec := get(h, "GET", "/vecchia", nil)
+	if rec.Code != http.StatusMovedPermanently || rec.Header().Get("Location") != "/pratiche/5?tab=dati" {
+		t.Errorf("redirect non tradotto: %d %q", rec.Code, rec.Header().Get("Location"))
+	}
+	rec = get(h, "GET", "/", nil)
+	body := rec.Body.String()
+	if !strings.Contains(body, `href="/pratiche/9?tab=allegati"`) || !strings.Contains(body, `href="/segreto.jsp"`) || strings.Contains(body, "127.0.0.1") {
+		t.Errorf("link non riscritti: %s", body)
+	}
+	if ct := rec.Header().Get("Content-Type"); ct != "text/html; charset=utf-8" {
+		t.Errorf("Content-Type %q", ct)
 	}
 }

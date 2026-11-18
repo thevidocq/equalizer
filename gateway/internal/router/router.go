@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"sort"
 	"strings"
 )
 
@@ -16,6 +17,7 @@ const (
 	KindRoute Kind = "route"
 	KindForm  Kind = "form"
 	KindAPI   Kind = "api"
+	KindAsset Kind = "asset"
 )
 
 // Entry è una voce della mappa da instradare.
@@ -23,7 +25,7 @@ type Entry struct {
 	ID      string
 	Kind    Kind
 	Method  string
-	Pattern string // es. /pratiche/{id}
+	Pattern string // es. /pratiche/{id}; per KindAsset un prefisso, es. /css/
 }
 
 // Match è il risultato di un instradamento riuscito.
@@ -52,6 +54,7 @@ type segment struct {
 // Router contiene le voci compilate. È immutabile dopo New.
 type Router struct {
 	entries []compiled
+	assets  []Entry // prefissi, dal più lungo al più corto
 }
 
 // New compila le voci. Rifiuta pattern malformati o duplicati.
@@ -59,6 +62,13 @@ func New(entries []Entry) (*Router, error) {
 	r := &Router{}
 	seen := map[string]string{}
 	for _, e := range entries {
+		if e.Kind == KindAsset {
+			if !strings.HasPrefix(e.Pattern, "/") || !strings.HasSuffix(e.Pattern, "/") || strings.Contains(e.Pattern, "..") {
+				return nil, fmt.Errorf("prefisso asset non valido %q", e.Pattern)
+			}
+			r.assets = append(r.assets, e)
+			continue
+		}
 		segs, params, err := compile(e.Pattern)
 		if err != nil {
 			return nil, fmt.Errorf("voce %q: %w", e.ID, err)
@@ -70,6 +80,7 @@ func New(entries []Entry) (*Router, error) {
 		seen[key] = e.ID
 		r.entries = append(r.entries, compiled{entry: e, segments: segs, params: params})
 	}
+	sort.Slice(r.assets, func(i, j int) bool { return len(r.assets[i].Pattern) > len(r.assets[j].Pattern) })
 	return r, nil
 }
 
@@ -104,9 +115,16 @@ func (r *Router) Match(method, path string) (Match, error) {
 		return Match{Entry: best.entry, Params: bestVals}, nil
 	case pathFound:
 		return Match{}, ErrMethodNotAllowed
-	default:
-		return Match{}, ErrNotMapped
 	}
+	for _, a := range r.assets {
+		if strings.HasPrefix(path, a.Pattern) && len(path) > len(a.Pattern) {
+			if method != http.MethodGet {
+				return Match{}, ErrMethodNotAllowed
+			}
+			return Match{Entry: a, Params: map[string]string{"file": path[len(a.Pattern):]}}, nil
+		}
+	}
+	return Match{}, ErrNotMapped
 }
 
 func (c *compiled) match(parts []string) (map[string]string, bool) {

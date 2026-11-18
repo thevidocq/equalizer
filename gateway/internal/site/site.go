@@ -12,7 +12,11 @@ import (
 
 	"github.com/thevidocq/equalizer/gateway/internal/budget"
 	"github.com/thevidocq/equalizer/gateway/internal/legacyclient"
+	"github.com/thevidocq/equalizer/gateway/internal/legacyurl"
 	"github.com/thevidocq/equalizer/gateway/internal/mapmodel"
+	"github.com/thevidocq/equalizer/gateway/internal/pipeline"
+	"github.com/thevidocq/equalizer/gateway/internal/pipeline/clean"
+	"github.com/thevidocq/equalizer/gateway/internal/pipeline/rewrite"
 	"github.com/thevidocq/equalizer/gateway/internal/placeholder"
 	"github.com/thevidocq/equalizer/gateway/internal/router"
 	"github.com/thevidocq/equalizer/gateway/internal/transport"
@@ -33,6 +37,13 @@ type Site struct {
 	Validator *validate.Validator
 	Legacy    *legacyclient.Client
 	Budget    *budget.Limiter
+	URLs      *legacyurl.Rewriter
+	Pipeline  *pipeline.Pipeline
+}
+
+// DefaultSteps è l'ordine predefinito dei passi della resa fedele.
+func DefaultSteps() []pipeline.Step {
+	return []pipeline.Step{clean.Step{}, rewrite.Step{}}
 }
 
 // Build compila la mappa. Rifiuta mappe incoerenti invece di servirle a metà.
@@ -81,13 +92,30 @@ func Build(m *mapmodel.Model) (*Site, error) {
 		return nil, err
 	}
 
+	urls, err := legacyurl.New(lc.Base(), m)
+	if err != nil {
+		return nil, fmt.Errorf("link: %w", err)
+	}
+
 	return &Site{
 		Model:     m,
 		Router:    rt,
 		Validator: v,
 		Legacy:    lc,
 		Budget:    budget.New(m.Defaults.LegacyBudget.MaxConcurrency, budgetWait),
+		URLs:      urls,
+		Pipeline:  pipeline.New(DefaultSteps()...),
 	}, nil
+}
+
+// AssetByPrefix restituisce la voce asset con quel prefisso.
+func (s *Site) AssetByPrefix(prefix string) (*mapmodel.Asset, bool) {
+	for i := range s.Model.Assets {
+		if s.Model.Assets[i].Prefix == prefix {
+			return &s.Model.Assets[i], true
+		}
+	}
+	return nil, false
 }
 
 // RoleAllowed dice se il ruolo può accedere a una voce con quei ruoli.
@@ -107,8 +135,14 @@ func Entries(m *mapmodel.Model) []router.Entry {
 	for _, a := range m.API {
 		out = append(out, router.Entry{ID: a.ID, Kind: router.KindAPI, Method: a.Method, Pattern: a.Path})
 	}
+	for _, a := range m.Assets {
+		out = append(out, router.Entry{ID: AssetID(a.Prefix), Kind: router.KindAsset, Method: http.MethodGet, Pattern: a.Prefix})
+	}
 	return out
 }
+
+// AssetID è l'id di instradamento di un prefisso di asset.
+func AssetID(prefix string) string { return "asset:" + prefix }
 
 func checkTemplates(lr mapmodel.LegacyRequest) error {
 	if err := placeholder.Check(lr.Path); err != nil {

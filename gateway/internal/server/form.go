@@ -13,6 +13,7 @@ import (
 	"github.com/thevidocq/equalizer/gateway/internal/charset"
 	"github.com/thevidocq/equalizer/gateway/internal/formtoken"
 	"github.com/thevidocq/equalizer/gateway/internal/legacyclient"
+	"github.com/thevidocq/equalizer/gateway/internal/limits"
 	"github.com/thevidocq/equalizer/gateway/internal/mapmodel"
 	"github.com/thevidocq/equalizer/gateway/internal/placeholder"
 	"github.com/thevidocq/equalizer/gateway/internal/router"
@@ -96,7 +97,7 @@ func (p *Public) serveForm(w http.ResponseWriter, r *http.Request, st *site.Site
 		return
 	}
 	ss.apply(req)
-	if !st.Budget.Acquire(r.Context()) {
+	if !p.acquireLegacy(r, st, form.ID) {
 		writePage(w, http.StatusServiceUnavailable, pageUnavailable)
 		return
 	}
@@ -126,6 +127,9 @@ func (p *Public) serveForm(w http.ResponseWriter, r *http.Request, st *site.Site
 			sent = http.StatusSeeOther
 		}
 	}
+	login := form.Session != nil && form.Session.Start != ""
+	// The answer is already decided: a rule crossed now applies from the next request.
+	p.observe(w, r, st, form.ID, limits.Observation{Params: params, FailedLogin: login && outcome == "failure"}, false)
 	if sent == 0 {
 		// The legacy answer is shown as is: its own confirmation or error page.
 		sent = p.writeLegacy(w, r, st, form.ID, req.URL, resp)

@@ -20,6 +20,7 @@ import (
 	"github.com/thevidocq/equalizer/gateway/internal/clientip"
 	"github.com/thevidocq/equalizer/gateway/internal/config"
 	"github.com/thevidocq/equalizer/gateway/internal/formtoken"
+	"github.com/thevidocq/equalizer/gateway/internal/limits"
 	"github.com/thevidocq/equalizer/gateway/internal/mapstore"
 	"github.com/thevidocq/equalizer/gateway/internal/server"
 	"github.com/thevidocq/equalizer/gateway/internal/session"
@@ -62,7 +63,17 @@ func run() error {
 	if relay == nil {
 		log.Warn("EQ_RELAY_URL not set: maps in connector mode answer 502")
 	}
-	store := mapstore.NewStore(cfg.MapFile, pub, cfg.MapPublicKeyID, site.Options{Relay: relay})
+	formKey := cfg.FormKey
+	if formKey == nil {
+		formKey = formtoken.RandomKey()
+		log.Warn("EQ_FORM_KEY not set: random form key, forms work only with a single replica")
+	}
+	sessions, counters, closeStore, err := stores(context.Background(), cfg, formKey, log)
+	if err != nil {
+		return err
+	}
+	defer closeStore()
+	store := mapstore.NewStore(cfg.MapFile, pub, cfg.MapPublicKeyID, site.Options{Relay: relay, Limits: counters})
 	active, err := store.Reload()
 	logReload(log, active, err)
 
@@ -82,21 +93,10 @@ func run() error {
 	}()
 	go store.Watch(ctx, 15*time.Second, trigger, func(st *site.Site, err error) { logReload(log, st, err) })
 
-	formKey := cfg.FormKey
-	if formKey == nil {
-		formKey = formtoken.RandomKey()
-		log.Warn("EQ_FORM_KEY not set: random form key, forms work only with a single replica")
-	}
 	sealer, err := formtoken.New(formKey)
 	if err != nil {
 		return err
 	}
-
-	sessions, closeStore, err := sessionManager(ctx, cfg, formKey, log)
-	if err != nil {
-		return err
-	}
-	defer closeStore()
 
 	public := &server.Public{
 		Forms:    sealer,
@@ -140,19 +140,20 @@ func run() error {
 	return nil
 }
 
-// sessionManager builds the session store: Redis when configured (shared by
-// the replicas), otherwise in process. Sessions use a key derived from the
-// gateway secret (EQ_FORM_KEY).
-func sessionManager(ctx context.Context, cfg config.Config, key []byte, log *slog.Logger) (*session.Manager, func(), error) {
+// stores builds the session and limits stores: Redis when configured
+// (shared by the replicas), otherwise in process. Sessions use a key derived
+// from the gateway secret (EQ_FORM_KEY).
+func stores(ctx context.Context, cfg config.Config, key []byte, log *slog.Logger) (*session.Manager, limits.Store, func(), error) {
 	var store session.Store
+	var counters limits.Store
 	closeStore := func() {}
 	if cfg.RedisURL == "" {
-		log.Warn("EQ_REDIS_URL not set: sessions in memory, single replica only")
-		store = session.NewMemory()
+		log.Warn("EQ_REDIS_URL not set: sessions and rate limits in memory, single replica only")
+		store, counters = session.NewMemory(), limits.NewMemory()
 	} else {
 		r, err := session.NewRedis(cfg.RedisURL)
 		if err != nil {
-			return nil, nil, fmt.Errorf("EQ_REDIS_URL: %w", err)
+			return nil, nil, nil, fmt.Errorf("EQ_REDIS_URL: %w", err)
 		}
 		pingCtx, cancel := context.WithTimeout(ctx, 3*time.Second)
 		defer cancel()
@@ -160,10 +161,10 @@ func sessionManager(ctx context.Context, cfg config.Config, key []byte, log *slo
 			// Not fatal: anonymous pages keep working and Redis may come up later.
 			log.Error("session store unreachable", slog.String("error", err.Error()))
 		}
-		store, closeStore = r, func() { _ = r.Close() }
+		store, counters, closeStore = r, limits.NewRedis(r.Client()), func() { _ = r.Close() }
 	}
 	m, err := session.NewManager(store, key)
-	return m, closeStore, err
+	return m, counters, closeStore, err
 }
 
 func logReload(log *slog.Logger, a *site.Site, err error) {
@@ -176,6 +177,9 @@ func logReload(log *slog.Logger, a *site.Site, err error) {
 		slog.String("app", a.Model.Meta.App),
 		slog.Int("map_version", a.Model.Meta.Version),
 	))
+	for _, n := range a.Notes {
+		log.Warn("map feature not applied yet", slog.Group("detail", slog.String("note", n)))
+	}
 }
 
 func healthcheck() int {

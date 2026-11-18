@@ -7,6 +7,7 @@ import (
 	"net/url"
 
 	"github.com/thevidocq/equalizer/gateway/internal/legacyclient"
+	"github.com/thevidocq/equalizer/gateway/internal/limits"
 	"github.com/thevidocq/equalizer/gateway/internal/pipeline"
 	"github.com/thevidocq/equalizer/gateway/internal/placeholder"
 	"github.com/thevidocq/equalizer/gateway/internal/router"
@@ -48,6 +49,10 @@ func (p *Public) serveRoute(w http.ResponseWriter, r *http.Request, st *site.Sit
 		return
 	}
 
+	if !p.observe(w, r, st, route.ID, limits.Observation{Params: merge(params, queryVals)}, true) {
+		return
+	}
+
 	req, err := st.Legacy.Build(r.Context(), route.LegacyRequest, placeholder.Values{"params": params, "query": queryVals})
 	if err != nil {
 		p.Log.ErrorContext(r.Context(), "cannot build the legacy request",
@@ -57,9 +62,7 @@ func (p *Public) serveRoute(w http.ResponseWriter, r *http.Request, st *site.Sit
 	}
 
 	ss.apply(req)
-	if !st.Budget.Acquire(r.Context()) {
-		p.Log.WarnContext(r.Context(), "legacy budget exhausted",
-			slog.Group("detail", slog.String("route", route.ID), slog.Int("in_flight", st.Budget.InFlight())))
+	if !p.acquireLegacy(r, st, route.ID) {
 		writePage(w, http.StatusServiceUnavailable, pageUnavailable)
 		return
 	}
@@ -206,6 +209,17 @@ func securityHeaders(h http.Header) {
 	h.Set("Referrer-Policy", "strict-origin-when-cross-origin")
 	h.Set("X-Frame-Options", "SAMEORIGIN")
 	h.Set("Strict-Transport-Security", "max-age=31536000")
+}
+
+func merge(a, b map[string]string) map[string]string {
+	out := make(map[string]string, len(a)+len(b))
+	for k, v := range b {
+		out[k] = v
+	}
+	for k, v := range a {
+		out[k] = v
+	}
+	return out
 }
 
 func single(m map[string]string) url.Values {

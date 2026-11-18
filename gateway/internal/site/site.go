@@ -14,6 +14,7 @@ import (
 	"github.com/thevidocq/equalizer/gateway/internal/formmap"
 	"github.com/thevidocq/equalizer/gateway/internal/legacyclient"
 	"github.com/thevidocq/equalizer/gateway/internal/legacyurl"
+	"github.com/thevidocq/equalizer/gateway/internal/limits"
 	"github.com/thevidocq/equalizer/gateway/internal/mapmodel"
 	"github.com/thevidocq/equalizer/gateway/internal/pipeline"
 	"github.com/thevidocq/equalizer/gateway/internal/pipeline/clean"
@@ -32,7 +33,8 @@ var ErrConnectorUnavailable = transport.ErrConnectorUnavailable
 
 // Options are the installation settings a map cannot carry.
 type Options struct {
-	Relay *transport.RelayConfig // nil: connector mode answers 502
+	Relay  *transport.RelayConfig // nil: connector mode answers 502
+	Limits limits.Store           // nil: counters in this process only
 }
 
 // How long to wait when the legacy application is saturated.
@@ -48,6 +50,8 @@ type Site struct {
 	URLs      *legacyurl.Rewriter
 	Forms     *formmap.Map
 	Pipeline  *pipeline.Pipeline
+	Limits    *limits.Set
+	Notes     []string // map features accepted but not applied yet
 
 	unsupported map[string]string // form id → reason it cannot be served yet
 }
@@ -130,7 +134,18 @@ func BuildWith(m *mapmodel.Model, opts Options) (*Site, error) {
 		return nil, fmt.Errorf("links: %w", err)
 	}
 
+	store := opts.Limits
+	if store == nil {
+		store = limits.NewMemory()
+	}
+	lim, notes, err := limits.Compile(m, store)
+	if err != nil {
+		return nil, err
+	}
+
 	return &Site{
+		Limits:    lim,
+		Notes:     notes,
 		Model:     m,
 		Router:    rt,
 		Validator: v,

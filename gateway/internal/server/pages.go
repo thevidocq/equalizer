@@ -13,6 +13,7 @@ const (
 	pageBadGateway  = "The service is not responding. Please try again shortly."
 	pageUnavailable = "Service temporarily unavailable. Please try again shortly."
 	pageError       = "An error occurred. Please try again shortly."
+	pageTooMany     = "Too many requests. Please try again later."
 )
 
 func writePage(w http.ResponseWriter, status int, message string) {

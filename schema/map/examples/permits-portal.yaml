@@ -173,6 +173,12 @@ external_links:
   default: exit_page
 
 behavior:
+  - id: login_bruteforce
+    route: login
+    signal: failed_logins
+    threshold: { count: 5, window: 15m, per: ip }
+    action: [block, alert]
+
   - id: permit_enumeration
     route: permit_detail
     signal: distinct_param_values

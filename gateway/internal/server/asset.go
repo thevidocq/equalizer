@@ -47,7 +47,7 @@ func (p *Public) serveAsset(w http.ResponseWriter, r *http.Request, st *site.Sit
 		return
 	}
 	ss.apply(req) // cookies set by assets are ignored
-	if !st.Budget.Acquire(r.Context()) {
+	if !p.acquireLegacy(r, st, m.Entry.ID) {
 		writePage(w, http.StatusServiceUnavailable, pageUnavailable)
 		return
 	}

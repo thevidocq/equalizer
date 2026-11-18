@@ -1,195 +1,188 @@
 # Tenant administrator manual
 
-For whoever protects their own sites with Equalizer: adding a site,
-connector, map, testing, cutover, day-to-day use.
+For whoever protects their own sites with Equalizer: adding a site, the
+connector, the map, approval, isolation and day-to-day use.
 
-> **Status:** the panel is in development. This manual describes the planned
-> behaviour; the real status of each feature is in `CHANGELOG.md`.
+> This manual describes what the panel does today. What is not available
+> yet is listed at the end. Screenshots use a fictitious company, Acme.
 
 ## 1. The panel
 
-- **Sidebar**: Overview, the list of **protected sites** with a status dot
-  (green protected, yellow in testing or with proposals, red alert),
-  **+ Protect a site**, Settings, Audit.
-- **Top bar**: notifications and user menu.
-- **Site page**: tabs Overview, Proposals, Map, Preview, Connectors,
-  Capacity, Events, Logs, DNS.
+![Protected sites](../screenshots/sites.png)
 
-Tenant roles: **administrator**, **editor** (edits the map), **approver**,
-**auditor** (read-only). Whoever makes a change cannot approve it.
+- **Protected sites**: your sites, each with a dot (green protected, grey
+  being set up, red exposed), and **+ Protect a site**.
+- **Status**, **Connectors**, **People**, **Activity**, **Logs**,
+  **Settings**: some pages depend on your role.
+- A site has three tabs: **Map**, **Discovery**, **Isolation**.
 
-**Joining and inviting** *(available)*: the first administrator receives an
-email from the platform with a link to choose a password. Then **People →
-Invite a person** (name, email, role): the link works once and expires in 48
-hours; pending invitations can be revoked.
+Tenant roles: **administrator** (everything), **editor** (writes maps),
+**approver** (approves and publishes), **auditor** (reads). Whoever writes a
+version cannot approve it.
 
-**Authorisation and rollback** *(available)*: on pages that show one
-person's data (a permit, an invoice), the map can say `owned_by_user`: each
-user opens only the objects the site listed for them, and changing the
-number in the address gives 403. If a new version breaks the site, open the
-previous version and **Roll back to this version**: it is live again within
-15 seconds.
+| Page | Administrator | Editor | Approver | Auditor |
+| --- | --- | --- | --- | --- |
+| Sites, Status, People | yes | yes | yes | yes |
+| Connectors, Settings, Isolation | yes | | | |
+| Activity | yes | | yes | yes |
+| Map: write drafts, import | yes | yes | | |
+| Map: approve, publish, roll back | yes | | yes | |
+| Logs | yes | | yes | yes |
 
-**Review aid** *(available)*: every version shows what it changes against
-the published map and the risks found by fixed rules (a type widened, an
-admin or backup path, a page with personal data and no authorisation rule,
-direct mode…). With an AI model, a summary and the questions to ask before
-approving appear too. Approving stays your decision.
+### Joining and inviting
 
-**Discovery** *(available)*: **Site → Discovery → Start discovery**. The
-agent explores the site through the connector, never from the Internet, and
-opens no admin area. With a test account it also explores as a logged-in
-user. The report shows what was found, what was kept out and why, and what
-visitors asked for; if the map should change it proposes a draft, which you
-review and send for approval. **Continuous discovery** (every day or week)
-does it again and proposes only what changed. **Settings → AI**: your own
-model (Claude, OpenAI or your server) makes the proposal better; without it
-discovery still works.
+The first administrator receives an email from the platform with a link to
+choose a password and set up an authenticator app. Then **People → Invite a
+person** (name, email, role): the link works once and expires in 48 hours;
+pending invitations can be revoked.
 
-**Templates** *(available)*: when you protect a site, choose what it is
-built with (WordPress, Joomla, Drupal, Moodle or another site). The first
-map can start from a template with its pages, files and forms; admin areas
-stay closed. Add the pages that are only yours, then send it for review.
+![People](../screenshots/people.png)
 
-**Connectors and isolation** *(available)*: install one connector per
-server (**Connectors**); it serves all the sites on that server. In each
-site, **Isolation** checks that the site no longer answers on its old public
-IP, and gives the lines to copy for Apache, nginx or IIS: move the site to
-an internal address, or let only the connector in. The other sites of the
-server stay as they are. If a protected site becomes reachable again, it
-turns red and the event appears in **Activity**.
+### Privacy
 
-**Privacy** *(available)*: the platform operator sees your tenant's name and
-the names of your sites with their status (protected or being set up),
-nothing else: not your maps, connectors, people or activity.
+The platform operator sees your tenant's name and, per site, its name and
+status (protected or being set up). Nothing else: not your maps, connectors,
+people, logs or activity.
 
 ## 2. Protecting a site
 
-The original site keeps working as before throughout the procedure: no
-downtime.
+The original site keeps working as it is during the whole procedure.
 
-### Step 1 — Site details
+### Step 1 — The site
 
-**+ Protect a site**: public domain (e.g. `portal.example-city.gov`) and
-internal address of the legacy application (e.g. `http://10.20.0.15:8080`).
+**+ Protect a site**: name, public domain (e.g. `portal.acme.example`) and
+what it is built with (WordPress, Joomla, Drupal, Moodle or another site).
+The choice lets the first map start from a template.
 
-### Step 2 — Connector
+### Step 2 — The connector
 
-1. The panel generates a token (one-time, 24 hours) and shows the command.
-2. On a machine with Docker on the legacy application's network:
+One connector per server: it serves every site on that server.
+**Connectors → Add a connector** gives a token, shown once, and the command
+to run on the server (Docker or a binary, see `INSTALL.md`). The connector
+only opens an outbound HTTPS connection: no inbound port. Its `EQ_ALLOW`
+lists the addresses it may reach; nothing else is reachable through it,
+whatever it is asked.
 
-```bash
-docker run -d --name eq-connector --restart unless-stopped \
-  -e EQ_RELAY_URL=<relay address> \
-  -e EQ_CONNECTOR_ID=<connector id> \
-  -e EQ_CONNECTOR_TOKEN=<token> \
-  -e EQ_ALLOW=<legacy host:port> \
-  ghcr.io/thevidocq/equalizer-connector:latest
-```
+![Connectors](../screenshots/connectors.png)
 
-3. The panel shows **Connector online**. Only outbound HTTPS (port 443) is
-   needed: no inbound port. `EQ_ALLOW` is yours: the connector reaches
-   nothing else, whatever it is asked.
+### Step 3 — The first map
 
-For redundancy you can install a second connector with a new token.
+**Site → Map → New version**:
 
-### Step 3 — Crawl
+- **Start from a template**: choose the connector and the address of the
+  site on the server; the editor fills with the pages, files and forms of
+  that CMS. Admin areas stay closed.
+- **Import a map file**: a YAML or JSON map exported from another site.
+- Or write it in the editor (format in `docs/map-format.md`).
 
-1. Enter the test accounts for each role (anonymous, user, operator...).
-   They are stored in the vault.
-2. Start the crawl. Within a few hours the agent proposes the map, for
-   example: "42 pages, 8 forms, 3 fields to review".
+![New version](../screenshots/new-version.png)
 
-### Step 4 — Review
+**Save draft** checks the format, that the connector is yours and the
+address is allowed. Then **Send for review**.
 
-1. **Proposals**: for each proposal you see the diff, the risk and the
-   rationale.
-2. **Preview**: legacy and protected site side by side, with the result of
-   the visual comparison.
-3. **Map editor**: fix the flagged fields (e.g. which characters the
-   "notes" field accepts).
-4. Changes that open new pages or widen fields need approval from a second
-   person.
+### Step 4 — Discovery
 
-### Step 5 — Testing
+**Site → Discovery → Start discovery**. The agent explores the site through
+the connector, never from the Internet, opens no admin area and follows no
+link that changes something. With a test account it also explores as a
+logged-in user (the password is encrypted and deleted at the end).
 
-- **Trial**: the protected site answers on a test address
-  (e.g. `new.portal.example-city.gov`). Browse it as a user would.
-- **Shadow**: the gateway receives a copy of real traffic and measures how
-  many pages the map covers. The panel shows the percentage and what is
-  missing.
+![Discovery](../screenshots/discovery.png)
 
-### Step 6 — Cutover
+The report shows what was found, what was kept out and why, what visitors
+asked for that the map lacks, and the protection against IDOR it proposes
+for JSON APIs (a list and a detail with the same id). If the map should
+change, a draft is proposed: review it and send it for approval.
+**Continuous discovery** (every day or week) explores again and proposes a
+draft only when something changed.
 
-**DNS** tab, a guided checklist:
+**Settings → AI**: your own model (Claude, OpenAI or your own server) names
+routes, spots sensitive pages and narrows types. The key is yours, encrypted
+and never shown again. Without a model discovery still works.
 
-1. Lower the DNS record TTL at least 24 hours in advance.
-2. Set the CNAME shown by the panel. With **Cloudflare**: CNAME in the
-   dashboard; if the proxy is orange, SSL in "Full (strict)" mode.
-3. The panel checks propagation.
-4. A few days in **parallel**, then **final**.
-5. **Close public access to the legacy application** (old IP, port 443).
-   Probes verify it: as long as the legacy application answers from the
-   Internet, the protection does not hold.
+![Settings](../screenshots/settings-ai.png)
+
+### Step 5 — Review and approval
+
+Each version shows what it changes against the published map and the risks
+found by fixed rules (a type widened, an admin or backup path, a page with
+personal data and no authorisation rule, an answer that grants access to
+more objects…). With an AI model a summary and the questions to ask appear
+too. Approving stays a person's decision.
+
+![Review aid](../screenshots/review.png)
+
+**Approve**, then **Publish**: the gateways load the signed map within 15
+seconds. Every version can be downloaded with **Download as YAML**.
+
+![Versions](../screenshots/maps.png)
+
+### Step 6 — Point the domain and isolate the site
+
+1. Point the site's DNS record to the platform (the address is given by the
+   platform operator). The certificate is issued automatically.
+2. **Site → Isolation**: enter the old public IP of the site. Equalizer
+   checks regularly that the site no longer answers there, and gives the
+   lines to copy for Apache, nginx or IIS: move the site to an internal
+   address, or let only the connector in. The other sites on the server stay
+   as they are.
+
+![Isolation](../screenshots/isolation.png)
+
+If a protected site becomes reachable again on its old IP, it turns red on
+the Status page and in Activity.
 
 ## 3. Day-to-day use
 
-### Site overview
+### Status
 
-| Group | What you see |
-| --- | --- |
-| Traffic | Requests, estimated unique visitors, bandwidth, most viewed pages |
-| Protection | Requests blocked by reason, rejected fields, rate limits, most blocked paths and IPs |
-| Performance | Latency (gateway and legacy), cache, legacy errors |
-| Coverage | Unmapped URLs, unrecognised historical URLs, visual comparison |
-| Connectivity | Connectors online, tunnel latency |
-| Agent | Last crawl, pending proposals |
+Whether each site works, and which part is broken: published map,
+connector, legacy site (errors in the last 15 minutes), isolation, and the
+last 7 days. Refreshed every 30 seconds.
 
-### Typical notifications
-
-- "The legacy application changed page X: proposal ready" → open Proposals
-  and approve.
-- "Connector offline" → check the connector machine and its network.
-- "Legacy exposed" → close public access to the old IP at once.
-
-## 4. Configuration
-
-### Capacity
-
-**Capacity** tab, within the plan limits:
-
-- minimum and maximum replicas and autoscaling threshold;
-- shared or dedicated pool (if the plan allows it);
-- **cache** for public pages (reduces load on the legacy application);
-- **budget towards the legacy application**: maximum requests per second and
-  concurrent requests.
-
-### LLM provider
-
-**Settings → LLM**: use the platform provider or your own (Claude, ChatGPT or
-a local model at an internal address). The key is write-only. With cloud
-providers personal-data masking is active.
+![Status](../screenshots/status.png)
 
 ### Logs
 
-The site's **Logs** tab: search, live tail, export. You only see the logs of
-your own sites. For a problem on a page, enable **request tracing** for a few
-minutes and reproduce the problem.
+What the gateway served and refused on your sites, for 30 days: filters by
+site, period, kind of event and free search (IP address, path, request ID).
+A row opens its detail in plain words; on a path that is not in the map,
+**Add to the map** opens a new version. **Live** refreshes every few
+seconds; **Export CSV** downloads up to 10 000 events (recorded in
+Activity). Field values are never stored, only the field name and the rule
+that refused it.
 
-### Forwarding to your SIEM
+![Logs](../screenshots/logs.png)
 
-**Settings → SIEM forwarding**: destination (syslog, Splunk HEC, Sentinel,
-webhook), format (JSON, CEF, LEEF), streams (security, audit, application),
-syslog facility per stream, test message. You only receive data about your
-own sites.
+### Activity
 
-### Import and export
+Who did what: logins, invitations, maps written, approved, published, rolled
+back, exports.
 
-**Settings → Import and export**: export the tenant or a single site (maps,
-capacity, settings; secrets excluded). An import shows the preview first, and
-maps arrive as proposals to approve.
+![Activity](../screenshots/activity.png)
 
-## 5. Rollback
+### Rollback
 
-**Map → Versions**: every publication is a version. If a change causes
-problems, republish the previous version with one click.
+If a new version breaks the site, open the previous version and **Roll back
+to this version**: it is live again within 15 seconds.
+
+## 4. What the map protects
+
+- **Only what is declared exists**: any other path is 404, any other method
+  405, any undeclared field 400.
+- **Typed fields** with rules (no SQL or HTML characters where not
+  expected), rate limits and behaviour rules against brute force and
+  scanners.
+- **Authorisation** (`owned_by_user`): each user opens only the objects the
+  site showed them, in its pages, redirects or JSON answers; changing the
+  number in the address gives 403.
+- **Uploads**: real type read from the bytes, size limit, random name,
+  images rebuilt from their pixels. Equalizer does not scan for viruses:
+  keep your antivirus or EDR on the legacy server.
+
+## 5. Not available yet
+
+- Forwarding to your SIEM (Splunk, Sentinel, syslog).
+- Capacity settings (replicas, cache) from the panel.
+- Single sign-on (OIDC) and one legacy account per user.
+- Alerts for known vulnerabilities of the detected CMS version.

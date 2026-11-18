@@ -22,6 +22,18 @@ panel → panel-api ← proposals ← AI agent (crawls the legacy app)
 - Every request is **rebuilt**, never forwarded as is.
 - An AI agent proposes the map; people approve it from a multitenant panel.
 
+## Screenshots
+
+| | |
+| --- | --- |
+| ![Status](docs/screenshots/status.png) | ![Logs](docs/screenshots/logs.png) |
+| Status of each site | Logs of what the gateway served and refused |
+| ![Review aid](docs/screenshots/review.png) | ![Discovery](docs/screenshots/discovery.png) |
+| Review aid before approving a map | Discovery through the connector |
+
+More in the manuals ([tenant](docs/manual/tenant.md), [platform](docs/manual/admin.md)).
+Screenshots use a fictitious company, Acme.
+
 ## Documentation
 
 | Document | Contents |

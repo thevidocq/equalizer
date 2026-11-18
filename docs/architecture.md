@@ -39,14 +39,15 @@ Internet ──► gateway ──► tunnel-relay ◄══ outbound tunnel ═�
 | `tunnel-relay` | Go | Terminates connector tunnels, routes requests | `schema/tunnel/tunnel.md` |
 | `connector` | Go | Next to the legacy app; outbound tunnel; allowed destinations only | `schema/tunnel/tunnel.md` |
 | `orchestrator` | Go | Applies the configured capacity (replicas, autoscaling, pools) | Desired state from panel-api |
-| `panel-api` | Go | Tenants, email invitations, users, sites, connectors, maps with approval and signing, audit, platform/tenant privacy (done); proposals, LLM, capacity, metrics, status, logs, SIEM, import/export (planned) | `schema/api/panel-api.yaml` |
+| `panel-api` | Go | Tenants, email invitations, users, sites, connectors, maps with approval, signing and rollback, templates, discovery jobs, review aid, tenant AI settings, exposure checks, status, logs (from Loki), audit, platform/tenant privacy (done); capacity, metrics, SIEM (planned) | `schema/api/panel-api.yaml` |
 | `panel-ui` | TypeScript, React | Panel | Client generated from OpenAPI |
-| `agent` | Python | Per-role crawling, analysis, map proposals | OpenAPI, `LLMProvider` interface |
+| `agent` | Python | Read-only discovery through the connector (anonymous and logged in), CMS fingerprint, map proposals, IDOR proposals for JSON APIs, optional AI with the tenant's model, review summaries | OpenAPI, `LLMProvider` interface |
 | `postgres` | — | Control-plane data | Versioned migrations |
 | `redis` | — | Sessions, rate limits, cache, new-map notifications | Keys documented per module |
 
-Observability: Vector (log collection), Loki (logs), Tempo (traces),
-Prometheus + Alertmanager (metrics and alerts), Grafana (analysis).
+Observability: Vector (log collection), Loki (logs, 30 days), Grafana
+(analysis); the panel's Logs and Status pages read Loki. Planned: Tempo
+(traces), Prometheus and Alertmanager (metrics and alerts).
 
 ## Sites, connectors and isolation
 
@@ -140,8 +141,9 @@ write, and every proposal that widens the surface needs human approval.
   compromised relay or gateway cannot widen it. A panel-signed allowlist
   will be added on top.
 - Several connector instances per app, active-active (round robin).
-- The relay keeps tunnels in memory: one replica for now; several replicas
-  need a shared directory of tunnels (Redis).
+- The relay keeps tunnels in memory and runs as several replicas: a replica
+  without the connector's tunnel hands the request to its peers (found
+  through DNS), at most once; no shared state.
 
 ## Horizontal scaling
 
@@ -155,15 +157,18 @@ driver (prototype) or the `kubernetes` driver (cloud: operator with a
 
 ## Metrics, status, logs
 
-- **Site page**: traffic, protection, performance, coverage, connectivity,
-  agent. Catalogue in `schema/metrics/catalog.md`.
-- **Service status**: global view for the administrator, restricted view for
-  the tenant; `/healthz`, `/readyz`, heartbeats, end-to-end synthetic check
-  every minute.
-- **Logs**: JSON (`schema/events/log.schema.json`), propagated `request_id`,
-  masking at the source, hot log levels with expiry, request tracing, search
-  page with live tail and export, SIEM forwarding (syslog RFC 5424, Splunk
-  HEC, Sentinel, webhook; JSON/CEF/LEEF; facility per stream).
+- **Status** (done): per site the published map, the connector (tunnels on
+  every relay replica), the legacy application (errors in the last 15
+  minutes, from Loki), isolation and 7 days of history, for the tenant;
+  database, gateway and relay replicas and Loki for the platform, without
+  tenant data. Planned: heartbeats and an end-to-end synthetic check.
+- **Logs** (done): JSON (`schema/events/log.schema.json`), propagated
+  `request_id`, never field values; the tenant's Logs page reads its own
+  security events from Loki with filters, live refresh and CSV export.
+  Planned: hot log levels with expiry, request tracing, SIEM forwarding
+  (syslog RFC 5424, Splunk HEC, Sentinel, webhook; JSON/CEF/LEEF).
+- **Metrics** (planned): traffic, protection, performance, coverage per
+  site; catalogue in `schema/metrics/catalog.md`.
 
 ## Product security
 

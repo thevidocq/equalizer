@@ -28,7 +28,7 @@ requests to the legacy application and renders pages with faithful rendering.
 | Scripts allowed by hash (CSP), URL rewriting inside CSS | To do |
 | Forms (urlencoded POST): binding in pages, sealed token bound to the browser (CSRF), legacy hidden fields kept server-side, typed fields, re-encoding into the legacy charset, success check and redirect | Done |
 | Rate limits (defaults, routes, forms; per IP, session, user), behaviour rules (enumeration, brute force, request rate: throttle, block, alert), legacy requests per second across replicas | Done |
-| File uploads (multipart), challenge (CAPTCHA), `missing_predecessor` | To do |
+| Challenge (CAPTCHA), `missing_predecessor` | To do |
 | Pass-through login and sessions: legacy cookies kept server-side (Redis, encrypted), role after login, new id at login, legacy expiry, logout | Done |
 | JSON APIs: params, query and body checked field by field (unknown keys refused), JSON body rebuilt with typed values, only the declared response fields returned, legacy errors hidden, same-origin check on writes | Done |
 | Refused paths counted per site (path only) and sent to the panel every minute (`EQ_UNMAPPED_URL`, default next to `EQ_MAP_URL`) | Done |

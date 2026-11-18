@@ -38,7 +38,7 @@ to protect can be anywhere: the **connector**, installed next to it, reaches it.
 curl -fsSL https://get.docker.com | sh
 sudo usermod -aG docker $USER   # then log out and back in
 
-# Firewall: only gateway and relay (80/443), SSH and the admin VPN
+# Firewall: gateway, relay and panel (80/443), SSH and the admin VPN
 sudo ufw default deny incoming
 sudo ufw allow 22/tcp
 sudo ufw allow 80/tcp
@@ -47,8 +47,10 @@ sudo ufw allow 51820/udp        # WireGuard to reach the panel
 sudo ufw enable
 ```
 
-The panel is **not** exposed to the Internet: reach it over a WireGuard VPN
-or an SSH tunnel (`ssh -L 8080:localhost:8080 user@vps`).
+Customers reach the panel on its own domain (`EQ_PANEL_DOMAIN`), behind
+Caddy; the API for gateway and relay (`/v1/internal`) is never published.
+The platform team can also use the VPS localhost port 8088 over a WireGuard
+VPN or an SSH tunnel.
 
 ## 3. Get the project *(available)*
 
@@ -95,7 +97,14 @@ docker compose --profile tools run --rm eqtool secret  -out secrets/relay.token 
 docker compose --profile tools run --rm eqtool secret  -out secrets/panel-internal.token  # gateway and relay → panel
 docker compose --profile tools run --rm eqtool secret  -out secrets/postgres.password
 docker compose --profile tools run --rm eqtool formkey -out secrets/mfa.key           # panel authenticator secrets
+# SMTP password for invitation emails (leave the file empty if the server needs none)
+install -m 600 /dev/null secrets/smtp.password && nano secrets/smtp.password
 ```
+
+Invitations are sent by email: set `EQ_SMTP_ADDR`, `EQ_SMTP_USER` and
+`EQ_MAIL_FROM` in `.env` (port 587 STARTTLS or 465 TLS). Without a mail
+server set `EQ_MAIL_MODE=off`: tenants are created but nobody can join, so
+use it only for a first test.
 
 All files are created `0600` and owned by `EQ_UID`/`EQ_GID`; the services
 that read them run as that user.
@@ -121,23 +130,24 @@ docker compose run --rm -i panel-api create-admin -email you@example.com -name "
 # type the password (at least 12 characters) and press Enter
 ```
 
-The panel listens only on the VPS localhost. From your computer:
-
-```bash
-ssh -L 8088:localhost:8088 user@vps
-```
-
-Open `http://localhost:8088` and log in. The first time, the panel asks you
+Open `https://panel.example.com` (your `EQ_PANEL_DOMAIN`), or
+`http://localhost:8088` through `ssh -L 8088:localhost:8088 user@vps`, and
+log in. The first time, the panel asks you
 to link an authenticator app (scan the QR code, type a code) and shows ten
 recovery codes once: keep them. From then on every login asks for the code
 of the app. Then:
 
-1. **Tenants → Add a tenant** (for the lab, e.g. "Lab").
+1. **Tenants → Add a customer** (for the lab, e.g. "Lab"), with the name
+   and email of its administrator. They receive a link (single use, 48
+   hours), choose a password and set up an authenticator. As platform
+   administrator you then see only the tenant's name and its sites' names
+   and status: everything below is done by the tenant's administrator.
+   (For a lab you can invite yourself with a second email address.)
 2. In the tenant: **+ Protect a site**, with its name and public domain.
 3. **Connectors → Add a connector**: copy the `docker run` command it shows
    (the token appears only once) and run it next to the legacy server
    (step 7).
-4. **People → Add a person** with the *Approver* role: maps are approved by
+4. **People → Invite a person** with the *Approver* role: maps are approved by
    someone other than their author.
 5. **Map → New version**: write the map in YAML (the editor checks the
    syntax, the panel checks the format), **Save draft**, **Send for

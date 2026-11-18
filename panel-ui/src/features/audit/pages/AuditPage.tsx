@@ -1,12 +1,10 @@
-import { useParams } from "react-router";
 import { EmptyState, Notice, PageHeader, formatDate } from "@/shared/ui";
 import { describeError } from "@/shared/api/errors";
 import { useAudit } from "../hooks/useAudit";
 import { describeEntry } from "../components/describe";
 
 export function AuditPage() {
-  const tenant = useParams().tenant;
-  const audit = useAudit(tenant);
+  const audit = useAudit();
   return (
     <div className="flex flex-col gap-6">
       <PageHeader title="Activity" subtitle="Who changed what, newest first. The last 200 actions." />

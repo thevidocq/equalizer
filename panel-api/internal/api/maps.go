@@ -175,12 +175,11 @@ func (s *Server) publish(r *http.Request, v store.MapVersion) error {
 }
 
 func (s *Server) listAudit(w http.ResponseWriter, r *http.Request, u *auth.User) {
+	// Platform users read the platform's own activity (tenant nil); tenant
+	// people read their tenant's.
 	var tenant *string
 	switch {
 	case u.Platform():
-		if t := r.URL.Query().Get("tenant"); t != "" {
-			tenant = &t
-		}
 	case u.Tenant != nil && u.HasTenantRole(*u.Tenant, "admin", "approver", "auditor"):
 		tenant = u.Tenant
 	default:

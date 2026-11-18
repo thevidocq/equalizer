@@ -32,8 +32,9 @@ func TestRoles(t *testing.T) {
 	pa := &User{PlatformRole: &admin}
 	po := &User{PlatformRole: &op}
 	te := &User{Tenant: &tn, TenantRole: &ed}
-	if !pa.HasTenantRole("acme", "approver") || po.HasTenantRole("acme", "editor") || !po.CanRead("acme") {
-		t.Error("platform roles")
+	// Platform users run the service but see nothing inside tenants.
+	if pa.HasTenantRole("acme", "approver") || pa.CanRead("acme") || po.HasTenantRole("acme", "editor") || po.CanRead("acme") {
+		t.Error("platform roles must not reach tenant data")
 	}
 	if !te.HasTenantRole("acme", "editor", "admin") || te.HasTenantRole("acme", "approver") || te.CanRead("other") {
 		t.Error("tenant roles")

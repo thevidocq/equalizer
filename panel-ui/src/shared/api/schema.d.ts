@@ -362,7 +362,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Tenants visible to the user (all for platform roles) */
+        /** The user's own tenant; for platform users, every tenant (id and name only) */
         get: {
             parameters: {
                 query?: never;
@@ -387,7 +387,7 @@ export interface paths {
             };
         };
         put?: never;
-        /** Create a tenant (platform administrators) */
+        /** Create a tenant and email an invitation to its first administrator (platform administrators) */
         post: {
             parameters: {
                 query?: never;
@@ -401,13 +401,16 @@ export interface paths {
                 };
             };
             responses: {
-                /** @description Tenant created */
+                /** @description Tenant created, invitation sent */
                 201: {
                     headers: {
                         [name: string]: unknown;
                     };
                     content: {
-                        "application/json": components["schemas"]["Tenant"];
+                        "application/json": {
+                            tenant: components["schemas"]["Tenant"];
+                            invitation: components["schemas"]["Invitation"];
+                        };
                     };
                 };
                 409: components["responses"]["Error"];
@@ -453,7 +456,48 @@ export interface paths {
             };
         };
         put?: never;
-        /** Create a tenant user (tenant or platform administrators) */
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/tenants/{tenant}/invitations": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Pending invitations of the tenant (tenant administrators) */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    tenant: components["parameters"]["tenant"];
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Invitations */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            items: components["schemas"]["Invitation"][];
+                            next_cursor?: string | null;
+                        };
+                    };
+                };
+            };
+        };
+        put?: never;
+        /** Invite a person by email; they choose their own password (tenant administrators) */
         post: {
             parameters: {
                 query?: never;
@@ -465,11 +509,133 @@ export interface paths {
             };
             requestBody: {
                 content: {
-                    "application/json": components["schemas"]["UserCreate"];
+                    "application/json": components["schemas"]["InvitationCreate"];
                 };
             };
             responses: {
-                /** @description User created */
+                /** @description Invitation sent */
+                201: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Invitation"];
+                    };
+                };
+                409: components["responses"]["Error"];
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/tenants/{tenant}/invitations/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Revoke a pending invitation */
+        delete: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    tenant: components["parameters"]["tenant"];
+                    id: components["parameters"]["id"];
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Revoked */
+                204: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                404: components["responses"]["Error"];
+            };
+        };
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/invitations/{token}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** What an invitation is for (public, the token is the secret) */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    token: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Invitation */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["InvitationView"];
+                    };
+                };
+                404: components["responses"]["Error"];
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/invitations/{token}/accept": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Accept an invitation by choosing a password; opens a session that continues with the authenticator setup */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    token: string;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": {
+                        password: string;
+                    };
+                };
+            };
+            responses: {
+                /** @description Account created */
                 201: {
                     headers: {
                         [name: string]: unknown;
@@ -478,6 +644,93 @@ export interface paths {
                         "application/json": components["schemas"]["User"];
                     };
                 };
+                404: components["responses"]["Error"];
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/platform/tenants": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Platform view: every tenant with its sites' names and status, nothing of their configuration (platform users) */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Tenants */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            items: components["schemas"]["TenantOverview"][];
+                            next_cursor?: string | null;
+                        };
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/platform/tenants/{tenant}/invitation": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Invite the first administrator again (lost or unsent email, wrong address). Pending invitations are revoked. 409 once anyone has joined the tenant (platform administrators) */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    tenant: components["parameters"]["tenant"];
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": {
+                        /** Format: email */
+                        admin_email: string;
+                        admin_name: string;
+                    };
+                };
+            };
+            responses: {
+                /** @description Invitation created */
+                201: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Invitation"];
+                    };
+                };
+                404: components["responses"]["Error"];
                 409: components["responses"]["Error"];
             };
         };
@@ -2002,13 +2255,10 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Action log */
+        /** Action log: the tenant's for tenant people, the platform's own for platform users */
         get: {
             parameters: {
-                query?: {
-                    /** @description Platform users only: restrict to one tenant */
-                    tenant?: string;
-                };
+                query?: never;
                 header?: never;
                 path?: never;
                 cookie?: never;
@@ -2078,16 +2328,55 @@ export interface components {
         RecoveryCodes: {
             recovery_codes: string[];
         };
-        UserCreate: {
+        InvitationCreate: {
             email: string;
             name: string;
-            password: string;
             /** @enum {unknown} */
             role: "admin" | "editor" | "approver" | "auditor";
+        };
+        Invitation: {
+            id: number;
+            email: string;
+            name: string;
+            /** @enum {unknown} */
+            role: "admin" | "editor" | "approver" | "auditor";
+            /** Format: date-time */
+            expires_at: string;
+            /** @description False when the email could not be sent: revoke and invite again */
+            sent?: boolean;
+        };
+        InvitationView: {
+            tenant_name: string;
+            email: string;
+            name: string;
+            /** @enum {unknown} */
+            role: "admin" | "editor" | "approver" | "auditor";
+            /** Format: date-time */
+            expires_at: string;
+        };
+        TenantOverview: {
+            id: string;
+            name: string;
+            /** Format: date-time */
+            created_at: string;
+            /** @description Someone accepted an invitation; before that the platform may invite the first administrator again */
+            joined: boolean;
+            site_count: number;
+            sites: {
+                name: string;
+                /**
+                 * @description protected: a map is published
+                 * @enum {unknown}
+                 */
+                status: "protected" | "setting_up";
+            }[];
         };
         TenantCreate: {
             id: string;
             name: string;
+            /** @description Receives the invitation to become the tenant's first administrator */
+            admin_email: string;
+            admin_name: string;
         };
         AppCreate: {
             id: string;

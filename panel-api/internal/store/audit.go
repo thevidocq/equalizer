@@ -34,12 +34,13 @@ func (s *Store) Record(ctx context.Context, userID *int64, tenant *string, actio
 	return err
 }
 
-// Audit lists the latest entries; tenant non-nil restricts to that tenant.
+// Audit lists the latest entries of a tenant, or of the platform itself
+// (entries without tenant) when tenant is nil.
 func (s *Store) Audit(ctx context.Context, tenant *string, limit int) ([]AuditEntry, error) {
 	rows, err := s.DB.QueryContext(ctx, `
 		SELECT a.id, a.ts, a.user_id, u.email, a.tenant_id, a.action, a.target, a.detail
 		FROM audit a LEFT JOIN users u ON u.id = a.user_id
-		WHERE $1::text IS NULL OR a.tenant_id = $1 ORDER BY a.id DESC LIMIT $2`, tenant, limit)
+		WHERE a.tenant_id IS NOT DISTINCT FROM $1::text ORDER BY a.id DESC LIMIT $2`, tenant, limit)
 	if err != nil {
 		return nil, err
 	}

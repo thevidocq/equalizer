@@ -11,6 +11,13 @@ info:
     Every request that changes state must carry the header
     `X-Eq-Panel: 1` (CSRF barrier together with SameSite=Strict cookies).
 
+    Privacy between platform and tenants: platform users (who run the
+    service) manage tenants and see only /platform/tenants (tenant and site
+    names, counts, status). Everything inside a tenant (sites' domains,
+    maps, connectors, people, activity) is visible only to that tenant's
+    people. Tenant people join by email invitation and choose their own
+    password: nobody else ever knows it.
+
     Two-step login: a password login opens a session limited to /auth/*
     until /auth/mfa/verify (or, the first time, /auth/mfa/setup and
     /auth/mfa/enable) succeeds.
@@ -152,7 +159,7 @@ paths:
   /tenants:
     get:
       tags: [tenants]
-      summary: Tenants visible to the user (all for platform roles)
+      summary: "The user's own tenant; for platform users, every tenant (id and name only)"
       responses:
         "200":
           description: Tenants
@@ -166,7 +173,7 @@ paths:
                   next_cursor: { type: [string, "null"] }
     post:
       tags: [tenants]
-      summary: Create a tenant (platform administrators)
+      summary: Create a tenant and email an invitation to its first administrator (platform administrators)
       requestBody:
         required: true
         content:
@@ -174,10 +181,15 @@ paths:
             schema: { $ref: "#/components/schemas/TenantCreate" }
       responses:
         "201":
-          description: Tenant created
+          description: Tenant created, invitation sent
           content:
             application/json:
-              schema: { $ref: "#/components/schemas/Tenant" }
+              schema:
+                type: object
+                required: [tenant, invitation]
+                properties:
+                  tenant: { $ref: "#/components/schemas/Tenant" }
+                  invitation: { $ref: "#/components/schemas/Invitation" }
         "409": { $ref: "#/components/responses/Error" }
   /tenants/{tenant}/users:
     get:
@@ -195,21 +207,120 @@ paths:
                 properties:
                   items: { type: array, items: { $ref: "#/components/schemas/User" } }
                   next_cursor: { type: [string, "null"] }
+  /tenants/{tenant}/invitations:
+    get:
+      tags: [users]
+      summary: Pending invitations of the tenant (tenant administrators)
+      parameters: [{ $ref: "#/components/parameters/tenant" }]
+      responses:
+        "200":
+          description: Invitations
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items: { type: array, items: { $ref: "#/components/schemas/Invitation" } }
+                  next_cursor: { type: [string, "null"] }
     post:
       tags: [users]
-      summary: Create a tenant user (tenant or platform administrators)
+      summary: Invite a person by email; they choose their own password (tenant administrators)
       parameters: [{ $ref: "#/components/parameters/tenant" }]
       requestBody:
         required: true
         content:
           application/json:
-            schema: { $ref: "#/components/schemas/UserCreate" }
+            schema: { $ref: "#/components/schemas/InvitationCreate" }
       responses:
         "201":
-          description: User created
+          description: Invitation sent
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Invitation" }
+        "409": { $ref: "#/components/responses/Error" }
+  /tenants/{tenant}/invitations/{id}:
+    delete:
+      tags: [users]
+      summary: Revoke a pending invitation
+      parameters: [{ $ref: "#/components/parameters/tenant" }, { $ref: "#/components/parameters/id" }]
+      responses:
+        "204": { description: Revoked }
+        "404": { $ref: "#/components/responses/Error" }
+  /invitations/{token}:
+    get:
+      tags: [users]
+      summary: What an invitation is for (public, the token is the secret)
+      security: []
+      parameters: [{ name: token, in: path, required: true, schema: { type: string, maxLength: 64 } }]
+      responses:
+        "200":
+          description: Invitation
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/InvitationView" }
+        "404": { $ref: "#/components/responses/Error" }
+  /invitations/{token}/accept:
+    post:
+      tags: [users]
+      summary: Accept an invitation by choosing a password; opens a session that continues with the authenticator setup
+      security: []
+      parameters: [{ name: token, in: path, required: true, schema: { type: string, maxLength: 64 } }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [password]
+              properties:
+                password: { type: string, minLength: 12, maxLength: 256, writeOnly: true }
+      responses:
+        "201":
+          description: Account created
           content:
             application/json:
               schema: { $ref: "#/components/schemas/User" }
+        "404": { $ref: "#/components/responses/Error" }
+  /platform/tenants:
+    get:
+      tags: [tenants]
+      summary: "Platform view: every tenant with its sites' names and status, nothing of their configuration (platform users)"
+      responses:
+        "200":
+          description: Tenants
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items: { type: array, items: { $ref: "#/components/schemas/TenantOverview" } }
+                  next_cursor: { type: [string, "null"] }
+  /platform/tenants/{tenant}/invitation:
+    post:
+      tags: [tenants]
+      summary: >-
+        Invite the first administrator again (lost or unsent email, wrong address). Pending invitations
+        are revoked. 409 once anyone has joined the tenant (platform administrators)
+      parameters: [{ $ref: "#/components/parameters/tenant" }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [admin_email, admin_name]
+              properties:
+                admin_email: { type: string, format: email }
+                admin_name: { type: string, minLength: 1, maxLength: 200 }
+      responses:
+        "201":
+          description: Invitation created
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Invitation" }
+        "404": { $ref: "#/components/responses/Error" }
         "409": { $ref: "#/components/responses/Error" }
   /tenants/{tenant}/apps:
     get:
@@ -734,9 +845,7 @@ paths:
   /audit:
     get:
       tags: [audit]
-      summary: Action log
-      parameters:
-        - { name: tenant, in: query, required: false, schema: { type: string }, description: "Platform users only: restrict to one tenant" }
+      summary: "Action log: the tenant's for tenant people, the platform's own for platform users"
       responses:
         "200":
           description: Latest entries, newest first
@@ -842,20 +951,57 @@ components:
       required: [recovery_codes]
       properties:
         recovery_codes: { type: array, items: { type: string } }
-    UserCreate:
+    InvitationCreate:
       type: object
-      required: [email, name, password, role]
+      required: [email, name, role]
       properties:
         email: { type: string, maxLength: 254 }
         name: { type: string, maxLength: 200 }
-        password: { type: string, minLength: 12, maxLength: 256, writeOnly: true }
         role: { enum: [admin, editor, approver, auditor] }
+    Invitation:
+      type: object
+      required: [id, email, name, role, expires_at]
+      properties:
+        id: { type: integer }
+        email: { type: string }
+        name: { type: string }
+        role: { enum: [admin, editor, approver, auditor] }
+        expires_at: { type: string, format: date-time }
+        sent: { type: boolean, description: "False when the email could not be sent: revoke and invite again" }
+    InvitationView:
+      type: object
+      required: [tenant_name, email, name, role, expires_at]
+      properties:
+        tenant_name: { type: string }
+        email: { type: string }
+        name: { type: string }
+        role: { enum: [admin, editor, approver, auditor] }
+        expires_at: { type: string, format: date-time }
+    TenantOverview:
+      type: object
+      required: [id, name, created_at, joined, site_count, sites]
+      properties:
+        id: { type: string }
+        name: { type: string }
+        created_at: { type: string, format: date-time }
+        joined: { type: boolean, description: "Someone accepted an invitation; before that the platform may invite the first administrator again" }
+        site_count: { type: integer }
+        sites:
+          type: array
+          items:
+            type: object
+            required: [name, status]
+            properties:
+              name: { type: string }
+              status: { enum: [protected, setting_up], description: "protected: a map is published" }
     TenantCreate:
       type: object
-      required: [id, name]
+      required: [id, name, admin_email, admin_name]
       properties:
         id: { type: string, pattern: "^[a-z0-9][a-z0-9-]{0,62}$" }
         name: { type: string, maxLength: 200 }
+        admin_email: { type: string, maxLength: 254, description: "Receives the invitation to become the tenant's first administrator" }
+        admin_name: { type: string, maxLength: 200 }
     AppCreate:
       type: object
       required: [id, name, public_domain]

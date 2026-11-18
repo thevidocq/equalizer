@@ -8,9 +8,11 @@ plans, capacity, global health, logs, SIEM forwarding and configurations.
 
 ## 1. Access
 
-- The panel is reachable only over VPN or SSH tunnel, never from the Internet.
-- First login through the activation link sent to `EQ_ADMIN_EMAIL`; MFA is
-  mandatory.
+- The panel answers on `EQ_PANEL_DOMAIN` (customers log in there) and on
+  the VPS localhost (port 8088, over SSH tunnel or VPN). Limiting platform
+  logins to the VPN is planned.
+- The first platform administrator is created on the server with
+  `panel-api create-admin`; MFA is mandatory.
 - Platform roles: **administrator** (everything) and **operator** (read-only
   on status, logs and metrics).
 
@@ -34,10 +36,20 @@ reason. Alerts arrive even if the panel is down (Alertmanager).
 
 1. **Menu → Plans and limits**: define the plans (maximum replicas, maximum
    sites, log retention, dedicated pool yes/no).
-2. **Menu → Tenants → New tenant**: name, plan, email of the tenant's first
-   administrator.
-3. The tenant receives the invitation and configures everything else from
-   their panel.
+2. **Tenants → Add a customer** *(available)*: name, id, name and email of
+   the tenant's first administrator.
+3. The administrator receives an email with a link (single use, 48 hours),
+   chooses a password and sets up an authenticator app; then configures
+   everything else and invites their colleagues.
+4. Until someone joins, the tenant shows **Waiting for the administrator to
+   join** with **Invite again** (email lost or not sent, wrong address): the
+   previous link stops working. Once anyone has joined, only the tenant's
+   administrators invite people.
+
+**Privacy** *(available)*: the platform sees each tenant's name and, per
+site, only its name and status (protected or being set up). Maps,
+connectors, people and the tenant's activity are visible only to the
+tenant's people; the platform's activity page lists platform actions only.
 
 ## 4. Capacity and pools
 

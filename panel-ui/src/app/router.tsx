@@ -1,5 +1,5 @@
 import { createBrowserRouter, Navigate } from "react-router";
-import { AuthenticatorPage, CodePage, LoginPage, RequireAuth } from "@/features/auth";
+import { AuthenticatorPage, CodePage, InvitePage, LoginPage, RequireAuth } from "@/features/auth";
 import { AccountPage } from "@/features/account";
 import { TenantsPage } from "@/features/tenants";
 import { SiteLayout, SitesPage } from "@/features/sites";
@@ -14,6 +14,7 @@ export const router = createBrowserRouter([
   { path: "/login", element: <LoginPage /> },
   { path: "/login/code", element: <CodePage /> },
   { path: "/login/authenticator", element: <AuthenticatorPage /> },
+  { path: "/invite/:token", element: <InvitePage /> },
   {
     element: <RequireAuth><Shell /></RequireAuth>,
     children: [

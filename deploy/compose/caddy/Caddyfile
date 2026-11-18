@@ -27,6 +27,23 @@
 	}
 }
 
+# The panel, for customers: the static UI and its /v1 API (panel-ui proxies
+# /v1 to panel-api). The internal API never leaves the control network.
+{$EQ_PANEL_DOMAIN} {
+	encode zstd gzip
+	handle /v1/internal/* {
+		respond 404
+	}
+	handle {
+		reverse_proxy panel-ui:8080
+	}
+
+	log {
+		output stdout
+		format json
+	}
+}
+
 # Connectors open their tunnel here (Upgrade: equalizer-tunnel/1). Only the
 # tunnel path is published; everything else answers 404.
 {$EQ_RELAY_DOMAIN} {

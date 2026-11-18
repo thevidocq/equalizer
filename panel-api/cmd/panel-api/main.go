@@ -27,6 +27,7 @@ import (
 	"github.com/thevidocq/equalizer/panel-api/internal/config"
 	"github.com/thevidocq/equalizer/panel-api/internal/db"
 	"github.com/thevidocq/equalizer/panel-api/internal/logging"
+	"github.com/thevidocq/equalizer/panel-api/internal/mail"
 	"github.com/thevidocq/equalizer/panel-api/internal/mfa"
 	"github.com/thevidocq/equalizer/panel-api/internal/store"
 	"github.com/thevidocq/equalizer/panel-api/internal/ui"
@@ -87,7 +88,18 @@ func run() error {
 	if !cfg.MFARequired {
 		log.Warn("EQ_MFA_REQUIRED=false: panel users may log in with a password only")
 	}
+	var sender mail.Sender = mail.Disabled{}
+	switch cfg.MailMode {
+	case "smtp":
+		sender = mail.SMTP{Addr: cfg.SMTPAddr, User: cfg.SMTPUser, Password: cfg.SMTPPassword, From: cfg.MailFrom}
+	case "log":
+		sender = mail.Log{Logger: log}
+		log.Warn("EQ_MAIL_MODE=log: invitation links are written to the logs, use it only for development")
+	default:
+		log.Warn("email not configured (EQ_SMTP_ADDR): invitations are created but not sent")
+	}
 	srv := &api.Server{
+		Mail: sender, PanelURL: cfg.PanelURL,
 		MFA: box, MFARequired: cfg.MFARequired, MFAThrottle: auth.NewThrottle(5, 15*time.Minute),
 		Store: st, Sessions: sessions, Throttle: auth.NewThrottle(5, 15*time.Minute),
 		Log: log.With(slog.String("module", "api")), SigningKey: cfg.SigningKey, KeyID: cfg.SigningKeyID,

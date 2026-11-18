@@ -10,15 +10,6 @@ export function useUsers(tenant: string) {
   });
 }
 
-export function useCreateUser(tenant: string) {
-  const qc = useQueryClient();
-  return useMutation({
-    mutationFn: (body: { email: string; name: string; password: string; role: Role }) =>
-      unwrap(api.POST("/tenants/{tenant}/users", { params: { path: { tenant } }, body })),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["users", tenant] }),
-  });
-}
-
 export function useUserActions(tenant: string) {
   const qc = useQueryClient();
   const refresh = () => qc.invalidateQueries({ queryKey: ["users", tenant] });

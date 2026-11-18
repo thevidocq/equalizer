@@ -21,6 +21,7 @@ import (
 	"github.com/thevidocq/equalizer/panel-api/internal/api"
 	"github.com/thevidocq/equalizer/panel-api/internal/auth"
 	"github.com/thevidocq/equalizer/panel-api/internal/dbtest"
+	"github.com/thevidocq/equalizer/panel-api/internal/mail"
 	"github.com/thevidocq/equalizer/panel-api/internal/mfa"
 	"github.com/thevidocq/equalizer/panel-api/internal/store"
 )
@@ -40,10 +41,12 @@ func TestMain(m *testing.M) {
 const internalToken = "internal-token-0123456789abcdef0123456789"
 
 type env struct {
-	t   *testing.T
-	srv *httptest.Server
-	st  *store.Store
-	pub ed25519.PublicKey
+	t      *testing.T
+	srv    *httptest.Server
+	st     *store.Store
+	pub    ed25519.PublicKey
+	mail   *mail.Recorder
+	server *api.Server
 }
 
 func setup(t *testing.T) *env { return setupWith(t, false) }
@@ -64,10 +67,12 @@ func setupWith(t *testing.T, mfaRequired bool) *env {
 	conn := pg.NewDatabase(t)
 	st := store.New(conn)
 	pub, priv, _ := ed25519.GenerateKey(nil)
+	rec := &mail.Recorder{}
 	s := &api.Server{
 		Store: st, Sessions: &auth.Sessions{DB: conn, TTL: time.Hour}, Throttle: auth.NewThrottle(5, time.Minute),
 		Log: slog.New(slog.NewJSONHandler(io.Discard, nil)), SigningKey: priv, KeyID: "k1", InternalToken: internalToken,
 		MFA: testBox(), MFARequired: mfaRequired, MFAThrottle: auth.NewThrottle(5, time.Minute),
+		Mail: rec, PanelURL: "https://panel.test",
 	}
 	srv := httptest.NewTLSServer(s.Handler())
 	t.Cleanup(srv.Close)
@@ -77,7 +82,7 @@ func setupWith(t *testing.T, mfaRequired bool) *env {
 	if _, err := st.CreateUser(context.Background(), store.NewUser{Email: "root@example.com", Name: "Root", PasswordHash: hash, PlatformRole: &admin}); err != nil {
 		t.Fatal(err)
 	}
-	return &env{t: t, srv: srv, st: st, pub: pub}
+	return &env{t: t, srv: srv, st: st, pub: pub, mail: rec, server: s}
 }
 
 type client struct {
@@ -131,6 +136,32 @@ const mapDoc = `{"meta":{"schema":"gateway-map/1.0","tenant":"x","app":"x","vers
  "routes":[{"id":"home","path":"/","method":"GET","roles":["guest"],"legacy_request":{"method":"GET","path":"/"},
    "render":"faithful","origin":"human","risk":"low"}]}`
 
+// tokenFrom extracts the invitation token from the last email sent to email.
+func (e *env) tokenFrom(email string) string {
+	e.t.Helper()
+	for i := len(e.mail.Sent) - 1; i >= 0; i-- {
+		m := e.mail.Sent[i]
+		if m.To != email {
+			continue
+		}
+		i := strings.Index(m.Body, "/invite/")
+		if i < 0 {
+			break
+		}
+		return strings.Fields(m.Body[i+len("/invite/"):])[0]
+	}
+	e.t.Fatalf("no invitation for %s", email)
+	return ""
+}
+
+// join accepts the invitation of email and returns a logged-in client.
+func (e *env) join(email string) *client {
+	e.t.Helper()
+	c := e.client()
+	c.must(201, "POST", "/v1/invitations/"+e.tokenFrom(email)+"/accept", map[string]string{"password": "a-long-password-1"}, nil)
+	return c
+}
+
 func TestPanelFlow(t *testing.T) {
 	e := setup(t)
 	root := e.client()
@@ -144,31 +175,51 @@ func TestPanelFlow(t *testing.T) {
 		t.Fatalf("me: %+v", me)
 	}
 
-	root.must(201, "POST", "/v1/tenants", map[string]string{"id": "acme", "name": "Acme"}, nil)
-	root.must(201, "POST", "/v1/tenants", map[string]string{"id": "other", "name": "Other"}, nil)
-	root.must(409, "POST", "/v1/tenants", map[string]string{"id": "acme", "name": "Again"}, nil)
-	for _, u := range []struct{ tenant, email, role string }{
-		{"acme", "ed@acme.test", "editor"}, {"acme", "ap@acme.test", "approver"}, {"other", "boss@other.test", "admin"},
-	} {
-		root.must(201, "POST", "/v1/tenants/"+u.tenant+"/users", map[string]string{"email": u.email, "name": u.role, "password": "a-long-password-1", "role": u.role}, nil)
+	// The platform creates tenants; each first administrator gets an email.
+	var created struct {
+		Invitation struct{ Sent bool }
 	}
-	root.must(422, "POST", "/v1/tenants/acme/users", map[string]string{"email": "x@acme.test", "name": "x", "password": "short", "role": "editor"}, nil)
-	root.must(201, "POST", "/v1/tenants/acme/apps", map[string]string{"id": "portal", "name": "Portal", "public_domain": "Portal.Acme.test"}, nil)
+	root.must(201, "POST", "/v1/tenants", map[string]string{"id": "acme", "name": "Acme", "admin_email": "boss@acme.test", "admin_name": "Boss"}, &created)
+	if !created.Invitation.Sent || len(e.mail.Sent) != 1 || !strings.Contains(e.mail.Sent[0].Subject, "Acme") {
+		t.Fatalf("invitation: %+v %v", created, e.mail.Sent)
+	}
+	root.must(201, "POST", "/v1/tenants", map[string]string{"id": "other", "name": "Other", "admin_email": "boss@other.test", "admin_name": "B"}, nil)
+	root.must(409, "POST", "/v1/tenants", map[string]string{"id": "acme", "name": "Again", "admin_email": "x@x.test", "admin_name": "X"}, nil)
+
+	admin := e.join("boss@acme.test")
+	boss := e.join("boss@other.test")
+	if code := e.client().do("POST", "/v1/invitations/"+e.tokenFrom("boss@acme.test")+"/accept", map[string]string{"password": "a-long-password-2"}, nil); code != 404 {
+		t.Fatalf("invitation used twice: %d", code)
+	}
+
+	// Privacy: the platform sees inside no tenant.
+	root.must(403, "POST", "/v1/tenants/acme/apps", map[string]string{"id": "x", "name": "x", "public_domain": "x.test"}, nil)
+	root.must(403, "GET", "/v1/tenants/acme/users", nil, nil)
+	root.must(403, "POST", "/v1/tenants/acme/invitations", map[string]string{"email": "spy@x.test", "name": "Spy", "role": "admin"}, nil)
+
+	admin.must(201, "POST", "/v1/tenants/acme/apps", map[string]string{"id": "portal", "name": "Portal", "public_domain": "Portal.Acme.test"}, nil)
+	root.must(404, "GET", "/v1/apps/portal", nil, nil)
+	root.must(404, "GET", "/v1/apps/portal/maps", nil, nil)
+	root.must(404, "GET", "/v1/apps/portal/connectors", nil, nil)
+	for _, inv := range []struct{ email, role string }{{"ed@acme.test", "editor"}, {"ap@acme.test", "approver"}} {
+		admin.must(201, "POST", "/v1/tenants/acme/invitations", map[string]string{"email": inv.email, "name": inv.role, "role": inv.role}, nil)
+	}
+	var pending struct{ Items []map[string]any }
+	admin.must(200, "GET", "/v1/tenants/acme/invitations", nil, &pending)
+	if len(pending.Items) != 2 || pending.Items[0]["token"] != nil {
+		t.Fatalf("pending invitations: %v", pending.Items)
+	}
+	ed, ap := e.join("ed@acme.test"), e.join("ap@acme.test")
 
 	var conn struct{ ID, App, Token string }
-	root.must(201, "POST", "/v1/apps/portal/connectors", map[string]string{"id": "cn-1"}, &conn)
+	admin.must(201, "POST", "/v1/apps/portal/connectors", map[string]string{"id": "cn-1"}, &conn)
 	if len(conn.Token) < 40 {
 		t.Fatalf("connector token: %+v", conn)
 	}
 	var conns struct{ Items []map[string]any }
-	root.must(200, "GET", "/v1/apps/portal/connectors", nil, &conns)
+	admin.must(200, "GET", "/v1/apps/portal/connectors", nil, &conns)
 	if len(conns.Items) != 1 || conns.Items[0]["token"] != nil || conns.Items[0]["token_sha256"] != nil {
 		t.Fatalf("connector list leaks the token: %v", conns.Items)
-	}
-
-	ed, ap, boss := e.client(), e.client(), e.client()
-	for c, email := range map[*client]string{ed: "ed@acme.test", ap: "ap@acme.test", boss: "boss@other.test"} {
-		c.must(200, "POST", "/v1/auth/login", map[string]string{"email": email, "password": "a-long-password-1"}, nil)
 	}
 
 	// Tenant isolation.
@@ -179,33 +230,41 @@ func TestPanelFlow(t *testing.T) {
 	if len(ts.Items) != 1 || ts.Items[0].ID != "other" {
 		t.Fatalf("tenants seen by another tenant: %+v", ts.Items)
 	}
+	boss.must(403, "GET", "/v1/platform/tenants", nil, nil)
 
 	// Map lifecycle.
 	var bad map[string]any
 	code := ed.do("POST", "/v1/apps/portal/maps", map[string]any{"document": json.RawMessage(strings.Replace(mapDoc, `"render":"faithful"`, `"render":"nope"`, 1))}, &bad)
-	if code != 422 {
+	if code != 422 || bad["details"] == nil {
 		t.Fatalf("invalid map: %d %v", code, bad)
-	}
-	if bad["details"] == nil {
-		t.Errorf("invalid map without details: %v", bad)
 	}
 	ap.must(403, "POST", "/v1/apps/portal/maps", map[string]any{"document": json.RawMessage(mapDoc)}, nil)
 	ed.must(201, "POST", "/v1/apps/portal/maps", map[string]any{"document": json.RawMessage(mapDoc), "note": "first"}, nil)
 	ed.must(200, "POST", "/v1/apps/portal/maps/1/submit", nil, nil)
 	ed.must(403, "POST", "/v1/apps/portal/maps/1/approve", nil, nil)
 	ap.must(409, "POST", "/v1/apps/portal/maps/1/publish", nil, nil) // not approved yet
+	root.must(404, "POST", "/v1/apps/portal/maps/1/approve", nil, nil)
 	ap.must(200, "POST", "/v1/apps/portal/maps/1/approve", nil, nil)
 	ap.must(200, "POST", "/v1/apps/portal/maps/1/publish", nil, nil)
 
 	// The author never decides on their own version.
-	root.must(201, "POST", "/v1/apps/portal/maps", map[string]any{"document": json.RawMessage(mapDoc)}, nil)
-	root.must(200, "POST", "/v1/apps/portal/maps/2/submit", nil, nil)
-	root.must(403, "POST", "/v1/apps/portal/maps/2/approve", nil, nil)
+	admin.must(201, "POST", "/v1/apps/portal/maps", map[string]any{"document": json.RawMessage(mapDoc)}, nil)
+	admin.must(200, "POST", "/v1/apps/portal/maps/2/submit", nil, nil)
+	admin.must(403, "POST", "/v1/apps/portal/maps/2/approve", nil, nil)
 
 	// CSRF header.
 	req, _ := http.NewRequest("POST", e.srv.URL+"/v1/apps/portal/maps/2/reject", nil)
 	if resp, err := ap.c.Do(req); err != nil || resp.StatusCode != http.StatusForbidden {
 		t.Fatalf("missing CSRF header: %v %v", resp, err)
+	}
+
+	// The platform's view: names and status, nothing else.
+	var ov struct{ Items []map[string]any }
+	root.must(200, "GET", "/v1/platform/tenants", nil, &ov)
+	raw, _ := json.Marshal(ov)
+	if !strings.Contains(string(raw), `"site_count":1`) || !strings.Contains(string(raw), `"status":"protected"`) ||
+		strings.Contains(string(raw), "portal.acme.test") || strings.Contains(string(raw), "cn-1") {
+		t.Fatalf("platform overview: %s", raw)
 	}
 
 	// The gateway's view.
@@ -241,6 +300,7 @@ func TestPanelFlow(t *testing.T) {
 		t.Fatalf("internal without token: %d", code)
 	}
 
+	// Activity: each side sees only its own.
 	var audit struct{ Items []store.AuditEntry }
 	ap.must(200, "GET", "/v1/audit", nil, &audit)
 	actions := map[string]bool{}
@@ -250,15 +310,52 @@ func TestPanelFlow(t *testing.T) {
 			t.Errorf("audit of another tenant: %+v", a)
 		}
 	}
-	for _, want := range []string{"map.draft", "map.submit", "map.approve", "map.publish", "connector.create", "app.create"} {
+	for _, want := range []string{"map.draft", "map.submit", "map.approve", "map.publish", "connector.create", "app.create", "user.invite", "user.join"} {
 		if !actions[want] {
 			t.Errorf("audit misses %s", want)
+		}
+	}
+	root.must(200, "GET", "/v1/audit", nil, &audit)
+	for _, a := range audit.Items {
+		if a.Tenant != nil {
+			t.Errorf("platform sees a tenant action: %+v", a)
 		}
 	}
 	ed.must(403, "GET", "/v1/audit", nil, nil)
 
 	ed.must(204, "POST", "/v1/auth/logout", nil, nil)
 	ed.must(401, "GET", "/v1/auth/me", nil, nil)
+}
+
+func TestInvitationsWithoutMail(t *testing.T) {
+	e := setup(t)
+	e.server.Mail = mail.Disabled{}
+	root := e.client()
+	root.must(200, "POST", "/v1/auth/login", map[string]string{"email": "root@example.com", "password": "platform-admin-password"}, nil)
+	var created struct {
+		Invitation struct{ Sent bool }
+	}
+	root.must(201, "POST", "/v1/tenants", map[string]string{"id": "acme", "name": "Acme", "admin_email": "boss@acme.test", "admin_name": "Boss"}, &created)
+	if created.Invitation.Sent {
+		t.Fatal("an unsent invitation reported as sent")
+	}
+	// The email never arrived: the platform invites again, the old link dies.
+	e.server.Mail = e.mail
+	root.must(201, "POST", "/v1/platform/tenants/acme/invitation", map[string]string{"admin_email": "giulia@acme.test", "admin_name": "Giulia"}, nil)
+	root.must(404, "POST", "/v1/platform/tenants/nope/invitation", map[string]string{"admin_email": "x@acme.test", "admin_name": "X"}, nil)
+	admin := e.join("giulia@acme.test")
+	var ov struct{ Items []struct{ Joined bool } }
+	root.must(200, "GET", "/v1/platform/tenants", nil, &ov)
+	if len(ov.Items) != 1 || !ov.Items[0].Joined {
+		t.Fatalf("overview after joining: %+v", ov)
+	}
+	// Once someone joined, only the tenant invites people.
+	root.must(409, "POST", "/v1/platform/tenants/acme/invitation", map[string]string{"admin_email": "spy@x.test", "admin_name": "Spy"}, nil)
+	admin.must(403, "POST", "/v1/platform/tenants/acme/invitation", map[string]string{"admin_email": "a@x.test", "admin_name": "A"}, nil)
+
+	c := e.client()
+	c.must(404, "GET", "/v1/invitations/not-a-token", nil, nil)
+	c.must(404, "POST", "/v1/invitations/not-a-token/accept", map[string]string{"password": "a-long-password-1"}, nil)
 }
 
 func TestLoginThrottle(t *testing.T) {

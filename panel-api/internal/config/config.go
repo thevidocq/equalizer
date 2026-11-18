@@ -23,6 +23,12 @@ type Config struct {
 	InternalToken   string // presented by gateway and tunnel-relay on /v1/internal
 	MFAKey          []byte // encrypts authenticator secrets (32 bytes)
 	MFARequired     bool   // every panel user must use an authenticator app (default true)
+	PanelURL        string // public address of the panel, for links in emails
+	MailMode        string // smtp, log (development: links in the logs) or off
+	SMTPAddr        string
+	SMTPUser        string
+	SMTPPassword    string
+	MailFrom        string
 	SessionTTL      time.Duration
 	UIDir           string // static files of panel-ui; empty: API only
 	ShutdownTimeout time.Duration
@@ -71,6 +77,29 @@ func FromEnv() (Config, error) {
 		return Config{}, fmt.Errorf("EQ_MFA_KEY or EQ_MFA_KEY_FILE is required: 32 bytes in base64 (eqtool formkey)")
 	}
 	cfg.MFARequired = os.Getenv("EQ_MFA_REQUIRED") != "false"
+
+	cfg.PanelURL = env("EQ_PANEL_URL", "http://localhost:8088")
+	cfg.SMTPAddr = os.Getenv("EQ_SMTP_ADDR")
+	cfg.SMTPUser = os.Getenv("EQ_SMTP_USER")
+	if cfg.SMTPPassword, err = Secret("EQ_SMTP_PASSWORD"); err != nil {
+		return Config{}, err
+	}
+	cfg.MailFrom = env("EQ_MAIL_FROM", "equalizer@localhost")
+	cfg.MailMode = os.Getenv("EQ_MAIL_MODE")
+	if cfg.MailMode == "" {
+		cfg.MailMode = "off"
+		if cfg.SMTPAddr != "" {
+			cfg.MailMode = "smtp"
+		}
+	}
+	switch cfg.MailMode {
+	case "smtp", "log", "off":
+	default:
+		return Config{}, fmt.Errorf("EQ_MAIL_MODE must be smtp, log or off")
+	}
+	if cfg.MailMode == "smtp" && cfg.SMTPAddr == "" {
+		return Config{}, fmt.Errorf("EQ_MAIL_MODE=smtp needs EQ_SMTP_ADDR (host:587)")
+	}
 	return cfg, nil
 }
 

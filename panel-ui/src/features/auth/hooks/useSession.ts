@@ -45,11 +45,12 @@ export function useLogout() {
   });
 }
 
-/** Role helpers, mirroring panel-api's checks (the API decides anyway). */
+/** Role helpers, mirroring panel-api's checks (the API decides anyway).
+ * Platform users hold no tenant role: they never act inside a tenant. */
 export function canManage(u: User | null | undefined, tenant: string) {
-  return !!u && (u.platform_role === "admin" || (u.tenant === tenant && u.tenant_role === "admin"));
+  return hasRole(u, tenant, "admin");
 }
 
 export function hasRole(u: User | null | undefined, tenant: string, ...roles: string[]) {
-  return !!u && (u.platform_role === "admin" || (u.tenant === tenant && !!u.tenant_role && roles.includes(u.tenant_role)));
+  return !!u && u.tenant === tenant && !!u.tenant_role && roles.includes(u.tenant_role);
 }

@@ -18,6 +18,15 @@ connector, map, testing, cutover, day-to-day use.
 Tenant roles: **administrator**, **editor** (edits the map), **approver**,
 **auditor** (read-only). Whoever makes a change cannot approve it.
 
+**Joining and inviting** *(available)*: the first administrator receives an
+email from the platform with a link to choose a password. Then **People →
+Invite a person** (name, email, role): the link works once and expires in 48
+hours; pending invitations can be revoked.
+
+**Privacy** *(available)*: the platform operator sees your tenant's name and
+the names of your sites with their status (protected or being set up),
+nothing else: not your maps, connectors, people or activity.
+
 ## 2. Protecting a site
 
 The original site keeps working as before throughout the procedure: no

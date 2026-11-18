@@ -7,12 +7,15 @@ Go control-plane API. Contract: [`schema/api/panel-api.yaml`](../schema/api/pane
 | Area | Endpoints | Who |
 | --- | --- | --- |
 | Auth | `POST /v1/auth/login`, `POST /v1/auth/logout`, `GET /v1/auth/me`, `POST /v1/auth/mfa/{setup,enable,verify}`, `POST /v1/auth/password` | everyone |
-| Tenants | `GET/POST /v1/tenants` | create: platform admin |
-| Users | `GET/POST /v1/tenants/{tenant}/users`, `DELETE …/{id}` (deactivate), `POST …/{id}/reset-mfa` | tenant admin, platform admin |
+| Tenants | `GET /v1/tenants`, `POST /v1/tenants` (creates the tenant and invites its first administrator) | create: platform admin |
+| Platform overview | `GET /v1/platform/tenants`: tenant names, site count, site names with `protected`/`setting_up` | platform users only |
+| Invitations | `GET/POST /v1/tenants/{tenant}/invitations`, `DELETE …/{id}` (revoke) | tenant admin |
+| Joining | `GET /v1/invitations/{token}`, `POST /v1/invitations/{token}/accept` (choose a password, logs in) | anyone with the link |
+| Users | `GET /v1/tenants/{tenant}/users`, `DELETE …/{id}` (deactivate), `POST …/{id}/reset-mfa` | tenant admin |
 | Sites | `GET/POST /v1/tenants/{tenant}/apps`, `GET /v1/apps/{app}` | create: tenant admin |
 | Connectors | `GET/POST /v1/apps/{app}/connectors`, `POST …/{id}/rotate`, `DELETE …/{id}` | tenant admin; token shown once |
 | Maps | `GET/POST /v1/apps/{app}/maps`, `GET …/{version}`, `POST …/{version}/{submit,approve,reject,publish}` | draft/submit: editor; approve/reject/publish: approver, never the author |
-| Audit | `GET /v1/audit` | tenant admin, approver, auditor; platform |
+| Audit | `GET /v1/audit`: the tenant's own actions, or the platform's own for platform users | tenant admin, approver, auditor; platform |
 | Internal | `GET /v1/internal/apps/{app}/map` (gateway, ETag), `GET /v1/internal/connectors` (relay) | service token |
 
 Security:
@@ -32,6 +35,15 @@ Security:
   hours), stored as SHA-256 in PostgreSQL. Every state-changing request
   needs `X-Eq-Panel: 1` (CSRF).
 - Tenant isolation: another tenant's site answers 404.
+- Platform privacy: platform users hold no tenant role. They see tenant
+  names and, per site, only its name and whether a map is published
+  (`/v1/platform/tenants`); every tenant endpoint answers them 403 or 404,
+  and the audit log they read holds platform actions only.
+- Invitations: 32 random bytes, stored as SHA-256, single use, valid 48
+  hours, revocable. The link travels only by email (`internal/mail`, SMTP
+  with STARTTLS or implicit TLS); the API never returns it. If the email
+  cannot be sent the invitation is kept with `sent: false`, to revoke and
+  redo. `EQ_MAIL_MODE=log` writes the link to the log: development only.
 - Maps are validated against `schema/map` (embedded copy, kept equal by
   `scripts/validate_schemas.py`); `meta.tenant`, `meta.app`, `meta.version`
   and `meta.status` are set by the panel. Publication signs the exact
@@ -43,7 +55,7 @@ Security:
 
 | Variable | Default | Meaning |
 | --- | --- | --- |
-| `EQ_ADDR` | `:8080` | API (localhost or VPN only) |
+| `EQ_ADDR` | `:8080` | API; published only through panel-ui, which hides `/v1/internal` |
 | `EQ_ADMIN_ADDR` | `:9092` | `/healthz`, `/readyz` |
 | `EQ_DATABASE_URL` | — | `postgres://user@host:5432/db?sslmode=…` |
 | `EQ_DATABASE_PASSWORD` or `_FILE` | — | Database password, kept out of the URL |
@@ -52,6 +64,11 @@ Security:
 | `EQ_INTERNAL_TOKEN` or `_FILE` | — | Token of gateway and relay on `/v1/internal` |
 | `EQ_MFA_KEY` or `_FILE` | — | 32 bytes in base64 (`eqtool formkey`): encrypts authenticator secrets |
 | `EQ_MFA_REQUIRED` | `true` | `false` lets users log in with a password only (tests) |
+| `EQ_PANEL_URL` | `http://localhost:8088` | Public address of the panel, used in invitation links |
+| `EQ_MAIL_MODE` | `smtp` with `EQ_SMTP_ADDR`, else `off` | `smtp`, `off` (invitations are created but not sent), `log` (link in the log: development only) |
+| `EQ_SMTP_ADDR` | — | `host:port`; 465 implicit TLS, otherwise STARTTLS (required) |
+| `EQ_SMTP_USER`, `EQ_SMTP_PASSWORD` or `_FILE` | — | SMTP credentials; empty user: no authentication |
+| `EQ_MAIL_FROM` | `equalizer@localhost` | Sender of the invitations |
 | `EQ_UI_DIR` | — | Static files of panel-ui, served on `/` |
 | `EQ_LOG_LEVEL` | `info` | `debug`, `info`, `warn`, `error` |
 

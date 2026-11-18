@@ -13,10 +13,11 @@ Go control-plane API. Contract: [`schema/api/panel-api.yaml`](../schema/api/pane
 | Joining | `GET /v1/invitations/{token}`, `POST /v1/invitations/{token}/accept` (choose a password, logs in) | anyone with the link |
 | Users | `GET /v1/tenants/{tenant}/users`, `DELETE …/{id}` (deactivate), `POST …/{id}/reset-mfa` | tenant admin |
 | Sites | `GET/POST /v1/tenants/{tenant}/apps`, `GET /v1/apps/{app}` | create: tenant admin |
-| Connectors | `GET/POST /v1/apps/{app}/connectors`, `POST …/{id}/rotate`, `DELETE …/{id}` | tenant admin; token shown once |
+| Connectors | `GET/POST /v1/tenants/{tenant}/connectors`, `POST …/{id}/rotate`, `DELETE …/{id}` (409 while a published map uses it) | tenant admin; token shown once; one per server, shared by the sites |
+| Isolation | `PATCH /v1/apps/{app}` (`legacy_ip`), `POST /v1/apps/{app}/exposure/check` (once a minute) | tenant admin |
 | Maps | `GET/POST /v1/apps/{app}/maps`, `GET …/{version}`, `POST …/{version}/{submit,approve,reject,publish}` | draft/submit: editor; approve/reject/publish: approver, never the author |
 | Audit | `GET /v1/audit`: the tenant's own actions, or the platform's own for platform users | tenant admin, approver, auditor; platform |
-| Internal | `GET /v1/internal/apps/{app}/map` (gateway, ETag), `GET /v1/internal/connectors` (relay) | service token |
+| Internal | `GET /v1/internal/maps` (every published map, ETag), `GET /v1/internal/apps/{app}/map`, `GET /v1/internal/connectors` (relay) | service token |
 
 Security:
 
@@ -39,6 +40,17 @@ Security:
   names and, per site, only its name and whether a map is published
   (`/v1/platform/tenants`); every tenant endpoint answers them 403 or 404,
   and the audit log they read holds platform actions only.
+- Maps: a `connector_id` must be a connector of the same tenant (422
+  `connector_not_found`, rechecked at publish: 409); `direct` mode only
+  towards `EQ_DIRECT_DESTINATIONS` (422 `direct_not_allowed`), so no map can
+  point the gateway at the platform's own services; `meta.public_domain` is
+  set from the site.
+- Exposure check (`internal/exposure`): every `EQ_EXPOSURE_INTERVAL` each
+  site with a `legacy_ip` is probed on ports 443 and 80 with its name in SNI
+  and `Host`, comparing with the answer for a random name. Only public
+  unicast IPs are accepted (no private, loopback, link-local or reserved
+  ranges); nothing of the answers is stored. A change of status is logged
+  and written to the tenant's activity; the platform sees only `exposed`.
 - Invitations: 32 random bytes, stored as SHA-256, single use, valid 48
   hours, revocable. The link travels only by email (`internal/mail`, SMTP
   with STARTTLS or implicit TLS); the API never returns it. If the email
@@ -69,6 +81,8 @@ Security:
 | `EQ_SMTP_ADDR` | — | `host:port`; 465 implicit TLS, otherwise STARTTLS (required) |
 | `EQ_SMTP_USER`, `EQ_SMTP_PASSWORD` or `_FILE` | — | SMTP credentials; empty user: no authentication |
 | `EQ_MAIL_FROM` | `equalizer@localhost` | Sender of the invitations |
+| `EQ_DIRECT_DESTINATIONS` | — | `host:port` list allowed in `direct` mode (lab apps); empty: connectors only |
+| `EQ_EXPOSURE_INTERVAL` | `1h` | Interval between exposure checks of a site (at least `5m`; `0` turns them off) |
 | `EQ_UI_DIR` | — | Static files of panel-ui, served on `/` |
 | `EQ_LOG_LEVEL` | `info` | `debug`, `info`, `warn`, `error` |
 

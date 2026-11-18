@@ -84,7 +84,7 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	s, err := h.Pool.Add(&sessions.Session{
-		ConnectorID: conn.ID, Version: printable(r.Header.Get("X-Eq-Connector-Version")),
+		ConnectorID: conn.ID, Tenant: conn.Tenant, Version: printable(r.Header.Get("X-Eq-Connector-Version")),
 		Allow: allow, RemoteAddr: remote(r), TokenHash: conn.TokenSHA256,
 	}, mux)
 	if err != nil {
@@ -92,7 +92,7 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		mux.Close()
 		return
 	}
-	h.Log.Info("connector connected", slog.String("tenant", conn.Tenant), slog.String("app", conn.App),
+	h.Log.Info("connector connected", slog.String("tenant", conn.Tenant),
 		slog.Group("detail", slog.String("connector_id", conn.ID), slog.String("version", s.Version),
 			slog.Any("allow", allow), slog.String("remote", s.RemoteAddr)))
 	go h.watch(s, conn)
@@ -101,11 +101,11 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 func (h *Handler) watch(s *sessions.Session, conn registry.Connector) {
 	<-s.Closed()
 	left := h.Pool.Remove(s)
-	h.Log.Info("connector disconnected", slog.String("tenant", conn.Tenant), slog.String("app", conn.App),
+	h.Log.Info("connector disconnected", slog.String("tenant", conn.Tenant),
 		slog.Group("detail", slog.String("connector_id", conn.ID), slog.Int("sessions_left", left),
 			slog.Float64("duration_s", time.Since(s.Since).Seconds())))
 	if left == 0 {
-		h.Events.Emit(logging.Event{Type: "connector.down", Tenant: conn.Tenant, App: conn.App,
+		h.Events.Emit(logging.Event{Type: "connector.down", Tenant: conn.Tenant,
 			Detail: map[string]any{"connector_id": conn.ID}})
 	}
 }

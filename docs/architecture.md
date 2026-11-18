@@ -48,6 +48,26 @@ Internet ──► gateway ──► tunnel-relay ◄══ outbound tunnel ═�
 Observability: Vector (log collection), Loki (logs), Tempo (traces),
 Prometheus + Alertmanager (metrics and alerts), Grafana (analysis).
 
+## Sites, connectors and isolation
+
+- **One gateway, many sites.** The gateway loads every published map and
+  picks it by the request's host (`meta.public_domain`); an unknown host is
+  404. Caddy issues certificates on demand, only for the domains the
+  gateway serves (`/tls/allowed`).
+- **One connector per server.** A connector belongs to a tenant and serves
+  all its sites on the addresses in its `EQ_ALLOW`. For virtual hosts the
+  map sets `reach.address`; the site's name travels as `X-Eq-Host` and
+  reaches the web server as `Host` and SNI. The panel refuses maps using
+  another tenant's connector, and the relay checks the tenant again at
+  every request.
+- **Isolation.** A protected site must stop answering on its old public
+  IP, while the other sites of the server keep working. The panel gives the
+  configuration (internal listener, or connector-only) and checks it from
+  outside every hour; a site that answers again turns "exposed", in the
+  tenant's activity and in the logs.
+- **Direct mode** is limited to destinations the platform allows, so no
+  map can aim the gateway at the platform's own network.
+
 ## Platform and tenants
 
 Two kinds of people use the panel, and they never share a view.

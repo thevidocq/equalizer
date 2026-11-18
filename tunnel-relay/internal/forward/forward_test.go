@@ -49,7 +49,7 @@ func newRelay(t *testing.T) *relay {
 
 func writeConnectors(t *testing.T, path, token string) {
 	t.Helper()
-	body := `{"connectors":[{"id":"cn-1","tenant":"t","app":"a","token_sha256":"` + registry.Hash(token) + `"}]}`
+	body := `{"connectors":[{"id":"cn-1","tenant":"t","token_sha256":"` + registry.Hash(token) + `"}]}`
 	if err := os.WriteFile(path, []byte(body), 0o600); err != nil {
 		t.Fatal(err)
 	}
@@ -100,7 +100,7 @@ func send(t *testing.T, url string, header map[string]string, body string) *http
 	t.Helper()
 	req, _ := http.NewRequest("POST", url+"/save.do?x=1", strings.NewReader(body))
 	for k, v := range map[string]string{
-		"Authorization": "Bearer " + gatewayToken, "X-Eq-Connector": "cn-1",
+		"Authorization": "Bearer " + gatewayToken, "X-Eq-Connector": "cn-1", "X-Eq-Tenant": "t",
 		"X-Eq-Destination": "10.0.0.5:8080", "X-Eq-Scheme": "http", "X-Eq-Request-Id": "r-1",
 	} {
 		req.Header.Set(k, v)
@@ -134,7 +134,7 @@ func TestForwardThroughTunnel(t *testing.T) {
 	}))
 	waitTunnels(t, r.pool, 1)
 
-	resp := send(t, r.forward.URL, nil, "a=1&b=2")
+	resp := send(t, r.forward.URL, map[string]string{"X-Eq-Host": "permits.example.org"}, "a=1&b=2")
 	body, _ := io.ReadAll(resp.Body)
 	if resp.StatusCode != 201 || string(body) != "<p>ok</p>" {
 		t.Fatalf("response %d %q", resp.StatusCode, body)
@@ -142,7 +142,10 @@ func TestForwardThroughTunnel(t *testing.T) {
 	if seen.Host != "10.0.0.5:8080" || seen.URL.RequestURI() != "/save.do?x=1" || seenBody != "a=1&b=2" || seen.Method != "POST" {
 		t.Fatalf("connector saw %s %s %s %q", seen.Method, seen.Host, seen.URL.RequestURI(), seenBody)
 	}
-	for _, h := range []string{"Authorization", "X-Eq-Connector", "X-Eq-Destination", "X-Forwarded-For"} {
+	if seen.Header.Get("X-Eq-Host") != "permits.example.org" {
+		t.Errorf("virtual host lost: %v", seen.Header)
+	}
+	for _, h := range []string{"Authorization", "X-Eq-Connector", "X-Eq-Tenant", "X-Eq-Destination", "X-Forwarded-For"} {
 		if seen.Header.Get(h) != "" {
 			t.Errorf("header %s reached the connector", h)
 		}
@@ -164,6 +167,8 @@ func TestForwardErrors(t *testing.T) {
 		{"wrong gateway token", map[string]string{"Authorization": "Bearer nope"}, 401, "unauthorized"},
 		{"bad destination", map[string]string{"X-Eq-Destination": "nohost"}, 400, "bad_request"},
 		{"bad scheme", map[string]string{"X-Eq-Scheme": "ftp"}, 400, "bad_request"},
+		{"no tenant", map[string]string{"X-Eq-Tenant": ""}, 400, "bad_request"},
+		{"bad host", map[string]string{"X-Eq-Host": "bad host!"}, 400, "bad_request"},
 		{"no tunnel", nil, 502, "connector_unavailable"},
 	}
 	for _, c := range cases {
@@ -177,6 +182,10 @@ func TestForwardErrors(t *testing.T) {
 	waitTunnels(t, r.pool, 1)
 	if resp := send(t, r.forward.URL, nil, ""); resp.StatusCode != 403 || resp.Header.Get("X-Eq-Error") != "destination_not_declared" {
 		t.Errorf("undeclared destination: %d %q", resp.StatusCode, resp.Header.Get("X-Eq-Error"))
+	}
+	resp := send(t, r.forward.URL, map[string]string{"X-Eq-Destination": "10.0.0.9:80", "X-Eq-Tenant": "someone-else"}, "")
+	if resp.StatusCode != 403 || resp.Header.Get("X-Eq-Error") != "connector_not_owned" {
+		t.Errorf("another tenant's connector: %d %q", resp.StatusCode, resp.Header.Get("X-Eq-Error"))
 	}
 }
 

@@ -60,6 +60,8 @@ type Meta struct {
 	App     string `json:"app"`
 	Version int    `json:"version"`
 	Status  string `json:"status"`
+	// PublicDomain is the host this map is served on (set by the panel).
+	PublicDomain string `json:"public_domain"`
 }
 
 // Legacy describes how to reach the protected application.
@@ -84,6 +86,9 @@ type Reach struct {
 	Mode        string   `json:"mode"`
 	ConnectorID string   `json:"connector_id"`
 	Allow       []string `json:"allow"`
+	// Address to connect to instead of base_url's host (virtual hosts,
+	// internal-only listeners); base_url's host still goes in Host and SNI.
+	Address string `json:"address"`
 }
 
 // Roles lists the roles and the one given to unauthenticated visitors.

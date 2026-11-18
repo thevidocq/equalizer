@@ -64,6 +64,27 @@ func TestExecutor(t *testing.T) {
 		}
 	}
 
+	// Virtual hosts: one destination, the site chosen by name. The name
+	// never changes where the connector connects.
+	vhost := func(name string) *httptest.ResponseRecorder {
+		req := httptest.NewRequest("GET", "/", nil)
+		req.Host = u.Host
+		req.Header.Set("X-Eq-Scheme", "http")
+		req.Header.Set(HeaderHost, name)
+		rec := httptest.NewRecorder()
+		e.ServeHTTP(rec, req)
+		return rec
+	}
+	if rec := vhost("taxes.example.org"); rec.Code != 200 || seen.Host != "taxes.example.org" || seen.Header.Get(HeaderHost) != "" {
+		t.Errorf("virtual host: %d, legacy saw Host %q", rec.Code, seen.Host)
+	}
+	if rec := vhost("169.254.169.254"); rec.Code != 200 || seen.Host != "169.254.169.254" {
+		t.Errorf("a name that looks like another address must still go to the destination: %d", rec.Code)
+	}
+	if rec := vhost("bad name!"); rec.Code != 400 {
+		t.Errorf("invalid virtual host accepted: %d", rec.Code)
+	}
+
 	legacy.Close()
 	if rec := do(u.Host, "/", "http"); rec.Code != http.StatusBadGateway || rec.Header().Get(HeaderError) != "legacy_unreachable" {
 		t.Errorf("legacy down: %d %q", rec.Code, rec.Header().Get(HeaderError))

@@ -23,17 +23,62 @@ Add a section at the top of "Entries" for every commit:
 | --- | --- |
 | Contracts (`schema/`) | First version, validated in CI |
 | Documentation | Architecture, map format, installation and manuals (planned features) |
-| gateway | GET routes, assets and urlencoded POST forms in direct or connector mode, validation, faithful rendering (UTF-8, cleanup, form binding, URL rewriting, redirects), pass-through login with sessions in Redis, rate limits and behaviour rules; no file uploads yet |
-| tunnel-relay | Token-authenticated tunnels, forwarding, admin endpoints; single replica |
-| connector | Outbound tunnel, local allowlist, reconnection |
+| gateway | Many sites by host, virtual hosts (`reach.address`), GET routes, assets and urlencoded POST forms in direct or connector mode, validation, faithful rendering (UTF-8, cleanup, form binding, URL rewriting, redirects), pass-through login with sessions in Redis, rate limits and behaviour rules; no file uploads yet |
+| tunnel-relay | Token-authenticated tunnels, forwarding with tenant check, admin endpoints; single replica |
+| connector | Outbound tunnel, local allowlist, reconnection; one per server, virtual hosts |
 | orchestrator | Not implemented yet |
-| panel-api | Auth with mandatory TOTP, tenants, email invitations, platform/tenant privacy, users, sites, connectors, maps with approval and signing, audit, internal endpoints |
-| panel-ui | Login, joining by invitation, platform tenant overview, sites, connectors, people with invitations, maps with editor and approval, activity |
+| panel-api | Auth with mandatory TOTP, tenants, email invitations, tenant connectors, map reach checks, exposure check, platform/tenant privacy, users, sites, connectors, maps with approval and signing, audit, internal endpoints |
+| panel-ui | Login, joining by invitation, platform tenant overview, sites with isolation, tenant connectors, people with invitations, maps with editor and approval, activity |
 | agent | Not implemented yet |
-| deploy/compose | Caddy (gateway, relay and panel domains), SMTP settings, gateway (2 replicas), Redis, PostgreSQL, panel-api, panel-ui, tunnel-relay, Vector, Loki, Grafana; statically validated |
+| deploy/compose | Caddy (on-demand certificates for protected sites, relay and panel domains), SMTP settings, gateway (2 replicas), Redis, PostgreSQL, panel-api, panel-ui, tunnel-relay, Vector, Loki, Grafana; statically validated |
 | tools (eqtool) | Map signing keys, form key, relay token, connector registration, map signing |
 
 ## Entries
+
+### 2026-11-18 — One connector per server, many sites per gateway, isolation check
+
+- **Branch:** `feat/shared-connectors`
+- **What:**
+  - Contracts: map `meta.public_domain` and `legacy.reach.address`; panel
+    connectors at `/tenants/{tenant}/connectors` (with `used_by`), site
+    `PATCH` (`legacy_ip`) and `/exposure/check`, `Exposure` on sites,
+    `exposed` in the platform overview, `/internal/maps`; tunnel headers
+    `X-Eq-Tenant` (gateway → relay) and `X-Eq-Host` (to the connector).
+  - Security fixes: a map can no longer use another tenant's connector
+    (panel at draft and publish, relay at every request:
+    `connector_not_owned`); `direct` mode only towards
+    `EQ_DIRECT_DESTINATIONS`, so no map can reach Redis, PostgreSQL or the
+    panel from the gateway.
+  - panel-api: migration `0004` (connectors per tenant, exposure columns);
+    `internal/exposure` (probe of the old IP on 443/80 with SNI and Host,
+    compared with a random name; public unicast IPs only; hourly runner;
+    status changes in logs and tenant activity); connector removal refused
+    while a published map uses it.
+  - gateway: all published maps, chosen by host (unknown host 404), a
+    refused map keeps only its own site's previous version; `/tls/allowed`
+    for Caddy; transports connect to `reach.address` with the site's name
+    in Host/SNI; the tenant goes to the relay.
+  - tunnel-relay: sessions carry the tenant, checked per request;
+    `X-Eq-Host` passed on. connector: dials only the checked destination,
+    presents `X-Eq-Host` as Host and SNI.
+  - eqtool: connectors without app. Compose/Caddy: on-demand TLS for
+    published domains, `EQ_GATEWAY_DOMAIN` and `EQ_APP` removed,
+    `EQ_MAP_URL` defaults to every published map, new
+    `EQ_DIRECT_DESTINATIONS` and `EQ_EXPOSURE_INTERVAL`.
+  - panel-ui: tenant Connectors page; Site → Isolation (status, check now,
+    old IP, configuration for Apache, nginx, IIS and the map lines); red
+    status for exposed sites.
+  - Docs: map format, tunnel spec, INSTALL, architecture, READMEs, manual.
+- **Why:** many sites on one server must not need many containers; a
+  protected site must really stop being public while its neighbours stay
+  online; and two isolation holes found while reading the code.
+- **Status:** unit and integration tests pass in every module; UI checked
+  in a browser; Caddyfile validated with Caddy 2.8. Not tested end to end
+  with a real web server, real DNS and Let's Encrypt.
+- **Next steps:**
+  1. Lab campaign: Juice Shop behind the gateway (owner's tests below).
+  2. Map authorisation rules (`owned_by_user`) and map rollback.
+  3. Limit platform logins to the VPN; per-site fail-closed rate limits.
 
 ### 2026-11-18 — Separate the platform from tenants, invite people by email
 

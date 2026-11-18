@@ -21,7 +21,9 @@ var ErrDestinationNotAllowed = errors.New("destination not allowed")
 // Direct returns a RoundTripper that connects only to the host:port
 // destinations listed in allow (legacy.reach.allow). No proxy, and no
 // connections to other hosts even if a redirect or DNS asked for one.
-func Direct(allow []string, timeout time.Duration) (http.RoundTripper, error) {
+// With address set, every connection goes there (it must be allowed): the
+// URL's host still goes in Host and TLS SNI, for virtual hosts.
+func Direct(allow []string, address string, timeout time.Duration) (http.RoundTripper, error) {
 	if len(allow) == 0 {
 		return nil, errors.New("empty destination allowlist")
 	}
@@ -33,10 +35,19 @@ func Direct(allow []string, timeout time.Duration) (http.RoundTripper, error) {
 		}
 		allowed[net.JoinHostPort(strings.ToLower(host), port)] = true
 	}
+	if address != "" {
+		address = normalize(address)
+		if !allowed[address] {
+			return nil, fmt.Errorf("legacy.reach.address %q is not in allow", address)
+		}
+	}
 	dialer := &net.Dialer{Timeout: 5 * time.Second, KeepAlive: 30 * time.Second}
 	return &http.Transport{
 		Proxy: nil,
 		DialContext: func(ctx context.Context, network, addr string) (net.Conn, error) {
+			if address != "" {
+				addr = address
+			}
 			host, port, err := net.SplitHostPort(addr)
 			if err != nil || !allowed[net.JoinHostPort(strings.ToLower(host), port)] {
 				return nil, fmt.Errorf("%w: %s", ErrDestinationNotAllowed, addr)
@@ -49,4 +60,13 @@ func Direct(allow []string, timeout time.Duration) (http.RoundTripper, error) {
 		TLSHandshakeTimeout:   5 * time.Second,
 		ForceAttemptHTTP2:     false, // HTTP/1.1 only towards the legacy application
 	}, nil
+}
+
+// normalize lower-cases the host of a host:port ("" when malformed).
+func normalize(d string) string {
+	host, port, err := net.SplitHostPort(d)
+	if err != nil {
+		return ""
+	}
+	return net.JoinHostPort(strings.ToLower(host), port)
 }

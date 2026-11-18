@@ -4,6 +4,7 @@ import { AccountPage } from "@/features/account";
 import { TenantsPage } from "@/features/tenants";
 import { SiteLayout, SitesPage } from "@/features/sites";
 import { ConnectorsPage } from "@/features/connectors";
+import { IsolationPage } from "@/features/exposure";
 import { MapsPage, NewVersionPage, VersionPage } from "@/features/maps";
 import { UsersPage } from "@/features/users";
 import { AuditPage } from "@/features/audit";
@@ -25,6 +26,7 @@ export const router = createBrowserRouter([
       { path: "t/:tenant", element: <SitesPage /> },
       { path: "t/:tenant/people", element: <UsersPage /> },
       { path: "t/:tenant/activity", element: <AuditPage /> },
+      { path: "t/:tenant/connectors", element: <ConnectorsPage /> },
       {
         path: "t/:tenant/sites/:app",
         element: <SiteLayout />,
@@ -33,7 +35,7 @@ export const router = createBrowserRouter([
           { path: "maps", element: <MapsPage /> },
           { path: "maps/new", element: <NewVersionPage /> },
           { path: "maps/:version", element: <VersionPage /> },
-          { path: "connectors", element: <ConnectorsPage /> },
+          { path: "isolation", element: <IsolationPage /> },
         ],
       },
       { path: "*", element: <p className="text-ink-soft">This page does not exist.</p> },

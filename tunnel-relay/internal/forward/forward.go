@@ -22,6 +22,8 @@ import (
 // Headers of the gateway → relay contract.
 const (
 	HeaderConnector   = "X-Eq-Connector"
+	HeaderTenant      = "X-Eq-Tenant"
+	HeaderHost        = "X-Eq-Host"
 	HeaderDestination = "X-Eq-Destination"
 	HeaderScheme      = "X-Eq-Scheme"
 	HeaderError       = "X-Eq-Error"
@@ -49,7 +51,7 @@ func New(pool *sessions.Pool, token string, log *slog.Logger) *Handler {
 			pr.Out.URL.Scheme = "http" // the stream itself; the connector reads X-Eq-Scheme
 			pr.Out.URL.Host = dest
 			pr.Out.Host = dest
-			for _, k := range []string{"Authorization", HeaderConnector, HeaderDestination} {
+			for _, k := range []string{"Authorization", HeaderConnector, HeaderTenant, HeaderDestination} {
 				pr.Out.Header.Del(k)
 			}
 		},
@@ -78,8 +80,9 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	id, dest := r.Header.Get(HeaderConnector), r.Header.Get(HeaderDestination)
-	scheme := r.Header.Get(HeaderScheme)
-	if !registry.ValidID(id) || !validDestination(dest) || (scheme != "http" && scheme != "https") {
+	scheme, tenant := r.Header.Get(HeaderScheme), r.Header.Get(HeaderTenant)
+	if !registry.ValidID(id) || !validDestination(dest) || (scheme != "http" && scheme != "https") || tenant == "" ||
+		!validHost(r.Header.Get(HeaderHost)) {
 		fail(w, http.StatusBadRequest, "bad_request")
 		return
 	}
@@ -94,6 +97,12 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		h.Log.WarnContext(ctx, "request not forwarded",
 			slog.Group("detail", slog.String("connector_id", id), slog.String("reason", reason)))
 		fail(w, status, reason)
+		return
+	}
+	if s.Tenant != tenant {
+		h.Log.WarnContext(ctx, "request refused: connector of another tenant",
+			slog.Group("detail", slog.String("connector_id", id), slog.String("tenant", tenant), slog.String("reason", "connector_not_owned")))
+		fail(w, http.StatusForbidden, "connector_not_owned")
 		return
 	}
 	start := time.Now()
@@ -118,6 +127,22 @@ func (h *Handler) proxyError(w http.ResponseWriter, r *http.Request, err error) 
 func validDestination(d string) bool {
 	host, port, err := net.SplitHostPort(d)
 	return err == nil && host != "" && port != ""
+}
+
+// validHost accepts an empty value or a host name with an optional port.
+func validHost(h string) bool {
+	if h == "" {
+		return true
+	}
+	if len(h) > 260 {
+		return false
+	}
+	for _, c := range h {
+		if !(c >= 'a' && c <= 'z' || c >= 'A' && c <= 'Z' || c >= '0' && c <= '9' || c == '.' || c == '-' || c == ':') {
+			return false
+		}
+	}
+	return true
 }
 
 func fail(w http.ResponseWriter, status int, reason string) {

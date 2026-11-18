@@ -42,7 +42,7 @@ func TestRelayTransport(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	rt, err := Relay(cfg, "cn-1", []string{"10.20.0.15:8080", "legacy.local:443"}, time.Second)
+	rt, err := Relay(cfg, "cn-1", "acme", []string{"10.20.0.15:8080", "legacy.local:443"}, "", time.Second)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -63,7 +63,7 @@ func TestRelayTransport(t *testing.T) {
 	if seen.Method != "POST" || seen.URL.EscapedPath() != "/app/a%2Fb/save.do" || seen.URL.RawQuery != "x=1" || seenBody != "k=v" {
 		t.Errorf("relay saw %s %s?%s %q", seen.Method, seen.URL.EscapedPath(), seen.URL.RawQuery, seenBody)
 	}
-	want := map[string]string{"Authorization": "Bearer " + token, "X-Eq-Connector": "cn-1",
+	want := map[string]string{"Authorization": "Bearer " + token, "X-Eq-Connector": "cn-1", "X-Eq-Tenant": "acme",
 		"X-Eq-Destination": "10.20.0.15:8080", "X-Eq-Scheme": "http", "X-Eq-Request-Id": "r-abc"}
 	for k, v := range want {
 		if seen.Header.Get(k) != v {
@@ -88,6 +88,22 @@ func TestRelayTransport(t *testing.T) {
 		}
 	}
 
+	// Virtual host: always the address, the site's name in X-Eq-Host.
+	vh, err := Relay(cfg, "cn-1", "acme", []string{"10.20.0.15:443"}, "10.20.0.15:443", time.Second)
+	if err != nil {
+		t.Fatal(err)
+	}
+	req, _ := http.NewRequest("GET", "https://Taxes.Example.org/", nil)
+	if _, err := vh.RoundTrip(req); err != nil {
+		t.Fatalf("virtual host: %v", err)
+	}
+	if seen.Header.Get("X-Eq-Destination") != "10.20.0.15:443" || seen.Header.Get("X-Eq-Host") != "taxes.example.org" {
+		t.Errorf("virtual host headers: %v", seen.Header)
+	}
+	if _, err := Relay(cfg, "cn-1", "acme", []string{"10.20.0.15:443"}, "10.20.0.16:443", time.Second); err == nil {
+		t.Error("address outside allow accepted")
+	}
+
 	relay.Close()
 	if _, err := do("GET", "http://10.20.0.15:8080/", ""); !errors.Is(err, ErrConnectorUnavailable) {
 		t.Errorf("relay down: %v", err)
@@ -103,7 +119,10 @@ func TestParseRelay(t *testing.T) {
 			t.Errorf("%v accepted", c)
 		}
 	}
-	if _, err := Relay(&RelayConfig{URL: &url.URL{Scheme: "http", Host: "r"}, Token: token}, "", []string{"a:1"}, time.Second); err == nil {
+	if _, err := Relay(&RelayConfig{URL: &url.URL{Scheme: "http", Host: "r"}, Token: token}, "", "acme", []string{"a:1"}, "", time.Second); err == nil {
 		t.Error("missing connector id accepted")
+	}
+	if _, err := Relay(&RelayConfig{URL: &url.URL{Scheme: "http", Host: "r"}, Token: token}, "cn-1", "", []string{"a:1"}, "", time.Second); err == nil {
+		t.Error("missing tenant accepted")
 	}
 }

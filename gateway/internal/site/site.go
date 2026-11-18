@@ -108,7 +108,7 @@ func BuildWith(m *mapmodel.Model, opts Options) (*Site, error) {
 	var tr http.RoundTripper
 	switch m.Legacy.Reach.Mode {
 	case "direct":
-		tr, err = transport.Direct(m.Legacy.Reach.Allow, timeout)
+		tr, err = transport.Direct(m.Legacy.Reach.Allow, m.Legacy.Reach.Address, timeout)
 		if err != nil {
 			return nil, fmt.Errorf("legacy.reach: %w", err)
 		}
@@ -117,7 +117,7 @@ func BuildWith(m *mapmodel.Model, opts Options) (*Site, error) {
 			tr = unavailable{}
 			break
 		}
-		tr, err = transport.Relay(opts.Relay, m.Legacy.Reach.ConnectorID, m.Legacy.Reach.Allow, timeout)
+		tr, err = transport.Relay(opts.Relay, m.Legacy.Reach.ConnectorID, m.Meta.Tenant, m.Legacy.Reach.Allow, m.Legacy.Reach.Address, timeout)
 		if err != nil {
 			return nil, fmt.Errorf("legacy.reach: %w", err)
 		}

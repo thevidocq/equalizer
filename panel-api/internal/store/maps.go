@@ -176,3 +176,33 @@ func setMeta(doc json.RawMessage, fields map[string]any) (json.RawMessage, error
 func SetMeta(doc json.RawMessage, fields map[string]any) (json.RawMessage, error) {
 	return setMeta(doc, fields)
 }
+
+// SignedVersion is a published version as the gateway needs it.
+type SignedVersion struct {
+	App       string
+	Version   int
+	Payload   string
+	Signature string
+	KeyID     string
+}
+
+// AllPublished returns every published, signed version, ordered by site.
+func (s *Store) AllPublished(ctx context.Context) ([]SignedVersion, error) {
+	rows, err := s.DB.QueryContext(ctx, `
+		SELECT app_id, version, payload, signature, key_id FROM map_versions
+		WHERE status = 'published' AND payload IS NOT NULL AND signature IS NOT NULL AND key_id IS NOT NULL
+		ORDER BY app_id`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	out := []SignedVersion{}
+	for rows.Next() {
+		var v SignedVersion
+		if err := rows.Scan(&v.App, &v.Version, &v.Payload, &v.Signature, &v.KeyID); err != nil {
+			return nil, err
+		}
+		out = append(out, v)
+	}
+	return out, rows.Err()
+}

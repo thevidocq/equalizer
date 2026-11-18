@@ -36,7 +36,6 @@ services:
       - "80:80"
       - "443:443"
     environment:
-      EQ_GATEWAY_DOMAIN: ${EQ_GATEWAY_DOMAIN:?set EQ_GATEWAY_DOMAIN in .env}
       EQ_RELAY_DOMAIN: ${EQ_RELAY_DOMAIN:?set EQ_RELAY_DOMAIN in .env}
       EQ_PANEL_DOMAIN: ${EQ_PANEL_DOMAIN:?set EQ_PANEL_DOMAIN in .env}
       EQ_ACME_EMAIL: ${EQ_ACME_EMAIL:-}
@@ -60,9 +59,10 @@ services:
       EQ_PUBLIC_ADDR: ":8080"
       EQ_ADMIN_ADDR: ":9090"
       EQ_LOG_LEVEL: ${EQ_LOG_LEVEL:-info}
-      # The published map of EQ_APP comes from the panel. Without EQ_APP the
-      # gateway reads maps/current.json (maps signed by hand with eqtool).
-      EQ_MAP_URL: ${EQ_APP:+http://panel-api:8080/v1/internal/apps/${EQ_APP}/map}
+      # Every published map comes from the panel; each is served on its own
+      # domain. EQ_MAP_URL= (empty) in .env: maps/current.json, signed by
+      # hand with eqtool.
+      EQ_MAP_URL: ${EQ_MAP_URL-http://panel-api:8080/v1/internal/maps}
       EQ_MAP_TOKEN_FILE: /secrets/panel-internal.token
       EQ_MAP_FILE: /maps/current.json
       EQ_MAP_PUBKEY_FILE: /secrets/map-signing.pub
@@ -128,6 +128,11 @@ services:
       EQ_SMTP_USER: ${EQ_SMTP_USER:-}
       EQ_SMTP_PASSWORD_FILE: /secrets/smtp.password
       EQ_MAIL_FROM: ${EQ_MAIL_FROM:-}
+      # host:port a map may reach in direct mode (lab apps); empty: tenant
+      # maps must use a connector, never the platform's own network
+      EQ_DIRECT_DESTINATIONS: ${EQ_DIRECT_DESTINATIONS:-}
+      # how often each protected site is checked for direct exposure
+      EQ_EXPOSURE_INTERVAL: ${EQ_EXPOSURE_INTERVAL:-1h}
     volumes:
       - ./secrets/mfa.key:/secrets/mfa.key:ro
       - ./secrets/smtp.password:/secrets/smtp.password:ro

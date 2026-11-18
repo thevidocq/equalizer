@@ -19,7 +19,6 @@ var connectorIDRe = regexp.MustCompile(`^[a-z0-9][a-z0-9_-]{1,62}$`)
 type connectorEntry struct {
 	ID          string `json:"id"`
 	Tenant      string `json:"tenant"`
-	App         string `json:"app"`
 	TokenSHA256 string `json:"token_sha256"`
 }
 
@@ -61,7 +60,6 @@ func connector(args []string) error {
 	file := fs.String("file", "connectors.json", "relay connectors file")
 	id := fs.String("id", "", "connector id (lower case letters, digits, - and _)")
 	tenant := fs.String("tenant", "", "tenant")
-	app := fs.String("app", "", "protected application")
 	rotate := fs.Bool("rotate", false, "replace the token of an existing connector")
 	if err := fs.Parse(args); err != nil {
 		return err
@@ -103,10 +101,10 @@ func connector(args []string) error {
 		if *rotate {
 			return fmt.Errorf("connector %q does not exist", *id)
 		}
-		if *tenant == "" || *app == "" {
-			return errors.New("-tenant and -app are required for a new connector")
+		if *tenant == "" {
+			return errors.New("-tenant is required for a new connector")
 		}
-		doc.Connectors = append(doc.Connectors, connectorEntry{ID: *id, Tenant: *tenant, App: *app, TokenSHA256: hash})
+		doc.Connectors = append(doc.Connectors, connectorEntry{ID: *id, Tenant: *tenant, TokenSHA256: hash})
 	}
 
 	out, err := json.MarshalIndent(doc, "", "  ")

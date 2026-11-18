@@ -13,25 +13,31 @@ import (
 
 // Config is the complete panel-api configuration.
 type Config struct {
-	Addr            string // API and (later) the panel UI; control network or localhost only
-	AdminAddr       string // /healthz, /readyz
-	Instance        string
-	LogLevel        string
-	DatabaseURL     string // postgres://user@host/db?sslmode=disable, password from EQ_DATABASE_PASSWORD[_FILE]
-	SigningKey      ed25519.PrivateKey
-	SigningKeyID    string
-	InternalToken   string // presented by gateway and tunnel-relay on /v1/internal
-	MFAKey          []byte // encrypts authenticator secrets (32 bytes)
-	MFARequired     bool   // every panel user must use an authenticator app (default true)
-	PanelURL        string // public address of the panel, for links in emails
-	MailMode        string // smtp, log (development: links in the logs) or off
-	SMTPAddr        string
-	SMTPUser        string
-	SMTPPassword    string
-	MailFrom        string
-	SessionTTL      time.Duration
-	UIDir           string // static files of panel-ui; empty: API only
-	ShutdownTimeout time.Duration
+	Addr          string // API and (later) the panel UI; control network or localhost only
+	AdminAddr     string // /healthz, /readyz
+	Instance      string
+	LogLevel      string
+	DatabaseURL   string // postgres://user@host/db?sslmode=disable, password from EQ_DATABASE_PASSWORD[_FILE]
+	SigningKey    ed25519.PrivateKey
+	SigningKeyID  string
+	InternalToken string // presented by gateway and tunnel-relay on /v1/internal
+	MFAKey        []byte // encrypts authenticator secrets (32 bytes)
+	MFARequired   bool   // every panel user must use an authenticator app (default true)
+	PanelURL      string // public address of the panel, for links in emails
+	MailMode      string // smtp, log (development: links in the logs) or off
+	SMTPAddr      string
+	SMTPUser      string
+	SMTPPassword  string
+	MailFrom      string
+	// DirectDestinations: host:port a map may reach in direct mode
+	// (EQ_DIRECT_DESTINATIONS, comma separated); empty: connectors only.
+	DirectDestinations string
+	// ExposureInterval between two exposure checks of a site
+	// (EQ_EXPOSURE_INTERVAL, default 1h; 0 turns the checks off).
+	ExposureInterval time.Duration
+	SessionTTL       time.Duration
+	UIDir            string // static files of panel-ui; empty: API only
+	ShutdownTimeout  time.Duration
 }
 
 // FromEnv builds the configuration.
@@ -85,6 +91,15 @@ func FromEnv() (Config, error) {
 		return Config{}, err
 	}
 	cfg.MailFrom = env("EQ_MAIL_FROM", "equalizer@localhost")
+	cfg.DirectDestinations = os.Getenv("EQ_DIRECT_DESTINATIONS")
+	cfg.ExposureInterval = time.Hour
+	if v := os.Getenv("EQ_EXPOSURE_INTERVAL"); v != "" {
+		d, err := time.ParseDuration(v)
+		if err != nil || d < 0 || (d > 0 && d < 5*time.Minute) {
+			return Config{}, fmt.Errorf("EQ_EXPOSURE_INTERVAL: a duration of at least 5m, or 0 to turn the checks off")
+		}
+		cfg.ExposureInterval = d
+	}
 	cfg.MailMode = os.Getenv("EQ_MAIL_MODE")
 	if cfg.MailMode == "" {
 		cfg.MailMode = "off"

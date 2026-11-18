@@ -29,6 +29,7 @@ export function Sidebar() {
         </nav>
       ) : null}
       <nav aria-label="Administration" className="flex flex-col gap-1">
+        {tenant && canManage(me, tenant) ? <NavLink to={`/t/${tenant}/connectors`} className={link}>Connectors</NavLink> : null}
         {tenant ? <NavLink to={`/t/${tenant}/people`} className={link}>People</NavLink> : null}
         {tenant ? <NavLink to={`/t/${tenant}/activity`} className={link}>Activity</NavLink> : null}
         {me?.platform_role ? <NavLink to="/tenants" className={link}>Tenants</NavLink> : null}

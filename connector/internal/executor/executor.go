@@ -26,6 +26,11 @@ const HeaderError = "X-Eq-Error"
 // ErrNotAllowed is returned by the dialer for destinations outside the allowlist.
 var ErrNotAllowed = errors.New("destination_not_allowed")
 
+// HeaderHost names the virtual host to present on the destination.
+const HeaderHost = "X-Eq-Host"
+
+type destKey struct{}
+
 // Executor is the http.Handler served on the tunnel.
 type Executor struct {
 	allow *allowlist.List
@@ -39,10 +44,15 @@ func New(allow *allowlist.List, tlsConfig *tls.Config, log *slog.Logger) *Execut
 	dialer := &net.Dialer{Timeout: 10 * time.Second}
 	e.proxy = &httputil.ReverseProxy{
 		Rewrite: func(pr *httputil.ProxyRequest) {
-			dest := pr.In.Host
+			// The URL carries the site's name: Go sends it as Host and as
+			// TLS SNI. The dialer connects to the destination anyway.
+			name := pr.In.Header.Get(HeaderHost)
+			if name == "" {
+				name = pr.In.Host
+			}
 			pr.Out.URL.Scheme = pr.In.Header.Get("X-Eq-Scheme")
-			pr.Out.URL.Host = dest
-			pr.Out.Host = dest
+			pr.Out.URL.Host = name
+			pr.Out.Host = name
 			for k := range pr.Out.Header {
 				if strings.HasPrefix(strings.ToLower(k), "x-eq-") {
 					pr.Out.Header.Del(k)
@@ -52,11 +62,14 @@ func New(allow *allowlist.List, tlsConfig *tls.Config, log *slog.Logger) *Execut
 		Transport: &http.Transport{
 			// Second barrier: whatever the request says, only allowed
 			// destinations can be dialled.
-			DialContext: func(ctx context.Context, network, addr string) (net.Conn, error) {
-				if !allow.Contains(addr) {
+			// The address comes from the checked destination, never from
+			// the virtual host name.
+			DialContext: func(ctx context.Context, network, _ string) (net.Conn, error) {
+				dest, _ := ctx.Value(destKey{}).(string)
+				if !allow.Contains(dest) {
 					return nil, ErrNotAllowed
 				}
-				return dialer.DialContext(ctx, network, addr)
+				return dialer.DialContext(ctx, network, dest)
 			},
 			TLSClientConfig:       tlsConfig,
 			Proxy:                 nil, // the legacy application is on the local network
@@ -81,6 +94,11 @@ func (e *Executor) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		fail(w, http.StatusBadRequest, "bad_request")
 		return
 	}
+	if !validName(r.Header.Get(HeaderHost)) {
+		fail(w, http.StatusBadRequest, "bad_request")
+		return
+	}
+	ctx = context.WithValue(ctx, destKey{}, r.Host)
 	ctx, cancel := context.WithTimeout(ctx, Timeout)
 	defer cancel()
 	start := time.Now()
@@ -103,6 +121,19 @@ func (e *Executor) failed(w http.ResponseWriter, r *http.Request, err error) {
 	e.log.WarnContext(r.Context(), "legacy request failed",
 		slog.String("error", err.Error()), slog.Group("detail", slog.String("destination", r.Host), slog.String("reason", reason)))
 	fail(w, status, reason)
+}
+
+// validName accepts an empty value or host[:port] made of name characters.
+func validName(h string) bool {
+	if len(h) > 260 {
+		return false
+	}
+	for _, c := range h {
+		if !(c >= 'a' && c <= 'z' || c >= 'A' && c <= 'Z' || c >= '0' && c <= '9' || c == '.' || c == '-' || c == ':') {
+			return false
+		}
+	}
+	return true
 }
 
 func fail(w http.ResponseWriter, status int, reason string) {

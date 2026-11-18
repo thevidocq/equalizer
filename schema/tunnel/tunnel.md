@@ -63,6 +63,10 @@ Request from the relay:
 
 - The `Host` header is the destination (`host:port`); the request line
   carries path and query.
+- `X-Eq-Host` (optional) is the name of the site on that destination, for
+  web servers with several virtual hosts: the connector sends it as `Host`
+  and, for `https`, as TLS SNI (without the port). Without it the
+  destination is used.
 - `X-Eq-Scheme: http|https` says how to reach the destination.
 - `X-Eq-Request-Id` carries the gateway's request id, for the logs.
 
@@ -70,6 +74,8 @@ The connector:
 
 1. Checks that the destination is in its allowlist (exact `host:port`);
    otherwise it answers `403` with `X-Eq-Error: destination_not_allowed`.
+   It connects only to the destination, whatever `X-Eq-Host` says: one
+   connector serves every site of the servers it may reach.
 2. Removes the `X-Eq-*` headers and the hop-by-hop headers.
 3. Executes the request (redirects are not followed, timeout 30 s).
 4. Returns status, headers and body as they are.
@@ -92,14 +98,21 @@ POST /permits/supplement.do HTTP/1.1
 Host: tunnel-relay:8082
 Authorization: Bearer <gateway token>
 X-Eq-Connector: cn-example-city-01
-X-Eq-Destination: 10.20.0.15:8080
-X-Eq-Scheme: http
+X-Eq-Tenant: example-city
+X-Eq-Destination: 10.20.0.15:443
+X-Eq-Host: permits.example-city.gov
+X-Eq-Scheme: https
 X-Eq-Request-Id: r-4ffd4c18cbf386ec
 ```
 
 - The gateway sends only destinations in the map's `legacy.reach.allow`
   (first check); the connector checks its own allowlist (second check).
-- The relay removes `Authorization`, `X-Eq-Connector` and
+- `X-Eq-Tenant` is the tenant of the signed map. The relay forwards only if
+  the connector belongs to that tenant: a map can never use another
+  customer's connector (the panel refuses such maps too).
+- `X-Eq-Host` comes from the map's `base_url` when `legacy.reach.address`
+  is set; it travels unchanged to the connector.
+- The relay removes `Authorization`, `X-Eq-Connector`, `X-Eq-Tenant` and
   `X-Eq-Destination` and sends the request on a stream of one of the
   connector's sessions.
 
@@ -109,6 +122,7 @@ Relay errors (always with `X-Eq-Error`):
 | --- | --- |
 | 401 | `unauthorized` (wrong gateway token) |
 | 400 | `bad_request` (missing headers) |
+| 403 | `connector_not_owned` (the connector belongs to another tenant) |
 | 502 | `connector_unavailable` (no open session) |
 | 403 | `destination_not_declared` (not in the connector's `X-Eq-Allow`) |
 | 403, 400, 502, 504 | errors propagated from the connector |

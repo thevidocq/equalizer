@@ -5,11 +5,11 @@ import { Button, Notice } from "@/shared/ui";
 export function TokenReveal({ connectorId, token }: { connectorId: string; token: string }) {
   const [copied, setCopied] = useState(false);
   const command = [
-    "docker run -d --name eq-connector --restart unless-stopped \\",
+    "docker run -d --name eq-connector --restart unless-stopped --network host \\",
     "  -e EQ_RELAY_URL=https://<relay domain> \\",
     `  -e EQ_CONNECTOR_ID=${connectorId} \\`,
     `  -e EQ_CONNECTOR_TOKEN=${token} \\`,
-    "  -e EQ_ALLOW=<legacy host:port> \\",
+    "  -e EQ_ALLOW=<addresses, e.g. 127.0.0.1:8443,10.20.0.15:443> \\",
     "  ghcr.io/thevidocq/equalizer-connector:latest",
   ].join("\n");
 
@@ -23,8 +23,10 @@ export function TokenReveal({ connectorId, token }: { connectorId: string; token
       <Notice tone="info">Copy the command now: the token is shown only once. Replace the two values in angle brackets.</Notice>
       <pre className="whitespace-pre-wrap break-all rounded-[var(--radius-control)] bg-ink p-3 font-mono text-[12.5px] leading-relaxed text-paper">{command}</pre>
       <p className="text-sm text-ink-soft">
-        <span className="font-semibold text-ink">EQ_ALLOW</span> lists the only addresses the connector may reach, for example the
-        legacy server's <span className="font-mono">10.20.0.15:8080</span>.
+        <span className="font-semibold text-ink">EQ_ALLOW</span> lists the only addresses the connector may reach: put every address
+        your protected sites listen on. Sites sharing an address are told apart by name (virtual hosts), so one entry can serve
+        several sites. <span className="font-mono">--network host</span> lets it reach sites that listen only on this server's
+        <span className="font-mono"> 127.0.0.1</span>.
       </p>
       <div>
         <Button variant="primary" onClick={copy}>{copied ? "Copied" : "Copy command"}</Button>

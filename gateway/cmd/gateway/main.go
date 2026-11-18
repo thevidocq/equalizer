@@ -79,8 +79,8 @@ func run() error {
 	}
 	log.Info("map source", slog.Group("detail", slog.String("source", source.String())))
 	store := mapstore.NewStoreFrom(source, pub, cfg.MapPublicKeyID, site.Options{Relay: relay, Limits: counters})
-	active, err := store.Reload()
-	logReload(log, active, err)
+	rep, err := store.Reload()
+	logReload(log, rep, err)
 
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer stop()
@@ -96,7 +96,7 @@ func run() error {
 			}
 		}
 	}()
-	go store.Watch(ctx, 15*time.Second, trigger, func(st *site.Site, err error) { logReload(log, st, err) })
+	go store.Watch(ctx, 15*time.Second, trigger, func(rep mapstore.Report, err error) { logReload(log, rep, err) })
 
 	sealer, err := formtoken.New(formKey)
 	if err != nil {
@@ -172,18 +172,23 @@ func stores(ctx context.Context, cfg config.Config, key []byte, log *slog.Logger
 	return m, counters, closeStore, err
 }
 
-func logReload(log *slog.Logger, a *site.Site, err error) {
-	if err != nil {
-		log.Error("map not loaded", slog.String("error", err.Error()))
-		return
+func logReload(log *slog.Logger, rep mapstore.Report, err error) {
+	for _, f := range rep.Failed {
+		log.Error("map not loaded", slog.String("error", f.Error()))
 	}
-	log.Info("map active", slog.Group("detail",
-		slog.String("tenant", a.Model.Meta.Tenant),
-		slog.String("app", a.Model.Meta.App),
-		slog.Int("map_version", a.Model.Meta.Version),
-	))
-	for _, n := range a.Notes {
-		log.Warn("map feature not applied yet", slog.Group("detail", slog.String("note", n)))
+	if err != nil && len(rep.Failed) == 0 {
+		log.Error("maps not loaded", slog.String("error", err.Error()))
+	}
+	for _, a := range rep.Active {
+		log.Info("map active", slog.Group("detail",
+			slog.String("tenant", a.Model.Meta.Tenant),
+			slog.String("app", a.Model.Meta.App),
+			slog.String("domain", a.Model.Meta.PublicDomain),
+			slog.Int("map_version", a.Model.Meta.Version),
+		))
+		for _, n := range a.Notes {
+			log.Warn("map feature not applied yet", slog.Group("detail", slog.String("app", a.Model.Meta.App), slog.String("note", n)))
+		}
 	}
 }
 

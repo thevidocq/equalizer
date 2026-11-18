@@ -2,9 +2,23 @@
 	email {$EQ_ACME_EMAIL}
 	# no Caddy admin endpoint
 	admin off
+	on_demand_tls {
+		ask http://gateway:9090/tls/allowed
+	}
 }
 
-{$EQ_GATEWAY_DOMAIN} {
+# Plain HTTP: certificate challenges (handled by Caddy first), then HTTPS.
+http:// {
+	redir https://{host}{uri} permanent
+}
+
+# Protected sites: any domain, but a certificate only for the domains of
+# published maps (the gateway answers /tls/allowed). Unknown hosts get no
+# certificate, so no TLS handshake.
+https:// {
+	tls {
+		on_demand
+	}
 	encode zstd gzip
 
 	# Caddy passes the client IP in X-Forwarded-For; the gateway accepts it

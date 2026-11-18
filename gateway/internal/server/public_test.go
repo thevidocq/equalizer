@@ -19,7 +19,8 @@ import (
 
 type fixedMaps struct{ s *site.Site }
 
-func (f fixedMaps) Current() *site.Site { return f.s }
+func (f fixedMaps) For(string) *site.Site { return f.s }
+func (f fixedMaps) Ready() bool           { return f.s != nil }
 
 func fp(v float64) *float64 { return &v }
 

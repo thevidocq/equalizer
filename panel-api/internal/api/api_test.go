@@ -72,7 +72,7 @@ func setupWith(t *testing.T, mfaRequired bool) *env {
 		Store: st, Sessions: &auth.Sessions{DB: conn, TTL: time.Hour}, Throttle: auth.NewThrottle(5, time.Minute),
 		Log: slog.New(slog.NewJSONHandler(io.Discard, nil)), SigningKey: priv, KeyID: "k1", InternalToken: internalToken,
 		MFA: testBox(), MFARequired: mfaRequired, MFAThrottle: auth.NewThrottle(5, time.Minute),
-		Mail: rec, PanelURL: "https://panel.test",
+		Mail: rec, PanelURL: "https://panel.test", ExposureThrottle: auth.NewThrottle(1, time.Minute),
 	}
 	srv := httptest.NewTLSServer(s.Handler())
 	t.Cleanup(srv.Close)
@@ -200,7 +200,7 @@ func TestPanelFlow(t *testing.T) {
 	admin.must(201, "POST", "/v1/tenants/acme/apps", map[string]string{"id": "portal", "name": "Portal", "public_domain": "Portal.Acme.test"}, nil)
 	root.must(404, "GET", "/v1/apps/portal", nil, nil)
 	root.must(404, "GET", "/v1/apps/portal/maps", nil, nil)
-	root.must(404, "GET", "/v1/apps/portal/connectors", nil, nil)
+	root.must(403, "GET", "/v1/tenants/acme/connectors", nil, nil)
 	for _, inv := range []struct{ email, role string }{{"ed@acme.test", "editor"}, {"ap@acme.test", "approver"}} {
 		admin.must(201, "POST", "/v1/tenants/acme/invitations", map[string]string{"email": inv.email, "name": inv.role, "role": inv.role}, nil)
 	}
@@ -211,13 +211,14 @@ func TestPanelFlow(t *testing.T) {
 	}
 	ed, ap := e.join("ed@acme.test"), e.join("ap@acme.test")
 
-	var conn struct{ ID, App, Token string }
-	admin.must(201, "POST", "/v1/apps/portal/connectors", map[string]string{"id": "cn-1"}, &conn)
+	var conn struct{ ID, Tenant, Token string }
+	admin.must(201, "POST", "/v1/tenants/acme/connectors", map[string]string{"id": "cn-1"}, &conn)
 	if len(conn.Token) < 40 {
 		t.Fatalf("connector token: %+v", conn)
 	}
 	var conns struct{ Items []map[string]any }
-	admin.must(200, "GET", "/v1/apps/portal/connectors", nil, &conns)
+	ed.must(403, "GET", "/v1/tenants/acme/connectors", nil, nil)
+	admin.must(200, "GET", "/v1/tenants/acme/connectors", nil, &conns)
 	if len(conns.Items) != 1 || conns.Items[0]["token"] != nil || conns.Items[0]["token_sha256"] != nil {
 		t.Fatalf("connector list leaks the token: %v", conns.Items)
 	}
@@ -285,7 +286,8 @@ func TestPanelFlow(t *testing.T) {
 	}
 	_ = json.Unmarshal(payload, &doc)
 	if doc.Meta["tenant"] != "acme" || doc.Meta["app"] != "portal" || doc.Meta["status"] != "published" ||
-		doc.Meta["version"] != float64(1) || doc.Meta["approved_by"] != "user:ap@acme.test" {
+		doc.Meta["version"] != float64(1) || doc.Meta["approved_by"] != "user:ap@acme.test" ||
+		doc.Meta["public_domain"] != "portal.acme.test" {
 		t.Fatalf("published meta: %v", doc.Meta)
 	}
 

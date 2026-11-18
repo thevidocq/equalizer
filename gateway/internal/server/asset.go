@@ -29,7 +29,8 @@ func (p *Public) serveAsset(w http.ResponseWriter, r *http.Request, st *site.Sit
 		writePage(w, http.StatusInternalServerError, pageError)
 		return
 	}
-	if len(asset.Roles) > 0 && !site.RoleAllowed(st.Model.Roles.Anonymous, asset.Roles) {
+	ss := sessionOf(r)
+	if len(asset.Roles) > 0 && !site.RoleAllowed(ss.role(st), asset.Roles) {
 		p.block(w, r, st, http.StatusForbidden, "authz_denied")
 		return
 	}
@@ -45,6 +46,7 @@ func (p *Public) serveAsset(w http.ResponseWriter, r *http.Request, st *site.Sit
 		p.block(w, r, st, http.StatusNotFound, "asset_name_rejected")
 		return
 	}
+	ss.apply(req) // cookies set by assets are ignored
 	if !st.Budget.Acquire(r.Context()) {
 		writePage(w, http.StatusServiceUnavailable, pageUnavailable)
 		return

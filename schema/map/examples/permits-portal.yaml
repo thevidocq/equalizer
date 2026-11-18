@@ -31,7 +31,9 @@ legacy:
     - { body_contains: "java.lang." }
 
 roles:
-  auth: { provider: oidc, issuer: "https://idp.example-city.gov" }
+  # The legacy login page stays as it is: the gateway rebuilds the login POST
+  # and keeps the legacy session cookies server-side.
+  auth: { provider: passthrough }
   anonymous: guest
   list:
     guest:   { legacy_account: { mode: shared, secret_ref: "vault://example-city/legacy/guest" } }
@@ -43,6 +45,7 @@ defaults:
   cache: { mode: none }
   string: { max_length: 100, charset: "[\\p{L}\\p{N} .,'-]" }
   error_template: generic_error
+  session: { idle_minutes: 30, absolute_hours: 12 }
 
 types:
   permit_id:     { base: int, min: 1, max: 99999999 }
@@ -78,6 +81,17 @@ routes:
     confidence: 0.94
     risk: low
 
+  - id: logout
+    path: /logout
+    method: GET
+    roles: [citizen]
+    legacy_request: { method: GET, path: /logout.do }
+    render: faithful
+    session: { end: true }
+    origin: agent
+    confidence: 0.97
+    risk: low
+
   - id: permit_detail
     path: /permits/{id}
     method: GET
@@ -97,6 +111,24 @@ routes:
     risk: medium
 
 forms:
+  - id: login
+    route: /login
+    roles: [guest, citizen]
+    fields:
+      username: { type: string, max_length: 64, charset: "[A-Za-z0-9._@-]" }
+      password: { type: password, max_length: 128, rules: [no_template_meta] }
+    legacy_request:
+      method: POST
+      path: /login.do
+      form: { j_username: "{{fields.username}}", j_password: "{{fields.password}}" }
+    success: { cookie: JSESSIONID, not_contains: "Invalid credentials" }
+    session: { start: citizen }
+    on_success: { redirect: permits_list }
+    rate_limit: { per_ip: 10/min }
+    origin: agent
+    confidence: 0.96
+    risk: high
+
   - id: permit_supplement
     route: /permits/{id}/supplement
     roles: [citizen]

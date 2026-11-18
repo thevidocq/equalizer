@@ -36,7 +36,8 @@ type Response struct {
 	Status   int
 	Header   http.Header
 	Body     []byte
-	Location string // redirect target, if any (legacy URL)
+	Location string         // redirect target, if any (legacy URL)
+	Cookies  []*http.Cookie // cookies set by the legacy application: kept server-side, never sent to the client
 	Duration time.Duration
 }
 
@@ -157,7 +158,7 @@ func (c *Client) Do(req *http.Request) (*Response, error) {
 	if len(body) > MaxBody {
 		return nil, ErrTooLarge
 	}
-	out := &Response{Status: resp.StatusCode, Header: http.Header{}, Body: body, Duration: time.Since(start)}
+	out := &Response{Status: resp.StatusCode, Header: http.Header{}, Body: body, Duration: time.Since(start), Cookies: resp.Cookies()}
 	for _, h := range responseHeaders {
 		if v := resp.Header.Get(h); v != "" {
 			out.Header.Set(h, v)

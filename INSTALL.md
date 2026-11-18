@@ -5,8 +5,9 @@
 > planned installation and will be completed over time (see `CHANGELOG.md`).
 > Today the gateway serves pages and urlencoded POST forms of a legacy
 > application reached **directly** (`legacy.reach.mode: direct`) or **through
-> the connector** (`mode: connector`), with faithful rendering. File uploads,
-> login and the panel are not available yet.
+> the connector** (`mode: connector`), with faithful rendering and
+> pass-through login (sessions in Redis). File uploads and the panel are not
+> available yet.
 
 The prototype runs on **one VPS** with Docker Compose. The legacy application
 to protect can be anywhere: the **connector**, installed next to it, reaches it.

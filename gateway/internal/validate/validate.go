@@ -160,7 +160,7 @@ func (v *Validator) check(r resolved, raw string) (string, string) {
 			return "", ReasonType
 		}
 		return raw, ""
-	case "string", "email", "text":
+	case "string", "email", "text", "password":
 		return v.checkText(r, raw)
 	default:
 		return "", ReasonUnsupported
@@ -252,6 +252,9 @@ func (v *Validator) resolve(s mapmodel.FieldSpec) (resolved, error) {
 	if r.base == "email" && r.maxLength == 0 {
 		r.maxLength = 254
 	}
+	if r.base == "password" && r.maxLength == 0 {
+		r.maxLength = 128
+	}
 	if r.maxLength == 0 {
 		r.maxLength = fallbackMaxLength
 	}
@@ -260,7 +263,7 @@ func (v *Validator) resolve(s mapmodel.FieldSpec) (resolved, error) {
 
 func isBase(t string) bool {
 	switch t {
-	case "int", "enum", "bool", "date", "string", "email", "text", "file":
+	case "int", "enum", "bool", "date", "string", "email", "text", "password", "file":
 		return true
 	}
 	return false

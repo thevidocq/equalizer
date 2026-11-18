@@ -6,6 +6,7 @@ Docker Compose for the prototype on a VPS. Full guide in [`INSTALL.md`](../../IN
 | --- | --- | --- | --- |
 | `caddy` | edge | 80, 443 | Automatic TLS, balances the gateway replicas |
 | `gateway` | edge, control | no | 2 replicas by default |
+| `redis` | control | no | Gateway sessions; no persistence |
 | `tunnel-relay` | edge, control | no (through Caddy on `EQ_RELAY_DOMAIN`) | Connector tunnels; 1 replica |
 | `loki` | control | no | Log store, 30 days |
 | `vector` | control | no | Collects logs from containers labelled `eq.collect=true` |

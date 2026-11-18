@@ -112,6 +112,66 @@ Not supported yet: `file` fields and `files` (the form answers 503), the
 no declared form keep working visually but post to a path the gateway
 rejects.
 
+## Login and sessions
+
+With `roles.auth.provider: passthrough` the legacy login page stays exactly
+as it is. The login is a declared form with `session.start`:
+
+```yaml
+forms:
+  - id: login
+    route: /login
+    roles: [guest, citizen]
+    fields:
+      username: { type: string, max_length: 64, charset: "[A-Za-z0-9._@-]" }
+      password: { type: password, max_length: 128, rules: [no_template_meta] }
+    legacy_request:
+      method: POST
+      path: /login.do
+      form: { j_username: "{{fields.username}}", j_password: "{{fields.password}}" }
+    success: { cookie: JSESSIONID, not_contains: "Invalid credentials" }
+    session: { start: citizen }
+    on_success: { redirect: permits_list }
+routes:
+  - id: logout
+    path: /logout
+    roles: [citizen]
+    legacy_request: { method: GET, path: /logout.do }
+    session: { end: true }
+```
+
+How it works:
+
+- **Legacy cookies never reach the browser.** When the legacy app sets a
+  cookie (often already on the login page), the gateway creates a session
+  and keeps the cookie there; it adds the session's cookies to every
+  rebuilt request. The browser only holds `__Host-eq_session`, a random id.
+- **Role.** A visitor has the `roles.anonymous` role until a form with
+  `session.start` succeeds; then the session gets that role and a **new id**
+  (no session fixation).
+- **Success check.** `success.cookie` requires that the session holds that
+  legacy cookie; `not_contains`, `body_contains`, `status` and
+  `redirect_to` work as for any form. A failed login changes nothing.
+- **Legacy expiry.** When `legacy.session_expired` matches (redirect to
+  `redirect_to`, one of `status`, or `body_contains`), the role and the
+  legacy cookies are dropped.
+- **Logout.** A route or form with `session: { end: true }` deletes the
+  session after the legacy answer.
+- **Limits.** `defaults.session.idle_minutes` (default 30) and
+  `absolute_hours` (default 12, restarted at login).
+- **Storage.** Redis (`EQ_REDIS_URL`), shared by every replica; key = SHA-256
+  of the id, content encrypted with AES-256-GCM. Pages of a session are sent
+  with `Cache-Control: private, no-store`. If the store is unreachable,
+  visitors are anonymous (restricted pages answer 403) and logins answer
+  503.
+- **`password` type.** Any printable character (the string defaults do not
+  apply), at most 128 by default, never logged; like `text`, it needs at
+  least one rule.
+
+Not handled yet: legacy cookies are kept by name only (`Path` and `Domain`
+are ignored), OIDC in front of the legacy login, per-user legacy accounts
+from the vault.
+
 ## Field types
 
 | Type | Constraints | Default risk |
@@ -122,6 +182,7 @@ rejects.
 | `string` | `pattern` or `charset`, `max_length` | medium |
 | `email` | format, `max_length` | medium |
 | `text` | `charset`, `max_length`, `rules` (required) | high |
+| `password` | `max_length`, `rules` (required); never logged | high |
 | `file` | `mime`, `max_size_kb`, `scan` (required) | high |
 
 ## Rules for text fields

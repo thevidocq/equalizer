@@ -61,6 +61,8 @@ services:
       # connector mode: requests go to tunnel-relay on the control network
       EQ_RELAY_URL: http://tunnel-relay:8082
       EQ_RELAY_TOKEN_FILE: /secrets/relay.token
+      # sessions shared by the replicas (legacy cookies, role after login)
+      EQ_REDIS_URL: redis://redis:6379/0
       # edge network: only Caddy may state the client IP
       EQ_TRUSTED_PROXIES: ${EQ_TRUSTED_PROXIES:-172.16.0.0/12}
     volumes:
@@ -69,6 +71,14 @@ services:
       - ./secrets/form.key:/secrets/form.key:ro
       - ./secrets/relay.token:/secrets/relay.token:ro
     networks: [edge, control]
+    depends_on: [redis]
+
+  redis:
+    image: redis:7.4-alpine
+    restart: unless-stopped
+    # Sessions only: no persistence, memory bounded, every key has a TTL.
+    command: ["redis-server", "--save", "", "--appendonly", "no", "--maxmemory", "256mb", "--maxmemory-policy", "volatile-lru"]
+    networks: [control]
 
   tunnel-relay:
     <<: *collect

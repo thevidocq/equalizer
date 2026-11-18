@@ -3,6 +3,7 @@ package validate
 import (
 	"errors"
 	"net/url"
+	"strings"
 	"testing"
 
 	"github.com/thevidocq/equalizer/gateway/internal/mapmodel"
@@ -121,6 +122,20 @@ func TestCheckRejectsBadMaps(t *testing.T) {
 	for name, spec := range cases {
 		if err := v.Check(map[string]mapmodel.FieldSpec{"x": spec}); err == nil {
 			t.Errorf("%s: map wrongly accepted", name)
+		}
+	}
+}
+
+func TestPassword(t *testing.T) {
+	v := New(nil, mapmodel.StringDefaults{Charset: `[a-z]`, MaxLength: 5})
+	spec := mapmodel.FieldSpec{Type: "password", Rules: []string{"no_template_meta"}}
+	// The string defaults do not apply: a password may hold any printable character.
+	if got, _, err := v.Value("p", spec, "S3cret! 'é\"#", true); err != nil || got != "S3cret! 'é\"#" {
+		t.Fatalf("password rejected: %v", err)
+	}
+	for _, bad := range []string{"a\x00b", "line\nbreak", "{{7*7}}", strings.Repeat("x", 129)} {
+		if _, _, err := v.Value("p", spec, bad, true); err == nil {
+			t.Errorf("%q accepted", bad)
 		}
 	}
 }

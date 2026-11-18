@@ -23,17 +23,61 @@ Add a section at the top of "Entries" for every commit:
 | --- | --- |
 | Contracts (`schema/`) | First version, validated in CI |
 | Documentation | Architecture, map format, installation and manuals (planned features) |
-| gateway | GET routes, assets and urlencoded POST forms in direct or connector mode, validation, faithful rendering (UTF-8, cleanup, form binding, URL rewriting, redirects); no file uploads or sessions yet |
+| gateway | GET routes, assets and urlencoded POST forms in direct or connector mode, validation, faithful rendering (UTF-8, cleanup, form binding, URL rewriting, redirects), pass-through login with sessions in Redis; no file uploads or rate limits yet |
 | tunnel-relay | Token-authenticated tunnels, forwarding, admin endpoints; single replica |
 | connector | Outbound tunnel, local allowlist, reconnection |
 | orchestrator | Not implemented yet |
 | panel-api | Not implemented yet |
 | panel-ui | Not implemented yet |
 | agent | Not implemented yet |
-| deploy/compose | Caddy (gateway and relay domains), gateway (2 replicas), tunnel-relay, Vector, Loki, Grafana; statically validated |
+| deploy/compose | Caddy (gateway and relay domains), gateway (2 replicas), Redis, tunnel-relay, Vector, Loki, Grafana; statically validated |
 | tools (eqtool) | Map signing keys, form key, relay token, connector registration, map signing |
 
 ## Entries
+
+### 2026-11-18 — Add pass-through login and sessions
+
+- **Branch:** `feat/sessions`
+- **What:**
+  - Contract: `password` base type (requires rules, like `text`);
+    `defaults.session` (`idle_minutes`, `absolute_hours`); `session` on
+    forms (`start: <role>` or `end: true`) and routes (`end: true`); example
+    map with login and logout, `roles.auth.provider: passthrough`.
+  - `internal/session`: sessions keyed by the SHA-256 of a random id,
+    content encrypted with AES-256-GCM (key derived from `EQ_FORM_KEY`, id
+    as additional data), absolute and idle limits; Redis store (go-redis)
+    and in-memory store.
+  - `internal/legacyclient`: legacy `Set-Cookie` captured (still never sent
+    to the client).
+  - `internal/server`: session loaded per request, role from the session,
+    legacy cookies added to rebuilt requests (routes, forms, assets),
+    session created when the legacy app sets a cookie, login with a new id,
+    `success.cookie` check, legacy expiry (`legacy.session_expired`) drops
+    the role, logout, `Cache-Control: private, no-store` on session pages,
+    `__Host-eq_session` cookie written once before the headers; session
+    hash in events (`session`). Store down: visitors are anonymous, logins
+    503.
+  - Configuration `EQ_REDIS_URL`; Compose `redis` service (control network,
+    no persistence, 256 MB, volatile-lru).
+  - Docs: map format (login and sessions), gateway README, INSTALL.
+- **Why:** most legacy apps worth protecting have a login. Their session
+  cookies are a prime target (fixation, theft, weak flags): now the browser
+  never sees them, and the gateway decides who may reach restricted pages.
+- **Status:** tests green with the race detector, including a real
+  `redis-server` test and an in-process login flow (pre-login legacy
+  cookie, failed and successful login, new id, old id rejected, legacy
+  expiry, logout). End to end with real binaries: two gateway replicas on
+  one Redis, login on replica A, private page served by replica B; the
+  stored blob does not contain the legacy cookie; Redis down → private page
+  403, public page 200. Not done: cookie `Path`/`Domain`, OIDC, per-user
+  legacy accounts, session listing/revocation from the panel, login rate
+  limits (`rate_limit` is still ignored).
+- **Next steps:**
+  1. Test on the VPS with the remote vulnerable server (tunnel + login).
+  2. Rate limits in Redis (routes, forms, login), then behavioural rules.
+  3. File uploads with AV/CDR scanning.
+  4. Scripts by hash with CSP, URLs inside CSS, `external_links`.
+  5. Prometheus metrics; panel-api.
 
 ### 2026-11-18 — Add tunnel-relay and connector
 

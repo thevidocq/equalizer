@@ -26,8 +26,8 @@ func (p *Public) serveRoute(w http.ResponseWriter, r *http.Request, st *site.Sit
 		writePage(w, http.StatusInternalServerError, pageError)
 		return
 	}
-	// No authentication yet: every visitor has the anonymous role.
-	if !site.RoleAllowed(st.Model.Roles.Anonymous, route.Roles) {
+	ss := sessionOf(r)
+	if !site.RoleAllowed(ss.role(st), route.Roles) {
 		p.block(w, r, st, http.StatusForbidden, "authz_denied")
 		return
 	}
@@ -56,6 +56,7 @@ func (p *Public) serveRoute(w http.ResponseWriter, r *http.Request, st *site.Sit
 		return
 	}
 
+	ss.apply(req)
 	if !st.Budget.Acquire(r.Context()) {
 		p.Log.WarnContext(r.Context(), "legacy budget exhausted",
 			slog.Group("detail", slog.String("route", route.ID), slog.Int("in_flight", st.Budget.InFlight())))
@@ -68,6 +69,10 @@ func (p *Public) serveRoute(w http.ResponseWriter, r *http.Request, st *site.Sit
 		p.legacyFailure(w, r, st, route.ID, err)
 		return
 	}
+	p.absorbSession(r, st, ss, resp)
+	if route.Session != nil && route.Session.End {
+		ss.end()
+	}
 
 	status := p.writeLegacy(w, r, st, route.ID, req.URL, resp)
 	ev := p.event(r, st, "request.served", "", status, telemetry.Ptr(route.ID))
@@ -75,6 +80,16 @@ func (p *Public) serveRoute(w http.ResponseWriter, r *http.Request, st *site.Sit
 	legacyMS := float64(resp.Duration.Microseconds()) / 1000
 	ev.LatencyMS = &telemetry.Latency{Gateway: max(total-legacyMS, 0), Legacy: legacyMS}
 	p.Events.Emit(ev)
+}
+
+// absorbSession keeps the legacy cookies and drops the role when the legacy
+// application says its session ended.
+func (p *Public) absorbSession(r *http.Request, st *site.Site, ss *sessionState, resp *legacyclient.Response) {
+	ss.absorb(resp.Cookies)
+	if ss.authenticated() && legacySessionExpired(st.Model.Legacy.SessionExpired, resp.Status, resp.Location, resp.Body) {
+		ss.expire()
+		p.Log.InfoContext(r.Context(), "legacy session expired: role dropped")
+	}
 }
 
 // writeLegacy writes the legacy response and returns the status sent.

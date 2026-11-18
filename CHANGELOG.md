@@ -68,7 +68,8 @@ Add a section at the top of "Entries" for every commit:
   - panel-ui: tenant Connectors page; Site → Isolation (status, check now,
     old IP, configuration for Apache, nginx, IIS and the map lines); red
     status for exposed sites.
-  - Docs: map format, tunnel spec, INSTALL, architecture, READMEs, manual.
+  - Docs: map format, tunnel spec, INSTALL (no gateway domain any more:
+    each site keeps its own), architecture, READMEs, manual.
 - **Why:** many sites on one server must not need many containers; a
   protected site must really stop being public while its neighbours stay
   online; and two isolation holes found while reading the code.

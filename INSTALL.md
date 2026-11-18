@@ -19,10 +19,13 @@ to protect can be anywhere: the **connector**, installed next to it, reaches it.
 
 - 4 vCPU, 16 GB RAM, 160 GB SSD.
 - Ubuntu 24.04 LTS.
-- A DNS name for the gateway (e.g. `gw.example.com`) and one for the relay
-  (e.g. `relay.example.com`), both pointing to the VPS IP. If you use
+- Two DNS names pointing to the VPS IP: the panel (e.g.
+  `panel.example.com`) and the relay (e.g. `relay.example.com`). If you use
   Cloudflare, leave the relay record **DNS only** (grey cloud): the tunnel is
   a long-lived upgraded connection.
+- The gateway has no name of its own: each protected site keeps its domain
+  (e.g. `permits.example-city.gov`), and its DNS record moves to the VPS IP
+  when the site goes live (section 6).
 
 ### Connector machine
 
@@ -121,8 +124,9 @@ docker compose ps            # gateway "healthy", two replicas
 Quick checks:
 
 ```bash
-curl -I https://gw.example.com/            # 503 until a map is published, then the legacy page
-curl -I https://gw.example.com/wp-admin    # not mapped: 404
+curl -I https://panel.example.com/                  # the panel
+curl -I https://permits.example-city.gov/           # once its map is published: the site
+curl -I https://permits.example-city.gov/wp-admin   # not in the map: 404
 ```
 
 ### First administrator and first site *(available)*

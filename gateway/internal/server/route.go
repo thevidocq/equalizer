@@ -101,7 +101,8 @@ func (p *Public) writeLegacy(w http.ResponseWriter, r *http.Request, st *site.Si
 		}
 	}
 	if pipeline.IsHTML(resp.Header.Get("Content-Type")) {
-		ctx := &pipeline.Context{PageURL: pageURL, URLs: st.URLs}
+		forms := p.newBinder(r, st.Forms)
+		ctx := &pipeline.Context{PageURL: pageURL, URLs: st.URLs, Forms: forms.pipelineBinder()}
 		out, err := st.Pipeline.Render(resp.Body, resp.Header.Get("Content-Type"), ctx)
 		if err != nil {
 			// Fail closed: an error is better than a badly rendered page.
@@ -112,10 +113,12 @@ func (p *Public) writeLegacy(w http.ResponseWriter, r *http.Request, st *site.Si
 		}
 		body = out
 		h.Set("Content-Type", pipeline.ContentType)
+		forms.setCookie(w)
 		p.Log.DebugContext(r.Context(), "page rendered", slog.Group("detail",
 			slog.String("route", routeID), slog.String("charset", ctx.Stats.Charset),
 			slog.Int("rewritten", ctx.Stats.Rewritten), slog.Int("unmapped", ctx.Stats.Unmapped),
-			slog.Int("removed", ctx.Stats.Removed), slog.Any("unmapped_paths", ctx.Stats.UnmappedPaths)))
+			slog.Int("removed", ctx.Stats.Removed), slog.Int("forms", ctx.Stats.Forms),
+			slog.Int("forms_unmapped", ctx.Stats.FormsUnmapped), slog.Any("unmapped_paths", ctx.Stats.UnmappedPaths)))
 	}
 	securityHeaders(h)
 	w.WriteHeader(resp.Status)

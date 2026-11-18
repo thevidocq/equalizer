@@ -13,4 +13,4 @@ Docker Compose for the prototype on a VPS. Full guide in [`INSTALL.md`](../../IN
 
 The `lab` network is `internal`: test apps have no way out to the Internet.
 Local folders: `maps/` (signed maps, not in the repository) and `secrets/`
-(keys, not in the repository).
+(keys, not in the repository: `map-signing.key`/`.pub` and `form.key`).

@@ -28,17 +28,12 @@ var keepSchemes = []string{"javascript:", "mailto:", "tel:", "data:", "about:", 
 
 // Apply rewrites every internal URL.
 func (Step) Apply(doc *html.Node, ctx *pipeline.Context) error {
-	base := ctx.PageURL
 	// <base href> changes resolution: apply it, then remove it, because
 	// after rewriting every URL is an absolute path.
+	base := pipeline.BaseURL(doc, ctx.PageURL)
 	var bases []*html.Node
 	pipeline.Walk(doc, func(n *html.Node) bool {
 		if n.Type == html.ElementNode && n.DataAtom == atom.Base {
-			if href, ok := attr(n, "href"); ok && len(bases) == 0 {
-				if u, err := url.Parse(strings.TrimSpace(href)); err == nil {
-					base = base.ResolveReference(u)
-				}
-			}
 			bases = append(bases, n)
 		}
 		return true
@@ -49,7 +44,7 @@ func (Step) Apply(doc *html.Node, ctx *pipeline.Context) error {
 	}
 
 	pipeline.Walk(doc, func(n *html.Node) bool {
-		if n.Type != html.ElementNode {
+		if n.Type != html.ElementNode || ctx.Final(n) {
 			return true
 		}
 		for i, a := range n.Attr {
@@ -105,13 +100,4 @@ func rewriteSrcset(raw string, base *url.URL, ctx *pipeline.Context) string {
 		parts[i] = strings.Join(fields, " ")
 	}
 	return strings.Join(parts, ", ")
-}
-
-func attr(n *html.Node, key string) (string, bool) {
-	for _, a := range n.Attr {
-		if strings.EqualFold(a.Key, key) {
-			return a.Val, true
-		}
-	}
-	return "", false
 }

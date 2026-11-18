@@ -56,8 +56,9 @@ For each page, independent steps implementing the same `Step` interface:
 2. **Invisible cleanup**: comments, version meta tags, headers revealing the
    stack, internal hidden fields, debug output.
 3. **URL rewriting** of links, `src`, `action`, URLs inside CSS.
-4. **Forms**: `action` pointing to the gateway, CSRF token, hidden fields
-   re-inserted server-side.
+4. **Forms**: `action` pointing to the gateway, legacy hidden fields kept
+   server-side in a sealed token bound to the browser (CSRF), values
+   re-encoded into the legacy charset on submission.
 5. **Scripts** allowed only by hash (CSP).
 6. **Assets** served after checking their real type.
 7. **Security headers** (CSP, HSTS, ...).

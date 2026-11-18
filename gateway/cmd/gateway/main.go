@@ -19,6 +19,7 @@ import (
 
 	"github.com/thevidocq/equalizer/gateway/internal/clientip"
 	"github.com/thevidocq/equalizer/gateway/internal/config"
+	"github.com/thevidocq/equalizer/gateway/internal/formtoken"
 	"github.com/thevidocq/equalizer/gateway/internal/mapstore"
 	"github.com/thevidocq/equalizer/gateway/internal/server"
 	"github.com/thevidocq/equalizer/gateway/internal/site"
@@ -72,7 +73,18 @@ func run() error {
 	}()
 	go store.Watch(ctx, 15*time.Second, trigger, func(st *site.Site, err error) { logReload(log, st, err) })
 
+	formKey := cfg.FormKey
+	if formKey == nil {
+		formKey = formtoken.RandomKey()
+		log.Warn("EQ_FORM_KEY not set: random form key, forms work only with a single replica")
+	}
+	sealer, err := formtoken.New(formKey)
+	if err != nil {
+		return err
+	}
+
 	public := &server.Public{
+		Forms:  sealer,
 		Maps:   store,
 		IPs:    clientip.New(cfg.TrustedProxies),
 		Log:    telemetry.Logger(os.Stdout, cfg.Instance, level).With(slog.String("module", "server.public")),

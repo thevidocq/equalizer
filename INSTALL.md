@@ -5,8 +5,9 @@
 > planned installation and will be completed over time (see `CHANGELOG.md`).
 > Today the gateway serves read-only pages of a legacy application reached
 > **directly** (`legacy.reach.mode: direct`), with faithful rendering and URL
-> rewriting; with `mode: connector` it answers 502 until the connector is
-> ready. Forms and login are not served yet.
+> rewriting, and accepts urlencoded POST forms declared in the map; with
+> `mode: connector` it answers 502 until the connector is ready. File uploads
+> and login are not served yet.
 
 The prototype runs on **one VPS** with Docker Compose. The legacy application
 to protect can be anywhere: the **connector**, installed next to it, reaches it.
@@ -87,6 +88,8 @@ Until the panel exists, maps are signed by hand with `eqtool`.
 ```bash
 # from deploy/compose
 docker compose --profile tools run --rm eqtool keygen -out secrets/map-signing.key
+# key that seals form tokens, shared by the gateway replicas
+docker compose --profile tools run --rm eqtool formkey -out secrets/form.key
 
 # convert and validate a YAML map (from the repository root)
 cd ../..

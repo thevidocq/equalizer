@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/thevidocq/equalizer/gateway/internal/clientip"
+	"github.com/thevidocq/equalizer/gateway/internal/formtoken"
 	"github.com/thevidocq/equalizer/gateway/internal/router"
 	"github.com/thevidocq/equalizer/gateway/internal/site"
 	"github.com/thevidocq/equalizer/gateway/internal/telemetry"
@@ -19,13 +20,14 @@ type MapSource interface {
 }
 
 // Public handles public traffic: it routes, validates, rebuilds the request
-// towards the legacy application and returns the response. Forms and APIs
-// are not served yet (see CHANGELOG).
+// towards the legacy application and returns the response. APIs are not
+// served yet (see CHANGELOG).
 type Public struct {
 	Maps    MapSource
 	IPs     *clientip.Resolver
 	Log     *slog.Logger
 	Events  *telemetry.Emitter
+	Forms   *formtoken.Sealer // nil: forms are neither bound nor accepted
 	nowFunc func() time.Time
 }
 
@@ -96,6 +98,9 @@ func (p *Public) handle(w http.ResponseWriter, r *http.Request) string {
 		return m.Entry.ID
 	case router.KindAsset:
 		p.serveAsset(w, r, active, m)
+		return m.Entry.ID
+	case router.KindForm:
+		p.serveForm(w, r, active, m)
 		return m.Entry.ID
 	}
 	p.Log.DebugContext(r.Context(), "entry matched, kind not served yet",

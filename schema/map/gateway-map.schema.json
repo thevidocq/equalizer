@@ -119,7 +119,7 @@
     },
     "templateMap": {
       "type": "object",
-      "description": "Fixed values or {{...}} placeholders resolved by the gateway.",
+      "description": "Fixed values or {{namespace.name}} placeholders resolved by the gateway. Namespaces: params (path), query, fields (submitted form fields), hidden (legacy hidden inputs of the rendered form, kept server-side), account (legacy account of the role), user (authenticated user).",
       "additionalProperties": { "type": "string" }
     },
     "legacy": {

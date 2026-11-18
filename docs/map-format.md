@@ -62,6 +62,56 @@ Assets are served only if the legacy `Content-Type` is among the prefix's
 `types`; raster images are also checked against their real content. The
 asset query string is never sent to the legacy application.
 
+## Forms
+
+A form is recognised in a legacy page by inverting its `legacy_request`: the
+`<form method="post">` must post to the same path and query, and the hidden
+inputs named in the body as `{{params.x}}` give the public action's
+parameters. Example:
+
+```yaml
+forms:
+  - id: permit_supplement
+    route: /permits/{id}/supplement
+    params: { id: { type: permit_id } }
+    fields:
+      message: { type: text, max_length: 1000, rules: [no_html] }
+    legacy_request:
+      method: POST
+      path: /permits/supplement.do
+      form:
+        permitId: "{{params.id}}"   # read from the page's hidden input permitId
+        text: "{{fields.message}}"  # the page's "text" input is renamed "message"
+        state: "{{hidden.state}}"   # hidden input kept server-side
+        kind: "SUP"                 # fixed value
+    success: { body_contains: "Supplement recorded" }
+    on_success: { redirect: permit_detail }
+```
+
+When the page is rendered:
+
+- **every** hidden input of a POST form is removed from the page; the values
+  the map uses (`{{params.x}}`, `{{hidden.x}}`) are sealed, with the page's
+  charset, into a single `_eq_token` field (AES-256-GCM, valid two hours);
+- the action becomes the public route, inputs take the public field names;
+- the token is bound to a browser cookie (`__Host-eq_form`): a token taken
+  from another browser is rejected (CSRF).
+
+On submission the gateway accepts only `application/x-www-form-urlencoded`
+bodies up to 1 MiB, rejects cross-site requests (`Origin`,
+`Sec-Fetch-Site`), checks that the token belongs to this form and this
+record, validates the declared fields (undeclared ones are dropped),
+re-encodes every value into the legacy charset (a character the charset
+cannot hold is rejected) and rebuilds the request. If `success` passes and
+`on_success.redirect` names a route whose URL can be built from the form's
+parameters, the visitor gets a 303 to it; otherwise the legacy answer is
+shown with faithful rendering.
+
+Not supported yet: `file` fields and `files` (the form answers 503), the
+`cookie` success check (login), per-form rate limits. POST forms that match
+no declared form keep working visually but post to a path the gateway
+rejects.
+
 ## Field types
 
 | Type | Constraints | Default risk |

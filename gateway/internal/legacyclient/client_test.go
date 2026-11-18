@@ -1,7 +1,9 @@
 package legacyclient
 
 import (
+	"context"
 	"errors"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -94,5 +96,32 @@ func TestTransportAllowlist(t *testing.T) {
 	req, _ := c.Build(t.Context(), mapmodel.LegacyRequest{Method: "GET", Path: "/"}, nil)
 	if _, err := c.Do(req); !errors.Is(err, transport.ErrDestinationNotAllowed) {
 		t.Fatalf("connection outside the allowlist not blocked: %v", err)
+	}
+}
+
+func TestBuildPost(t *testing.T) {
+	c, err := New("http://10.0.0.1:8080/app", http.DefaultTransport, "", 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	lr := mapmodel.LegacyRequest{Method: "POST", Path: "/save.do",
+		Form: map[string]string{"id": "{{params.id}}", "text": "{{fields.message}}", "kind": "SUP", "opt": "{{fields.missing}}"}}
+	req, err := c.Build(context.Background(), lr, placeholder.Values{
+		"params": {"id": "42"}, "fields": {"message": "caf\xe9 & more"}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	body, _ := io.ReadAll(req.Body)
+	if req.Method != "POST" || req.URL.Path != "/app/save.do" || req.Header.Get("Content-Type") != "application/x-www-form-urlencoded" {
+		t.Fatalf("request: %s %s %v", req.Method, req.URL, req.Header)
+	}
+	if string(body) != "id=42&kind=SUP&text=caf%E9+%26+more" {
+		t.Errorf("body %q", body)
+	}
+	if _, err := c.Build(context.Background(), mapmodel.LegacyRequest{Method: "GET", Path: "/x", Form: map[string]string{"a": "b"}}, nil); err == nil {
+		t.Error("a GET with a form body must be rejected")
+	}
+	if _, err := c.Build(context.Background(), mapmodel.LegacyRequest{Method: "POST", Path: "/x", Files: map[string]string{"doc": "{{fields.f}}"}}, nil); err == nil {
+		t.Error("file uploads are not supported yet")
 	}
 }

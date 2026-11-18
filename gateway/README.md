@@ -24,7 +24,9 @@ requests to the legacy application and renders pages with faithful rendering.
 | Assets by prefix with checks on declared and real type, sandboxed SVG | Done |
 | Translating legacy redirects to public URLs | Done |
 | Scripts allowed by hash (CSP), URL rewriting inside CSS | To do |
-| Forms (POST), APIs, login and sessions | To do |
+| Forms (urlencoded POST): binding in pages, sealed token bound to the browser (CSRF), legacy hidden fields kept server-side, typed fields, re-encoding into the legacy charset, success check and redirect | Done |
+| File uploads (multipart), per-form rate limits | To do |
+| APIs, login and sessions | To do |
 | Connector mode | To do (today: 502 `connector_unavailable`) |
 | Prometheus metrics | To do |
 
@@ -43,8 +45,10 @@ internal/validate/    types and constraints of input values
 internal/placeholder/ {{space.name}} placeholders in legacy_request
 internal/legacyclient/ rebuilt requests and filtered responses
 internal/legacyurl/   legacy URLs → public URLs (links, compat, routes)
+internal/formmap/     legacy <form> → declared form (action, hidden inputs)
+internal/formtoken/   sealed form state (AES-256-GCM), browser binding
 internal/charset/     page encoding and conversion to UTF-8
-internal/pipeline/    faithful rendering: Step, Context, clean/ and rewrite/ steps
+internal/pipeline/    faithful rendering: Step, Context, clean/, forms/ and rewrite/ steps
 internal/thirdparty/xhtml/ HTML5 parser (copy of golang.org/x/net/html)
 internal/transport/   link to the legacy application (direct; connector coming)
 internal/budget/      concurrent requests to the legacy application
@@ -63,6 +67,7 @@ internal/server/      public and admin handlers
 | `EQ_MAP_PUBKEY` or `EQ_MAP_PUBKEY_FILE` | — | Ed25519 public key in base64 (required) |
 | `EQ_MAP_KEY_ID` | — | Expected key id (optional) |
 | `EQ_TRUSTED_PROXIES` | — | CIDR networks from which the client IP in headers is accepted |
+| `EQ_FORM_KEY` or `EQ_FORM_KEY_FILE` | random | Key sealing form tokens (32 bytes, base64); must be the same on every replica |
 
 ## Development
 

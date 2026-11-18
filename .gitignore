@@ -1,0 +1,16 @@
+# segreti e configurazioni locali
+.env
+*.key
+secrets/
+# build
+bin/
+dist/
+gen/
+node_modules/
+__pycache__/
+*.pyc
+.venv/
+# editor
+.idea/
+.vscode/
+.DS_Store

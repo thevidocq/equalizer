@@ -10,8 +10,8 @@ Full example: [`schema/map/examples/permits-portal.yaml`](../schema/map/examples
   or dropped; the legacy application is not contacted.
 - **Rebuilding**: every request to the legacy application is generated from
   `legacy_request`.
-- **Strict types**: every input value has a type and constraints. `text` and
-  `file` are allowed only with `rules` or `scan`.
+- **Strict types**: every input value has a type and constraints. `text` needs
+  `rules`; `file` needs `mime` and `max_size_kb`.
 - **Authorisation in the gateway** (`roles`, `authz`, `scope`).
 - **Provenance**: `origin` (agent/human), `confidence`, `risk`.
 - **Immutable versions**, signed on publication.
@@ -276,6 +276,27 @@ api:
 - Writes (`POST`, `PUT`, `PATCH`, `DELETE`) are refused when the browser
   says they come from another site (`Origin`, `Sec-Fetch-Site`).
 
+## File uploads
+
+```yaml
+fields:
+  attachment: { type: file, mime: [application/pdf, image/png], max_size_kb: 5120, required: false }
+legacy_request:
+  method: POST
+  path: /upload.do
+  form: { title: "{{fields.title}}" }
+  files: { attachment: "{{fields.attachment}}" }
+```
+
+- The real type is read from the bytes (never the file name or what the
+  browser says) and must be in `mime`; the size is bounded by `max_size_kb`.
+- `scan: cdr` rebuilds images (PNG, JPEG, GIF) from their pixels, dropping
+  metadata and anything appended; it is allowed only when every type in
+  `mime` is an image. Equalizer does not scan for viruses: leave that to the
+  security stack around the legacy application.
+- The legacy application receives a new random file name; undeclared file
+  fields are refused.
+
 ## Authorisation: who may open which object
 
 An allowlist checks the shape of `/permits/43`, not whose permit it is. For
@@ -327,7 +348,7 @@ review everything before approval.
 | `email` | format, `max_length` | medium |
 | `text` | `charset`, `max_length`, `rules` (required) | high |
 | `password` | `max_length`, `rules` (required); never logged | high |
-| `file` | `mime`, `max_size_kb`, `scan` (required) | high |
+| `file` | `mime`, `max_size_kb` (required), `scan: cdr` | high |
 
 
 A type or a field can list refused values in `deny` (compared without

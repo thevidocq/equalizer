@@ -12,6 +12,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"net"
 	"net/http"
 	"os"
 	"os/signal"
@@ -23,6 +24,7 @@ import (
 	"github.com/thevidocq/equalizer/tunnel-relay/internal/config"
 	"github.com/thevidocq/equalizer/tunnel-relay/internal/forward"
 	"github.com/thevidocq/equalizer/tunnel-relay/internal/logging"
+	"github.com/thevidocq/equalizer/tunnel-relay/internal/peers"
 	"github.com/thevidocq/equalizer/tunnel-relay/internal/registry"
 	"github.com/thevidocq/equalizer/tunnel-relay/internal/sessions"
 	"github.com/thevidocq/equalizer/tunnel-relay/internal/tunnel"
@@ -96,11 +98,16 @@ func run() error {
 		}
 	}()
 
+	fwd := forward.New(pool, cfg.GatewayToken, log.With(slog.String("module", "forward")))
+	if cfg.Peers != "" {
+		_, port, _ := net.SplitHostPort(cfg.InternalAddr)
+		fwd.Peers = peers.New(cfg.Peers, port).Peers
+		log.Info("replicas found through DNS", slog.Group("detail", slog.String("name", cfg.Peers)))
+	}
 	tunnels := &tunnel.Handler{Registry: reg, Pool: pool, Log: log.With(slog.String("module", "tunnel")), Events: events}
 	servers := []*http.Server{
 		{Addr: cfg.TunnelAddr, Handler: tunnels, ReadHeaderTimeout: 10 * time.Second, MaxHeaderBytes: 16 << 10},
-		{Addr: cfg.InternalAddr, Handler: forward.New(pool, cfg.GatewayToken, log.With(slog.String("module", "forward"))),
-			ReadHeaderTimeout: 10 * time.Second},
+		{Addr: cfg.InternalAddr, Handler: fwd, ReadHeaderTimeout: 10 * time.Second},
 		{Addr: cfg.AdminAddr, Handler: &admin.Handler{Pool: pool, Ready: &ready, Version: version}, ReadHeaderTimeout: 5 * time.Second},
 	}
 	errs := make(chan error, len(servers))

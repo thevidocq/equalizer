@@ -148,6 +148,9 @@ type FieldSpec struct {
 	Charset   string   `json:"charset"`
 	MaxLength int      `json:"max_length"`
 	Rules     []string `json:"rules"`
+	MIME      []string `json:"mime"`        // file: allowed real types
+	MaxSizeKB int      `json:"max_size_kb"` // file: size limit
+	Scan      string   `json:"scan"`        // file: cdr (rebuild images) or none
 }
 
 // LegacyRequest is the request the gateway builds towards the legacy application.

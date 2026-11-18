@@ -213,6 +213,13 @@ Open `http://localhost:3000` (user `admin`, password from `.env`), go to
 
 The panel's Logs page will arrive with panel-ui; Grafana stays for in-depth analysis.
 
+### File uploads *(available)*
+
+Forms with files work with no extra service: the gateway checks the real
+type and the size, renames the file and can rebuild images (`scan: cdr`).
+It does not scan for viruses: keep that in the security stack around the
+legacy application (server antivirus, EDR, mail and file gateways).
+
 ## 7. Install the connector on the legacy server *(available)*
 
 One per server, whatever the number of sites on it. On the server itself

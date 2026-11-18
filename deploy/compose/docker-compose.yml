@@ -196,8 +196,12 @@ services:
         VERSION: ${EQ_VERSION:-dev}
     restart: unless-stopped
     user: *owner
-    # One replica: a tunnel lives on one relay instance (see CHANGELOG).
+    # A tunnel lives on one replica; a request that reaches another one is
+    # handed over to it (replicas found through DNS, EQ_PEERS).
+    deploy:
+      replicas: ${EQ_RELAY_REPLICAS:-2}
     environment:
+      EQ_PEERS: tunnel-relay
       EQ_TUNNEL_ADDR: ":8081"
       EQ_INTERNAL_ADDR: ":8082"
       EQ_ADMIN_ADDR: ":9091"

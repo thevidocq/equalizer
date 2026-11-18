@@ -55,7 +55,7 @@ func (p *Public) serveForm(w http.ResponseWriter, r *http.Request, st *site.Site
 		p.block(w, r, st, http.StatusForbidden, "cross_site_request")
 		return
 	}
-	body, status, reason := readForm(w, r)
+	body, uploads, status, reason := readSubmission(w, r, form)
 	if reason != "" {
 		p.block(w, r, st, status, reason)
 		return
@@ -76,7 +76,13 @@ func (p *Public) serveForm(w http.ResponseWriter, r *http.Request, st *site.Site
 		p.block(w, r, st, http.StatusForbidden, "form_token_mismatch")
 		return
 	}
-	fields, err := st.Validator.Fields(form.Fields, body)
+	text, fileSpecs := splitFiles(form.Fields)
+	fields, err := st.Validator.Fields(text, body)
+	if err != nil {
+		p.reject(w, r, st, form.ID, err)
+		return
+	}
+	files, err := p.checkFiles(r, fileSpecs, uploads)
 	if err != nil {
 		p.reject(w, r, st, form.ID, err)
 		return
@@ -89,7 +95,12 @@ func (p *Public) serveForm(w http.ResponseWriter, r *http.Request, st *site.Site
 		return
 	}
 
-	req, err := st.Legacy.Build(r.Context(), form.LegacyRequest, vals)
+	var req *http.Request
+	if len(form.LegacyRequest.Files) > 0 {
+		req, err = st.Legacy.BuildUpload(r.Context(), form.LegacyRequest, vals, files)
+	} else {
+		req, err = st.Legacy.Build(r.Context(), form.LegacyRequest, vals)
+	}
 	if err != nil {
 		p.Log.ErrorContext(r.Context(), "cannot build the legacy request",
 			slog.String("error", err.Error()), slog.Group("detail", slog.String("route", form.ID)))

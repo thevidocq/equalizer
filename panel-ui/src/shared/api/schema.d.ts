@@ -2227,7 +2227,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Global health (platform administrators) */
+        /** Health of the platform's services (platform users); no tenant data */
         get: {
             parameters: {
                 query?: never;
@@ -2237,7 +2237,15 @@ export interface paths {
             };
             requestBody?: never;
             responses: {
-                200: components["responses"]["Object"];
+                /** @description Services */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["PlatformStatus"];
+                    };
+                };
             };
         };
         put?: never;
@@ -2255,7 +2263,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Health of the tenant's sites and shared services */
+        /** Health of each site of the tenant: published map, connector, legacy application (last 15 minutes), isolation, and problems per day over the last 7 days (the tenant's people) */
         get: {
             parameters: {
                 query?: never;
@@ -2267,7 +2275,15 @@ export interface paths {
             };
             requestBody?: never;
             responses: {
-                200: components["responses"]["Object"];
+                /** @description Sites */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["TenantStatus"];
+                    };
+                };
             };
         };
         put?: never;
@@ -3073,6 +3089,42 @@ export interface components {
                 count: number;
             }[];
             step_seconds: number;
+        };
+        /**
+         * @description unknown: no data yet (e.g. no traffic); not_used: the site does not need it
+         * @enum {unknown}
+         */
+        HealthState: "ok" | "degraded" | "down" | "unknown" | "not_used";
+        Check: {
+            name: string;
+            state: components["schemas"]["HealthState"];
+            detail?: string;
+        };
+        SiteStatus: {
+            app: string;
+            name: string;
+            public_domain: string;
+            state: components["schemas"]["HealthState"];
+            checks: components["schemas"]["Check"][];
+            /** @description Last 7 days, oldest first */
+            days: {
+                /** Format: date */
+                date: string;
+                legacy_errors: number;
+                connector_drops: number;
+            }[];
+        };
+        TenantStatus: {
+            sites: components["schemas"]["SiteStatus"][];
+            /** Format: date-time */
+            checked_at: string;
+            /** @description false: traffic and history are unknown (log store not reachable) */
+            logs_available: boolean;
+        };
+        PlatformStatus: {
+            services: components["schemas"]["Check"][];
+            /** Format: date-time */
+            checked_at: string;
         };
         AuditEntry: {
             id: number;

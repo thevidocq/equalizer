@@ -95,3 +95,27 @@ func TestEvents(t *testing.T) {
 }
 
 func itoa(n int64) string { b, _ := json.Marshal(n); return string(b) }
+
+func TestHealthCounts(t *testing.T) {
+	now := time.Date(2026, 11, 18, 22, 0, 0, 0, time.UTC)
+	var seen []string
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		seen = append(seen, r.URL.Query().Get("query"))
+		if r.URL.Path == "/loki/api/v1/query" {
+			_, _ = w.Write([]byte(`{"data":{"result":[{"metric":{"app":"portal","type":"legacy.error"},"value":[1,"3"]}]}}`))
+			return
+		}
+		endOfToday := now.Truncate(24 * time.Hour).Add(24 * time.Hour).Unix()
+		_, _ = w.Write([]byte(`{"data":{"result":[{"metric":{"app":"portal"},"values":[[` + itoa(endOfToday) + `,"4"]]}]}}`))
+	}))
+	defer srv.Close()
+	l := &Loki{URL: srv.URL, Now: func() time.Time { return now }}
+	recent, err := l.Recent(context.Background(), "acme", 15*time.Minute, "request.served", "legacy.error")
+	if err != nil || recent["portal"]["legacy.error"] != 3 || !strings.Contains(seen[0], `tenant="acme"`) || !strings.Contains(seen[0], "[900s]") {
+		t.Fatalf("recent: %v %v %v", recent, err, seen)
+	}
+	dates, daily, err := l.Daily(context.Background(), "acme", "legacy.error", "app", 7)
+	if err != nil || len(dates) != 7 || daily["portal"][6] != 4 || !dates[6].Equal(now.Truncate(24*time.Hour)) {
+		t.Fatalf("daily: %v %v %v", dates, daily, err)
+	}
+}

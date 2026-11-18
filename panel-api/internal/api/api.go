@@ -13,6 +13,7 @@ import (
 
 	"github.com/thevidocq/equalizer/panel-api/internal/auth"
 	"github.com/thevidocq/equalizer/panel-api/internal/exposure"
+	"github.com/thevidocq/equalizer/panel-api/internal/health"
 	"github.com/thevidocq/equalizer/panel-api/internal/logging"
 	"github.com/thevidocq/equalizer/panel-api/internal/logsearch"
 	"github.com/thevidocq/equalizer/panel-api/internal/mail"
@@ -41,6 +42,7 @@ type Server struct {
 	Exposure           *exposure.Runner // nil: no exposure checks
 	ExposureThrottle   *auth.Throttle
 	Logs               *logsearch.Loki // nil: the Logs page answers 503
+	Health             *health.Probe   // nil: connectors and services shown as unknown
 }
 
 type userKey struct{}
@@ -99,6 +101,8 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("GET /v1/tenants/{tenant}/logs", s.authed(s.listLogs))
 	mux.HandleFunc("GET /v1/tenants/{tenant}/logs/stats", s.authed(s.logStats))
 	mux.HandleFunc("GET /v1/tenants/{tenant}/logs/export", s.authed(s.exportLogs))
+	mux.HandleFunc("GET /v1/tenants/{tenant}/status", s.authed(s.tenantStatus))
+	mux.HandleFunc("GET /v1/status/platform", s.authed(s.platformStatus))
 	mux.HandleFunc("GET /v1/audit", s.authed(s.listAudit))
 	// Internal services
 	mux.HandleFunc("GET /v1/internal/apps/{app}/map", s.internal(s.internalMap))

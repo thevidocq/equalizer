@@ -29,12 +29,14 @@ export function Sidebar() {
         </nav>
       ) : null}
       <nav aria-label="Administration" className="flex flex-col gap-1">
+        {tenant ? <NavLink to={`/t/${tenant}/status`} className={link}>Status</NavLink> : null}
         {tenant && canManage(me, tenant) ? <NavLink to={`/t/${tenant}/connectors`} className={link}>Connectors</NavLink> : null}
         {tenant ? <NavLink to={`/t/${tenant}/people`} className={link}>People</NavLink> : null}
         {tenant ? <NavLink to={`/t/${tenant}/activity`} className={link}>Activity</NavLink> : null}
         {tenant && hasRole(me, tenant, "admin", "approver", "auditor") ? <NavLink to={`/t/${tenant}/logs`} className={link}>Logs</NavLink> : null}
         {tenant && canManage(me, tenant) ? <NavLink to={`/t/${tenant}/settings`} className={link}>Settings</NavLink> : null}
         {me?.platform_role ? <NavLink to="/tenants" className={link}>Tenants</NavLink> : null}
+        {me?.platform_role ? <NavLink to="/status" className={link}>Platform status</NavLink> : null}
         {me?.platform_role ? <NavLink to="/activity" end className={link}>Activity</NavLink> : null}
       </nav>
       <div className="mt-auto flex flex-col gap-1 border-t border-paper/15 px-3 pt-4 text-sm">

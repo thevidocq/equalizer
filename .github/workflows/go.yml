@@ -13,7 +13,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        module: [gateway, tunnel-relay, connector, tools]
+        module: [gateway, tunnel-relay, connector, panel-api, tools]
     defaults:
       run:
         working-directory: ${{ matrix.module }}
@@ -54,5 +54,7 @@ jobs:
         run: docker build -t equalizer/tunnel-relay:ci tunnel-relay
       - name: Build connector image
         run: docker build -t equalizer/connector:ci connector
+      - name: Build panel-api image
+        run: docker build -t equalizer/panel-api:ci panel-api
       - name: Build eqtool image
         run: docker build -t equalizer/eqtool:ci tools

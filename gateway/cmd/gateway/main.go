@@ -73,7 +73,12 @@ func run() error {
 		return err
 	}
 	defer closeStore()
-	store := mapstore.NewStore(cfg.MapFile, pub, cfg.MapPublicKeyID, site.Options{Relay: relay, Limits: counters})
+	var source mapstore.Source = &mapstore.FileSource{Path: cfg.MapFile}
+	if cfg.MapURL != "" {
+		source = &mapstore.HTTPSource{URL: cfg.MapURL, Token: cfg.MapToken, Client: &http.Client{Timeout: 10 * time.Second}}
+	}
+	log.Info("map source", slog.Group("detail", slog.String("source", source.String())))
+	store := mapstore.NewStoreFrom(source, pub, cfg.MapPublicKeyID, site.Options{Relay: relay, Limits: counters})
 	active, err := store.Reload()
 	logReload(log, active, err)
 

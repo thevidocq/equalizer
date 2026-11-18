@@ -6,8 +6,9 @@
 > Today the gateway serves pages and urlencoded POST forms of a legacy
 > application reached **directly** (`legacy.reach.mode: direct`) or **through
 > the connector** (`mode: connector`), with faithful rendering and
-> pass-through login (sessions in Redis). File uploads and the panel are not
-> available yet.
+> pass-through login (sessions in Redis), and the panel API (tenants, sites,
+> connectors, maps with approval and signing). The panel web interface and
+> file uploads are not available yet.
 
 The prototype runs on **one VPS** with Docker Compose. The legacy application
 to protect can be anywhere: the **connector**, installed next to it, reaches it.
@@ -84,48 +85,19 @@ Main values in `.env`:
 | `EQ_GRAFANA_PASSWORD` | *(choose one)* | Password of the Grafana `admin` user |
 | `EQ_UID` / `EQ_GID` | `1000` | VPS user owning the files created by `eqtool` |
 
-## 5. Keys, connector and first map *(available)*
-
-Until the panel exists, maps are signed by hand with `eqtool`.
+## 5. Keys and secrets *(available)*
 
 ```bash
 # from deploy/compose
-docker compose --profile tools run --rm eqtool keygen -out secrets/map-signing.key
-# key that seals form tokens, shared by the gateway replicas
-docker compose --profile tools run --rm eqtool formkey -out secrets/form.key
-# token the gateway presents to the relay
-docker compose --profile tools run --rm eqtool secret -out secrets/relay.token
-# register the connector: copy the EQ_CONNECTOR_TOKEN it prints (shown once)
-docker compose --profile tools run --rm eqtool connector -file secrets/connectors.json \
-  -id cn-lab-01 -tenant lab -app vulnerable-app
-
-# convert and validate a YAML map (from the repository root)
-cd ../..
-pip install jsonschema pyyaml
-python3 scripts/map_to_json.py schema/map/examples/permits-portal.yaml > deploy/compose/maps/map.json
-
-# sign the map: the gateway reads maps/current.json
-cd deploy/compose
-docker compose --profile tools run --rm eqtool sign \
-  -key secrets/map-signing.key -map maps/map.json -key-id k1 -out maps/current.json
+docker compose --profile tools run --rm eqtool keygen  -out secrets/map-signing.key   # panel signs, gateway verifies
+docker compose --profile tools run --rm eqtool formkey -out secrets/form.key          # gateway forms and sessions
+docker compose --profile tools run --rm eqtool secret  -out secrets/relay.token       # gateway → relay
+docker compose --profile tools run --rm eqtool secret  -out secrets/panel-internal.token  # gateway and relay → panel
+docker compose --profile tools run --rm eqtool secret  -out secrets/postgres.password
 ```
 
-The gateway reloads the map by itself when `maps/current.json` changes (within 15 seconds).
-
-For a legacy app reached through the connector, the map says:
-
-```yaml
-legacy:
-  base_url: http://10.20.0.15:8080        # address as seen from the connector
-  reach:
-    mode: connector
-    connector_id: cn-lab-01                # as registered above
-    allow: ["10.20.0.15:8080"]
-```
-
-The relay rereads `secrets/connectors.json` every 15 seconds: new connectors
-need no restart; removing one or rotating its token (`-rotate`) closes its
-open tunnels.
+All files are created `0600` and owned by `EQ_UID`/`EQ_GID`; the services
+that read them run as that user.
 
 ## 6. Start *(available)*
 
@@ -137,9 +109,68 @@ docker compose ps            # gateway "healthy", two replicas
 Quick checks:
 
 ```bash
-curl -I https://gw.example.com/            # mapped route: legacy page (mode: direct) or 502 (mode: connector)
+curl -I https://gw.example.com/            # 503 until a map is published, then the legacy page
 curl -I https://gw.example.com/wp-admin    # not mapped: 404
 ```
+
+### First administrator and first site *(available)*
+
+```bash
+docker compose run --rm -i panel-api create-admin -email you@example.com -name "Your Name"
+# type the password (at least 12 characters) and press Enter
+```
+
+The panel listens only on the VPS localhost. From your computer:
+
+```bash
+ssh -L 8088:localhost:8088 user@vps
+```
+
+The web interface arrives with panel-ui (next step); until then, the panel
+API at `http://localhost:8088` does everything. With `curl`:
+
+```bash
+P=http://localhost:8088
+api() { curl -s -b .panel -c .panel -H "X-Eq-Panel: 1" -H "Content-Type: application/json" -X "$1" "$P$2" ${3:+-d "$3"}; }
+
+api POST /v1/auth/login '{"email":"you@example.com","password":"..."}'
+api POST /v1/tenants '{"id":"lab","name":"Lab"}'
+api POST /v1/tenants/lab/apps '{"id":"vuln-app","name":"Vulnerable app","public_domain":"vuln.example.com"}'
+api POST /v1/tenants/lab/users '{"email":"approver@example.com","name":"Approver","password":"...","role":"approver"}'
+api POST /v1/apps/vuln-app/connectors '{"id":"cn-lab-01"}'     # prints the connector token, once
+
+# a map: YAML → JSON (validated), then a draft in the panel
+python3 scripts/map_to_json.py my-map.yaml > /tmp/map.json
+api POST /v1/apps/vuln-app/maps "$(python3 -c 'import json;print(json.dumps({"document":json.load(open("/tmp/map.json"))}))')"
+api POST /v1/apps/vuln-app/maps/1/submit
+# the approver (another person, logged in with their own account):
+api POST /v1/apps/vuln-app/maps/1/approve
+api POST /v1/apps/vuln-app/maps/1/publish
+```
+
+Then set `EQ_APP=vuln-app` in `.env` and run `docker compose up -d`: the
+gateway downloads the published map from the panel (checked every 15
+seconds) and verifies its signature. A version is approved and published by
+someone other than its author; every action is in `GET /v1/audit`.
+
+For a legacy app reached through the connector, the map says:
+
+```yaml
+legacy:
+  base_url: http://10.20.0.15:8080        # address as seen from the connector
+  reach:
+    mode: connector
+    connector_id: cn-lab-01                # as registered in the panel
+    allow: ["10.20.0.15:8080"]
+```
+
+The relay reads the connectors from the panel every 15 seconds: new
+connectors need no restart; deleting one or rotating its token
+(`POST /v1/apps/vuln-app/connectors/cn-lab-01/rotate`) closes its open
+tunnels.
+
+Without the panel (`EQ_APP` empty) the gateway still reads
+`maps/current.json`, signed with `eqtool sign`.
 
 ### Viewing logs *(available)*
 
@@ -170,7 +201,7 @@ server itself is fine):
 docker run -d --name eq-connector --restart unless-stopped \
   -e EQ_RELAY_URL=https://relay.example.com \
   -e EQ_CONNECTOR_ID=cn-lab-01 \
-  -e EQ_CONNECTOR_TOKEN=<token printed by eqtool connector> \
+  -e EQ_CONNECTOR_TOKEN=<token printed by the panel> \
   -e EQ_ALLOW=10.20.0.15:8080 \
   ghcr.io/thevidocq/equalizer-connector:latest
 ```

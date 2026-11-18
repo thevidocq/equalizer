@@ -16,6 +16,8 @@ type Config struct {
 	Instance        string
 	LogLevel        string
 	ConnectorsFile  string
+	ConnectorsURL   string // panel-api /v1/internal/connectors; takes precedence over the file
+	PanelToken      string // token for ConnectorsURL
 	GatewayToken    string
 	ShutdownTimeout time.Duration
 }
@@ -40,6 +42,13 @@ func FromEnv() (Config, error) {
 		return Config{}, fmt.Errorf("EQ_GATEWAY_TOKEN or EQ_GATEWAY_TOKEN_FILE is required (at least 32 characters)")
 	}
 	cfg.GatewayToken = token
+	cfg.ConnectorsURL = os.Getenv("EQ_CONNECTORS_URL")
+	if cfg.PanelToken, err = secret("EQ_PANEL_TOKEN"); err != nil {
+		return Config{}, err
+	}
+	if cfg.ConnectorsURL != "" && cfg.PanelToken == "" {
+		return Config{}, fmt.Errorf("EQ_CONNECTORS_URL needs EQ_PANEL_TOKEN or EQ_PANEL_TOKEN_FILE")
+	}
 	switch cfg.LogLevel {
 	case "debug", "info", "warn", "error":
 	default:

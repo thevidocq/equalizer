@@ -68,8 +68,24 @@ def check_openapi() -> list[str]:
     return errors
 
 
+def check_copies() -> list[str]:
+    """Services that embed a contract keep an identical copy."""
+    errors: list[str] = []
+    copies = {
+        ROOT / "panel-api" / "internal" / "mapschema" / "gateway-map.schema.json": SCHEMA_DIR / "map" / "gateway-map.schema.json",
+    }
+    for copy, source in copies.items():
+        if not copy.exists():
+            continue
+        if copy.read_bytes() != source.read_bytes():
+            errors.append(f"{copy.relative_to(ROOT)} differs from {source.relative_to(ROOT)}: copy it again")
+        else:
+            print(f"ok   copy     {copy.relative_to(ROOT)}")
+    return errors
+
+
 def main() -> int:
-    errors = check_json_schemas() + check_map_examples() + check_openapi()
+    errors = check_json_schemas() + check_map_examples() + check_openapi() + check_copies()
     if errors:
         print("\nERRORS:", file=sys.stderr)
         for err in errors:

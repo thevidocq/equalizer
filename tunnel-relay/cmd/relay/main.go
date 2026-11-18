@@ -53,6 +53,10 @@ func run() error {
 	events := logging.NewEvents(os.Stdout, cfg.Instance)
 
 	reg := registry.New(cfg.ConnectorsFile)
+	if cfg.ConnectorsURL != "" {
+		reg = registry.NewFromPanel(cfg.ConnectorsURL, cfg.PanelToken)
+	}
+	log.Info("connector source", slog.Group("detail", slog.String("source", reg.Source())))
 	pool := sessions.NewPool()
 	var ready atomic.Bool
 	reload := func() {

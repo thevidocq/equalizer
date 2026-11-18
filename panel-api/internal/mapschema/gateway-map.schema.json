@@ -1,0 +1,598 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://equalizer.ai/schema/map/gateway-map-1.0.json",
+  "title": "Equalizer gateway map",
+  "description": "Allowlist map of a protected legacy application. Anything not declared does not exist. Schema version: gateway-map/1.0.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["meta", "legacy", "roles", "routes"],
+  "properties": {
+    "meta": { "$ref": "#/$defs/meta" },
+    "legacy": { "$ref": "#/$defs/legacy" },
+    "roles": { "$ref": "#/$defs/roles" },
+    "defaults": { "$ref": "#/$defs/defaults" },
+    "types": {
+      "type": "object",
+      "description": "Reusable field types, referenced by name in 'type'.",
+      "propertyNames": { "$ref": "#/$defs/identifier" },
+      "additionalProperties": { "$ref": "#/$defs/typeDef" }
+    },
+    "routes": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/route" }
+    },
+    "forms": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/form" }
+    },
+    "flows": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/flow" }
+    },
+    "api": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/apiRoute" }
+    },
+    "compat": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/compat" }
+    },
+    "callbacks": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/callback" }
+    },
+    "assets": {
+      "type": "array",
+      "description": "Static files of the legacy application (CSS, images, scripts, fonts) served by the gateway by prefix, with type checks.",
+      "items": { "$ref": "#/$defs/asset" }
+    },
+    "external_links": { "$ref": "#/$defs/externalLinks" },
+    "behavior": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/behaviorRule" }
+    }
+  },
+  "$defs": {
+    "identifier": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9_]{0,63}$"
+    },
+    "publicPath": {
+      "type": "string",
+      "description": "Public path; parameters in braces are declared in 'params'.",
+      "pattern": "^/[A-Za-z0-9_./{}\\-]*$"
+    },
+    "rateValue": {
+      "type": "string",
+      "description": "Limit in the form N/unit, e.g. 60/min.",
+      "pattern": "^[0-9]+/(s|sec|min|hour|day)$"
+    },
+    "origin": { "enum": ["agent", "human"] },
+    "risk": { "enum": ["low", "medium", "high"] },
+    "provenance": {
+      "type": "object",
+      "properties": {
+        "origin": { "$ref": "#/$defs/origin" },
+        "confidence": { "type": "number", "minimum": 0, "maximum": 1 },
+        "risk": { "$ref": "#/$defs/risk" },
+        "approved_by": { "type": "string" }
+      }
+    },
+    "meta": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schema", "tenant", "app", "version", "status"],
+      "properties": {
+        "schema": { "const": "gateway-map/1.0" },
+        "tenant": { "$ref": "#/$defs/slug" },
+        "app": { "$ref": "#/$defs/slug" },
+        "version": { "type": "integer", "minimum": 1 },
+        "parent_version": { "type": ["integer", "null"], "minimum": 1 },
+        "status": { "enum": ["draft", "in_review", "approved", "published", "retired"] },
+        "created_by": { "type": "string" },
+        "approved_by": { "type": "string" },
+        "published_at": { "type": "string", "format": "date-time" }
+      }
+    },
+    "slug": {
+      "type": "string",
+      "pattern": "^[a-z0-9][a-z0-9-]{0,62}$"
+    },
+    "secretRef": {
+      "type": "string",
+      "description": "Vault reference; never the secret in clear.",
+      "pattern": "^vault://"
+    },
+    "legacyRequest": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["method", "path"],
+      "properties": {
+        "method": { "enum": ["GET", "POST", "PUT", "PATCH", "DELETE"] },
+        "path": { "type": "string", "pattern": "^/" },
+        "query": { "$ref": "#/$defs/templateMap" },
+        "form": { "$ref": "#/$defs/templateMap" },
+        "json": { "type": "object" },
+        "files": { "$ref": "#/$defs/templateMap" },
+        "headers": { "$ref": "#/$defs/templateMap" }
+      }
+    },
+    "templateMap": {
+      "type": "object",
+      "description": "Fixed values or {{namespace.name}} placeholders resolved by the gateway. Namespaces: params (path), query, fields (submitted form fields), hidden (legacy hidden inputs of the rendered form, kept server-side), account (legacy account of the role), user (authenticated user).",
+      "additionalProperties": { "type": "string" }
+    },
+    "legacy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["base_url", "reach"],
+      "properties": {
+        "base_url": { "type": "string", "pattern": "^https?://" },
+        "reach": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["mode", "allow"],
+          "properties": {
+            "mode": { "enum": ["connector", "direct"] },
+            "connector_id": { "type": "string" },
+            "allow": {
+              "type": "array",
+              "minItems": 1,
+              "items": { "type": "string", "pattern": "^[A-Za-z0-9.\\-]+:[0-9]{1,5}$" }
+            }
+          },
+          "if": { "properties": { "mode": { "const": "connector" } } },
+          "then": { "required": ["connector_id"] }
+        },
+        "user_agent": { "type": "string" },
+        "timeout_ms": { "type": "integer", "minimum": 100, "maximum": 120000 },
+        "login": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["request", "success"],
+          "properties": {
+            "request": { "$ref": "#/$defs/legacyRequest" },
+            "success": { "$ref": "#/$defs/successCheck" }
+          }
+        },
+        "session_expired": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "redirect_to": { "type": "string" },
+            "status": { "type": "array", "items": { "type": "integer" } },
+            "body_contains": { "type": "string" }
+          }
+        },
+        "error_detect": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "status": { "type": "array", "items": { "type": "integer" } },
+              "body_contains": { "type": "string" }
+            }
+          }
+        }
+      }
+    },
+    "successCheck": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "cookie": { "type": "string" },
+        "status": { "type": "array", "items": { "type": "integer" } },
+        "body_contains": { "type": "string" },
+        "not_contains": { "type": "string" },
+        "redirect_to": { "type": "string" }
+      }
+    },
+    "roles": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["list"],
+      "properties": {
+        "anonymous": {
+          "$ref": "#/$defs/identifier",
+          "description": "Role of unauthenticated visitors; must exist in 'list'. Without this field no page is public."
+        },
+        "auth": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["provider"],
+          "properties": {
+            "provider": { "enum": ["oidc", "passthrough", "none"] },
+            "issuer": { "type": "string" }
+          }
+        },
+        "list": {
+          "type": "object",
+          "minProperties": 1,
+          "propertyNames": { "$ref": "#/$defs/identifier" },
+          "additionalProperties": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "legacy_account": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["secret_ref"],
+                "properties": {
+                  "mode": { "enum": ["shared", "per_user"] },
+                  "secret_ref": { "type": "string", "pattern": "^vault://" }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "defaults": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "rate_limit": { "$ref": "#/$defs/rateLimit" },
+        "legacy_budget": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "max_concurrency": { "type": "integer", "minimum": 1 },
+            "max_rps": { "type": "number", "minimum": 0.1 }
+          }
+        },
+        "cache": { "$ref": "#/$defs/cache" },
+        "string": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "max_length": { "type": "integer", "minimum": 1 },
+            "charset": { "type": "string" }
+          }
+        },
+        "error_template": { "type": "string" },
+        "session": {
+          "type": "object",
+          "description": "Gateway sessions (legacy cookies kept server-side, role after login).",
+          "additionalProperties": false,
+          "properties": {
+            "idle_minutes": { "type": "integer", "minimum": 5, "maximum": 1440 },
+            "absolute_hours": { "type": "integer", "minimum": 1, "maximum": 168 }
+          }
+        }
+      }
+    },
+    "sessionAction": {
+      "type": "object",
+      "description": "start: the role granted when the form succeeds (login). end: the gateway session ends (logout).",
+      "additionalProperties": false,
+      "properties": {
+        "start": { "$ref": "#/$defs/identifier" },
+        "end": { "const": true }
+      },
+      "minProperties": 1,
+      "maxProperties": 1
+    },
+    "rateLimit": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "per_ip": { "$ref": "#/$defs/rateValue" },
+        "per_session": { "$ref": "#/$defs/rateValue" },
+        "per_user": { "$ref": "#/$defs/rateValue" }
+      }
+    },
+    "cache": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["mode"],
+      "properties": {
+        "mode": { "enum": ["none", "public"] },
+        "ttl_s": { "type": "integer", "minimum": 1 }
+      }
+    },
+    "baseType": { "enum": ["int", "enum", "bool", "date", "string", "email", "text", "password", "file"] },
+    "typeDef": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["base"],
+      "properties": {
+        "base": { "$ref": "#/$defs/baseType" },
+        "min": { "type": "number" },
+        "max": { "type": "number" },
+        "values": { "type": "array", "items": { "type": "string" }, "minItems": 1 },
+        "pattern": { "type": "string" },
+        "charset": { "type": "string" },
+        "max_length": { "type": "integer", "minimum": 1 }
+      }
+    },
+    "fieldSpec": {
+      "type": "object",
+      "description": "Input field from the client. 'type' is a base type or a name defined in 'types'.",
+      "additionalProperties": false,
+      "required": ["type"],
+      "properties": {
+        "type": { "type": "string" },
+        "required": { "type": "boolean" },
+        "default": {},
+        "min": { "type": "number" },
+        "max": { "type": "number" },
+        "values": { "type": "array", "items": { "type": "string" } },
+        "pattern": { "type": "string" },
+        "charset": { "type": "string" },
+        "max_length": { "type": "integer", "minimum": 1 },
+        "risk": { "$ref": "#/$defs/risk" },
+        "rules": { "type": "array", "items": { "type": "string" } },
+        "mime": { "type": "array", "items": { "type": "string" } },
+        "max_size_kb": { "type": "integer", "minimum": 1 },
+        "scan": { "enum": ["av", "av+cdr", "none"] }
+      },
+      "allOf": [
+        {
+          "if": { "properties": { "type": { "enum": ["text", "password", "file"] } } },
+          "then": {
+            "anyOf": [
+              { "required": ["rules"], "properties": { "rules": { "minItems": 1 } } },
+              { "required": ["scan"], "properties": { "scan": { "enum": ["av", "av+cdr"] } } }
+            ]
+          }
+        }
+      ]
+    },
+    "fieldMap": {
+      "type": "object",
+      "propertyNames": { "$ref": "#/$defs/identifier" },
+      "additionalProperties": { "$ref": "#/$defs/fieldSpec" }
+    },
+    "extractField": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["selector", "type"],
+      "properties": {
+        "selector": { "type": "string" },
+        "type": { "type": "string" },
+        "max_length": { "type": "integer", "minimum": 1 },
+        "attr": { "type": "string" }
+      }
+    },
+    "extractBlock": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "selector": { "type": "string" },
+        "list": { "type": "boolean" },
+        "fields": {
+          "type": "object",
+          "propertyNames": { "$ref": "#/$defs/identifier" },
+          "additionalProperties": { "$ref": "#/$defs/extractField" }
+        }
+      }
+    },
+    "authzRule": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["check"],
+      "properties": {
+        "check": { "enum": ["owned_by_user", "always", "never"] },
+        "target": { "type": "string" }
+      }
+    },
+    "link": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["legacy", "route"],
+      "properties": {
+        "legacy": { "type": "string" },
+        "route": { "$ref": "#/$defs/identifier" }
+      }
+    },
+    "route": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "path", "method", "roles", "legacy_request", "render", "origin", "risk"],
+      "properties": {
+        "id": { "$ref": "#/$defs/identifier" },
+        "path": { "$ref": "#/$defs/publicPath" },
+        "method": { "const": "GET" },
+        "roles": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/identifier" } },
+        "params": { "$ref": "#/$defs/fieldMap" },
+        "query": { "$ref": "#/$defs/fieldMap" },
+        "legacy_request": { "$ref": "#/$defs/legacyRequest" },
+        "render": { "enum": ["faithful", "template"] },
+        "template": { "type": "string" },
+        "extract": {
+          "type": "object",
+          "description": "Required with render: template; optional with faithful (data for authz/metrics).",
+          "propertyNames": { "$ref": "#/$defs/identifier" },
+          "additionalProperties": { "$ref": "#/$defs/extractBlock" }
+        },
+        "links": { "type": "array", "items": { "$ref": "#/$defs/link" } },
+        "authz": {
+          "type": "object",
+          "propertyNames": { "$ref": "#/$defs/identifier" },
+          "additionalProperties": { "$ref": "#/$defs/authzRule" }
+        },
+        "scope": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "record_owner": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["field", "check"],
+              "properties": {
+                "field": { "type": "string" },
+                "check": { "const": "owned_by_user" }
+              }
+            }
+          }
+        },
+        "forms": { "type": "array", "items": { "$ref": "#/$defs/identifier" } },
+        "session": {
+          "type": "object",
+          "description": "end: true makes the route a logout: the gateway session ends after the legacy answer.",
+          "additionalProperties": false,
+          "required": ["end"],
+          "properties": { "end": { "const": true } }
+        },
+        "cache": { "$ref": "#/$defs/cache" },
+        "rate_limit": { "$ref": "#/$defs/rateLimit" },
+        "origin": { "$ref": "#/$defs/origin" },
+        "confidence": { "type": "number", "minimum": 0, "maximum": 1 },
+        "risk": { "$ref": "#/$defs/risk" },
+        "approved_by": { "type": "string" }
+      },
+      "if": { "properties": { "render": { "const": "template" } } },
+      "then": { "required": ["template", "extract"] }
+    },
+    "form": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "route", "roles", "fields", "legacy_request", "origin"],
+      "properties": {
+        "id": { "$ref": "#/$defs/identifier" },
+        "route": { "$ref": "#/$defs/publicPath" },
+        "roles": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/identifier" } },
+        "params": { "$ref": "#/$defs/fieldMap" },
+        "fields": { "$ref": "#/$defs/fieldMap" },
+        "legacy_request": { "$ref": "#/$defs/legacyRequest" },
+        "success": { "$ref": "#/$defs/successCheck" },
+        "on_success": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": { "redirect": { "$ref": "#/$defs/identifier" } }
+        },
+        "session": { "$ref": "#/$defs/sessionAction" },
+        "captcha": { "type": "boolean" },
+        "rate_limit": { "$ref": "#/$defs/rateLimit" },
+        "origin": { "$ref": "#/$defs/origin" },
+        "confidence": { "type": "number", "minimum": 0, "maximum": 1 },
+        "risk": { "$ref": "#/$defs/risk" },
+        "approved_by": { "type": "string" }
+      }
+    },
+    "flow": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "roles", "steps"],
+      "properties": {
+        "id": { "$ref": "#/$defs/identifier" },
+        "roles": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/identifier" } },
+        "steps": { "type": "array", "minItems": 2, "items": { "$ref": "#/$defs/identifier" } },
+        "state": { "const": "server_side" },
+        "timeout": { "type": "string", "pattern": "^[0-9]+(s|m|h)$" },
+        "on_skip": { "type": "array", "items": { "enum": ["block", "alert", "challenge"] } }
+      }
+    },
+    "apiRoute": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "path", "method", "roles", "legacy_request", "response"],
+      "properties": {
+        "id": { "$ref": "#/$defs/identifier" },
+        "path": { "$ref": "#/$defs/publicPath" },
+        "method": { "enum": ["GET", "POST", "PUT", "PATCH", "DELETE"] },
+        "roles": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/identifier" } },
+        "params": { "$ref": "#/$defs/fieldMap" },
+        "query": { "$ref": "#/$defs/fieldMap" },
+        "body": { "$ref": "#/$defs/fieldMap" },
+        "legacy_request": { "$ref": "#/$defs/legacyRequest" },
+        "response": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["fields"],
+          "properties": {
+            "list": { "type": "boolean" },
+            "path": { "type": "string", "description": "Path in the legacy JSON, e.g. data.items" },
+            "fields": { "$ref": "#/$defs/fieldMap" }
+          }
+        },
+        "rate_limit": { "$ref": "#/$defs/rateLimit" },
+        "origin": { "$ref": "#/$defs/origin" },
+        "risk": { "$ref": "#/$defs/risk" }
+      }
+    },
+    "compat": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["legacy", "action", "route"],
+      "properties": {
+        "legacy": { "type": "string", "pattern": "^/" },
+        "params": { "$ref": "#/$defs/fieldMap" },
+        "action": { "enum": ["redirect", "serve"] },
+        "route": { "$ref": "#/$defs/identifier" }
+      }
+    },
+    "callback": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "path", "method", "verify", "legacy_request"],
+      "properties": {
+        "id": { "$ref": "#/$defs/identifier" },
+        "path": { "$ref": "#/$defs/publicPath" },
+        "method": { "enum": ["GET", "POST"] },
+        "verify": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "signature": { "enum": ["hmac-sha256", "rsa-sha256", "none"] },
+            "secret_ref": { "$ref": "#/$defs/secretRef" },
+            "source_ips": { "type": "array", "items": { "type": "string" } }
+          }
+        },
+        "body": { "$ref": "#/$defs/fieldMap" },
+        "legacy_request": { "$ref": "#/$defs/legacyRequest" }
+      }
+    },
+    "asset": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["prefix", "types"],
+      "properties": {
+        "prefix": {
+          "type": "string",
+          "description": "Path prefix, the same for public and legacy, e.g. /css/",
+          "pattern": "^/([A-Za-z0-9_.\\-]+/)*$",
+          "not": { "pattern": "(^|/)\\.{1,2}/" }
+        },
+        "types": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "type": "string", "pattern": "^[a-z]+/[a-z0-9.+\\-]+$" }
+        },
+        "max_size_kb": { "type": "integer", "minimum": 1 },
+        "roles": { "type": "array", "items": { "$ref": "#/$defs/identifier" } }
+      }
+    },
+    "externalLinks": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "allow": { "type": "array", "items": { "type": "string" } },
+        "default": { "enum": ["exit_page", "remove", "allow"] }
+      }
+    },
+    "behaviorRule": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "signal", "action"],
+      "properties": {
+        "id": { "$ref": "#/$defs/identifier" },
+        "route": { "$ref": "#/$defs/identifier" },
+        "signal": { "enum": ["distinct_param_values", "missing_predecessor", "request_rate", "failed_logins"] },
+        "param": { "type": "string" },
+        "expects": { "$ref": "#/$defs/identifier" },
+        "threshold": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "count": { "type": "integer", "minimum": 1 },
+            "window": { "type": "string", "pattern": "^[0-9]+(s|m|h)$" },
+            "per": { "enum": ["ip", "session", "user"] }
+          }
+        },
+        "action": { "type": "array", "minItems": 1, "items": { "enum": ["throttle", "challenge", "block", "alert"] } }
+      }
+    }
+  }
+}

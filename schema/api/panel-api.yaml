@@ -3,14 +3,23 @@ info:
   title: Equalizer panel-api
   version: 0.1.0
   description: |
-    Control-plane API. Used by panel-ui (people, OIDC + MFA) and by
-    internal services (service tokens). First version: bodies are
-    deliberately brief and will be detailed service by service.
+    Control-plane API. Used by panel-ui (people: panel session cookie) and
+    by internal services (service tokens on /internal). Implemented so
+    far: auth, tenants, users, apps, connectors, maps, internal, audit.
+    The other sections describe planned endpoints and keep brief bodies.
+
+    Every request that changes state must carry the header
+    `X-Eq-Panel: 1` (CSRF barrier together with SameSite=Strict cookies).
 servers:
   - url: /v1
 security:
-  - oidc: []
+  - panelSession: []
 tags:
+  - name: auth
+  - name: tenants
+  - name: users
+  - name: apps
+  - name: internal
   - name: maps
   - name: proposals
   - name: crawls
@@ -24,9 +33,152 @@ tags:
   - name: import-export
   - name: audit
 paths:
-  /apps/{app}/maps/published:
+  /auth/login:
+    post:
+      tags: [auth]
+      summary: Log in with email and password; sets the panel session cookie
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/LoginRequest" }
+      responses:
+        "200":
+          description: Logged in
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/User" }
+        "401": { $ref: "#/components/responses/Error" }
+        "429": { $ref: "#/components/responses/Error" }
+  /auth/logout:
+    post:
+      tags: [auth]
+      summary: End the panel session
+      responses:
+        "204": { description: Logged out }
+  /auth/me:
+    get:
+      tags: [auth]
+      summary: The logged-in user
+      responses:
+        "200":
+          description: User
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/User" }
+        "401": { $ref: "#/components/responses/Error" }
+  /tenants:
+    get:
+      tags: [tenants]
+      summary: Tenants visible to the user (all for platform roles)
+      responses:
+        "200": { $ref: "#/components/responses/List" }
+    post:
+      tags: [tenants]
+      summary: Create a tenant (platform administrators)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/TenantCreate" }
+      responses:
+        "201": { $ref: "#/components/responses/Object" }
+        "409": { $ref: "#/components/responses/Error" }
+  /tenants/{tenant}/users:
+    get:
+      tags: [users]
+      summary: Users of a tenant
+      parameters: [{ $ref: "#/components/parameters/tenant" }]
+      responses:
+        "200": { $ref: "#/components/responses/List" }
+    post:
+      tags: [users]
+      summary: Create a tenant user (tenant or platform administrators)
+      parameters: [{ $ref: "#/components/parameters/tenant" }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/UserCreate" }
+      responses:
+        "201": { $ref: "#/components/responses/Object" }
+        "409": { $ref: "#/components/responses/Error" }
+  /tenants/{tenant}/apps:
+    get:
+      tags: [apps]
+      summary: Protected sites of a tenant
+      parameters: [{ $ref: "#/components/parameters/tenant" }]
+      responses:
+        "200": { $ref: "#/components/responses/List" }
+    post:
+      tags: [apps]
+      summary: Protect a new site
+      parameters: [{ $ref: "#/components/parameters/tenant" }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/AppCreate" }
+      responses:
+        "201": { $ref: "#/components/responses/Object" }
+        "409": { $ref: "#/components/responses/Error" }
+  /apps/{app}:
+    get:
+      tags: [apps]
+      summary: A protected site
+      parameters: [{ $ref: "#/components/parameters/app" }]
+      responses:
+        "200": { $ref: "#/components/responses/Object" }
+        "404": { $ref: "#/components/responses/Error" }
+  /apps/{app}/maps:
     get:
       tags: [maps]
+      summary: Map versions of the site, newest first
+      parameters: [{ $ref: "#/components/parameters/app" }]
+      responses:
+        "200": { $ref: "#/components/responses/List" }
+    post:
+      tags: [maps]
+      summary: New draft version (validated against the map schema)
+      parameters: [{ $ref: "#/components/parameters/app" }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [document]
+              properties:
+                document: { type: object, description: "Map in JSON (schema/map/gateway-map.schema.json); meta.tenant, meta.app, meta.version and meta.status are set by the panel" }
+                note: { type: string, maxLength: 2000 }
+      responses:
+        "201": { $ref: "#/components/responses/Object" }
+        "422": { $ref: "#/components/responses/Error" }
+  /apps/{app}/maps/{version}:
+    get:
+      tags: [maps]
+      summary: Read a map version
+      parameters:
+        - { $ref: "#/components/parameters/app" }
+        - { $ref: "#/components/parameters/version" }
+      responses:
+        "200": { $ref: "#/components/responses/Object" }
+  /apps/{app}/maps/{version}/{action}:
+    post:
+      tags: [maps]
+      summary: "Lifecycle: submit (draft → in_review), approve and reject (never by the author), publish (approved → published, signed; the previous one is retired)"
+      parameters:
+        - { $ref: "#/components/parameters/app" }
+        - { $ref: "#/components/parameters/version" }
+        - { name: action, in: path, required: true, schema: { enum: [submit, approve, reject, publish] } }
+      responses:
+        "200": { $ref: "#/components/responses/Object" }
+        "403": { $ref: "#/components/responses/Error" }
+        "409": { $ref: "#/components/responses/Error" }
+  /internal/apps/{app}/map:
+    get:
+      tags: [internal]
       summary: Published map and its signature (used by the gateway)
       security: [{ serviceToken: [] }]
       parameters: [{ $ref: "#/components/parameters/app" }]
@@ -36,25 +188,14 @@ paths:
           content:
             application/json:
               schema: { $ref: "#/components/schemas/SignedMap" }
-  /apps/{app}/maps/{version}:
+        "404": { $ref: "#/components/responses/Error" }
+  /internal/connectors:
     get:
-      tags: [maps]
-      summary: Read a map version
-      parameters:
-        - { $ref: "#/components/parameters/app" }
-        - { name: version, in: path, required: true, schema: { type: integer } }
+      tags: [internal]
+      summary: Registered connectors in the relay format (used by tunnel-relay)
+      security: [{ serviceToken: [] }]
       responses:
         "200": { $ref: "#/components/responses/Object" }
-  /apps/{app}/maps/{version}/publish:
-    post:
-      tags: [maps]
-      summary: Publish and sign an approved version
-      parameters:
-        - { $ref: "#/components/parameters/app" }
-        - { name: version, in: path, required: true, schema: { type: integer } }
-      responses:
-        "200": { $ref: "#/components/responses/Object" }
-        "409": { description: Version not approved or containing unapproved changes }
   /apps/{app}/proposals:
     get:
       tags: [proposals]
@@ -140,20 +281,51 @@ paths:
       security: [{ serviceToken: [] }]
       responses:
         "200": { $ref: "#/components/responses/Object" }
-  /apps/{app}/connectors/enroll-token:
-    post:
-      tags: [connectors]
-      summary: Generate a one-time enrolment token (expires after use or within 24 hours)
-      parameters: [{ $ref: "#/components/parameters/app" }]
-      responses:
-        "201": { $ref: "#/components/responses/Object" }
   /apps/{app}/connectors:
     get:
       tags: [connectors]
-      summary: App connectors with status, version, latency
+      summary: Connectors of the site (token never returned)
       parameters: [{ $ref: "#/components/parameters/app" }]
       responses:
         "200": { $ref: "#/components/responses/List" }
+    post:
+      tags: [connectors]
+      summary: Register a connector; the token is returned only in this answer
+      parameters: [{ $ref: "#/components/parameters/app" }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [id]
+              properties:
+                id: { type: string, pattern: "^[a-z0-9][a-z0-9_-]{1,62}$" }
+      responses:
+        "201":
+          description: Connector and its token
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ConnectorCreated" }
+        "409": { $ref: "#/components/responses/Error" }
+  /apps/{app}/connectors/{id}/rotate:
+    post:
+      tags: [connectors]
+      summary: New token; open tunnels with the old one are closed
+      parameters: [{ $ref: "#/components/parameters/app" }, { $ref: "#/components/parameters/id" }]
+      responses:
+        "200":
+          description: Connector and its new token
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ConnectorCreated" }
+  /apps/{app}/connectors/{id}:
+    delete:
+      tags: [connectors]
+      summary: Remove a connector; its tunnels are closed
+      parameters: [{ $ref: "#/components/parameters/app" }, { $ref: "#/components/parameters/id" }]
+      responses:
+        "204": { description: Removed }
   /apps/{app}/capacity:
     get:
       tags: [capacity]
@@ -413,6 +585,10 @@ paths:
         "200": { $ref: "#/components/responses/List" }
 components:
   securitySchemes:
+    panelSession:
+      type: apiKey
+      in: cookie
+      name: __Host-eq_panel
     oidc:
       type: openIdConnect
       openIdConnectUrl: /.well-known/openid-configuration
@@ -435,7 +611,17 @@ components:
       in: path
       required: true
       schema: { type: string }
+    version:
+      name: version
+      in: path
+      required: true
+      schema: { type: integer, minimum: 1 }
   responses:
+    Error:
+      description: Error
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
     Object:
       description: Object
       content:
@@ -451,6 +637,56 @@ components:
               items: { type: array, items: { type: object } }
               next_cursor: { type: [string, "null"] }
   schemas:
+    Error:
+      type: object
+      required: [error]
+      properties:
+        error: { type: string, description: "Machine-readable reason, e.g. not_found, forbidden, invalid_map" }
+        message: { type: string }
+        details: { type: array, items: { type: string } }
+    LoginRequest:
+      type: object
+      required: [email, password]
+      properties:
+        email: { type: string, maxLength: 254 }
+        password: { type: string, maxLength: 256, writeOnly: true }
+    User:
+      type: object
+      properties:
+        id: { type: integer }
+        email: { type: string }
+        name: { type: string }
+        platform_role: { type: [string, "null"], enum: [admin, operator, null] }
+        tenant: { type: [string, "null"] }
+        tenant_role: { type: [string, "null"], enum: [admin, editor, approver, auditor, null] }
+    UserCreate:
+      type: object
+      required: [email, name, password, role]
+      properties:
+        email: { type: string, maxLength: 254 }
+        name: { type: string, maxLength: 200 }
+        password: { type: string, minLength: 12, maxLength: 256, writeOnly: true }
+        role: { enum: [admin, editor, approver, auditor] }
+    TenantCreate:
+      type: object
+      required: [id, name]
+      properties:
+        id: { type: string, pattern: "^[a-z0-9][a-z0-9-]{0,62}$" }
+        name: { type: string, maxLength: 200 }
+    AppCreate:
+      type: object
+      required: [id, name, public_domain]
+      properties:
+        id: { type: string, pattern: "^[a-z0-9][a-z0-9-]{0,62}$" }
+        name: { type: string, maxLength: 200 }
+        public_domain: { type: string, maxLength: 253 }
+    ConnectorCreated:
+      type: object
+      required: [id, token]
+      properties:
+        id: { type: string }
+        app: { type: string }
+        token: { type: string, description: "Shown only once; the panel keeps its SHA-256" }
     SignedMap:
       type: object
       description: |

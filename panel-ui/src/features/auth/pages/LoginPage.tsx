@@ -1,5 +1,5 @@
 import { useState, type FormEvent } from "react";
-import { useNavigate } from "react-router";
+import { Link, useNavigate } from "react-router";
 import { Button, Notice, TextField } from "@/shared/ui";
 import { describeError } from "@/shared/api/errors";
 import { useLogin } from "../hooks/useSession";
@@ -26,6 +26,7 @@ export function LoginPage() {
           onChange={(e) => setPassword(e.target.value)} />
         <Button type="submit" variant="primary" busy={login.isPending} className="justify-center">Log in</Button>
       </form>
+      <Link to="/forgot" className="text-sm text-signal hover:underline">Forgot your password?</Link>
     </AuthFrame>
   );
 }

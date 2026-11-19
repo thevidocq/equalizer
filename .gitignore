@@ -16,3 +16,6 @@ __pycache__/
 .idea/
 .vscode/
 .DS_Store
+
+# backups made by deploy/compose/backup.sh (they hold the secrets)
+deploy/compose/backups/

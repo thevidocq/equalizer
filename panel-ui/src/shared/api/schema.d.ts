@@ -279,6 +279,113 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/auth/password-reset": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Forgotten password: emails a link valid for one hour to the account, if one exists; the answer is the same either way */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": {
+                        /** Format: email */
+                        email: string;
+                    };
+                };
+            };
+            responses: {
+                /** @description If the account exists, the email is on its way */
+                202: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                429: components["responses"]["Error"];
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/auth/password-reset/{token}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Whether a reset link still works (public, the token is the secret) */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    token: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description The link works */
+                204: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                404: components["responses"]["Error"];
+            };
+        };
+        put?: never;
+        /** Choose a new password with a reset link; every session of the user ends. The authenticator stays as it is */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    token: string;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": {
+                        password: string;
+                    };
+                };
+            };
+            responses: {
+                /** @description Password changed */
+                204: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                400: components["responses"]["Error"];
+                404: components["responses"]["Error"];
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/tenants/{tenant}/users/{id}": {
         parameters: {
             query?: never;
@@ -1512,6 +1619,71 @@ export interface paths {
                 403: components["responses"]["Error"];
             };
         };
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/tenants/{tenant}/alerts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Email alerts of the tenant: a site that stops working (connector offline, legacy site failing, reachable again on its old IP) and its recovery (tenant administrators) */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    tenant: components["parameters"]["tenant"];
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Settings */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["AlertSettings"];
+                    };
+                };
+            };
+        };
+        /** Change the email alerts */
+        put: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    tenant: components["parameters"]["tenant"];
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["AlertSettings"];
+                };
+            };
+            responses: {
+                /** @description Settings */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["AlertSettings"];
+                    };
+                };
+                422: components["responses"]["Error"];
+            };
+        };
+        post?: never;
+        delete?: never;
         options?: never;
         head?: never;
         patch?: never;
@@ -3331,6 +3503,14 @@ export interface components {
             /** @description Ed25519 signature of the payload bytes */
             signature: string;
             key_id: string;
+        };
+        AlertSettings: {
+            /** @description Default true: the tenant's administrators get the alerts */
+            enabled: boolean;
+            /** @description More addresses, e.g. the on-call mailbox */
+            extra_emails: string[];
+            /** @description False when the platform sends no email */
+            readonly mail_available?: boolean;
         };
         LLMConfig: {
             /**

@@ -509,6 +509,12 @@ redirects to other sites passed on. Equalizer still sits in between:
 - uploads (multipart) are rebuilt part by part into a temporary file, never
   held in memory, up to `max_body_kb` (at most 1 GB); other bodies up to
   64 MB;
+- files sent as the whole body by JavaScript uploaders (`image/*`,
+  `video/*`, `audio/*`, PDF, office documents, `application/octet-stream`)
+  are accepted too: their first bytes must match the declared type (a
+  picture is a picture, a PDF a PDF; the real type is sent on), and pages,
+  scripts and programs are refused whatever they claim (415); SVG is not a
+  picture here, it is a document with scripts
 - live updates (`text/event-stream`) are passed event by event, up to 10
   minutes per connection (browsers reconnect by themselves); WebSocket is
   not supported yet (501);

@@ -139,6 +139,50 @@ paths:
       responses:
         "204": { description: Password changed }
         "400": { $ref: "#/components/responses/Error" }
+  /auth/password-reset:
+    post:
+      tags: [auth]
+      summary: "Forgotten password: emails a link valid for one hour to the account, if one exists; the answer is the same either way"
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email]
+              properties:
+                email: { type: string, format: email, maxLength: 254 }
+      responses:
+        "202": { description: "If the account exists, the email is on its way" }
+        "429": { $ref: "#/components/responses/Error" }
+  /auth/password-reset/{token}:
+    get:
+      tags: [auth]
+      summary: Whether a reset link still works (public, the token is the secret)
+      security: []
+      parameters: [{ name: token, in: path, required: true, schema: { type: string, maxLength: 64 } }]
+      responses:
+        "204": { description: The link works }
+        "404": { $ref: "#/components/responses/Error" }
+    post:
+      tags: [auth]
+      summary: Choose a new password with a reset link; every session of the user ends. The authenticator stays as it is
+      security: []
+      parameters: [{ name: token, in: path, required: true, schema: { type: string, maxLength: 64 } }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [password]
+              properties:
+                password: { type: string, minLength: 12, maxLength: 256, writeOnly: true }
+      responses:
+        "204": { description: Password changed }
+        "400": { $ref: "#/components/responses/Error" }
+        "404": { $ref: "#/components/responses/Error" }
   /tenants/{tenant}/users/{id}:
     delete:
       tags: [users]
@@ -648,6 +692,33 @@ paths:
       responses:
         "204": { description: Deleted }
         "403": { $ref: "#/components/responses/Error" }
+  /tenants/{tenant}/alerts:
+    get:
+      tags: [alerts]
+      summary: "Email alerts of the tenant: a site that stops working (connector offline, legacy site failing, reachable again on its old IP) and its recovery (tenant administrators)"
+      parameters: [{ $ref: "#/components/parameters/tenant" }]
+      responses:
+        "200":
+          description: Settings
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/AlertSettings" }
+    put:
+      tags: [alerts]
+      summary: Change the email alerts
+      parameters: [{ $ref: "#/components/parameters/tenant" }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/AlertSettings" }
+      responses:
+        "200":
+          description: Settings
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/AlertSettings" }
+        "422": { $ref: "#/components/responses/Error" }
   /tenants/{tenant}/llm:
     get:
       tags: [llm]
@@ -1579,6 +1650,18 @@ components:
           description: "Base64 of the compact map JSON (schema/map/gateway-map.schema.json)"
         signature: { type: string, contentEncoding: base64, description: "Ed25519 signature of the payload bytes" }
         key_id: { type: string }
+    AlertSettings:
+      type: object
+      additionalProperties: false
+      required: [enabled, extra_emails]
+      properties:
+        enabled: { type: boolean, description: "Default true: the tenant's administrators get the alerts" }
+        extra_emails:
+          type: array
+          maxItems: 5
+          description: More addresses, e.g. the on-call mailbox
+          items: { type: string, format: email, maxLength: 254 }
+        mail_available: { type: boolean, readOnly: true, description: "False when the platform sends no email" }
     LLMConfig:
       type: object
       required: [provider, has_api_key]

@@ -194,7 +194,8 @@ func TestAreas(t *testing.T) {
 		code                        int
 	}{
 		"XXE":         {"POST", "/xmlrpc.php", "text/xml", `<!DOCTYPE r [<!ENTITY x SYSTEM "file:///etc/passwd">]><r>&x;</r>`, 400},
-		"binary":      {"POST", "/upload", "application/octet-stream", "\x00\x01", 415},
+		"program":     {"POST", "/upload", "application/octet-stream", "MZ\x90\x00", 415},
+		"unknown":     {"POST", "/upload", "application/x-shockwave-flash", "\x00\x01", 415},
 		"bad query":   {"GET", "/search?q=%zz", "", "", 400},
 		"NUL":         {"POST", "/form", "application/x-www-form-urlencoded", "a=%00", 400},
 		"method":      {"DELETE", "/wp-json/wp/v2/posts/7", "", "", 405},

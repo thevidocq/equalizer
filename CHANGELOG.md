@@ -38,6 +38,35 @@ prototype.
 
 ## Entries
 
+### 2026-11-19 — Forgotten password, alerts, backups, raw uploads
+
+- **Branch:** feat/mvp-ops
+- **What:**
+  - panel-api: forgotten password (`/auth/password-reset`, contract first):
+    same answer whether the account exists, email sent in the background,
+    one-hour single-use link stored as a hash, every session ends, the
+    authenticator stays; limited per IP and per address. Migration 0009.
+  - panel-api: email alerts (`internal/alerts`): every 2 minutes the status
+    of each site is evaluated (the Status page's rules); a connector
+    offline, a failing legacy site or an exposed site that lasts 3 minutes
+    sends one email to the tenant's administrators and extra addresses,
+    and one when it works again; states are stored so a restart sends
+    nothing twice. Settings `GET/PUT /tenants/{t}/alerts`. Migration 0010.
+  - panel-ui: "Forgot your password?", `/forgot`, `/reset/:token`;
+    Settings → Alerts.
+  - gateway: files sent as the whole body (`image/*`, video, audio, PDF,
+    office, `application/octet-stream`) in areas: first bytes must match the
+    declared type, pages, scripts and programs refused (`upload/raw.go`),
+    streamed through a temporary file. Logs word the new reasons.
+  - deploy: `backup.sh` and `restore.sh` (database, secrets, `.env`;
+    optional encryption, retention); INSTALL section 10.
+  - docs: guides (Help), INSTALL, map format, release notes.
+- **Why:** an MVP given to customers needs these (owner's list: 2, 3, 4, 5).
+- **Status:** tests for reset, alerts (grace, once only, recovery, off),
+  settings, raw uploads; backup/restore exercised with a fake docker.
+- **Next steps:** owner to decide on domain aliases (www and bare domain)
+  and the connector version in the panel.
+
 ### 2026-11-19 — Ask for the identity provider's login on chosen paths
 
 - **Branch:** feat/oidc-paths (on top of feat/help-guides, #36)

@@ -81,3 +81,41 @@ func TestLegacyCompressionAndUserAgent(t *testing.T) {
 		t.Errorf("towards the legacy app: UA %q, Accept-Encoding %q", ua, ae)
 	}
 }
+
+func TestRawUpload(t *testing.T) {
+	t.Setenv("TMPDIR", t.TempDir())
+	var gotType string
+	var gotLen int
+	legacy := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		b, _ := io.ReadAll(r.Body)
+		gotType, gotLen = r.Header.Get("Content-Type"), len(b)
+		_, _ = io.WriteString(w, "ok")
+	}))
+	defer legacy.Close()
+	h := areaPublic(t, legacy.URL, 4096).Handler()
+	send := func(ctype string, body []byte) int {
+		req := httptest.NewRequest("POST", "/upload/chunk", bytes.NewReader(body))
+		req.Host = "blog.example"
+		req.Header.Set("Content-Type", ctype)
+		rec := httptest.NewRecorder()
+		h.ServeHTTP(rec, req)
+		return rec.Code
+	}
+	png := append([]byte("\x89PNG\r\n\x1a\n"), bytes.Repeat([]byte{0}, 2<<20)...)
+	if code := send("image/jpeg", png); code != 200 || gotType != "image/png" || gotLen != len(png) {
+		t.Fatalf("picture: %d %q %d", code, gotType, gotLen)
+	}
+	if code := send("image/png", []byte("<html><script>alert(1)</script></html>")); code != http.StatusUnsupportedMediaType {
+		t.Errorf("page as a picture: %d", code)
+	}
+	if code := send("application/octet-stream", []byte("MZ\x90\x00program")); code != http.StatusUnsupportedMediaType {
+		t.Errorf("program: %d", code)
+	}
+	if code := send("application/octet-stream", bytes.Repeat([]byte{1}, 5<<20)); code != http.StatusRequestEntityTooLarge {
+		t.Errorf("over the limit: %d", code)
+	}
+	left, _ := filepath.Glob(filepath.Join(os.Getenv("TMPDIR"), "eq-upload-*"))
+	if len(left) != 0 {
+		t.Errorf("temporary files left: %v", left)
+	}
+}

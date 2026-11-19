@@ -189,9 +189,7 @@ func (c *Client) Do(req *http.Request) (*Response, error) {
 		}
 	}
 	if resp.StatusCode >= 300 && resp.StatusCode < 400 {
-		if loc, err := resp.Location(); err == nil {
-			out.Location = loc.String()
-		}
+		out.Location = location(resp)
 	}
 	return out, nil
 }
@@ -229,4 +227,16 @@ func sortedKeys(m map[string]string) []string {
 	}
 	sort.Strings(keys)
 	return keys
+}
+
+// location is the redirect target as the legacy application wrote it.
+// http.Response.Location would resolve a relative one against the last
+// hop, which is the relay in connector mode: callers resolve it against the
+// legacy page instead.
+func location(resp *http.Response) string {
+	u, err := url.Parse(resp.Header.Get("Location"))
+	if err != nil || resp.Header.Get("Location") == "" {
+		return ""
+	}
+	return u.String()
 }

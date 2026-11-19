@@ -63,3 +63,31 @@ func TestSlugsAreNotFiles(t *testing.T) {
 		}
 	}
 }
+
+// Assets drop the query string: generated files that need it (Drupal's
+// aggregated CSS and JS, image styles) belong to the area. Favicons come as
+// image/vnd.microsoft.icon from PHP and Apache.
+func TestAssetsServeWhatSitesSend(t *testing.T) {
+	for _, tp := range List() {
+		var m struct {
+			Assets []struct {
+				Prefix string   `json:"prefix"`
+				Types  []string `json:"types"`
+			} `json:"assets"`
+		}
+		doc, _ := Render(tp.ID, Fill{BaseURL: "https://x.example", Connector: "cn-1", Address: "127.0.0.1:80"})
+		_ = json.Unmarshal(doc, &m)
+		for _, a := range m.Assets {
+			if a.Prefix == "/sites/default/files/" {
+				t.Errorf("%s: %s is generated on request with its query", tp.ID, a.Prefix)
+			}
+			has := map[string]bool{}
+			for _, ty := range a.Types {
+				has[ty] = true
+			}
+			if has["image/x-icon"] && !has["image/vnd.microsoft.icon"] {
+				t.Errorf("%s %s: image/vnd.microsoft.icon missing", tp.ID, a.Prefix)
+			}
+		}
+	}
+}

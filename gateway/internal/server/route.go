@@ -128,7 +128,7 @@ func (p *Public) writeLegacy(w http.ResponseWriter, r *http.Request, st *site.Si
 			h.Add(k, v)
 		}
 	}
-	if pipeline.IsHTML(resp.Header.Get("Content-Type")) {
+	if pipeline.IsHTML(resp.Header.Get("Content-Type")) && pipeline.Markup(resp.Body) {
 		forms := p.newBinder(r, st.Forms)
 		ctx := &pipeline.Context{PageURL: pageURL, URLs: p.issuing(st, sessionOf(r)), Forms: forms.pipelineBinder()}
 		out, err := st.Pipeline.Render(resp.Body, resp.Header.Get("Content-Type"), ctx)

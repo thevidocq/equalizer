@@ -110,9 +110,7 @@ func (c *Client) Open(req *http.Request) (*Stream, error) {
 		}
 	}
 	if resp.StatusCode >= 300 && resp.StatusCode < 400 {
-		if loc, err := resp.Location(); err == nil {
-			s.Location = loc.String()
-		}
+		s.Location = location(resp)
 	}
 	return s, nil
 }

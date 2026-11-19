@@ -255,6 +255,15 @@ func (p *Public) writeArea(w http.ResponseWriter, r *http.Request, st *site.Site
 		p.legacyFailure(w, r, st, a.ID, err)
 		return http.StatusBadGateway
 	}
+	if !pipeline.Markup(body) {
+		// JSON or text sent as text/html (AJAX endpoints): passed on as it is.
+		h.Del("Content-Length")
+		w.WriteHeader(resp.Status)
+		if r.Method != http.MethodHead {
+			_, _ = w.Write(st.Origin.Bytes(body))
+		}
+		return resp.Status
+	}
 	forms := p.newBinder(r, st.Forms)
 	ctx := &pipeline.Context{PageURL: pageURL, URLs: p.issuing(st, sessionOf(r)), Forms: forms.pipelineBinder()}
 	out, err := st.Pipeline.Render(body, resp.Header.Get("Content-Type"), ctx)

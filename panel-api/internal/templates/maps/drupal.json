@@ -236,31 +236,6 @@
  ],
  "assets": [
   {
-   "prefix": "/sites/default/files/",
-   "types": [
-    "image/png",
-    "image/jpeg",
-    "image/gif",
-    "image/webp",
-    "image/svg+xml",
-    "application/pdf",
-    "text/css",
-    "application/javascript",
-    "text/javascript",
-    "image/png",
-    "image/jpeg",
-    "image/gif",
-    "image/svg+xml",
-    "image/webp",
-    "image/x-icon",
-    "font/woff",
-    "font/woff2",
-    "font/ttf",
-    "application/font-woff"
-   ],
-   "max_size_kb": 20480
-  },
-  {
    "prefix": "/core/",
    "types": [
     "text/css",
@@ -272,6 +247,7 @@
     "image/svg+xml",
     "image/webp",
     "image/x-icon",
+    "image/vnd.microsoft.icon",
     "font/woff",
     "font/woff2",
     "font/ttf",
@@ -290,6 +266,7 @@
     "image/svg+xml",
     "image/webp",
     "image/x-icon",
+    "image/vnd.microsoft.icon",
     "font/woff",
     "font/woff2",
     "font/ttf",
@@ -308,6 +285,7 @@
     "image/svg+xml",
     "image/webp",
     "image/x-icon",
+    "image/vnd.microsoft.icon",
     "font/woff",
     "font/woff2",
     "font/ttf",

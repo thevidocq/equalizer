@@ -114,7 +114,13 @@ A route's `path` parameters are match constraints: `/{slug}/` with
 `slug` of a type that refuses dots does not match `/wp-config.php`, which
 goes to the area (or 404 when there is none). URLs in pages are rewritten
 to a route only when the captured values fit its types; a trailing `/` in
-the route's path is kept.
+the route's path is kept. The query is part of the match too: a key the
+route does not declare would be dropped and the page would change meaning
+(Joomla's `/?option=com_finder&q=…` is not its home page), so the area
+serves such a request with its whole query. An entry with `authz` is never
+bypassed this way: it answers every request that matches its path, and
+refuses what does not fit, so that `/permits/5abc` or a junk query key
+cannot reach object 5 through the area.
 Assets are served only if the legacy `Content-Type` is among the prefix's
 `types`; raster images are also checked against their real content. The
 asset query string is never sent to the legacy application.
@@ -494,7 +500,9 @@ areas:
 
 A request that no precise entry (route, form, API, asset) matches goes to
 the area with the longest prefix. The answer is the legacy site's: same
-status, same content, pages rendered like any other, downloads streamed,
+status, same content, pages rendered like any other (an HTML fragment sent
+to JavaScript stays a fragment, and JSON or text sent as `text/html` is
+passed on as it is), downloads streamed,
 redirects to other sites passed on. Equalizer still sits in between:
 
 - the legacy application is never reached directly, and its cookies stay on
@@ -526,15 +534,21 @@ redirects to other sites passed on. Equalizer still sits in between:
   dropped;
 - uploads (multipart) are rebuilt part by part into a temporary file, never
   held in memory, up to `max_body_kb` (at most 1 GB); other bodies up to
-  64 MB;
+  64 MB; a file the legacy server could run is refused (415) whatever it
+  claims: a name with a server extension (`.php`, `.phtml`, `.phar`,
+  `.asp(x)`, `.jsp`, `.cgi`, `.pl`, `.exe`…, also inside the name as in
+  `shell.php.png`), `.htaccess`, `.user.ini` and `web.config`, a program,
+  PHP code anywhere in the content, a page sent as a file, or a picture or
+  PDF that is not one; text, CSV, office files and pictures pass;
 - files sent as the whole body by JavaScript uploaders (`image/*`,
   `video/*`, `audio/*`, PDF, office documents, `application/octet-stream`)
   are accepted too: their first bytes must match the declared type (a
   picture is a picture, a PDF a PDF; the real type is sent on), and pages,
-  scripts and programs are refused whatever they claim (415); SVG is not a
-  picture here, it is a document with scripts;
-  the request reaches the legacy site with `Content-Disposition:
-  attachment` and a cleaned file name
+  scripts and programs are refused whatever they claim (415), as are PHP
+  code anywhere in the file and a file name the server could run; SVG is
+  not a picture here, it is a document with scripts; the request reaches
+  the legacy site with `Content-Disposition: attachment` and a cleaned file
+  name;
 - `OPTIONS` is sent on when the area lists it (WordPress's block editor
   asks the REST API what the user may do this way); CORS preflights
   (`Access-Control-Request-Method`) are answered by the gateway and never
@@ -566,6 +580,15 @@ letter of any language, searches up to 200 characters, plain strings up to
 is a parameter of the template (**Max upload (MB)**, default 50, at most
 1024): it sets `max_body_kb` of the areas and the size of files served from
 upload folders.
+
+Template assets are the static folders only (themes, plugins, core files).
+Files a CMS generates on request with a query string, such as Drupal's
+combined CSS and JavaScript and its image styles in `/sites/default/files/`,
+are served by the area, which keeps the query. Favicons are accepted as
+`image/x-icon` and `image/vnd.microsoft.icon`.
+
+The templates are tested in the local lab (`lab/e2e`) against real
+WordPress, Joomla and Drupal sites and a custom PHP application.
 
 ## Field types
 

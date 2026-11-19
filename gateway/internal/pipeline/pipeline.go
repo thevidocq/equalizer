@@ -164,6 +164,13 @@ func (p *Pipeline) Render(body []byte, contentType string, ctx *Context) ([]byte
 	if err != nil {
 		return nil, err
 	}
+	if !isDocument(utf8Body) {
+		out, err := p.renderFragment(utf8Body, ctx)
+		if err != nil {
+			return nil, fmt.Errorf("fragment: %w", err)
+		}
+		return out, nil
+	}
 	doc, err := html.Parse(bytes.NewReader(utf8Body))
 	if err != nil {
 		return nil, fmt.Errorf("parsing HTML: %w", err)

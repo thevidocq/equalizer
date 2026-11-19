@@ -125,3 +125,40 @@ func TestBuildPost(t *testing.T) {
 		t.Error("file uploads are not supported yet")
 	}
 }
+
+// hop sends every request to another address, as the relay does in
+// connector mode.
+type hop struct{ to string }
+
+func (h hop) RoundTrip(r *http.Request) (*http.Response, error) {
+	r = r.Clone(r.Context())
+	r.URL.Host = h.to
+	return http.DefaultTransport.RoundTrip(r)
+}
+
+func TestRelativeRedirectKeepsTheLegacySite(t *testing.T) {
+	legacy := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Location", "/login.php?back=%2Fadmin%2F")
+		w.WriteHeader(http.StatusFound)
+	}))
+	defer legacy.Close()
+	u, _ := url.Parse(legacy.URL)
+	c, _ := New("http://intranet.example", hop{u.Host}, "", time.Second)
+	req, _ := c.Build(t.Context(), mapmodel.LegacyRequest{Method: "GET", Path: "/admin/"}, nil)
+	resp, err := c.Do(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if resp.Location != "/login.php?back=%2Fadmin%2F" {
+		t.Fatalf("Location %q: resolved against the hop instead of the legacy page", resp.Location)
+	}
+	req, _ = c.BuildRaw(t.Context(), "GET", "/admin/", "", nil, 0, "", nil)
+	s, err := c.Open(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	_ = s.Body.Close()
+	if s.Location != "/login.php?back=%2Fadmin%2F" {
+		t.Fatalf("area Location %q", s.Location)
+	}
+}

@@ -102,3 +102,56 @@ func TestPublicOriginBackToLegacy(t *testing.T) {
 		t.Fatalf("legacy got\n %s\nwant\n %s", got, want)
 	}
 }
+
+// A query the route does not declare would be dropped, and the page would
+// change meaning: the area serves it. A route that decides who opens which
+// object is never bypassed that way.
+func TestUndeclaredQueryGoesToTheArea(t *testing.T) {
+	var got []string
+	legacy := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		got = append(got, r.URL.RequestURI())
+		w.Header().Set("Content-Type", "text/html")
+		_, _ = io.WriteString(w, "<p>ok</p>")
+	}))
+	defer legacy.Close()
+	p := areaGateway(t, legacy.URL, "GET")
+	st := p.Maps.(fixedMaps).s
+	st.Model.Roles.List["user"] = nil
+	st.Model.Routes = append(st.Model.Routes,
+		mapmodel.Route{ID: "home", Path: "/", Method: "GET", Roles: []string{"guest"},
+			Query:         map[string]mapmodel.FieldSpec{"s": {Type: "string", MaxLength: 50}},
+			LegacyRequest: mapmodel.LegacyRequest{Method: "GET", Path: "/", Query: map[string]string{"s": "{{query.s}}"}}},
+		mapmodel.Route{ID: "permit", Path: "/permit", Method: "GET", Roles: []string{"guest"},
+			Query:         map[string]mapmodel.FieldSpec{"id": {Type: "int"}},
+			Authz:         map[string]mapmodel.AuthzRule{"guest": {Check: "never"}},
+			LegacyRequest: mapmodel.LegacyRequest{Method: "GET", Path: "/permit", Query: map[string]string{"id": "{{query.id}}"}}},
+		mapmodel.Route{ID: "permits", Path: "/permits/{id}", Method: "GET", Roles: []string{"guest"},
+			Params:        map[string]mapmodel.FieldSpec{"id": {Type: "int"}},
+			Authz:         map[string]mapmodel.AuthzRule{"guest": {Check: "never"}},
+			LegacyRequest: mapmodel.LegacyRequest{Method: "GET", Path: "/permits/{{params.id}}"}})
+	rebuilt, err := site.Build(st.Model)
+	if err != nil {
+		t.Fatal(err)
+	}
+	p.Maps = fixedMaps{rebuilt}
+	get := func(target string) int {
+		got = nil
+		req := httptest.NewRequest("GET", target, nil)
+		req.Host = "blog.example"
+		rec := httptest.NewRecorder()
+		p.Handler().ServeHTTP(rec, req)
+		return rec.Code
+	}
+	if get("/?s=lab"); len(got) != 1 || got[0] != "/?s=lab" {
+		t.Errorf("declared query: legacy saw %v", got)
+	}
+	if get("/?option=com_finder&q=wombat"); len(got) != 1 || got[0] != "/?option=com_finder&q=wombat" {
+		t.Errorf("undeclared query: legacy saw %v, want the whole query through the area", got)
+	}
+	if code := get("/permit?id=5&junk=1"); len(got) != 0 || code == 200 {
+		t.Errorf("a junk key must not get round the route's authorisation: %d, legacy saw %v", code, got)
+	}
+	if code := get("/permits/5abc"); len(got) != 0 || code == 200 {
+		t.Errorf("a value that does not fit must not get round the route's authorisation: %d, legacy saw %v", code, got)
+	}
+}

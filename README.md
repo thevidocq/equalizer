@@ -1,12 +1,16 @@
+<p align="center"><img src="docs/brand/logo-banner.png" alt="Equalizer — protect legacy web apps" width="720"></p>
+
 # Equalizer
 
 Equalizer protects legacy web applications that cannot be updated. It hides
 them from the Internet and serves an **identical copy**, rebuilt on every
-request by a gateway that only lets through what is declared in an allowlist
-map.
+request by a gateway: the signed map says what exists (by default the whole
+site, admin included), and nothing reaches the legacy application as the
+client wrote it.
 
-> **Status:** in development — prototype. See [`CHANGELOG.md`](CHANGELOG.md)
-> for what is already implemented.
+> **Status:** first stable prototype, 0.1.0 (release notes in
+> [`docs/releases/0.1.0.md`](docs/releases/0.1.0.md)), in lab testing before
+> the tag. See [`CHANGELOG.md`](CHANGELOG.md) for what is implemented.
 
 ## How it works, in short
 
@@ -61,7 +65,8 @@ Screenshots use a fictitious company, Acme.
 | `lab/` | Test lab (isolated vulnerable apps) | Docker |
 | `deploy/compose/` | Docker Compose for the prototype | YAML |
 | `tools/` | `eqtool`: keys and map signing (prototype) | Go |
-| `scripts/` | Contract validation, YAML → JSON map conversion | Python |
+| `scripts/` | Contract validation, YAML → JSON map conversion, charset tables | Python |
+| `docs/brand/` | Logo (SVG and PNG) | SVG |
 
 ## Checking the contracts
 

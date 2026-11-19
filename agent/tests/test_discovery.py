@@ -87,6 +87,11 @@ class DiscoveryTest(unittest.TestCase):
         self.assertTrue(all(h == "news.acme.test" for m, p, h in self.site.requests if m == "GET"))
         self.assertTrue(any(p == "/wp-login.php" and "log=tester" in b for m, p, b in self.site.requests if m == "POST"))
 
+        # the whole site is served, admin included: what the precise entries
+        # do not cover goes through the site area
+        self.assertEqual([a["prefix"] for a in doc["areas"]], ["/"])
+        self.assertEqual(rep["site_area"], "added")
+
         routes = {r["path"]: r for r in doc["routes"]}
         self.assertIn("/{slug}/", routes)  # about, contact, team: a CMS page slug
         self.assertIn("/category/{category_slug}/", routes)

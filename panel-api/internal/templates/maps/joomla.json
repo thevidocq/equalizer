@@ -225,6 +225,23 @@
    }
   }
  ],
+ "areas": [
+  {
+   "id": "site",
+   "prefix": "/",
+   "methods": [
+    "GET",
+    "HEAD",
+    "POST",
+    "PUT",
+    "PATCH",
+    "DELETE",
+    "OPTIONS"
+   ],
+   "origin": "human",
+   "risk": "medium"
+  }
+ ],
  "assets": [
   {
    "prefix": "/media/",
@@ -278,6 +295,6 @@
  ],
  "_template": {
   "name": "Joomla",
-  "description": "Home, menu pages by alias, articles and categories (index.php with option/view/id), search and media/template files. Closed: /administrator, /api, /installation."
+  "description": "Home, menu pages by alias, articles and categories (index.php with option/view/id), search and media/template files. The whole site is served as it is, admin included (area /); these entries add typed checks where they match."
  }
 }

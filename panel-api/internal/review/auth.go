@@ -45,3 +45,21 @@ func (c *cmp) login(b, n obj) {
 		}
 	}
 }
+
+// areas compares the sections served as they are.
+func (c *cmp) areas(b, n map[string]obj) {
+	for prefix := range n {
+		if _, ok := b[prefix]; !ok {
+			c.add(Change{"areas", prefix, "added", ""})
+			c.find("low", "areas."+prefix, "area_added",
+				fmt.Sprintf("%s is served as the legacy site serves it: requests are rebuilt, values are not typed.", prefix))
+		}
+	}
+	for prefix := range b {
+		if _, ok := n[prefix]; !ok {
+			c.add(Change{"areas", prefix, "removed", ""})
+			c.find("high", "areas."+prefix, "area_removed",
+				fmt.Sprintf("%s is no longer served as a whole: pages only it served will answer 404.", prefix))
+		}
+	}
+}

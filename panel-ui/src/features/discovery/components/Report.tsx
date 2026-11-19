@@ -52,9 +52,9 @@ export function Report({ d }: { d: Discovery }) {
       <List title="Forms added" items={r.forms_added} render={(i) => `${i.route}  ${i.fields.join(", ")}`} />
       <List title="Protection against IDOR proposed" items={r.issues_proposed}
         render={(i) => `${i.list} → ${i.detail}  (${i.field}${i.roles?.length ? `, owned_by_user for ${i.roles.join(", ")}` : ""})`} />
-      <List title="Kept out of the map" items={r.excluded} render={(i) => `${i.path}  ${i.reason}`} />
+      <List title="Not opened by the agent (still served, by the site area)" items={r.excluded} render={(i) => `${i.path}  ${i.reason}`} />
       <List title="Asked by visitors, still missing" items={r.visitors_missing} render={(i) => `${i.path}  (${i.clients} visitors)`} />
-      <List title="Not supported yet" items={r.not_supported} render={(i) => `${i.path}  ${i.reason}`} />
+      <List title="Served by the site area, without typed checks" items={r.not_supported} render={(i) => `${i.path}  ${i.reason}`} />
       <List title="In the map, not seen any more" items={(r.not_seen_anymore ?? []).map((p: string) => ({ p }))} render={(i) => i.p} />
       <List title="Components" items={r.components} render={(i) => `${i.name}${i.version ? " " + i.version : ""}`} />
     </div>

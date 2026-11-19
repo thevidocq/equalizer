@@ -41,6 +41,11 @@
       "type": "array",
       "items": { "$ref": "#/$defs/callback" }
     },
+    "areas": {
+      "type": "array",
+      "description": "Whole sections of the site served as they are, admin included (\"/\" for the whole site). Every request is still rebuilt (path, query, headers, body re-encoded; no client byte passes as is), but values are not typed: the more precise entries (routes, forms, api, assets) take precedence wherever they match.",
+      "items": { "$ref": "#/$defs/area" }
+    },
     "assets": {
       "type": "array",
       "description": "Static files of the legacy application (CSS, images, scripts, fonts) served by the gateway by prefix, with type checks.",
@@ -601,6 +606,25 @@
         },
         "body": { "$ref": "#/$defs/fieldMap" },
         "legacy_request": { "$ref": "#/$defs/legacyRequest" }
+      }
+    },
+    "area": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "prefix"],
+      "properties": {
+        "id": { "$ref": "#/$defs/identifier" },
+        "prefix": { "type": "string", "pattern": "^/([^\\s?#]*/)?$", "description": "Path prefix, starting and ending with /" },
+        "roles": { "type": "array", "items": { "$ref": "#/$defs/identifier" }, "description": "Absent: every role, like the legacy site" },
+        "methods": {
+          "type": "array",
+          "items": { "enum": ["GET", "HEAD", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"] },
+          "description": "Default GET, HEAD, POST"
+        },
+        "max_body_kb": { "type": "integer", "minimum": 1, "maximum": 1048576, "description": "Largest request body (default 51200, files included)" },
+        "charset": { "type": "string", "description": "Legacy charset of form values (default utf-8)" },
+        "origin": { "$ref": "#/$defs/origin" },
+        "risk": { "$ref": "#/$defs/risk" }
       }
     },
     "asset": {

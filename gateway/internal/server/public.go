@@ -98,6 +98,16 @@ func (p *Public) handle(w http.ResponseWriter, r *http.Request) string {
 	}
 
 	m, err := active.Router.Match(r.Method, r.URL.Path)
+	if errors.Is(err, router.ErrNotMapped) || errors.Is(err, router.ErrMethodNotAllowed) {
+		if a := active.Model.AreaFor(r.URL.Path); a != nil {
+			// No precise entry: the area serves it as the legacy site would.
+			if !p.checkLimits(w, r, active, a.ID, false) {
+				return a.ID
+			}
+			p.serveArea(w, r, active, a)
+			return a.ID
+		}
+	}
 	switch {
 	case errors.Is(err, router.ErrNotMapped):
 		p.Unmapped.Record(active.Model.Meta.App, r.Method, r.URL.Path, p.IPs.IP(r))

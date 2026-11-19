@@ -84,3 +84,4 @@ session or account. Read it in full before touching the code.
 | Tunnel | HTTPS upgrade to `equalizer-tunnel/1` + yamux + HTTP/1.1 per stream (no gRPC); connector local allowlist is the last barrier |
 | Lab and remote servers | Prepared by the project owner |
 | Language | English for everything in the repository |
+| Coverage | The whole site is served, admin included (map `areas`, `/` by default in templates and discovery). Equalizer is in between and rebuilds every request; it never decides access, the legacy application does. Leftover files on the legacy server are not Equalizer's concern |

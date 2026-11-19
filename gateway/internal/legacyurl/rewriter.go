@@ -25,6 +25,7 @@ type Rewriter struct {
 	basePath string
 	patterns []pattern
 	assets   []string // asset prefixes
+	areas    []string // area prefixes: same public and legacy path
 }
 
 type pattern struct {
@@ -45,6 +46,9 @@ func New(base *url.URL, m *mapmodel.Model) (*Rewriter, error) {
 	r := &Rewriter{base: base, basePath: strings.TrimSuffix(base.Path, "/")}
 	for _, a := range m.Assets {
 		r.assets = append(r.assets, a.Prefix)
+	}
+	for _, a := range m.Areas {
+		r.areas = append(r.areas, a.Prefix)
 	}
 	for i := range m.Routes {
 		for _, l := range m.Routes[i].Links {
@@ -99,6 +103,12 @@ func (r *Rewriter) Public(u *url.URL) (string, bool) {
 				out += "#" + u.Fragment
 			}
 			return out, true
+		}
+	}
+	for _, prefix := range r.areas {
+		if strings.HasPrefix(path, prefix) || path+"/" == prefix {
+			// Areas are served as they are: the same path, the same query.
+			return (&url.URL{Path: path, RawQuery: u.RawQuery, Fragment: u.Fragment}).String(), true
 		}
 	}
 	return "", false

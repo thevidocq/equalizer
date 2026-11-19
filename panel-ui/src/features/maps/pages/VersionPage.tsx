@@ -28,7 +28,10 @@ export function VersionPage() {
         {v.data.status !== "retired" ? (
           <ReviewPanel app={app} version={v.data.version} canAsk={hasRole(me.data, tenant, "admin", "editor", "approver")} />
         ) : null}
-        <pre className="overflow-x-auto rounded-[var(--radius-panel)] border border-rule bg-surface p-4 font-mono text-[13px] leading-[1.6]">
+        <pre
+          tabIndex={0} aria-label="Map document"
+          className="scroll-box max-h-[34rem] overflow-auto rounded-[var(--radius-panel)] border border-rule bg-surface p-4 font-mono text-[13px] leading-[1.6]"
+        >
           {toEditorYaml(v.data.document as Record<string, unknown>)}
         </pre>
       </section>

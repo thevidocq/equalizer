@@ -39,7 +39,7 @@ export function MapEditor({ initial, busy, error, onSave }: Props) {
         <label htmlFor="map-yaml" className="text-sm font-semibold">Map (YAML)</label>
         <textarea id="map-yaml" spellCheck={false} value={text} onChange={(e) => setText(e.target.value)}
           aria-invalid={!parsed.ok || undefined} aria-describedby="map-yaml-msg"
-          className={`min-h-[28rem] w-full rounded-[var(--radius-control)] border bg-surface p-3 font-mono text-[13px] leading-[1.6]
+          className={`scroll-box min-h-[28rem] w-full rounded-[var(--radius-control)] border bg-surface p-3 font-mono text-[13px] leading-[1.6]
             ${parsed.ok ? "border-rule" : "border-state-rejected"}`} />
         <p id="map-yaml-msg" className={`text-sm ${parsed.ok ? "text-ink-soft" : "text-state-rejected"}`}>
           {parsed.ok ? "Syntax is valid. The format is checked when you save." : parsed.message}

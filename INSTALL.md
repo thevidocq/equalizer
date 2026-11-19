@@ -136,7 +136,7 @@ Quick checks:
 ```bash
 curl -I https://panel.example.com/                  # the panel
 curl -I https://permits.example-city.gov/           # once its map is published: the site
-curl -I https://permits.example-city.gov/wp-admin   # not in the map: 404
+curl -I https://permits.example-city.gov/wp-admin   # served too: the whole site, admin included
 ```
 
 ### First administrator and first site *(available)*
@@ -165,9 +165,8 @@ of the app. Then:
    on that server (step 7). The same connector serves all its sites.
 4. **People → Invite a person** with the *Approver* role: maps are approved by
    someone other than their author.
-5. **Map → New version**: write the map in YAML (the editor checks the
-   syntax, the panel checks the format), **Save draft**, **Send for
-   review**. The approver opens the version, **Approve**, **Publish**.
+5. **Map → New version**: start from the template of the site's CMS (or
+   import or write the map in YAML), **Save draft**, **Send for review**. The approver opens the version, **Approve**, **Publish**.
 
 The same steps are available on the API (`/v1`, see
 `schema/api/panel-api.yaml`); every request that changes something needs

@@ -13,6 +13,7 @@ import { AuditPage } from "@/features/audit";
 import { LogsPage } from "@/features/logs";
 import { PlatformStatusPage, StatusPage } from "@/features/status";
 import { LoginTab } from "@/features/sitelogin";
+import { HelpPage } from "@/features/help";
 import { Shell } from "./Shell";
 import { Home } from "./Home";
 
@@ -28,6 +29,7 @@ export const router = createBrowserRouter([
       { path: "tenants", element: <TenantsPage /> },
       { path: "activity", element: <AuditPage /> },
       { path: "account", element: <AccountPage /> },
+      { path: "help/:topic?", element: <HelpPage /> },
       { path: "t/:tenant", element: <SitesPage /> },
       { path: "t/:tenant/people", element: <UsersPage /> },
       { path: "t/:tenant/activity", element: <AuditPage /> },

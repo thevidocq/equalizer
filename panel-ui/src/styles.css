@@ -48,3 +48,22 @@ html {
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation: none !important; transition: none !important; }
 }
+
+/* Long content in a box (map documents, editors): the scrollbar is always
+   visible, also where the system hides it until scrolling. */
+.scroll-box {
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-ink-soft) var(--color-rule-soft);
+}
+.scroll-box::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+.scroll-box::-webkit-scrollbar-track {
+  background: var(--color-rule-soft);
+}
+.scroll-box::-webkit-scrollbar-thumb {
+  background: var(--color-ink-soft);
+  border-radius: 5px;
+  border: 2px solid var(--color-rule-soft);
+}

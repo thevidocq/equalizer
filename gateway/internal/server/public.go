@@ -85,6 +85,17 @@ func (p *Public) handle(w http.ResponseWriter, r *http.Request) string {
 			writePage(w, http.StatusServiceUnavailable, pageUnavailable)
 			return ""
 		}
+		if as, ok := p.Maps.(interface{ AliasOf(string) *site.Site }); ok {
+			if s := as.AliasOf(r.Host); s != nil {
+				// Another domain of the site: one address, as sites do.
+				code := http.StatusMovedPermanently
+				if r.Method != http.MethodGet && r.Method != http.MethodHead {
+					code = http.StatusPermanentRedirect // keeps the method and the body
+				}
+				http.Redirect(w, r, "https://"+s.Model.Meta.PublicDomain+safeReturn(r.URL.RequestURI()), code)
+				return "alias_redirect"
+			}
+		}
 		// No published map for this domain: it does not exist here.
 		p.block(w, r, nil, http.StatusNotFound, "unknown_host")
 		return ""

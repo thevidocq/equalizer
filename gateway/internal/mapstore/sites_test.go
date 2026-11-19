@@ -77,3 +77,29 @@ func TestManySites(t *testing.T) {
 		t.Fatalf("duplicates: %+v", rep.Failed)
 	}
 }
+
+func TestAliases(t *testing.T) {
+	pub, priv, _ := ed25519.GenerateKey(rand.Reader)
+	path := filepath.Join(t.TempDir(), "maps.json")
+	s := NewStore(path, pub, "", site.Options{})
+	withAliases := func(app, domain string, aliases ...string) string {
+		b, _ := json.Marshal(aliases)
+		return strings.Replace(withDomain(app, domain), `"public_domain":"`+domain+`"`, `"public_domain":"`+domain+`","aliases":`+string(b), 1)
+	}
+	portal := sign(t, priv, withAliases("portal", "www.example.org", "example.org", "old-portal.example.net"), 3, "k1")
+	thief := sign(t, priv, withAliases("thief", "thief.example.org", "example.org"), 3, "k1")
+	_ = os.WriteFile(path, list(t, portal, thief), 0o600)
+	rep, _ := s.Reload()
+	if len(rep.Failed) != 1 {
+		t.Fatalf("a domain taken twice must be refused: %+v", rep.Failed)
+	}
+	if st := s.AliasOf("EXAMPLE.org:443"); st == nil || st.Model.Meta.App != "portal" {
+		t.Errorf("alias: %v", st)
+	}
+	if s.For("example.org") != nil || s.AliasOf("www.example.org") != nil {
+		t.Error("an alias is not the site, the site is not an alias")
+	}
+	if !s.Serves("old-portal.example.net") || !s.Serves("www.example.org") {
+		t.Error("aliases need certificates too")
+	}
+}

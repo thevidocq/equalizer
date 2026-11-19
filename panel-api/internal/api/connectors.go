@@ -9,6 +9,7 @@ import (
 	"net/http"
 
 	"github.com/thevidocq/equalizer/panel-api/internal/auth"
+	"github.com/thevidocq/equalizer/panel-api/internal/health"
 	"github.com/thevidocq/equalizer/panel-api/internal/store"
 )
 
@@ -48,7 +49,21 @@ func (s *Server) listConnectors(w http.ResponseWriter, r *http.Request, u *auth.
 		s.storeError(w, r, err)
 		return
 	}
-	writeJSON(w, http.StatusOK, list(cs))
+	var tunnels map[string][]string
+	if s.Health != nil {
+		tunnels, _ = s.Health.TunnelVersions(r.Context())
+	}
+	for i := range cs {
+		cs[i].Versions = tunnels[cs[i].ID]
+		if cs[i].Versions == nil {
+			cs[i].Versions = []string{}
+		}
+		cs[i].Online = len(cs[i].Versions) > 0
+		for _, v := range cs[i].Versions {
+			cs[i].Outdated = cs[i].Outdated || health.Older(v, s.Version)
+		}
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"items": cs, "next_cursor": nil, "platform_version": s.Version})
 }
 
 func (s *Server) createConnector(w http.ResponseWriter, r *http.Request, u *auth.User) {

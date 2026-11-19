@@ -16,6 +16,9 @@ type Connector struct {
 	TokenSHA256 string     `json:"-"`
 	CreatedAt   time.Time  `json:"created_at"`
 	RotatedAt   *time.Time `json:"rotated_at"`
+	Online      bool       `json:"online"`   // filled from the relays
+	Versions    []string   `json:"versions"` // release of each open tunnel
+	Outdated    bool       `json:"outdated"` // older than the platform
 }
 
 // CreateConnector registers a connector of the tenant.

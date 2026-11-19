@@ -5,6 +5,7 @@ import (
 	"net"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 	"time"
 )
@@ -57,5 +58,20 @@ func TestProbe(t *testing.T) {
 	}
 	if _, ok := (&Probe{}).Tunnels(context.Background()); ok {
 		t.Error("no relay configured: not ok")
+	}
+}
+
+func TestConnectorRelease(t *testing.T) {
+	if !Older("0.1.0", "0.2.0") || !Older("v0.1.9", "0.1.10") || Older("0.2.0", "0.1.0") || Older("dev", "0.2.0") || Older("0.1.0", "abc123") {
+		t.Fatal("Older")
+	}
+	doc := []byte(`{"legacy":{"reach":{"mode":"connector","connector_id":"cn-1"}}}`)
+	in := Input{MapVersion: 1, Map: doc, Tunnels: map[string]int{"cn-1": 1}, Versions: []string{"0.1.0"}, Platform: "0.2.0"}
+	if c := Evaluate(in).Checks[1]; c.State != Degraded || !strings.Contains(c.Detail, "update it") {
+		t.Errorf("outdated connector: %+v", c)
+	}
+	in.Versions = []string{"0.2.0"}
+	if c := Evaluate(in).Checks[1]; c.State != OK {
+		t.Errorf("current connector: %+v", c)
 	}
 }

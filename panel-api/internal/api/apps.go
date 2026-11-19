@@ -56,6 +56,14 @@ func (s *Server) createApp(w http.ResponseWriter, r *http.Request, u *auth.User)
 		fail(w, http.StatusUnprocessableEntity, "invalid", "kind: wordpress, joomla, drupal, moodle or generic")
 		return
 	}
+	if taken, err := s.Store.DomainTaken(r.Context(), in.PublicDomain, in.ID); err != nil || taken {
+		if err != nil {
+			s.storeError(w, r, err)
+		} else {
+			fail(w, http.StatusConflict, "domain_taken", in.PublicDomain+" is already used by another site")
+		}
+		return
+	}
 	a, err := s.Store.CreateApp(r.Context(), store.App{ID: in.ID, Tenant: tenant, Name: in.Name, PublicDomain: in.PublicDomain, Kind: in.Kind})
 	if err != nil {
 		s.storeError(w, r, err)

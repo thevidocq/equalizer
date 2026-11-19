@@ -2,7 +2,9 @@ import { useState } from "react";
 import { Button, Notice } from "@/shared/ui";
 
 /** The connector token and the command to run, shown once. */
-export function TokenReveal({ connectorId, token }: { connectorId: string; token: string }) {
+export function TokenReveal({ connectorId, token, version }: { connectorId: string; token: string; version?: string }) {
+  // the release of the platform; a development build has none: latest
+  const tag = version && /^v?\d+\.\d+\.\d+$/.test(version) ? version.replace(/^v/, "") : "latest";
   const [copied, setCopied] = useState(false);
   const command = [
     "docker run -d --name eq-connector --restart unless-stopped --network host \\",
@@ -10,7 +12,7 @@ export function TokenReveal({ connectorId, token }: { connectorId: string; token
     `  -e EQ_CONNECTOR_ID=${connectorId} \\`,
     `  -e EQ_CONNECTOR_TOKEN=${token} \\`,
     "  -e EQ_ALLOW=<addresses, e.g. 127.0.0.1:8443,10.20.0.15:443> \\",
-    "  ghcr.io/thevidocq/equalizer-connector:latest",
+    `  ghcr.io/thevidocq/equalizer-connector:${tag}`,
   ].join("\n");
 
   async function copy() {

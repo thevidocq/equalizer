@@ -16,7 +16,11 @@ export function useExposureActions(app: string) {
     mutationFn: () => unwrap(api.POST("/apps/{app}/exposure/check", { params: { path: { app } } })),
     onSuccess: store,
   });
-  return { setIp, check };
+  const setAliases = useMutation({
+    mutationFn: (aliases: string[]) => unwrap(api.PUT("/apps/{app}/aliases", { params: { path: { app } }, body: { aliases } })),
+    onSuccess: store,
+  });
+  return { setIp, check, setAliases };
 }
 
 /** The site, shared with the site header (same query key). */

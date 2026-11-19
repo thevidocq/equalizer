@@ -431,6 +431,31 @@ paths:
             application/json:
               schema: { $ref: "#/components/schemas/App" }
         "422": { $ref: "#/components/responses/Error" }
+  /apps/{app}/aliases:
+    put:
+      tags: [apps]
+      summary: >-
+        Other domains of the site (e.g. the bare domain next to www): the gateway takes a certificate for them and
+        redirects them (301) to the public domain. Applied at once to the published map, which is signed again
+        (tenant administrators)
+      parameters: [{ $ref: "#/components/parameters/app" }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [aliases]
+              properties:
+                aliases: { type: array, maxItems: 10, items: { type: string, maxLength: 253 } }
+      responses:
+        "200":
+          description: Site
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/App" }
+        "409": { $ref: "#/components/responses/Error" }
+        "422": { $ref: "#/components/responses/Error" }
   /apps/{app}/exposure/check:
     post:
       tags: [apps]
@@ -915,6 +940,7 @@ paths:
                 properties:
                   items: { type: array, items: { $ref: "#/components/schemas/Connector" } }
                   next_cursor: { type: [string, "null"] }
+                  platform_version: { type: string, description: "Release of the platform; connectors older than it are outdated" }
     post:
       tags: [connectors]
       summary: Register a connector; the token is returned only in this answer (tenant administrators)
@@ -1492,6 +1518,7 @@ components:
         tenant: { type: string }
         name: { type: string }
         public_domain: { type: string }
+        aliases: { type: array, items: { type: string }, description: "Other domains, redirected to the public domain" }
         created_at: { type: string, format: date-time }
         published_version: { type: [integer, "null"] }
         kind: { $ref: "#/components/schemas/SiteKind" }
@@ -1522,6 +1549,13 @@ components:
           description: Sites whose published map uses this connector
         created_at: { type: string, format: date-time }
         rotated_at: { type: [string, "null"], format: date-time }
+        online: { type: boolean, readOnly: true, description: "At least one tunnel open (unknown when the relay does not answer: false)" }
+        versions:
+          type: array
+          readOnly: true
+          items: { type: string }
+          description: Release of each open tunnel (one per running connector process)
+        outdated: { type: boolean, readOnly: true, description: "Older than the platform: update it, some features do not work through it" }
     MapVersion:
       type: object
       required: [app, version, status]

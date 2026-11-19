@@ -101,6 +101,12 @@
           "type": "string",
           "description": "Public domain of the site, set by the panel. The gateway serves this map only for requests to this host; a map without it (signed by hand, lab) is served for every host when it is the only one.",
           "pattern": "^([a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?\\.)+[a-z]{2,63}$"
+        },
+        "aliases": {
+          "type": "array",
+          "maxItems": 10,
+          "description": "Other domains of the site, set by the panel (e.g. the bare domain next to www): the gateway redirects them (301) to public_domain",
+          "items": { "type": "string", "pattern": "^([a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?\\.)+[a-z]{2,63}$" }
         }
       }
     },

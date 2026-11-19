@@ -1,12 +1,19 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api, unwrap } from "@/shared/api/client";
 
+const listQuery = (tenant: string) => ({
+  queryKey: ["connectors", tenant],
+  queryFn: () => unwrap(api.GET("/tenants/{tenant}/connectors", { params: { path: { tenant } } })),
+});
+
 /** Connectors of the tenant: one per server, shared by its sites. */
 export function useConnectors(tenant: string) {
-  return useQuery({
-    queryKey: ["connectors", tenant],
-    queryFn: async () => (await unwrap(api.GET("/tenants/{tenant}/connectors", { params: { path: { tenant } } }))).items,
-  });
+  return useQuery({ ...listQuery(tenant), select: (d) => d.items });
+}
+
+/** The platform's release, to tell outdated connectors. */
+export function usePlatformVersion(tenant: string) {
+  return useQuery({ ...listQuery(tenant), select: (d) => d.platform_version ?? "" });
 }
 
 export function useConnectorActions(tenant: string) {

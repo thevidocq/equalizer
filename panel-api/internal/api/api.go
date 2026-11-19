@@ -38,6 +38,7 @@ type Server struct {
 	Mail          mail.Sender // invitations
 	PanelURL      string      // base of the links in emails, e.g. https://panel.example.com
 	MailAvailable bool        // the platform sends email (alerts can work)
+	Version       string      // release of the platform; older connectors are outdated
 	// Destinations a map may reach in direct mode (EQ_DIRECT_DESTINATIONS);
 	// empty: tenant maps must use a connector.
 	DirectDestinations map[string]bool
@@ -82,6 +83,7 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("POST /v1/tenants/{tenant}/apps", s.authed(s.createApp))
 	mux.HandleFunc("GET /v1/apps/{app}", s.authed(s.getApp))
 	mux.HandleFunc("PATCH /v1/apps/{app}", s.authed(s.patchApp))
+	mux.HandleFunc("PUT /v1/apps/{app}/aliases", s.authed(s.putAliases))
 	mux.HandleFunc("POST /v1/apps/{app}/exposure/check", s.authed(s.checkExposure))
 	mux.HandleFunc("GET /v1/tenants/{tenant}/connectors", s.authed(s.listConnectors))
 	mux.HandleFunc("POST /v1/tenants/{tenant}/connectors", s.authed(s.createConnector))

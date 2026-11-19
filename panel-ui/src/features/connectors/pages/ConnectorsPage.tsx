@@ -4,13 +4,16 @@ import { Button, Dialog, EmptyState, Notice, PageHeader, Table, formatDate, useT
 import { describeError } from "@/shared/api/errors";
 import type { Connector, ConnectorCreated } from "@/shared/api/client";
 import { canManage, useMe } from "@/features/auth";
-import { useConnectorActions, useConnectors } from "../hooks/useConnectors";
+import { useConnectorActions, useConnectors, usePlatformVersion } from "../hooks/useConnectors";
+import { ConnectorState } from "../components/ConnectorState";
+import { UpdateNotice } from "../components/UpdateNotice";
 import { AddConnectorDialog } from "../components/AddConnectorDialog";
 import { TokenReveal } from "../components/TokenReveal";
 
 export function ConnectorsPage() {
   const tenant = useParams().tenant ?? "";
   const list = useConnectors(tenant);
+  const platform = usePlatformVersion(tenant).data ?? "";
   const { rotate, remove } = useConnectorActions(tenant);
   const me = useMe();
   const toast = useToast();
@@ -26,12 +29,14 @@ export function ConnectorsPage() {
         subtitle="One connector per server: it serves every site on the addresses it may reach. Rotating a token closes the tunnels that use the old one within 15 seconds."
         actions={manage ? <Button variant="primary" onClick={() => setAdding(true)}>Add a connector</Button> : null} />
       {failure ? <Notice tone="error">{describeError(failure)}</Notice> : null}
+      {list.data ? <UpdateNotice list={list.data} platform={platform} /> : null}
       {list.data?.length === 0 ? (
         <EmptyState title="No connectors yet">Add one and run the command it gives you on the legacy server, or on a machine next to it.</EmptyState>
       ) : null}
       {list.data && list.data.length > 0 ? (
         <Table<Connector> caption="Connectors" rows={list.data} rowKey={(c) => c.id} columns={[
           { header: "Id", cell: (c) => <span className="font-semibold">{c.id}</span> },
+          { header: "State", cell: (c) => <ConnectorState c={c} /> },
           { header: "Used by", cell: (c) => (c.used_by?.length ? c.used_by.join(", ") : <span className="text-ink-soft">No published map yet</span>) },
           { header: "Added", cell: (c) => formatDate(c.created_at) },
           { header: "Token changed", cell: (c) => formatDate(c.rotated_at) || "Never" },
@@ -45,7 +50,7 @@ export function ConnectorsPage() {
       ) : null}
       <AddConnectorDialog tenant={tenant} open={adding} onOpenChange={setAdding} />
       <Dialog open={!!rotated} onOpenChange={(o) => !o && setRotated(null)} title={`New token for ${rotated?.id ?? ""}`}>
-        {rotated ? <TokenReveal connectorId={rotated.id} token={rotated.token} /> : null}
+        {rotated ? <TokenReveal connectorId={rotated.id} token={rotated.token} version={platform} /> : null}
       </Dialog>
       <Dialog open={!!removing} onOpenChange={(o) => !o && setRemoving(null)} title={`Remove ${removing ?? ""}?`}
         description="Its tunnels close and the site stops answering through it.">

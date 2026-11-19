@@ -53,8 +53,11 @@ func (s *Store) Ready() bool { return s.active.Load().Len() > 0 }
 
 // Serves reports whether domain has a published map (for on-demand TLS).
 func (s *Store) Serves(domain string) bool {
-	return s.active.Load().byHost[normalizeHost(domain)] != nil
+	return s.active.Load().owner(normalizeHost(domain)) != nil
 }
+
+// AliasOf returns the site whose alias domain is, or nil.
+func (s *Store) AliasOf(domain string) *site.Site { return s.active.Load().AliasOf(domain) }
 
 // All returns the active sites.
 func (s *Store) All() []*site.Site { return s.active.Load().All() }
@@ -87,7 +90,7 @@ func (s *Store) ReloadContext(ctx context.Context) (Report, error) {
 		return Report{}, err
 	}
 	prev := s.active.Load()
-	next := &Sites{byHost: map[string]*site.Site{}}
+	next := &Sites{byHost: map[string]*site.Site{}, aliases: map[string]*site.Site{}}
 	var rep Report
 	for _, d := range docs {
 		st, err := s.build(d)

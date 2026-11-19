@@ -2,6 +2,7 @@ package store
 
 import (
 	"context"
+	"github.com/lib/pq"
 	"time"
 )
 
@@ -11,6 +12,7 @@ type App struct {
 	Tenant       string    `json:"tenant"`
 	Name         string    `json:"name"`
 	PublicDomain string    `json:"public_domain"`
+	Aliases      []string  `json:"aliases"`
 	CreatedAt    time.Time `json:"created_at"`
 	Published    *int      `json:"published_version"` // nil: no published map
 	Kind         *string   `json:"kind"`              // wordpress, joomla, ... or nil
@@ -37,14 +39,19 @@ func (s *Store) CreateApp(ctx context.Context, a App) (App, error) {
 
 const appColumns = `a.id, a.tenant_id, a.name, a.public_domain, a.created_at,
 	(SELECT version FROM map_versions m WHERE m.app_id = a.id AND m.status = 'published'),
-	a.legacy_ip, a.exposure_status, a.exposure_reason, a.exposure_checked_at, a.kind, a.discovery_schedule`
+	a.legacy_ip, a.exposure_status, a.exposure_reason, a.exposure_checked_at, a.kind, a.discovery_schedule,
+	ARRAY(SELECT x.domain FROM app_aliases x WHERE x.app_id = a.id ORDER BY x.domain)`
 
 type scanner interface{ Scan(...any) error }
 
 func scanApp(row scanner) (App, error) {
 	var a App
 	err := row.Scan(&a.ID, &a.Tenant, &a.Name, &a.PublicDomain, &a.CreatedAt, &a.Published,
-		&a.Exposure.LegacyIP, &a.Exposure.Status, &a.Exposure.Reason, &a.Exposure.CheckedAt, &a.Kind, &a.Schedule)
+		&a.Exposure.LegacyIP, &a.Exposure.Status, &a.Exposure.Reason, &a.Exposure.CheckedAt, &a.Kind, &a.Schedule,
+		pq.Array(&a.Aliases))
+	if a.Aliases == nil {
+		a.Aliases = []string{}
+	}
 	return a, err
 }
 

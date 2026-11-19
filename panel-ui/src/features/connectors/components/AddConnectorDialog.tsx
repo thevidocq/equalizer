@@ -2,13 +2,14 @@ import { useState, type FormEvent } from "react";
 import { Button, Dialog, Notice, TextField } from "@/shared/ui";
 import { describeError } from "@/shared/api/errors";
 import type { ConnectorCreated } from "@/shared/api/client";
-import { useConnectorActions } from "../hooks/useConnectors";
+import { useConnectorActions, usePlatformVersion } from "../hooks/useConnectors";
 import { TokenReveal } from "./TokenReveal";
 
 type Props = { tenant: string; open: boolean; onOpenChange: (o: boolean) => void };
 
 export function AddConnectorDialog({ tenant, open, onOpenChange }: Props) {
   const { create } = useConnectorActions(tenant);
+  const platform = usePlatformVersion(tenant).data;
   const [id, setId] = useState(`cn-${tenant}-01`.slice(0, 63));
   const [created, setCreated] = useState<ConnectorCreated | null>(null);
 
@@ -29,7 +30,7 @@ export function AddConnectorDialog({ tenant, open, onOpenChange }: Props) {
     <Dialog open={open} onOpenChange={close} title={created ? `Connector ${created.id} added` : "Add a connector"}
       description={created ? undefined : "Install one per server: it opens the tunnel from the inside (no inbound port) and serves every site of that server."}>
       {created ? (
-        <TokenReveal connectorId={created.id} token={created.token} />
+        <TokenReveal connectorId={created.id} token={created.token} version={platform} />
       ) : (
         <form onSubmit={submit} className="flex flex-col gap-4">
           {create.isError ? <Notice tone="error">{describeError(create.error)}</Notice> : null}

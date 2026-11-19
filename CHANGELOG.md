@@ -19,21 +19,50 @@ Add a section at the top of "Entries" for every commit:
 
 ## Current project status
 
+Latest release: **0.1.0** (`docs/releases/0.1.0.md`), the first stable
+prototype.
+
 | Area | Status |
 | --- | --- |
 | Contracts (`schema/`) | First version, validated in CI |
 | Documentation | Architecture, map format, installation, manuals of what exists, screenshots (`docs/screenshots`) |
-| gateway | JSON APIs, many sites by host, virtual hosts (`reach.address`), GET routes, assets and urlencoded POST forms in direct or connector mode, validation, faithful rendering (UTF-8, cleanup, form binding, URL rewriting, redirects), pass-through login with sessions in Redis, rate limits and behaviour rules, file uploads (real type, size, image rebuild; no virus scan) |
+| gateway | Areas (whole site served, admin included, every request rebuilt), OIDC login (off by default), map check for the panel, JSON APIs, many sites by host, virtual hosts (`reach.address`), GET routes, assets and urlencoded POST forms in direct or connector mode, validation, faithful rendering (UTF-8, cleanup, form binding, URL rewriting, redirects), pass-through login with sessions in Redis, rate limits and behaviour rules, file uploads (real type, size, image rebuild; no virus scan) |
 | tunnel-relay | Token-authenticated tunnels, forwarding with tenant check, admin endpoints; several replicas with handover |
 | connector | Outbound tunnel, local allowlist, reconnection; one per server, virtual hosts |
 | orchestrator | Not implemented yet |
 | panel-api | Discovery jobs and continuous discovery, tenant AI settings, map templates per CMS, auth with mandatory TOTP, tenants, email invitations, tenant connectors, map reach checks, exposure check, Logs page backend (Loki), status page, platform/tenant privacy, users, sites, connectors, maps with approval and signing, audit, internal endpoints |
 | panel-ui | Discovery tab and tenant AI settings, login, joining by invitation, platform tenant overview, sites with isolation, tenant connectors, people with invitations, maps with editor, approval, import and export, activity, logs, status |
-| agent | Discovery: read-only crawl through the connector, fixed exclusions, CMS fingerprint, deterministic routes and types, optional AI review with the tenant's model, proposed drafts |
+| agent | Discovery: read-only crawl through the connector, whole-site area, IDOR proposals, CMS fingerprint, deterministic routes and types, optional AI review with the tenant's model, proposed drafts |
 | deploy/compose | Caddy (on-demand certificates for protected sites, relay and panel domains), SMTP settings, gateway (2 replicas), Redis, PostgreSQL, panel-api, panel-ui, tunnel-relay, Vector, Loki, Grafana; statically validated |
 | tools (eqtool) | Map signing keys, form key, relay token, connector registration, map signing |
 
 ## Entries
+
+### 2026-11-19 — Stabilization and release 0.1.0
+
+- **Branch:** `fix/stabilize-0.1` (on top of `feat/areas`)
+- **What:**
+  - Areas: the legacy charset is learnt from the site's own pages, so forms
+    posting into an area reach an ISO-8859-1 site with the right accents
+    (an area's `charset` still wins); WebSocket upgrades get a clear 501
+    (`websocket_not_supported` in the Logs) instead of a broken request;
+    files are revalidated (`If-None-Match`, `If-Modified-Since`, 304) while
+    rendered pages carry no validators (they hold per-visitor form tokens).
+  - Connector: a request was cut after 30 seconds in total, body included,
+    so long downloads through an area broke; now 30 seconds for the answer
+    to start and 10 minutes in all. Relay handover between replicas had the
+    same 50-second cut: now only the wait for headers is bounded.
+  - Release 0.1.0: `VERSION`, release notes (`docs/releases/0.1.0.md`:
+    contents, security properties, known limits), images published with the
+    version on every `vX.Y.Z` tag, INSTALL and `.env.example` install a
+    release (`EQ_VERSION`).
+- **Why:** close a first stable prototype with what is developed.
+- **Status:** all tests pass. The tag `v0.1.0` goes on `main` after #28,
+  #29, #30 and this pull request are merged.
+- **Next steps:**
+  1. Merge, tag `v0.1.0`, GitHub release with the notes.
+  2. Lab campaign (WordPress, Moodle, Juice Shop fully through the gateway).
+  3. SIEM forwarding; one legacy account per user behind OIDC.
 
 ### 2026-11-19 — The whole site is served: areas
 

@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"slices"
 	"strings"
+	"sync/atomic"
 	"time"
 
 	"github.com/thevidocq/equalizer/gateway/internal/budget"
@@ -56,6 +57,7 @@ type Site struct {
 	Notes     []string       // map features accepted but not applied yet
 	OIDC      *oidc.Provider // nil: the legacy login only (default)
 
+	charset     atomic.Value                 // legacy charset seen in the last rendered page
 	unsupported map[string]string            // form id → reason it cannot be served yet
 	owned       map[string]map[string]string // entry → role → owned_by_user target
 }

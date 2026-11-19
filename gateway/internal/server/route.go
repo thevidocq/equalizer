@@ -133,6 +133,7 @@ func (p *Public) writeLegacy(w http.ResponseWriter, r *http.Request, st *site.Si
 			return http.StatusBadGateway
 		}
 		body = out
+		st.NoteCharset(ctx.Stats.Charset)
 		h.Set("Content-Type", pipeline.ContentType)
 		forms.setCookie(w)
 		p.Log.DebugContext(r.Context(), "page rendered", slog.Group("detail",

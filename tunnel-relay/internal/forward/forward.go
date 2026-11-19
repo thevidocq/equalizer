@@ -55,7 +55,9 @@ type Handler struct {
 // New creates the handler.
 func New(pool *sessions.Pool, token string, log *slog.Logger) *Handler {
 	h := &Handler{Pool: pool, Token: token, Log: log,
-		peer: &http.Client{Timeout: ResponseTimeout + 10*time.Second, CheckRedirect: func(*http.Request, []*http.Request) error {
+		// No total timeout: a handed-over download streams for minutes; the
+		// wait for headers is bounded by the transport.
+		peer: &http.Client{Transport: &http.Transport{ResponseHeaderTimeout: ResponseTimeout + 10*time.Second}, CheckRedirect: func(*http.Request, []*http.Request) error {
 			return http.ErrUseLastResponse
 		}}}
 	h.proxy = &httputil.ReverseProxy{

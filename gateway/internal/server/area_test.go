@@ -51,6 +51,18 @@ func TestAreas(t *testing.T) {
 		case "/backup.zip":
 			w.Header().Set("Content-Type", "application/zip")
 			_, _ = w.Write([]byte("PK\x03\x04binary"))
+		case "/latin":
+			w.Header().Set("Content-Type", "text/html; charset=iso-8859-1")
+			w.Header().Set("ETag", `"page1"`)
+			_, _ = w.Write([]byte("<html><body>Citt\xe0</body></html>"))
+		case "/style.css":
+			if r.Header.Get("If-None-Match") == `"css1"` {
+				w.WriteHeader(http.StatusNotModified)
+				return
+			}
+			w.Header().Set("Content-Type", "text/css")
+			w.Header().Set("ETag", `"css1"`)
+			_, _ = io.WriteString(w, "body{}")
 		case "/go-out":
 			http.Redirect(w, r, "https://payments.example/pay", http.StatusFound)
 		case "/go-in":
@@ -146,6 +158,23 @@ func TestAreas(t *testing.T) {
 	}
 	if rec := do("GET", "/go-in", "", ""); rec.Header().Get("Location") != "/wp-admin/edit.php" {
 		t.Errorf("internal redirect: %q", rec.Header().Get("Location"))
+	}
+
+	// The legacy charset is learnt from its pages: a form posted after is
+	// encoded back in it. Pages carry no validators; files are revalidated.
+	rec = do("GET", "/latin", "", "")
+	if !strings.Contains(rec.Body.String(), "Città") || rec.Header().Get("ETag") != "" {
+		t.Errorf("latin page: %q etag=%q", rec.Body.String(), rec.Header().Get("ETag"))
+	}
+	do("POST", "/search", "application/x-www-form-urlencoded", "q=%C3%A8")
+	if last().body != "q=%E8" {
+		t.Errorf("form not encoded back in ISO-8859-1: %q", last().body)
+	}
+	if rec := do("GET", "/style.css", "", "", "If-None-Match", `"css1"`); rec.Code != http.StatusNotModified {
+		t.Errorf("revalidated file: %d", rec.Code)
+	}
+	if rec := do("GET", "/live", "", "", "Upgrade", "websocket", "Connection", "Upgrade"); rec.Code != http.StatusNotImplemented {
+		t.Errorf("websocket: %d", rec.Code)
 	}
 
 	// What cannot be rebuilt never reaches the legacy application.

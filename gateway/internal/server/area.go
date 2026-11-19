@@ -31,6 +31,12 @@ func (p *Public) serveArea(w http.ResponseWriter, r *http.Request, st *site.Site
 		p.block(w, r, st, http.StatusForbidden, "authz_denied")
 		return
 	}
+	if strings.EqualFold(r.Header.Get("Upgrade"), "websocket") {
+		// Frames would reach the legacy application as the client wrote
+		// them: not served until they can be rebuilt one by one.
+		p.block(w, r, st, http.StatusNotImplemented, "websocket_not_supported")
+		return
+	}
 	if !a.Allows(r.Method) {
 		p.block(w, r, st, http.StatusMethodNotAllowed, "method_not_allowed")
 		return
@@ -39,12 +45,16 @@ func (p *Public) serveArea(w http.ResponseWriter, r *http.Request, st *site.Site
 		p.block(w, r, st, http.StatusBadRequest, "malformed_path")
 		return
 	}
-	query, err := areabody.Query(r.URL.RawQuery, a.Charset)
+	cs := a.Charset
+	if cs == "" {
+		cs = st.LegacyCharset() // learnt from the site's own pages
+	}
+	query, err := areabody.Query(r.URL.RawQuery, cs)
 	if err != nil {
 		p.refuseArea(w, r, st, a, err)
 		return
 	}
-	body, ctype, status, reason := p.areaBody(w, r, a)
+	body, ctype, status, reason := p.areaBody(w, r, a, cs)
 	if status != 0 {
 		p.block(w, r, st, status, reason)
 		return
@@ -83,7 +93,7 @@ func (p *Public) serveArea(w http.ResponseWriter, r *http.Request, st *site.Site
 }
 
 // areaBody reads and rebuilds the request body within the area's limit.
-func (p *Public) areaBody(w http.ResponseWriter, r *http.Request, a *mapmodel.Area) ([]byte, string, int, string) {
+func (p *Public) areaBody(w http.ResponseWriter, r *http.Request, a *mapmodel.Area, cs string) ([]byte, string, int, string) {
 	if r.Body == nil || r.Method == http.MethodGet || r.Method == http.MethodHead {
 		return nil, "", 0, ""
 	}
@@ -99,7 +109,7 @@ func (p *Public) areaBody(w http.ResponseWriter, r *http.Request, a *mapmodel.Ar
 		}
 		return nil, "", http.StatusBadRequest, "malformed_body"
 	}
-	body, ctype, err := areabody.Body(r.Header.Get("Content-Type"), raw, a.Charset)
+	body, ctype, err := areabody.Body(r.Header.Get("Content-Type"), raw, cs)
 	if err != nil {
 		var re *areabody.Error
 		if errors.As(err, &re) {
@@ -144,6 +154,7 @@ func cleanPath(path string) bool {
 var (
 	tokenValue = regexp.MustCompile(`^[\x20-\x7e]{1,1000}$`)
 	rangeValue = regexp.MustCompile(`^bytes=\d*-\d*(,\s*\d*-\d*){0,9}$`)
+	etagValue  = regexp.MustCompile(`^(\*|(W/)?"[\x21\x23-\x7e]*"(\s*,\s*(W/)?"[\x21\x23-\x7e]*")*)$`)
 )
 
 // areaHeaders rebuilds the few request headers sites rely on; the browser's
@@ -160,6 +171,16 @@ func areaHeaders(r *http.Request, st *site.Site) http.Header {
 	}
 	if v := r.Header.Get("Range"); rangeValue.MatchString(v) {
 		h.Set("Range", v)
+	}
+	// Browser caches of files (pages carry no validators: they are rendered
+	// per visitor, see writeArea).
+	if v := r.Header.Get("If-None-Match"); len(v) <= 1000 && etagValue.MatchString(v) {
+		h.Set("If-None-Match", v)
+	}
+	if v := r.Header.Get("If-Modified-Since"); v != "" {
+		if t, err := http.ParseTime(v); err == nil {
+			h.Set("If-Modified-Since", t.UTC().Format(http.TimeFormat))
+		}
 	}
 	base := st.Legacy.Base()
 	if ref, err := url.Parse(r.Header.Get("Referer")); err == nil && sameSite(ref, st) {
@@ -228,7 +249,10 @@ func (p *Public) writeArea(w http.ResponseWriter, r *http.Request, st *site.Site
 		writePage(w, http.StatusBadGateway, pageBadGateway)
 		return http.StatusBadGateway
 	}
+	st.NoteCharset(ctx.Stats.Charset)
 	h.Del("Content-Length")
+	h.Del("ETag") // the page is rendered per visitor (form tokens): never revalidated
+	h.Del("Last-Modified")
 	h.Set("Content-Type", pipeline.ContentType)
 	forms.setCookie(w)
 	w.WriteHeader(resp.Status)

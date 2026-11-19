@@ -100,7 +100,7 @@ PANEL_ENV=(EQ_ADDR=127.0.0.1:18085 EQ_ADMIN_ADDR=127.0.0.1:19092
   "EQ_DATABASE_URL=postgres://postgres@127.0.0.1:55441/equalizer?sslmode=disable"
   "EQ_MAP_SIGNING_KEY_FILE=$S/map-signing.key" EQ_MAP_KEY_ID=k1 "EQ_INTERNAL_TOKEN_FILE=$S/panel-internal.token"
   "EQ_MFA_KEY_FILE=$S/mfa.key" EQ_PANEL_URL=https://panel.lab.test EQ_MAIL_MODE=smtp EQ_SMTP_ADDR=127.0.0.1:2525
-  EQ_MAIL_FROM=equalizer@lab.test EQ_EXPOSURE_INTERVAL=0 EQ_RELAY_ADMIN=127.0.0.1:19091 EQ_GATEWAY_ADMIN=127.0.0.1:19090)
+  EQ_MAIL_FROM=equalizer@lab.test EQ_EXPOSURE_INTERVAL=0 EQ_TRUSTED_PROXIES=127.0.0.1/32 EQ_RELAY_ADMIN=127.0.0.1:19091 EQ_GATEWAY_ADMIN=127.0.0.1:19090)
 start panel-api env "${PANEL_ENV[@]}" "$BIN/panel-api"
 wait_http http://127.0.0.1:19092/healthz
 # The first platform administrator, created on the server as on a VPS.

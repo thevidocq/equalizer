@@ -5,6 +5,7 @@ import (
 	"crypto/ed25519"
 	"encoding/base64"
 	"fmt"
+	"net/netip"
 	"net/url"
 	"os"
 	"strings"
@@ -38,9 +39,12 @@ type Config struct {
 	SessionTTL       time.Duration
 	UIDir            string // static files of panel-ui; empty: API only
 	LokiURL          string // security events for the Logs page (EQ_LOKI_URL); empty: no Logs page
-	RelayAdmin       string // relays' admin endpoint for the status page (EQ_RELAY_ADMIN, e.g. tunnel-relay:9091)
-	GatewayAdmin     string // gateways' admin endpoint (EQ_GATEWAY_ADMIN, e.g. gateway:9090)
-	ShutdownTimeout  time.Duration
+	// TrustedProxies may set X-Forwarded-For (EQ_TRUSTED_PROXIES, CIDRs):
+	// the proxies in front of the panel. Empty: the peer is the client.
+	TrustedProxies  []netip.Prefix
+	RelayAdmin      string // relays' admin endpoint for the status page (EQ_RELAY_ADMIN, e.g. tunnel-relay:9091)
+	GatewayAdmin    string // gateways' admin endpoint (EQ_GATEWAY_ADMIN, e.g. gateway:9090)
+	ShutdownTimeout time.Duration
 }
 
 // FromEnv builds the configuration.
@@ -89,6 +93,16 @@ func FromEnv() (Config, error) {
 		return Config{}, fmt.Errorf("EQ_MFA_KEY or EQ_MFA_KEY_FILE is required: 32 bytes in base64 (eqtool formkey)")
 	}
 	cfg.MFARequired = os.Getenv("EQ_MFA_REQUIRED") != "false"
+	for _, c := range strings.Split(os.Getenv("EQ_TRUSTED_PROXIES"), ",") {
+		if c = strings.TrimSpace(c); c == "" {
+			continue
+		}
+		p, err := netip.ParsePrefix(c)
+		if err != nil {
+			return Config{}, fmt.Errorf("EQ_TRUSTED_PROXIES: %q is not a CIDR", c)
+		}
+		cfg.TrustedProxies = append(cfg.TrustedProxies, p)
+	}
 
 	cfg.PanelURL = env("EQ_PANEL_URL", "http://localhost:8088")
 	cfg.SMTPAddr = os.Getenv("EQ_SMTP_ADDR")

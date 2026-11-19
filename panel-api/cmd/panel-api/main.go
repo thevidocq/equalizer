@@ -121,7 +121,7 @@ func run() error {
 		MFA: box, MFARequired: cfg.MFARequired, MFAThrottle: auth.NewThrottle(5, 15*time.Minute),
 		Store: st, Sessions: sessions, Throttle: auth.NewThrottle(5, 15*time.Minute),
 		Log: log.With(slog.String("module", "api")), SigningKey: cfg.SigningKey, KeyID: cfg.SigningKeyID,
-		InternalToken: cfg.InternalToken,
+		InternalToken: cfg.InternalToken, TrustedProxies: cfg.TrustedProxies,
 	}
 	if cfg.UIDir != "" {
 		srv.UI = ui.Handler(cfg.UIDir)
@@ -157,8 +157,12 @@ func run() error {
 	adminMux.HandleFunc("/readyz", ready)
 
 	servers := []*http.Server{
-		{Addr: cfg.Addr, Handler: srv.Handler(), ReadHeaderTimeout: 10 * time.Second, MaxHeaderBytes: 32 << 10},
-		{Addr: cfg.AdminAddr, Handler: adminMux, ReadHeaderTimeout: 5 * time.Second},
+		// Bodies are at most 4 MB and answers small (the log export is
+		// capped): a client gets a minute for each, then the connection goes.
+		{Addr: cfg.Addr, Handler: srv.Handler(), ReadHeaderTimeout: 10 * time.Second, MaxHeaderBytes: 32 << 10,
+			ReadTimeout: time.Minute, WriteTimeout: 2 * time.Minute, IdleTimeout: 2 * time.Minute},
+		{Addr: cfg.AdminAddr, Handler: adminMux, ReadHeaderTimeout: 5 * time.Second, ReadTimeout: 30 * time.Second,
+			WriteTimeout: 30 * time.Second, IdleTimeout: time.Minute, MaxHeaderBytes: 16 << 10},
 	}
 	errs := make(chan error, len(servers))
 	for _, s := range servers {

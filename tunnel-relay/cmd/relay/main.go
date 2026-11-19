@@ -106,9 +106,15 @@ func run() error {
 	}
 	tunnels := &tunnel.Handler{Registry: reg, Pool: pool, Log: log.With(slog.String("module", "tunnel")), Events: events}
 	servers := []*http.Server{
-		{Addr: cfg.TunnelAddr, Handler: tunnels, ReadHeaderTimeout: 10 * time.Second, MaxHeaderBytes: 16 << 10},
-		{Addr: cfg.InternalAddr, Handler: fwd, ReadHeaderTimeout: 10 * time.Second},
-		{Addr: cfg.AdminAddr, Handler: &admin.Handler{Pool: pool, Ready: &ready, Version: version}, ReadHeaderTimeout: 5 * time.Second},
+		// Tunnels are hijacked: the server's limits cover only the upgrade.
+		{Addr: cfg.TunnelAddr, Handler: tunnels, ReadHeaderTimeout: 10 * time.Second, MaxHeaderBytes: 16 << 10,
+			IdleTimeout: 60 * time.Second},
+		// Gateway requests stream uploads and live updates: no read or write
+		// timeout, the gateway sets the pace.
+		{Addr: cfg.InternalAddr, Handler: fwd, ReadHeaderTimeout: 10 * time.Second, MaxHeaderBytes: 64 << 10,
+			IdleTimeout: 120 * time.Second},
+		{Addr: cfg.AdminAddr, Handler: &admin.Handler{Pool: pool, Ready: &ready, Version: version}, ReadHeaderTimeout: 5 * time.Second,
+			ReadTimeout: 30 * time.Second, WriteTimeout: 30 * time.Second, IdleTimeout: 60 * time.Second, MaxHeaderBytes: 16 << 10},
 	}
 	errs := make(chan error, len(servers))
 	for _, s := range servers {

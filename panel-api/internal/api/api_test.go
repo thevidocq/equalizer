@@ -13,6 +13,7 @@ import (
 	"net/http"
 	"net/http/cookiejar"
 	"net/http/httptest"
+	"net/netip"
 	"os"
 	"strings"
 	"testing"
@@ -396,4 +397,34 @@ func internalGet(t *testing.T, e *env, path, token string) []byte {
 		t.Fatalf("%s: %d %s", path, resp.StatusCode, b)
 	}
 	return b
+}
+
+// Behind Caddy every visitor arrives from the proxy: the panel must read
+// the visitor's address, or five wrong passwords from anyone would lock
+// everyone out.
+func TestLoginLimitsPerVisitor(t *testing.T) {
+	e := setup(t)
+	e.server.TrustedProxies = []netip.Prefix{netip.MustParsePrefix("127.0.0.1/32")}
+	login := func(from, password string) int {
+		b, _ := json.Marshal(map[string]string{"email": "root@example.com", "password": password})
+		req, _ := http.NewRequest("POST", e.srv.URL+"/v1/auth/login", bytes.NewReader(b))
+		req.Header.Set("Content-Type", "application/json")
+		req.Header.Set("X-Eq-Panel", "1")
+		req.Header.Set("X-Forwarded-For", "6.6.6.6, "+from) // the client's own value first, the proxy's last
+		resp, err := e.client().c.Do(req)
+		if err != nil {
+			t.Fatal(err)
+		}
+		resp.Body.Close()
+		return resp.StatusCode
+	}
+	for i := 0; i < 5; i++ {
+		login("198.51.100.7", "wrong-password-123")
+	}
+	if code := login("198.51.100.7", "platform-admin-password"); code != http.StatusTooManyRequests {
+		t.Errorf("the attacker's address after 5 failures: %d", code)
+	}
+	if code := login("203.0.113.20", "platform-admin-password"); code != http.StatusOK {
+		t.Errorf("the real user from another address: %d, want 200", code)
+	}
 }

@@ -35,6 +35,8 @@ type Handler struct {
 	Log       *slog.Logger
 	Events    *logging.Events
 	KeepAlive time.Duration // default 15 s
+
+	failures failures // wrong tokens per address
 }
 
 func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -49,12 +51,20 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 	id := r.Header.Get("X-Eq-Connector")
 	token, _ := strings.CutPrefix(r.Header.Get("Authorization"), "Bearer ")
+	from := remote(r)
+	if !h.failures.allowed(from, time.Now()) {
+		// Too many wrong tokens from this address: not even checked.
+		http.Error(w, "too many attempts", http.StatusTooManyRequests)
+		return
+	}
 	conn, ok := h.Registry.Authenticate(id, token)
 	if !ok {
-		h.Log.WarnContext(r.Context(), "tunnel refused: unknown connector or wrong token",
-			slog.Group("detail", slog.String("connector_id", printable(id)), slog.String("remote", remote(r))))
-		h.Events.Emit(logging.Event{Type: "request.blocked", Reason: logging.Ptr("tunnel_unauthorized"), SrcIP: remote(r),
-			Detail: map[string]any{"connector_id": printable(id)}})
+		if h.failures.failed(from, time.Now()) { // reported once per address while it keeps failing
+			h.Log.WarnContext(r.Context(), "tunnel refused: unknown connector or wrong token",
+				slog.Group("detail", slog.String("connector_id", printable(id)), slog.String("remote", from)))
+			h.Events.Emit(logging.Event{Type: "request.blocked", Reason: logging.Ptr("tunnel_unauthorized"), SrcIP: from,
+				Detail: map[string]any{"connector_id": printable(id)}})
+		}
 		http.Error(w, "unauthorized", http.StatusUnauthorized)
 		return
 	}
@@ -73,6 +83,9 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		return
 	}
+	// The tunnel lives long: no deadline left by the HTTP server; yamux's
+	// keep-alives find a dead peer.
+	_ = raw.SetDeadline(time.Time{})
 	_, _ = brw.WriteString("HTTP/1.1 101 Switching Protocols\r\nConnection: Upgrade\r\nUpgrade: " + Protocol + "\r\n\r\n")
 	if err := brw.Flush(); err != nil {
 		raw.Close()
@@ -83,6 +96,7 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		raw.Close()
 		return
 	}
+	go refuseStreams(mux)
 	s, err := h.Pool.Add(&sessions.Session{
 		ConnectorID: conn.ID, Tenant: conn.Tenant, Version: printable(r.Header.Get("X-Eq-Connector-Version")),
 		Allow: allow, RemoteAddr: remote(r), TokenHash: conn.TokenSHA256,
@@ -118,8 +132,21 @@ func (h *Handler) muxConfig() *yamux.Config {
 		cfg.KeepAliveInterval = 15 * time.Second
 	}
 	cfg.ConnectionWriteTimeout = 10 * time.Second
+	cfg.AcceptBacklog = 4 // the relay opens streams; it never takes the connector's
 	cfg.LogOutput = io.Discard
 	return cfg
+}
+
+// refuseStreams closes every stream the connector opens: requests only go
+// from the relay to the connector, and unread streams would hold memory.
+func refuseStreams(mux *yamux.Session) {
+	for {
+		st, err := mux.AcceptStream()
+		if err != nil {
+			return
+		}
+		_ = st.Close()
+	}
 }
 
 // parseAllow reads "host:port,host:port".
@@ -154,12 +181,15 @@ func headerHas(h http.Header, key, token string) bool {
 	return false
 }
 
-// remote returns the connector's address for logs: the edge proxy's
-// X-Forwarded-For when present (used only for logs, never for decisions).
+// remote returns the connector's address: the one the edge proxy added to
+// X-Forwarded-For, which is the last one (the first ones are the client's
+// own and could be anything), or the peer when there is no proxy.
 func remote(r *http.Request) string {
-	if xff := r.Header.Get("X-Forwarded-For"); xff != "" {
-		first, _, _ := strings.Cut(xff, ",")
-		return strings.TrimSpace(first)
+	if vs := r.Header.Values("X-Forwarded-For"); len(vs) > 0 {
+		all := strings.Split(strings.Join(vs, ","), ",")
+		if last := strings.TrimSpace(all[len(all)-1]); last != "" {
+			return printable(last)
+		}
 	}
 	host, _, err := net.SplitHostPort(r.RemoteAddr)
 	if err != nil {

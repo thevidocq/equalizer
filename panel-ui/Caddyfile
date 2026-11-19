@@ -1,6 +1,11 @@
 {
 	admin off
 	auto_https off
+	# The edge Caddy in front: its X-Forwarded-For is kept, so panel-api sees
+	# the visitor's address (login limits, audit), not the edge's.
+	servers {
+		trusted_proxies static private_ranges
+	}
 }
 
 :8080 {

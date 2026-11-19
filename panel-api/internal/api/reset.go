@@ -29,7 +29,7 @@ func (s *Server) requestReset(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	email := strings.ToLower(strings.TrimSpace(in.Email))
-	keys := []string{"reset-ip:" + clientIP(r), "reset-email:" + email}
+	keys := []string{"reset-ip:" + s.clientIP(r), "reset-email:" + email}
 	if s.Throttle.Blocked(keys...) {
 		fail(w, http.StatusTooManyRequests, "too_many_attempts", "try again later")
 		return
@@ -39,7 +39,7 @@ func (s *Server) requestReset(w http.ResponseWriter, r *http.Request) {
 	if !validEmail(email) {
 		return
 	}
-	go s.sendReset(context.WithoutCancel(r.Context()), email, clientIP(r))
+	go s.sendReset(context.WithoutCancel(r.Context()), email, s.clientIP(r))
 }
 
 func (s *Server) sendReset(ctx context.Context, email, ip string) {
@@ -112,6 +112,6 @@ func (s *Server) finishReset(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	_ = s.Sessions.EndAll(r.Context(), id, "") // every browser logs in again
-	_ = s.Store.Record(r.Context(), &id, tenant, "auth.password_reset", "", map[string]any{"ip": clientIP(r)})
+	_ = s.Store.Record(r.Context(), &id, tenant, "auth.password_reset", "", map[string]any{"ip": s.clientIP(r)})
 	w.WriteHeader(http.StatusNoContent)
 }

@@ -73,7 +73,9 @@ The tests run in order and build on each other:
    byte by byte on the wire: paths that climb on Tomcat and Windows,
    request smuggling, huge headers, other hosts, forms with too many
    fields, forged client addresses, a session flood from one address and
-   a body sent at a drip;
+   a body sent at a drip; then **relay and panel**: guessed connector
+   tokens, wrong panel passwords (one account locked, not everyone),
+   cross-site writes, the internal API, oversized bodies;
 4. **sso**: OIDC on `/wp-admin/`, `/wp-login.php` and `/xmlrpc.php` only, public pages
    without login, allowed and refused users, tricks around the paths;
 5. **operations**: password reset by email, alert when the connector

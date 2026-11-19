@@ -153,7 +153,8 @@ archive back, on the same VPS or a new one (`INSTALL.md`, section 10).
 2. Set `EQ_VERSION` in `.env`.
 3. `docker compose pull` and `docker compose up -d --build`: database
    migrations run on their own.
-4. Tell tenants to update their connectors to the same release.
+4. Tell tenants to update their connectors to the same release: their
+   Connectors and Status pages mark the older ones.
 
 ### Checks after a change
 

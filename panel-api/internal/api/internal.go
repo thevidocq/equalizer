@@ -54,7 +54,7 @@ func (s *Server) internalMaps(w http.ResponseWriter, r *http.Request) {
 	h := sha256.New()
 	items := make([]signing.SignedMap, 0, len(vs))
 	for _, v := range vs {
-		fmt.Fprintf(h, "%s:%d:%s;", v.App, v.Version, v.KeyID)
+		fmt.Fprintf(h, "%s:%d:%s:%s;", v.App, v.Version, v.KeyID, v.Signature) // a re-signed version changes it too
 		items = append(items, signing.SignedMap{Version: v.Version, Payload: v.Payload, Signature: v.Signature, KeyID: v.KeyID})
 	}
 	etag := `"` + hex.EncodeToString(h.Sum(nil))[:32] + `"`

@@ -95,7 +95,13 @@ One connector per server: it serves every site on that server.
 to run on the server (Docker or a binary). The connector only opens an
 outbound HTTPS connection: no inbound port. Its `EQ_ALLOW` lists the
 addresses it may reach; nothing else is reachable through it, whatever it
-is asked. Update connectors when the platform is updated.
+is asked.
+
+The **Connectors** page shows whether each one is online and its release.
+A connector older than the platform is marked **Older than the platform:
+update it** (also on the Status page): some features do not work through
+it, e.g. the site's own HTTP login. The page gives the command with the
+right release.
 
 ![Connectors](../screenshots/connectors.png)
 
@@ -150,8 +156,12 @@ seconds.
 
 ### Point the domain and isolate the site
 
-1. Point the site's DNS record to the platform (the address is given by the
-   platform operator). The certificate is issued automatically.
+1. Point the site's DNS records to the platform (the address is given by the
+   platform operator): the main domain and its other names (the bare
+   domain next to `www`, old domains). Certificates are issued
+   automatically. In **Site → Isolation → Other domains** list the other
+   names: visitors on them are sent to the main domain, as sites usually
+   do. They apply at once, without a new version of the map.
 2. **Site → Isolation**: enter the old public IP of the site. Equalizer
    checks regularly that the site no longer answers there, and gives the
    lines to copy for Apache, nginx or IIS: move the site to an internal

@@ -92,3 +92,37 @@ func TestOIDCPaths(t *testing.T) {
 		t.Errorf("after login: %d, Authorization %q", rec.Code, auth)
 	}
 }
+
+type aliasMaps struct{ s *site.Site }
+
+func (a aliasMaps) For(string) *site.Site { return nil }
+func (a aliasMaps) Ready() bool           { return true }
+func (a aliasMaps) AliasOf(h string) *site.Site {
+	if h == "example.org" {
+		return a.s
+	}
+	return nil
+}
+
+func TestAliasRedirect(t *testing.T) {
+	st := &site.Site{Model: &mapmodel.Model{Meta: mapmodel.Meta{App: "portal", PublicDomain: "www.example.org"}}}
+	p := &Public{Maps: aliasMaps{st}, IPs: clientip.New(nil), Log: slog.New(slog.NewJSONHandler(io.Discard, nil)),
+		Events: telemetry.NewEmitter(io.Discard, "test")}
+	for _, c := range []struct {
+		method, target, host, want string
+		code                       int
+	}{
+		{"GET", "/news/?id=3", "example.org", "https://www.example.org/news/?id=3", http.StatusMovedPermanently},
+		{"POST", "/contact", "example.org", "https://www.example.org/contact", http.StatusPermanentRedirect},
+		{"GET", "//evil.example/x", "example.org", "https://www.example.org/", http.StatusMovedPermanently},
+		{"GET", "/", "other.example.org", "", http.StatusNotFound},
+	} {
+		req := httptest.NewRequest(c.method, c.target, nil)
+		req.Host = c.host
+		rec := httptest.NewRecorder()
+		p.Handler().ServeHTTP(rec, req)
+		if rec.Code != c.code || rec.Header().Get("Location") != c.want {
+			t.Errorf("%s %s%s: %d %q", c.method, c.host, c.target, rec.Code, rec.Header().Get("Location"))
+		}
+	}
+}

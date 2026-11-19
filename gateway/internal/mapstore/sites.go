@@ -12,9 +12,13 @@ import (
 // Sites is an immutable set of compiled maps, by public domain. A single map
 // without meta.public_domain (signed by hand, lab) is served for every host.
 type Sites struct {
-	byHost map[string]*site.Site
-	single *site.Site
+	byHost  map[string]*site.Site
+	aliases map[string]*site.Site // other domains, redirected to the public one
+	single  *site.Site
 }
+
+// AliasOf returns the site whose alias host is, or nil.
+func (x *Sites) AliasOf(host string) *site.Site { return x.aliases[normalizeHost(host)] }
 
 // For returns the site served on host (a Host header, port allowed), or nil.
 func (x *Sites) For(host string) *site.Site {
@@ -66,11 +70,29 @@ func (x *Sites) add(s *site.Site) error {
 		x.single = s
 		return nil
 	}
-	if other := x.byHost[d]; other != nil {
+	if other := x.owner(d); other != nil {
 		return fmt.Errorf("maps of %s and %s share the domain %s", other.Model.Meta.App, s.Model.Meta.App, d)
 	}
 	x.byHost[d] = s
+	for _, a := range s.Model.Meta.Aliases {
+		a = normalizeHost(a)
+		if a == "" || a == d {
+			continue
+		}
+		if other := x.owner(a); other != nil {
+			return fmt.Errorf("maps of %s and %s share the domain %s", other.Model.Meta.App, s.Model.Meta.App, a)
+		}
+		x.aliases[a] = s
+	}
 	return nil
+}
+
+// owner returns the site already using a domain, as public domain or alias.
+func (x *Sites) owner(d string) *site.Site {
+	if s := x.byHost[d]; s != nil {
+		return s
+	}
+	return x.aliases[d]
 }
 
 // check refuses a map without domain mixed with others: it would capture

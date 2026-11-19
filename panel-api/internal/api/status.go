@@ -41,9 +41,13 @@ func (s *Server) SiteStatuses(ctx context.Context, tenant string) ([]health.Site
 		return nil, false, err
 	}
 	var tunnels map[string]int
+	var versions map[string][]string
 	if s.Health != nil {
-		if t, ok := s.Health.Tunnels(ctx); ok {
-			tunnels = t
+		if v, ok := s.Health.TunnelVersions(ctx); ok {
+			versions, tunnels = v, map[string]int{}
+			for id, vs := range v {
+				tunnels[id] = len(vs)
+			}
 		}
 	}
 	recent, errs, drops, dates, logsOK := s.statusLogs(ctx, tenant)
@@ -56,6 +60,7 @@ func (s *Server) SiteStatuses(ctx context.Context, tenant string) ([]health.Site
 			return nil, false, err
 		}
 		in.Served, in.Errors = recent[a.ID]["request.served"], recent[a.ID]["legacy.error"]
+		in.Versions, in.Platform = versions[health.Connector(in.Map)], s.Version
 		site := health.Evaluate(in)
 		site.Days = health.Days(dates, errs[a.ID], drops[health.Connector(in.Map)])
 		sites = append(sites, site)

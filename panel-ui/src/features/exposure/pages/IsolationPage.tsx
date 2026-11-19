@@ -6,6 +6,7 @@ import { useExposureActions, useSite } from "../hooks/useExposure";
 import { ExposureStatus } from "../components/ExposureStatus";
 import { LegacyIpForm } from "../components/LegacyIpForm";
 import { IsolationGuide } from "../components/IsolationGuide";
+import { AliasesForm } from "../components/AliasesForm";
 
 /** Site → Isolation: is the site still reachable without Equalizer? */
 export function IsolationPage() {
@@ -27,6 +28,7 @@ export function IsolationPage() {
       <ExposureStatus exposure={exposure} onCheck={manage ? () => check.mutate() : undefined} busy={check.isPending} />
       {manage ? <LegacyIpForm key={exposure.legacy_ip ?? ""} app={app} current={exposure.legacy_ip} /> : null}
       {manage ? <IsolationGuide domain={site.public_domain} /> : null}
+      {manage ? <AliasesForm key={(site.aliases ?? []).join(",")} app={app} domain={site.public_domain} current={site.aliases ?? []} /> : null}
     </div>
   );
 }

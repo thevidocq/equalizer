@@ -106,6 +106,8 @@ type Meta struct {
 	Status  string `json:"status"`
 	// PublicDomain is the host this map is served on (set by the panel).
 	PublicDomain string `json:"public_domain"`
+	// Aliases are other domains of the site, redirected to PublicDomain.
+	Aliases []string `json:"aliases"`
 }
 
 // Legacy describes how to reach the protected application.

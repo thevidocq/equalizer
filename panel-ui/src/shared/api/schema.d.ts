@@ -986,6 +986,52 @@ export interface paths {
         };
         trace?: never;
     };
+    "/apps/{app}/aliases": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Other domains of the site (e.g. the bare domain next to www): the gateway takes a certificate for them and redirects them (301) to the public domain. Applied at once to the published map, which is signed again (tenant administrators) */
+        put: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    app: components["parameters"]["app"];
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": {
+                        aliases: string[];
+                    };
+                };
+            };
+            responses: {
+                /** @description Site */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["App"];
+                    };
+                };
+                409: components["responses"]["Error"];
+                422: components["responses"]["Error"];
+            };
+        };
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/apps/{app}/exposure/check": {
         parameters: {
             query?: never;
@@ -2169,6 +2215,8 @@ export interface paths {
                         "application/json": {
                             items: components["schemas"]["Connector"][];
                             next_cursor?: string | null;
+                            /** @description Release of the platform; connectors older than it are outdated */
+                            platform_version?: string;
                         };
                     };
                 };
@@ -3348,6 +3396,8 @@ export interface components {
             tenant: string;
             name: string;
             public_domain: string;
+            /** @description Other domains, redirected to the public domain */
+            aliases?: string[];
             /** Format: date-time */
             created_at: string;
             published_version: number | null;
@@ -3381,6 +3431,12 @@ export interface components {
             created_at: string;
             /** Format: date-time */
             rotated_at: string | null;
+            /** @description At least one tunnel open (unknown when the relay does not answer: false) */
+            readonly online?: boolean;
+            /** @description Release of each open tunnel (one per running connector process) */
+            readonly versions?: string[];
+            /** @description Older than the platform: update it, some features do not work through it */
+            readonly outdated?: boolean;
         };
         MapVersion: {
             app: string;

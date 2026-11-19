@@ -197,7 +197,7 @@ func (s *Server) publish(r *http.Request, a store.App, v store.MapVersion) error
 		approver = "user:" + *v.Approver
 	}
 	doc, err := store.SetMeta(v.Document, map[string]any{
-		"version": v.Version, "status": "published", "approved_by": approver, "public_domain": a.PublicDomain,
+		"version": v.Version, "status": "published", "approved_by": approver, "public_domain": a.PublicDomain, "aliases": a.Aliases,
 		"published_at": time.Now().UTC().Format(time.RFC3339),
 	})
 	if err != nil {

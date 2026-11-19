@@ -38,6 +38,32 @@ prototype.
 
 ## Entries
 
+### 2026-11-19 — Other domains per site, connector releases in the panel
+
+- **Branch:** feat/aliases-connector-version
+- **What:**
+  - contracts: map `meta.aliases`; API `PUT /apps/{app}/aliases`, `App.aliases`;
+    `Connector.online`, `versions`, `outdated` and `platform_version`.
+  - gateway: aliases registered with the sites (a domain belongs to one
+    site), certificates allowed for them (`/tls/allowed`), requests
+    redirected to the public domain (301, 308 for writes; the path kept,
+    never another host).
+  - panel-api: aliases stored (migration 0011, unique across public domains
+    and aliases), written in meta at publish, and the published version
+    signed again when they change (same version); the gateways' ETag now
+    covers the signature. Connectors list and Status read the release of
+    each tunnel from the relays; older than the platform: outdated (Status:
+    degraded).
+  - panel-ui: Isolation → Other domains; Connectors: state, release,
+    update notice; the install command uses the platform's release instead
+    of `latest`.
+  - docs: map format, guides, release notes.
+- **Why:** almost every site has two names (www and bare); a connector left
+  on an old release silently loses features.
+- **Status:** tests for alias registration and conflicts, redirects,
+  republishing, release comparison.
+- **Next steps:** owner's lab tests, then the `v0.1.0` tag.
+
 ### 2026-11-19 — Forgotten password, alerts, backups, raw uploads
 
 - **Branch:** feat/mvp-ops

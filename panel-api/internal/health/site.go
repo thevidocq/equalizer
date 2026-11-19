@@ -36,6 +36,8 @@ type Input struct {
 	MapVersion        int             // 0: nothing published
 	Map               json.RawMessage // the published document
 	Tunnels           map[string]int  // nil: relays not reachable
+	Versions          []string        // release of each tunnel of the site's connector
+	Platform          string          // release of the platform
 	Served, Errors    int             // last 15 minutes
 	Traffic           bool            // false: the log store did not answer
 	Exposure          string          // closed, exposed, error, pending, …
@@ -74,6 +76,9 @@ func Evaluate(in Input) Site {
 		s.Checks = append(s.Checks, Check{"Connector", NotUsed, "the site is reached directly"})
 	case in.Tunnels == nil:
 		s.Checks = append(s.Checks, Check{"Connector", Unknown, "the relay does not answer"})
+	case in.Tunnels[cn] > 0 && outdated(in.Versions, in.Platform) != "":
+		s.Checks = append(s.Checks, Check{"Connector", Degraded, fmt.Sprintf("%s online, release %s older than the platform's %s: update it",
+			cn, outdated(in.Versions, in.Platform), in.Platform)})
 	case in.Tunnels[cn] > 0:
 		s.Checks = append(s.Checks, Check{"Connector", OK, fmt.Sprintf("%s online", cn)})
 	default:

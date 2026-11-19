@@ -81,6 +81,19 @@ func (p *Probe) get(ctx context.Context, url string, out any) error {
 // Tunnels counts the open tunnels per connector over all relay replicas.
 // ok is false when no replica answered.
 func (p *Probe) Tunnels(ctx context.Context) (map[string]int, bool) {
+	info, ok := p.TunnelVersions(ctx)
+	if !ok {
+		return nil, false
+	}
+	out := map[string]int{}
+	for id, vs := range info {
+		out[id] = len(vs)
+	}
+	return out, true
+}
+
+// TunnelVersions lists, per connector, the release of each open tunnel.
+func (p *Probe) TunnelVersions(ctx context.Context) (map[string][]string, bool) {
 	if p.RelayAdmin == "" {
 		return nil, false
 	}
@@ -88,11 +101,12 @@ func (p *Probe) Tunnels(ctx context.Context) (map[string]int, bool) {
 	if err != nil {
 		return nil, false
 	}
-	out, answered := map[string]int{}, false
+	out, answered := map[string][]string{}, false
 	for _, a := range addrs {
 		var snap struct {
 			Tunnels []struct {
 				ConnectorID string `json:"connector_id"`
+				Version     string `json:"version"`
 			} `json:"tunnels"`
 		}
 		if p.get(ctx, "http://"+a+"/v1/tunnels", &snap) != nil {
@@ -100,7 +114,7 @@ func (p *Probe) Tunnels(ctx context.Context) (map[string]int, bool) {
 		}
 		answered = true
 		for _, t := range snap.Tunnels {
-			out[t.ConnectorID]++
+			out[t.ConnectorID] = append(out[t.ConnectorID], t.Version)
 		}
 	}
 	return out, answered

@@ -26,6 +26,8 @@ jobs:
         run: npm run check:api
       - name: Module boundaries and file size
         run: npm run lint:boundaries
+      - name: Help matches docs/manual
+        run: npm run check:help
       - name: Type check and build
         run: npm run build
       - name: Tests

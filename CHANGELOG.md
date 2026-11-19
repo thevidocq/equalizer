@@ -38,6 +38,29 @@ prototype.
 
 ## Entries
 
+### 2026-11-19 — Add the in-panel Help, scroll long map documents
+
+- **Branch:** feat/help-guides
+- **What:**
+  - panel-ui: **Help** above the account in the sidebar
+    (`features/help`): topics on the left (macro topics and topics), search
+    across the guide, previous/next. Customers get the customer guide,
+    platform users the administrator guide.
+  - docs: `docs/manual/tenant.md` and `admin.md` rewritten as guides
+    (`##` macro topics, `###` topics); they are the only source: `npm run
+    sync:help` copies them and their screenshots into the panel, CI fails
+    when the copy is stale (`check:help`).
+  - panel-ui: the map document of a version and the editor scroll inside a
+    box with an always-visible scrollbar; the sidebar stays in place.
+  - INSTALL: admin pages are served (not 404), maps start from templates.
+  - Screenshots taken again (scrollbars visible).
+- **Why:** owner's requests: a guide inside the product for customers and
+  administrators; long maps made the page and the screenshots endless.
+- **Status:** tests pass (parser and search covered); help checked in the
+  browser for both kinds of user.
+- **Next steps:** login with the identity provider on chosen paths only
+  (owner's request, to be agreed).
+
 ### 2026-11-19 — Keep the tagline within the width of the name
 
 - **Branch:** fix/logo-tagline

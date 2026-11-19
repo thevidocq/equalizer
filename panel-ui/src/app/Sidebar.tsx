@@ -16,7 +16,7 @@ export function Sidebar() {
   const tenant = me?.tenant ?? "";
 
   return (
-    <aside className="flex w-64 shrink-0 flex-col gap-6 bg-ink px-3 py-5 text-paper">
+    <aside className="sticky top-0 flex h-screen w-64 shrink-0 flex-col gap-6 overflow-y-auto bg-ink px-3 py-5 text-paper">
       <div className="px-3"><Logo inverted /></div>
       {tenant ? (
         <nav aria-label="Protected sites" className="flex flex-col gap-1">
@@ -41,6 +41,7 @@ export function Sidebar() {
         {me?.platform_role ? <NavLink to="/activity" end className={link}>Activity</NavLink> : null}
       </nav>
       <div className="mt-auto flex flex-col gap-1 border-t border-paper/15 px-3 pt-4 text-sm">
+        <NavLink to="/help" className={({ isActive }) => `${isActive ? "text-paper" : "text-paper/75"} hover:text-paper`}>Help</NavLink>
         <NavLink to="/account" className="truncate text-paper/75 hover:text-paper" title="Your account">{me?.email}</NavLink>
         <button type="button" className="text-left text-paper/75 hover:text-paper" onClick={() => logout.mutate(undefined, { onSettled: () => navigate("/login") })}>
           Log out

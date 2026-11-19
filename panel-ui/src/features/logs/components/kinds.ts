@@ -64,6 +64,11 @@ const reasons: Record<string, string> = {
   oidc_bad_callback: "Login answer not valid",
   oidc_no_pending_login: "Login answer without a login",
   oidc_exchange_failed: "Identity provider did not answer",
+  body_too_large: "Upload or body too large",
+  malformed_body: "Body not readable",
+  unsupported_body: "Kind of body not accepted",
+  raw_type: "File not what it claims",
+  websocket_not_supported: "WebSocket not supported yet",
 };
 
 /** A short line for the table: the field name first when there is one. */
@@ -84,6 +89,10 @@ const explain: Record<string, string> = {
   oidc_no_role: "The user logged in with the identity provider, but is in none of the groups the map lets in.",
   oidc_invalid_token: "The identity provider's token failed the checks (signature, issuer, audience, expiry or nonce): nobody was logged in.",
   oidc_bad_callback: "A login answer did not match the login this browser started: refused against forged logins.",
+  body_too_large: "The body was larger than the area allows (max_body_kb). For uploads, raise the size in a new version of the map.",
+  unsupported_body: "The body is neither a form, JSON, XML, text nor a file: it cannot be rebuilt, so it never reaches the legacy site.",
+  raw_type: "A file sent as the whole body did not match its declared type, or was a page, a script or a program.",
+  websocket_not_supported: "The page opened a WebSocket: not supported yet. Most sites fall back to ordinary requests.",
 };
 
 const byType: Partial<Record<EventType, string>> = {

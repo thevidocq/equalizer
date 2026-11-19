@@ -3,17 +3,21 @@ import { useParams } from "react-router";
 import { Button, Notice, PageHeader, SelectField, TextField, useToast } from "@/shared/ui";
 import { describeError } from "@/shared/api/errors";
 import { useLLM, useLLMActions, type LLMInput } from "../hooks/useLLM";
+import { useAlerts } from "../hooks/useAlerts";
+import { AlertsForm } from "../components/AlertsForm";
 
 const models: Record<LLMInput["provider"], string> = { anthropic: "claude-haiku-5-5", openai: "gpt-5-mini", local: "llama3.1" };
 
-/** Tenant settings: the AI model used by discovery. */
+/** Tenant settings: email alerts, the AI model used by discovery. */
 export function SettingsPage() {
   const tenant = useParams().tenant ?? "";
   const llm = useLLM(tenant);
+  const alerts = useAlerts(tenant);
   if (!llm.data && !llm.isError) return null;
   return (
     <div className="flex flex-col gap-6">
       <PageHeader title="Settings" />
+      {alerts.data ? <AlertsForm key={String(alerts.dataUpdatedAt)} tenant={tenant} current={alerts.data} /> : null}
       {llm.isError ? <Notice tone="error">{describeError(llm.error)}</Notice> : null}
       {llm.data ? <LLMForm key={llm.data.provider ?? "none"} tenant={tenant} current={llm.data} /> : null}
     </div>

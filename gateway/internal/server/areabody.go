@@ -10,6 +10,7 @@ import (
 
 	"github.com/thevidocq/equalizer/gateway/internal/mapmodel"
 	areabody "github.com/thevidocq/equalizer/gateway/internal/rebuild"
+	"github.com/thevidocq/equalizer/gateway/internal/upload"
 )
 
 // maxMemoryBody bounds the bodies rebuilt in memory (forms, JSON, XML,
@@ -46,6 +47,8 @@ func (p *Public) areaBody(w http.ResponseWriter, r *http.Request, a *mapmodel.Ar
 	ctype := r.Header.Get("Content-Type")
 	if mt, params, err := mime.ParseMediaType(ctype); err == nil && mt == "multipart/form-data" {
 		return spoolMultipart(src, params["boundary"], cs)
+	} else if err == nil && upload.IsRawType(mt) {
+		return spoolRaw(src, mt)
 	}
 	raw, err := io.ReadAll(io.LimitReader(src, maxMemoryBody+1))
 	if err != nil || len(raw) > maxMemoryBody {
@@ -87,6 +90,39 @@ func spoolMultipart(src io.Reader, boundary, cs string) (*rebuiltBody, int, stri
 		return nil, http.StatusInternalServerError, "spool_failed"
 	}
 	b.r, b.size, b.ctype = f, size, ctype
+	return b, 0, ""
+}
+
+// spoolRaw keeps a file sent as the whole body (some JavaScript uploaders)
+// in a temporary file, after checking that its bytes are what it claims.
+func spoolRaw(src io.Reader, mt string) (*rebuiltBody, int, string) {
+	head := make([]byte, 512)
+	n, err := io.ReadFull(src, head)
+	if err != nil && !errors.Is(err, io.ErrUnexpectedEOF) && !errors.Is(err, io.EOF) {
+		return bodyError(err, false)
+	}
+	head = head[:n]
+	if n == 0 {
+		return &rebuiltBody{size: 0}, 0, ""
+	}
+	ctype, err := upload.CheckRaw(mt, head)
+	if err != nil {
+		return nil, http.StatusUnsupportedMediaType, "raw_type"
+	}
+	f, err := os.CreateTemp("", "eq-upload-*")
+	if err != nil {
+		return nil, http.StatusInternalServerError, "spool_failed"
+	}
+	b := &rebuiltBody{file: f, ctype: ctype}
+	size, err := io.Copy(f, io.MultiReader(bytes.NewReader(head), src))
+	if err == nil {
+		_, err = f.Seek(0, io.SeekStart)
+	}
+	if err != nil {
+		b.close()
+		return bodyError(err, false)
+	}
+	b.r, b.size = f, size
 	return b, 0, ""
 }
 

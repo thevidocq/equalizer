@@ -25,10 +25,20 @@ func (s *Server) tenantStatus(w http.ResponseWriter, r *http.Request, u *auth.Us
 	}
 	ctx, cancel := context.WithTimeout(r.Context(), 8*time.Second)
 	defer cancel()
-	apps, err := s.Store.Apps(ctx, tenant)
+	sites, logsOK, err := s.SiteStatuses(ctx, tenant)
 	if err != nil {
 		s.storeError(w, r, err)
 		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"sites": sites, "checked_at": time.Now().UTC(), "logs_available": logsOK})
+}
+
+// SiteStatuses evaluates every site of a tenant, as the status page shows
+// them (also read by the email alerts).
+func (s *Server) SiteStatuses(ctx context.Context, tenant string) ([]health.Site, bool, error) {
+	apps, err := s.Store.Apps(ctx, tenant)
+	if err != nil {
+		return nil, false, err
 	}
 	var tunnels map[string]int
 	if s.Health != nil {
@@ -43,15 +53,14 @@ func (s *Server) tenantStatus(w http.ResponseWriter, r *http.Request, u *auth.Us
 		if v, err := s.Store.Published(ctx, a.ID); err == nil {
 			in.MapVersion, in.Map = v.Version, v.Document
 		} else if !errors.Is(err, store.ErrNotFound) {
-			s.storeError(w, r, err)
-			return
+			return nil, false, err
 		}
 		in.Served, in.Errors = recent[a.ID]["request.served"], recent[a.ID]["legacy.error"]
 		site := health.Evaluate(in)
 		site.Days = health.Days(dates, errs[a.ID], drops[health.Connector(in.Map)])
 		sites = append(sites, site)
 	}
-	writeJSON(w, http.StatusOK, map[string]any{"sites": sites, "checked_at": time.Now().UTC(), "logs_available": logsOK})
+	return sites, logsOK, nil
 }
 
 // statusLogs reads traffic and history; logsOK is false without a log store.

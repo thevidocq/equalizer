@@ -56,6 +56,13 @@ pending invitations can be revoked.
 
 ![People](/help-img/people.png)
 
+### Forgotten password
+
+**Forgot your password?** on the login page sends a link to the account's
+email; it works once, for one hour, and logs out every browser of the
+account. The authenticator app stays as it is. A lost authenticator is
+reset by an administrator of your organisation (**People**).
+
 ### Privacy
 
 The platform operator sees your organisation's name and, per site, its
@@ -261,6 +268,14 @@ back, exports.
 
 ## Settings
 
+### Alerts
+
+**Settings → Alerts**: an email when a site stops working for more than a
+few minutes (connector offline, legacy site failing, site reachable again
+on its old IP) and when it works again. It goes to the administrators of
+your organisation and to up to five more addresses (an on-call mailbox, a
+ticketing address). On by default; each change is sent once.
+
 ### AI model
 
 **Settings → AI**: your own model (Claude, OpenAI or your own server) names
@@ -306,7 +321,9 @@ of device.
 ### Uploads
 
 Real type read from the bytes, size limit, random name, images rebuilt
-from their pixels. Equalizer does not scan for viruses: keep your antivirus
+from their pixels. Files sent by JavaScript uploaders as the whole request
+(not as a form) are checked the same way: their bytes must be what they
+claim, and pages, scripts and programs are refused. Equalizer does not scan for viruses: keep your antivirus
 or EDR on the legacy server.
 
 ## Troubleshooting
@@ -328,8 +345,10 @@ object not shown to that user (403), a method the area does not allow
 
 "Body too large" (413) in Logs: raise the upload size of the area
 (`max_body_kb`, or start a new version from the template with a larger
-**Max upload**). Request bodies that are neither forms, JSON, XML nor text
-are refused (415).
+**Max upload**). "File not what it claims" (415): a file sent as the whole
+request did not match its type, or was a page, a script or a program.
+Other bodies that are neither forms, JSON, XML, text nor files are refused
+(415).
 
 ### Live features do not work
 

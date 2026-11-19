@@ -128,6 +128,13 @@ tokens, database password, authenticator key. Never commit them.
 
 ## Routine procedures
 
+### Backup and restore
+
+`deploy/compose/backup.sh` saves the panel database, the secrets and
+`.env` in one archive (encrypted with `EQ_BACKUP_PASSPHRASE`); run it every
+night from cron and copy the archives off the VPS. `restore.sh` puts an
+archive back, on the same VPS or a new one (`INSTALL.md`, section 10).
+
 ### Common situations
 
 | Situation | What to do |
@@ -137,6 +144,8 @@ tokens, database password, authenticator key. Never commit them.
 | Connector offline for a tenant | The connector machine or its network: the tenant restarts it (`INSTALL.md`, section 7) |
 | Certificate missing for a domain | The domain must point to the VPS and have a published map (`/tls/allowed`) |
 | Exposure on a tenant's site | Their legacy site answers on its old IP: they must close it (Site → Isolation) |
+| Someone forgot the password | **Forgot your password?** on the login page (needs the mail server); a lost authenticator is reset by their administrator; platform users use one of their recovery codes |
+| Customers get no alerts or links | The mail server: `EQ_SMTP_ADDR`; without it nothing is emailed |
 
 ### Update
 

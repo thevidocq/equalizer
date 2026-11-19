@@ -116,7 +116,8 @@ docker compose --profile tools run --rm eqtool formkey -out secrets/mfa.key     
 install -m 600 /dev/null secrets/smtp.password && nano secrets/smtp.password
 ```
 
-Invitations are sent by email: set `EQ_SMTP_ADDR`, `EQ_SMTP_USER` and
+Invitations, forgotten-password links and the customers' alerts are sent
+by email: set `EQ_SMTP_ADDR`, `EQ_SMTP_USER` and
 `EQ_MAIL_FROM` in `.env` (port 587 STARTTLS or 465 TLS). Without a mail
 server set `EQ_MAIL_MODE=off`: tenants are created but nobody can join, so
 use it only for a first test.
@@ -293,7 +294,36 @@ docker compose up -d --build
 Database migrations run on their own when `panel-api` starts. Update the
 connectors to the same release (section 7).
 
-## 10. Uninstall
+## 10. Backup and restore
+
+`deploy/compose/backup.sh` saves the panel database (tenants, people, maps,
+connectors, settings), the secrets and `.env` in one archive; logs are not
+included (they expire after 30 days). With `EQ_BACKUP_PASSPHRASE` set the
+archive is encrypted; without it, it holds the secrets in clear.
+
+```bash
+cd deploy/compose
+EQ_BACKUP_PASSPHRASE='a long passphrase' ./backup.sh /var/backups/equalizer
+```
+
+Every night, keeping the last 14 (`EQ_BACKUP_KEEP`), with `crontab -e`:
+
+```text
+17 3 * * * cd /opt/equalizer/deploy/compose && EQ_BACKUP_PASSPHRASE=$(cat /root/.eq-backup-pass) ./backup.sh /var/backups/equalizer >> /var/log/equalizer-backup.log 2>&1
+```
+
+Copy the archives off the VPS (another server, object storage). To
+restore, on the same VPS or a new one with the same release checked out:
+
+```bash
+EQ_BACKUP_PASSPHRASE='a long passphrase' ./restore.sh /var/backups/equalizer/equalizer-backup-20261119T031700Z.tar.gz.enc
+```
+
+It asks to type `RESTORE`, replaces the panel database and puts back the
+secrets and `.env` only where they are missing (`EQ_RESTORE_SECRETS=yes`
+to overwrite them). Gateways reload the published maps within a minute.
+
+## 11. Uninstall
 
 ```bash
 cd deploy/compose

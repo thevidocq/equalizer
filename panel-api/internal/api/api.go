@@ -37,6 +37,7 @@ type Server struct {
 	MFAThrottle   *auth.Throttle
 	Mail          mail.Sender // invitations
 	PanelURL      string      // base of the links in emails, e.g. https://panel.example.com
+	MailAvailable bool        // the platform sends email (alerts can work)
 	// Destinations a map may reach in direct mode (EQ_DIRECT_DESTINATIONS);
 	// empty: tenant maps must use a connector.
 	DirectDestinations map[string]bool
@@ -60,6 +61,9 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("POST /v1/auth/mfa/enable", s.partial(s.mfaEnable))
 	mux.HandleFunc("POST /v1/auth/mfa/verify", s.partial(s.mfaVerify))
 	mux.HandleFunc("POST /v1/auth/password", s.authed(s.changePassword))
+	mux.HandleFunc("POST /v1/auth/password-reset", s.requestReset)
+	mux.HandleFunc("GET /v1/auth/password-reset/{token}", s.viewReset)
+	mux.HandleFunc("POST /v1/auth/password-reset/{token}", s.finishReset)
 	// Tenants and users
 	mux.HandleFunc("GET /v1/tenants", s.authed(s.listTenants))
 	mux.HandleFunc("POST /v1/tenants", s.authed(s.createTenant))
@@ -86,6 +90,8 @@ func (s *Server) Handler() http.Handler {
 	// Maps
 	mux.HandleFunc("GET /v1/map-templates", s.authed(s.listTemplates))
 	// Discovery and the tenant's AI
+	mux.HandleFunc("GET /v1/tenants/{tenant}/alerts", s.authed(s.getAlerts))
+	mux.HandleFunc("PUT /v1/tenants/{tenant}/alerts", s.authed(s.putAlerts))
 	mux.HandleFunc("GET /v1/tenants/{tenant}/llm", s.authed(s.getLLM))
 	mux.HandleFunc("PUT /v1/tenants/{tenant}/llm", s.authed(s.putLLM))
 	mux.HandleFunc("DELETE /v1/tenants/{tenant}/llm", s.authed(s.deleteLLM))

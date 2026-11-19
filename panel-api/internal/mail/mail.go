@@ -10,6 +10,7 @@ import (
 	"net"
 	"net/smtp"
 	"strings"
+	"sync"
 	"time"
 )
 
@@ -110,10 +111,22 @@ func (s SMTP) Send(ctx context.Context, m Message) error {
 }
 
 // Recorder keeps messages in memory (tests).
-type Recorder struct{ Sent []Message }
+type Recorder struct {
+	mu   sync.Mutex
+	Sent []Message
+}
 
 // Send implements Sender.
 func (r *Recorder) Send(_ context.Context, m Message) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
 	r.Sent = append(r.Sent, m)
 	return nil
+}
+
+// Messages returns a copy of what was sent so far.
+func (r *Recorder) Messages() []Message {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	return append([]Message(nil), r.Sent...)
 }

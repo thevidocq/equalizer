@@ -22,6 +22,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/thevidocq/equalizer/panel-api/internal/alerts"
 	"github.com/thevidocq/equalizer/panel-api/internal/api"
 	"github.com/thevidocq/equalizer/panel-api/internal/auth"
 	"github.com/thevidocq/equalizer/panel-api/internal/config"
@@ -137,6 +138,11 @@ func run() error {
 		log.Warn("EQ_LOKI_URL not set: the Logs page is not available")
 	}
 	go scheduleDiscoveries(ctx, srv, log.With(slog.String("module", "discovery")))
+	srv.MailAvailable = cfg.MailMode != "off"
+	if srv.MailAvailable {
+		go (&alerts.Runner{Store: st, Statuses: srv.SiteStatuses, Mail: sender, PanelURL: cfg.PanelURL,
+			Log: log.With(slog.String("module", "alerts"))}).Run(ctx)
+	}
 	ready := func(w http.ResponseWriter, r *http.Request) {
 		if err := conn.PingContext(r.Context()); err != nil {
 			http.Error(w, `{"status":"not_ready","reason":"database"}`, http.StatusServiceUnavailable)

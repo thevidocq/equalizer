@@ -36,6 +36,7 @@ requests to the legacy application and renders pages with faithful rendering.
 | File uploads: real type sniffed, size bound, images rebuilt with `scan: cdr`, random names, multipart rebuilt towards the legacy app; no virus scan (left to the security stack) | Done |
 | Areas: whole sections served as they are (admin included), path/query/body rebuilt (forms, multipart, JSON, XML without DOCTYPE, text), legacy status and content passed on, downloads streamed | Done |
 | Map check for the panel on the admin endpoint (`POST /maps/check`): the same checks as loading a published map | Done |
+| Tries for the agent (`POST /maps/try`, service token): a draft signed by the panel for tries is served in dry-run (verdict, nothing forwarded) or preview (GET/HEAD through the connector); no rate limits, events kept out of the logs, dry-runs never change a session (docs/agent.md) | Done |
 | Login with the identity provider (OIDC, code flow with PKCE, ID token checked with the standard library, groups → roles, `/.eq/oidc/*`), off by default; client secrets from the panel (`EQ_OIDC_SECRETS_URL`, default next to `EQ_MAP_URL`) | Done |
 | Per-user legacy accounts behind OIDC | To do |
 | Connector mode through tunnel-relay (destination checked against `legacy.reach.allow`, relay and connector errors mapped to 502) | Done |

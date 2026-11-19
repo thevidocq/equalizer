@@ -38,6 +38,42 @@ prototype.
 
 ## Entries
 
+### 2026-11-19 — Let the agent try a draft map on the gateway
+
+- **Branch:** feat/maps-try (on top of docs/agent-study)
+- **What:**
+  - gateway: `POST /maps/try` on the admin endpoint (`server/try.go`,
+    `server/trysite.go`), behind the panel's service token (`EQ_MAP_TOKEN`;
+    without it tries answer 404). The draft must be signed for tries
+    (`mapstore/try.go`: purpose `try`, expiry signed, at most two hours;
+    the signed message has its own prefix, so it never verifies as a
+    published map). `dry_run` runs the visitor's code path with a transport
+    that reads the rebuilt request and answers 204: nothing is forwarded;
+    the verdict says the entry, whether only the area serves it, and the
+    refusal (status, reason, field, never the value). `preview` serves
+    GET/HEAD through the connector and returns the rebuilt answer. Tries
+    use `limits.None` (no counters), keep their events out of the logs,
+    and dry-runs read sessions through `session.ReadOnly`. A test account's
+    legacy cookies open a try session with its role. Compiled drafts are
+    cached by payload (16).
+  - `site.Options.Transport` replaces the way to the legacy site.
+  - panel-api: `signing.SignTry` (same message as the gateway, checked by
+    a shared test vector).
+  - Contract: `gateway-admin.yaml` gets 400, `cookies` and the session
+    semantics. Docs: agent.md (step 2 done), gateway README.
+- **Why:** step 2 of docs/agent.md: the agent's two checks need to ask the
+  gateway what it would do with a draft, without touching the legacy site.
+- **Status:** unit tests (refused callers and maps, attacks refused with
+  no legacy hit, rebuilt preview, seeded session). Not used by the agent
+  yet; panel-api does not hand out try maps yet.
+- **Next steps:**
+  1. Agent: browser and read-only proxy, accounts, forms, declared APIs,
+     roles and ownership, tighter map.
+  2. Agent: the two checks and the score; panel-api verification queue
+     (hands the agent a try map with `SignTry`).
+  3. Panel: score, still open, Verify button.
+  4. Lab: studies of the four lab sites.
+
 ### 2026-11-19 — Design the agent's study of legacy sites
 
 - **Branch:** docs/agent-study (on top of feat/site-certificates)

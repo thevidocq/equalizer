@@ -40,6 +40,9 @@ var ErrConnectorUnavailable = transport.ErrConnectorUnavailable
 type Options struct {
 	Relay  *transport.RelayConfig // nil: connector mode answers 502
 	Limits limits.Store           // nil: counters in this process only
+	// Transport replaces the way to the legacy site, whatever the reach
+	// mode (the agent's dry-run tries: nothing is forwarded).
+	Transport http.RoundTripper
 }
 
 // How long to wait when the legacy application is saturated.
@@ -156,6 +159,9 @@ func BuildWith(m *mapmodel.Model, opts Options) (*Site, error) {
 		}
 	default:
 		return nil, fmt.Errorf("unknown legacy.reach.mode: %q", m.Legacy.Reach.Mode)
+	}
+	if opts.Transport != nil {
+		tr = opts.Transport
 	}
 	lc, err := legacyclient.New(m.Legacy.BaseURL, tr, m.Legacy.UserAgent, timeout)
 	if err != nil {

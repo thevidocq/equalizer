@@ -90,6 +90,7 @@ paths:
           content:
             application/json:
               schema: { $ref: "#/components/schemas/TryResult" }
+        "400": { description: "Unreadable request, unknown mode, a path that is not a path, a body in preview, or a session role the map does not have" }
         "401": { description: Missing or wrong service token }
         "403": { description: "Draft not signed for try, expired, or preview asked for a method other than GET/HEAD" }
         "422": { description: The draft would not load (same checks as /maps/check) }
@@ -117,9 +118,9 @@ components:
         session:
           type: [object, "null"]
           description: >-
-            A test account's session. The agent logs in to the legacy site itself (its one allowed POST) and hands
-            the legacy cookies here; the gateway attaches them like a visitor's session kept in Redis, only for
-            this request, and never stores them
+            Opens a try session for a test account. The agent logs in to the legacy site itself (its one allowed
+            POST) and hands the legacy cookies here; the gateway keeps them in a session like a visitor's, with the
+            given role, and returns its cookie in cookies. Later tries send it in request.headers.Cookie
           properties:
             role: { type: string, description: "Map role of the account" }
             legacy_cookies: { type: object, additionalProperties: { type: string } }
@@ -135,7 +136,7 @@ components:
       type: object
       required: [accepted]
       properties:
-        accepted: { type: boolean }
+        accepted: { type: boolean, description: "dry_run: the gateway would forward the request; preview: it was served without a refusal" }
         entry: { type: [string, "null"], description: "Map entry that matched (route, form, api, asset or area id)" }
         area: { type: boolean, description: "Served only by the generic area" }
         refusal:
@@ -144,6 +145,12 @@ components:
             status: { type: integer }
             reason: { type: string, description: "Same reasons as the gateway's security events" }
             field: { type: [string, "null"], description: "Parameter or field refused (never its value)" }
+        cookies:
+          type: array
+          items: { type: string }
+          description: >-
+            Set-Cookie values to keep for the next tries: the try session opened with session, and in preview the
+            gateway's own cookies (session, form binding). A dry-run changes no session and sets none
         response:
           type: [object, "null"]
           description: Preview only

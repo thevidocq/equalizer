@@ -216,8 +216,11 @@ never sends page contents to a model.
     panel handed to the agent can be tried, and only towards its own
     tenant's connector;
   - for test accounts, the agent logs in to the legacy site itself and
-    hands the legacy cookies with the request; the gateway uses them for
-    that request only.
+    hands the legacy cookies over; the gateway opens a try session with
+    them and the account's role, and returns its cookie for the next tries;
+  - tries use no rate limits (the attack set measures the map, not the
+    limits), their events stay in the answer (an attack set never reaches
+    the security logs), and a dry-run never changes a session.
 
 ## Rollout
 
@@ -225,8 +228,8 @@ Each step is its own pull request, tested in the lab before the next.
 
 | Step | What | Status |
 | --- | --- | --- |
-| 1 | This document and the contracts | This PR |
-| 2 | Gateway: `POST /maps/try` (preview and dry-run) | Planned |
+| 1 | This document and the contracts | Done |
+| 2 | Gateway: `POST /maps/try` (preview and dry-run); panel-api: signing for tries | Done |
 | 3 | Agent: browser and read-only proxy, several accounts, forms and declared APIs, roles and ownership, tighter map | Planned |
 | 4 | Agent: the two checks and the score; panel-api verification queue | Planned |
 | 5 | Panel: score and "still open" on the Discovery tab, Verify button on drafts | Planned |

@@ -3,7 +3,6 @@ package origin
 import (
 	"bytes"
 	"net/url"
-	"strings"
 	"testing"
 )
 
@@ -21,12 +20,13 @@ func TestRewrite(t *testing.T) {
 	for cut := 1; cut < 40; cut++ {
 		var out bytes.Buffer
 		w := r.Writer(&out)
-		src := `{"a":"http://10.0.0.5:8080/x","b":"https:\/\/10.0.0.5:8080\/y"}`
+		src := `{"a":"http://10.0.0.5:8080/x","b":"https:\/\/10.0.0.5:8080\/y","c":"http://10.0.0.5:80801/","d":"http://10.0.0.5:8080"}`
 		for i := 0; i < len(src); i += cut {
 			_, _ = w.Write([]byte(src[i:min(i+cut, len(src))]))
 		}
 		_ = w.Close()
-		if strings.Contains(out.String(), "10.0.0.5") || !strings.Contains(out.String(), `https:\/\/portal.acme.test\/y`) {
+		want := `{"a":"https://portal.acme.test/x","b":"https:\/\/portal.acme.test\/y","c":"http://10.0.0.5:80801/","d":"https://portal.acme.test"}`
+		if out.String() != want {
 			t.Fatalf("cut %d: %s", cut, out.String())
 		}
 	}
@@ -35,6 +35,18 @@ func TestRewrite(t *testing.T) {
 	}
 	if !Text("application/json; charset=utf-8") || Text("image/png") || !Text("application/rss+xml") {
 		t.Error("Text")
+	}
+}
+
+func TestReverse(t *testing.T) {
+	r := NewReverse(mustURL("http://www.acme.test"), "www.acme.test")
+	in := `siteurl=https%3A%2F%2Fwww.acme.test&home=https%3a%2f%2fwww.acme.test%2F {"url":"https:\/\/www.acme.test"} https://www.acme.test/x https://www.acme.testing/ https://www.acme.test.evil.example/ https://www.acme.test.`
+	want := `siteurl=http%3A%2F%2Fwww.acme.test&home=http%3a%2f%2fwww.acme.test%2F {"url":"http:\/\/www.acme.test"} http://www.acme.test/x https://www.acme.testing/ https://www.acme.test.evil.example/ http://www.acme.test.`
+	if got := string(r.Bytes([]byte(in))); got != want {
+		t.Fatalf("got  %s\nwant %s", got, want)
+	}
+	if NewReverse(mustURL("https://www.acme.test"), "www.acme.test") != nil {
+		t.Error("same origin: nothing to undo")
 	}
 }
 

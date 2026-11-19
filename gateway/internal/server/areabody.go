@@ -10,6 +10,7 @@ import (
 
 	"github.com/thevidocq/equalizer/gateway/internal/mapmodel"
 	areabody "github.com/thevidocq/equalizer/gateway/internal/rebuild"
+	"github.com/thevidocq/equalizer/gateway/internal/site"
 	"github.com/thevidocq/equalizer/gateway/internal/upload"
 )
 
@@ -34,7 +35,7 @@ func (b *rebuiltBody) close() {
 }
 
 // areaBody reads and rebuilds the request body within the area's limit.
-func (p *Public) areaBody(w http.ResponseWriter, r *http.Request, a *mapmodel.Area, cs string) (*rebuiltBody, int, string) {
+func (p *Public) areaBody(w http.ResponseWriter, r *http.Request, st *site.Site, a *mapmodel.Area, cs string) (*rebuiltBody, int, string) {
 	none := &rebuiltBody{size: 0}
 	if r.Body == nil || r.Method == http.MethodGet || r.Method == http.MethodHead {
 		return none, 0, ""
@@ -61,6 +62,7 @@ func (p *Public) areaBody(w http.ResponseWriter, r *http.Request, a *mapmodel.Ar
 	if body == nil {
 		return none, 0, ""
 	}
+	body = st.Inbound.Bytes(body) // the legacy application keeps its own address
 	return &rebuiltBody{r: bytes.NewReader(body), size: int64(len(body)), ctype: out}, 0, ""
 }
 

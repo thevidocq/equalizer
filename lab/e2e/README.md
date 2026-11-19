@@ -27,7 +27,7 @@ Chrome (`/usr/bin/google-chrome`), and root (ports 80/443 and
 
 ```sh
 sudo ./up.sh                 # build, start, create the platform admin
-python3 -m pytest -q tests   # about 8 minutes (the alert test waits for the grace period)
+python3 -m pytest -q tests   # about 10 minutes (the alert test waits for the grace period)
 ./down.sh                    # stop; --clean also removes the data and the hosts line
 ```
 
@@ -43,13 +43,23 @@ The tests run in order and build on each other:
 2. **wordpress**: links in https, accents, pages and search, comments,
    alias redirects, login (no legacy cookie in the browser), remember me,
    REST with nonce, media upload (raw body and form), no mixed content in
-   wp-admin;
+   wp-admin, settings saved with WordPress's own address, an article
+   published from the block editor;
+   then **fidelity**: the same public and admin pages seen directly on
+   WordPress and through Equalizer, compared pixel by pixel, by visible
+   text and by resources that fail to load (before SSO, which changes the
+   login page);
 3. **attacks**: traversal, XSS, XXE, a PHP file sent as an image, unknown
    bodies, forged and hidden headers;
 4. **sso**: OIDC on `/wp-admin/`, `/wp-login.php` and `/xmlrpc.php` only, public pages
    without login, allowed and refused users, tricks around the paths;
 5. **operations**: password reset by email, alert when the connector
    stops and when it comes back.
+
+`python3 fidelity.py` runs the comparison alone (on a lab without SSO, such
+as right after test 2) and writes side-by-side
+images (WordPress on the left, Equalizer on the right) to
+`.run/fidelity/`.
 
 ## Not covered
 

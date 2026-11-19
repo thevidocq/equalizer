@@ -54,6 +54,7 @@ type Site struct {
 	Budget    *budget.Limiter
 	URLs      *legacyurl.Rewriter
 	Origin    *origin.Rewriter // legacy origin → public one in text bodies; nil: nothing to do
+	Inbound   *origin.Rewriter // public origin → legacy one in area queries and bodies
 	Forms     *formmap.Map
 	Pipeline  *pipeline.Pipeline
 	Limits    *limits.Set
@@ -200,6 +201,7 @@ func BuildWith(m *mapmodel.Model, opts Options) (*Site, error) {
 		Budget:    budget.New(m.Defaults.LegacyBudget.MaxConcurrency, budgetWait),
 		URLs:      urls,
 		Origin:    origin.New(lc.Base(), m.Meta.PublicDomain),
+		Inbound:   origin.NewReverse(lc.Base(), m.Meta.PublicDomain),
 		Forms:     formmap.New(lc.Base(), m),
 		Pipeline:  pipeline.New(DefaultSteps()...),
 

@@ -38,6 +38,30 @@ prototype.
 
 ## Entries
 
+### 2026-11-19 — Keep wp-admin faithful: OPTIONS, legacy address in forms
+
+- **Branch:** fix/lab-fidelity
+- **What:**
+  - gateway: `OPTIONS` goes to the legacy application when the area lists
+    it (`server/options.go`); CORS preflights stay answered by the gateway.
+  - gateway `internal/origin`: single-pass scanner that replaces whole host
+    names only and is exact across stream writes; `NewReverse` turns the
+    public origin in area queries and bodies back into the legacy one.
+  - lab: `fidelity.py` and `test_02b_fidelity.py` compare 12 public and
+    admin pages directly and through Equalizer (pixels, text, failed
+    resources); new tests save Settings → General and publish from the
+    block editor; comments are unique per run.
+  - docs: map format and lab README.
+- **Why:** the comparison found that the block editor's `OPTIONS` calls
+  were answered by the gateway with an empty 204, and that forms showed
+  the public https address, so saving WordPress's settings would have
+  changed the site's own address.
+- **Status:** unit tests pass; the clean lab passes 35 of 35 (worst pixel
+  difference 0.06%, the clock on Settings → General).
+- **Next steps:**
+  1. Manual test on a server by the project owner, then tag v0.1.0.
+  2. Log forwarding to S3/block storage, then SIEM.
+
 ### 2026-11-19 — Add local end-to-end lab and fix what it found
 
 - **Branch:** feat/local-lab

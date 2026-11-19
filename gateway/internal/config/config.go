@@ -20,6 +20,7 @@ type Config struct {
 	MapURL          string         // panel-api internal URL of the published map
 	MapToken        string         // token for MapURL
 	UnmappedURL     string         // panel endpoint for refused paths; default next to MapURL
+	OIDCSecretsURL  string         // panel endpoint of OIDC client secrets; default next to MapURL
 	MapPublicKey    string         // Ed25519 public key, base64
 	MapPublicKeyID  string         // expected key identifier
 	TrustedProxies  []netip.Prefix // networks allowed to set X-Forwarded-For
@@ -62,6 +63,10 @@ func FromEnv() (Config, error) {
 	cfg.UnmappedURL = os.Getenv("EQ_UNMAPPED_URL")
 	if cfg.UnmappedURL == "" && strings.HasSuffix(cfg.MapURL, "/v1/internal/maps") {
 		cfg.UnmappedURL = strings.TrimSuffix(cfg.MapURL, "/maps") + "/unmapped"
+	}
+	cfg.OIDCSecretsURL = os.Getenv("EQ_OIDC_SECRETS_URL")
+	if cfg.OIDCSecretsURL == "" && strings.HasSuffix(cfg.MapURL, "/v1/internal/maps") {
+		cfg.OIDCSecretsURL = strings.TrimSuffix(cfg.MapURL, "/maps") + "/oidc"
 	}
 	if cfg.MapURL != "" && cfg.MapToken == "" {
 		return Config{}, fmt.Errorf("EQ_MAP_URL needs EQ_MAP_TOKEN or EQ_MAP_TOKEN_FILE")

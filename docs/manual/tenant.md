@@ -27,6 +27,7 @@ version cannot approve it.
 | Activity | yes | | yes | yes |
 | Map: write drafts, import | yes | yes | | |
 | Map: approve, publish, roll back | yes | | yes | |
+| Login: settings (as a draft) / client secret | yes / yes | yes / | | |
 | Logs | yes | | yes | yes |
 
 ### Joining and inviting
@@ -129,6 +130,18 @@ seconds. Every version can be downloaded with **Download as YAML**.
 
 ![Isolation](../screenshots/isolation.png)
 
+### Optional — Login with your identity provider
+
+Off by default. **Site → Login** turns on the login with your
+organisation's identity provider (Entra ID, Google, Okta, Keycloak…) before
+the site: issuer, client ID, and which group of your provider gets which
+role of the map. **Save as new draft** writes a new version that follows
+the usual review and approval. In your provider register the redirect URI
+shown on the page, and save the client secret there (administrators only;
+encrypted, never shown again).
+
+![Login](../screenshots/login.png)
+
 If a protected site becomes reachable again on its old IP, it turns red on
 the Status page and in Activity.
 
@@ -184,5 +197,6 @@ to this version**: it is live again within 15 seconds.
 
 - Forwarding to your SIEM (Splunk, Sentinel, syslog).
 - Capacity settings (replicas, cache) from the panel.
-- Single sign-on (OIDC) and one legacy account per user.
+- Single sign-on to the panel itself, and one legacy account per user behind
+  the identity provider login.
 - Alerts for known vulnerabilities of the detected CMS version.

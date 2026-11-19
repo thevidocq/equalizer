@@ -38,3 +38,18 @@ func TestCopyMatchesContract(t *testing.T) {
 		t.Fatal("internal/mapschema/gateway-map.schema.json differs from schema/map: copy it again")
 	}
 }
+
+func TestOIDCAuth(t *testing.T) {
+	on := strings.Replace(valid, `"list":{"guest":{}}`, `"list":{"guest":{}},"auth":{"provider":"oidc","issuer":"https://login.example/v2.0","client_id":"abc","roles":[{"group":"*","role":"guest"}]}`, 1)
+	if err := Validate([]byte(on)); err != nil {
+		t.Fatal(err)
+	}
+	for name, bad := range map[string]string{
+		"http issuer": strings.Replace(on, "https://login", "http://login", 1),
+		"no roles":    strings.Replace(on, `,"roles":[{"group":"*","role":"guest"}]`, "", 1),
+	} {
+		if Validate([]byte(bad)) == nil {
+			t.Errorf("%s accepted", name)
+		}
+	}
+}

@@ -19,6 +19,7 @@ export function SiteLayout() {
         { to: `${base}/maps`, label: "Map" },
         { to: `${base}/discovery`, label: "Discovery" },
         { to: `${base}/isolation`, label: "Isolation" },
+        { to: `${base}/login`, label: "Login" },
       ]} />
       <Outlet />
     </div>

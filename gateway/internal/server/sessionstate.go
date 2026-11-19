@@ -88,6 +88,13 @@ func sessionOf(r *http.Request) *sessionState {
 // role returns the visitor's role: the one granted at login, or the map's
 // anonymous role.
 func (ss *sessionState) role(st *site.Site) string {
+	if st.OIDC != nil {
+		// The identity provider decides; the legacy login does not.
+		if ss.s != nil && ss.s.Identity != nil {
+			return ss.s.Identity.Role
+		}
+		return st.Model.Roles.Anonymous
+	}
 	if ss.s != nil && ss.s.Role != "" {
 		return ss.s.Role
 	}

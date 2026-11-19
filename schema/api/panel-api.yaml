@@ -571,6 +571,72 @@ paths:
       security: [{ serviceToken: [] }]
       responses:
         "200": { $ref: "#/components/responses/Object" }
+  /internal/oidc:
+    get:
+      tags: [internal]
+      summary: Client secrets of the sites that log in with OIDC, in clear (used by the gateways, control network only)
+      security: [{ serviceToken: [] }]
+      responses:
+        "200":
+          description: Secrets
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items:
+                    type: array
+                    items:
+                      type: object
+                      required: [app, client_secret]
+                      properties:
+                        app: { type: string }
+                        client_secret: { type: string }
+  /apps/{app}/oidc:
+    get:
+      tags: [apps]
+      summary: >-
+        What the identity provider needs for this site (addresses to register) and whether a client secret is saved.
+        Issuer, client and group → role rules are in the map (roles.auth); OIDC is off until a map turns it on
+      parameters: [{ $ref: "#/components/parameters/app" }]
+      responses:
+        "200":
+          description: OIDC settings kept outside the map
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [redirect_uri, logout_uri, has_secret]
+                properties:
+                  redirect_uri: { type: string, description: "Register it in the identity provider" }
+                  logout_uri: { type: string, description: "Address to allow after logout" }
+                  has_secret: { type: boolean }
+  /apps/{app}/oidc/secret:
+    put:
+      tags: [apps]
+      summary: Save the client secret (tenant administrators); it is sealed and never returned
+      parameters: [{ $ref: "#/components/parameters/app" }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [client_secret]
+              properties:
+                client_secret: { type: string, minLength: 1, maxLength: 1000 }
+      responses:
+        "204": { description: Saved }
+        "403": { $ref: "#/components/responses/Error" }
+        "422": { $ref: "#/components/responses/Error" }
+    delete:
+      tags: [apps]
+      summary: Delete the client secret (public client with PKCE only)
+      parameters: [{ $ref: "#/components/parameters/app" }]
+      responses:
+        "204": { description: Deleted }
+        "403": { $ref: "#/components/responses/Error" }
   /tenants/{tenant}/llm:
     get:
       tags: [llm]

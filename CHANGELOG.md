@@ -35,6 +35,41 @@ Add a section at the top of "Entries" for every commit:
 
 ## Entries
 
+### 2026-11-19 — Login with the identity provider (OIDC), off by default
+
+- **Branch:** `feat/oidc` (on top of `docs/align-screenshots`)
+- **What:**
+  - Map contract: `roles.auth` with `provider: oidc`, issuer (https),
+    client, scopes, groups claim, group → role rules (first match, `*` for
+    everyone), `required`. Without it nothing changes.
+  - gateway `internal/oidc`: discovery, keys (RSA ≥ 2048, EC P-256/P-384;
+    never `none` or HMAC), ID token checks (signature, issuer, audience and
+    azp, expiry, iat, nonce), code flow with PKCE, end-session. Standard
+    library only. `server/oidc.go`: `/.eq/oidc/login|callback|logout`, the
+    gate before routing (pages redirect, APIs and writes 401), login state in
+    the session for 10 minutes, new session id after login, role from the
+    groups only, local return paths only. Refusals are `request.blocked`
+    events (`oidc_*`, `login_required`).
+  - Client secrets: sealed per site in panel-api (`app_oidc`, migration
+    0008), `PUT/DELETE /apps/{app}/oidc/secret` (administrators, recorded
+    without the secret), `GET /apps/{app}/oidc` (addresses to register),
+    `/v1/internal/oidc` for the gateways (`EQ_OIDC_SECRETS_URL`).
+  - Review aid: `oidc_on`, `oidc_off` (high), `oidc_issuer_changed` (high),
+    `oidc_optional`, `oidc_everyone`, `oidc_group`.
+  - panel-ui `features/sitelogin`: Site → Login tab; settings saved as a new
+    draft (usual review and approval), secret saved apart.
+  - Docs: map format, tenant manual (with screenshot), gateway README.
+- **Why:** many legacy sites have a weak login; the organisation's identity
+  provider (with its MFA) goes in front of them without touching them.
+- **Status:** tests pass (end-to-end with a fake provider: login, roles,
+  logout, forged state, tampered signature, unknown group, 401 for APIs;
+  token checks; secrets endpoints; review rules; schema). Panel checked in
+  a browser. Not yet tried with a real provider.
+- **Next steps:**
+  1. Try with Entra ID or Keycloak in the lab.
+  2. One legacy account per user behind the OIDC login.
+  3. Single sign-on to the panel; SIEM forwarding.
+
 ### 2026-11-18 — Documentation aligned, screenshots
 
 - **Branch:** `docs/align-screenshots` (on top of `feat/status-page`)

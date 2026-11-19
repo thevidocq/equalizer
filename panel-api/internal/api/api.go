@@ -101,6 +101,9 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("GET /v1/tenants/{tenant}/logs", s.authed(s.listLogs))
 	mux.HandleFunc("GET /v1/tenants/{tenant}/logs/stats", s.authed(s.logStats))
 	mux.HandleFunc("GET /v1/tenants/{tenant}/logs/export", s.authed(s.exportLogs))
+	mux.HandleFunc("GET /v1/apps/{app}/oidc", s.authed(s.getOIDC))
+	mux.HandleFunc("PUT /v1/apps/{app}/oidc/secret", s.authed(s.putOIDCSecret))
+	mux.HandleFunc("DELETE /v1/apps/{app}/oidc/secret", s.authed(s.deleteOIDCSecret))
 	mux.HandleFunc("GET /v1/tenants/{tenant}/status", s.authed(s.tenantStatus))
 	mux.HandleFunc("GET /v1/status/platform", s.authed(s.platformStatus))
 	mux.HandleFunc("GET /v1/audit", s.authed(s.listAudit))
@@ -114,6 +117,7 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("POST /v1/internal/reviews/claim", s.internal(s.claimReview))
 	mux.HandleFunc("POST /v1/internal/reviews/{id}/result", s.internal(s.reviewResult))
 	mux.HandleFunc("GET /v1/internal/connectors", s.internal(s.internalConnectors))
+	mux.HandleFunc("GET /v1/internal/oidc", s.internal(s.internalOIDC))
 	mux.HandleFunc("/v1/", func(w http.ResponseWriter, r *http.Request) { fail(w, http.StatusNotFound, "not_found", "") })
 	if s.UI != nil {
 		mux.Handle("/", s.UI)

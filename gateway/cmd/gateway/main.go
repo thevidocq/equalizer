@@ -22,6 +22,7 @@ import (
 	"github.com/thevidocq/equalizer/gateway/internal/formtoken"
 	"github.com/thevidocq/equalizer/gateway/internal/limits"
 	"github.com/thevidocq/equalizer/gateway/internal/mapstore"
+	"github.com/thevidocq/equalizer/gateway/internal/oidcsecrets"
 	"github.com/thevidocq/equalizer/gateway/internal/server"
 	"github.com/thevidocq/equalizer/gateway/internal/session"
 	"github.com/thevidocq/equalizer/gateway/internal/site"
@@ -110,14 +111,21 @@ func run() error {
 			Log: log.With(slog.String("module", "unmapped"))}
 		go reporter.Run(ctx, time.Minute)
 	}
+	var secrets *oidcsecrets.Source
+	if cfg.OIDCSecretsURL != "" {
+		secrets = &oidcsecrets.Source{URL: cfg.OIDCSecretsURL, Token: cfg.MapToken, Client: &http.Client{Timeout: 10 * time.Second},
+			Log: log.With(slog.String("module", "oidcsecrets"))}
+		go secrets.Run(ctx, 15*time.Second)
+	}
 	public := &server.Public{
-		Unmapped: reporter,
-		Forms:    sealer,
-		Sessions: sessions,
-		Maps:     store,
-		IPs:      clientip.New(cfg.TrustedProxies),
-		Log:      telemetry.Logger(os.Stdout, cfg.Instance, level).With(slog.String("module", "server.public")),
-		Events:   events,
+		OIDCSecrets: secrets,
+		Unmapped:    reporter,
+		Forms:       sealer,
+		Sessions:    sessions,
+		Maps:        store,
+		IPs:         clientip.New(cfg.TrustedProxies),
+		Log:         telemetry.Logger(os.Stdout, cfg.Instance, level).With(slog.String("module", "server.public")),
+		Events:      events,
 	}
 	admin := &server.Admin{Maps: store, Version: version}
 

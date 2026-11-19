@@ -53,6 +53,12 @@ const reasons: Record<string, string> = {
   value_not_allowed: "Value not allowed",
   out_of_range: "Out of range",
   charset_violation: "Characters not allowed",
+  login_required: "Login required",
+  oidc_no_role: "No role for the user's groups",
+  oidc_invalid_token: "Identity provider token refused",
+  oidc_bad_callback: "Login answer not valid",
+  oidc_no_pending_login: "Login answer without a login",
+  oidc_exchange_failed: "Identity provider did not answer",
 };
 
 /** A short line for the table: the field name first when there is one. */
@@ -70,6 +76,9 @@ const explain: Record<string, string> = {
   cross_origin: "A state-changing call came from another site: refused against CSRF.",
   legacy_unreachable: "The legacy application did not answer. Visitors saw the standard error page.",
   connector_unavailable: "The connector of this site is offline: check the server it runs on.",
+  oidc_no_role: "The user logged in with the identity provider, but is in none of the groups the map lets in.",
+  oidc_invalid_token: "The identity provider's token failed the checks (signature, issuer, audience, expiry or nonce): nobody was logged in.",
+  oidc_bad_callback: "A login answer did not match the login this browser started: refused against forged logins.",
 };
 
 const byType: Partial<Record<EventType, string>> = {

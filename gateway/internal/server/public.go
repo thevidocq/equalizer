@@ -33,7 +33,9 @@ type Public struct {
 	Forms    *formtoken.Sealer  // nil: forms are neither bound nor accepted
 	Sessions *session.Manager   // nil: no sessions, every visitor is anonymous
 	Unmapped *unmapped.Reporter // nil: refused paths are not reported to the panel
-	nowFunc  func() time.Time
+	// OIDCSecrets gives the client secrets of sites logging in with OIDC.
+	OIDCSecrets Secrets
+	nowFunc     func() time.Time
 }
 
 // Handler returns the HTTP handler with request_id and access log.
@@ -88,6 +90,13 @@ func (p *Public) handle(w http.ResponseWriter, r *http.Request) string {
 		return ""
 	}
 
+	ss := p.loadSession(r, active)
+	r = withSession(r, ss)
+	w = &commitWriter{ResponseWriter: w, ctx: r.Context(), ss: ss}
+	if p.oidcGate(w, r, active, ss) {
+		return ""
+	}
+
 	m, err := active.Router.Match(r.Method, r.URL.Path)
 	switch {
 	case errors.Is(err, router.ErrNotMapped):
@@ -103,9 +112,6 @@ func (p *Public) handle(w http.ResponseWriter, r *http.Request) string {
 		return ""
 	}
 
-	ss := p.loadSession(r, active)
-	r = withSession(r, ss)
-	w = &commitWriter{ResponseWriter: w, ctx: r.Context(), ss: ss}
 	// Assets: only behaviour blocks, never the page rate limits.
 	if !p.checkLimits(w, r, active, m.Entry.ID, m.Entry.Kind != router.KindAsset) {
 		return m.Entry.ID

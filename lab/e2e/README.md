@@ -69,7 +69,11 @@ The tests run in order and build on each other:
    (accents both ways, search, login, a notice with an attachment, a PHP
    script disguised as a picture refused);
 3. **attacks**: traversal, XSS, XXE, a PHP file sent as an image, unknown
-   bodies, forged and hidden headers;
+   bodies, forged and hidden headers; then **hostile clients**, written
+   byte by byte on the wire: paths that climb on Tomcat and Windows,
+   request smuggling, huge headers, other hosts, forms with too many
+   fields, forged client addresses, a session flood from one address and
+   a body sent at a drip;
 4. **sso**: OIDC on `/wp-admin/`, `/wp-login.php` and `/xmlrpc.php` only, public pages
    without login, allowed and refused users, tricks around the paths;
 5. **operations**: password reset by email, alert when the connector

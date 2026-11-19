@@ -115,12 +115,23 @@ func cleanPath(path string) bool {
 			return false
 		}
 	}
+	if strings.ContainsRune(path, '\\') {
+		return false // a separator on Windows servers: "..\\" climbs there
+	}
 	for _, seg := range strings.Split(path, "/") {
-		if seg == "." || seg == ".." {
+		if dotSegment(seg) {
 			return false
 		}
 	}
 	return true
+}
+
+// dotSegment reports whether a path segment means "this" or "parent" to
+// some server: ".", "..", but also "..;x" (Tomcat drops ";parameters") and
+// ". ." or "..." (Windows drops trailing dots and spaces).
+func dotSegment(seg string) bool {
+	seg, _, _ = strings.Cut(seg, ";")
+	return seg != "" && strings.Trim(seg, ". ") == "" && strings.Contains(seg, ".")
 }
 
 var (
@@ -231,6 +242,9 @@ func (p *Public) writeArea(w http.ResponseWriter, r *http.Request, st *site.Site
 	}
 	for k, vs := range resp.Header {
 		for _, v := range vs {
+			if k == "Link" { // <http://legacy/wp-json/>: the public address, as in pages
+				v = string(st.Origin.Bytes([]byte(v)))
+			}
 			h.Add(k, v)
 		}
 	}

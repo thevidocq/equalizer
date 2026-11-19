@@ -6,7 +6,7 @@ set -uo pipefail
 cd "$(dirname "$0")" || exit 1
 RUN="$PWD/.run"
 [ -f "$RUN/pids" ] && while read -r _ pid; do kill "$pid" 2>/dev/null; done < "$RUN/pids"
-pkill -f "$RUN/bin/" 2>/dev/null # also what was started by hand
+pkill -f "\.run/bin/" 2>/dev/null # also what was started by hand, by any path
 pkill -f "php -S 127.0.0.1:1809" 2>/dev/null # the legacy sites
 PG="/var/tmp/equalizer-lab-pg"
 PGBIN=$(find /usr/lib/postgresql -mindepth 2 -maxdepth 2 -name bin | sort -V | tail -1)

@@ -23,7 +23,13 @@ const (
 	ReasonNUL         = "nul_byte"
 	ReasonCharset     = "charset_violation"
 	ReasonXMLDoctype  = "xml_doctype"
+	ReasonTooMany     = "too_many_fields"
 )
+
+// MaxFields bounds the fields of a query or a form, and the parts of a
+// multipart form: each one costs memory, and a 16 MB body of "a&a&a…"
+// would be millions. PHP's own default (max_input_vars) is 1000.
+const MaxFields = 10000
 
 // Error is a refused request part.
 type Error struct{ Reason string }
@@ -76,6 +82,9 @@ type Pair struct{ Key, Value string }
 // ParsePairs decodes "a=1&b=2&a=3" keeping order and repetitions (PHP
 // arrays like a[]=1&a[]=2 depend on them).
 func ParsePairs(raw string) ([]Pair, error) {
+	if strings.Count(raw, "&") >= MaxFields {
+		return nil, refuse(ReasonTooMany)
+	}
 	var out []Pair
 	for _, kv := range strings.Split(raw, "&") {
 		if kv == "" {

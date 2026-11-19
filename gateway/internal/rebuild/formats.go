@@ -167,7 +167,10 @@ func Multipart(dst io.Writer, src io.Reader, boundary, cs string) (string, error
 	}
 	mr := multipart.NewReader(src, boundary)
 	mw := multipart.NewWriter(dst)
-	for {
+	for parts := 0; ; parts++ {
+		if parts >= MaxFields {
+			return "", refuse(ReasonTooMany)
+		}
 		part, err := mr.NextPart()
 		if errors.Is(err, io.EOF) {
 			break

@@ -32,7 +32,10 @@ def fill_login(page, url, user, password, submit, done):
     page.fill(user, "editor")
     page.fill(password, "Lab-editor-pass-1")
     page.locator(submit).first.click()
-    page.wait_for_url(done)
+    try:
+        page.wait_for_url(done)
+    except Exception as e:  # say what the site answered, not only that it timed out
+        raise AssertionError(f"login at {url} stuck on {page.url}: {page.inner_text('body')[:300]!r}") from e
 
 
 # Each site: legacy port, public pages, how to log in, pages after login.

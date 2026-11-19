@@ -38,9 +38,10 @@ type Public struct {
 	nowFunc     func() time.Time
 }
 
-// Handler returns the HTTP handler with request_id and access log.
+// Handler returns the HTTP handler with request_id, access log and the
+// guard against clients that hold the server (guard.go).
 func (p *Public) Handler() http.Handler {
-	return telemetry.RequestIDMiddleware(http.HandlerFunc(p.serve))
+	return telemetry.RequestIDMiddleware(guard(p.Log, http.HandlerFunc(p.serve)))
 }
 
 func (p *Public) now() time.Time {

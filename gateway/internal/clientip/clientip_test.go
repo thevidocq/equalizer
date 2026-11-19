@@ -1,6 +1,7 @@
 package clientip
 
 import (
+	"net/http"
 	"net/http/httptest"
 	"net/netip"
 	"testing"
@@ -40,5 +41,25 @@ func TestCloudflare(t *testing.T) {
 	req.Header.Set("CF-Connecting-IP", "192.0.2.44")
 	if got := r.IP(req); got != "192.0.2.44" {
 		t.Errorf("behind Cloudflare: %q", got)
+	}
+}
+
+func TestForwardedLinesAndKeys(t *testing.T) {
+	r := New([]netip.Prefix{netip.MustParsePrefix("10.0.0.0/8")})
+	req, _ := http.NewRequest("GET", "/", nil)
+	req.RemoteAddr = "10.0.0.2:5555"
+	// The client's own line first, the proxy's line after: the proxy's wins.
+	req.Header.Add("X-Forwarded-For", "6.6.6.6")
+	req.Header.Add("X-Forwarded-For", "203.0.113.7")
+	if got := r.IP(req); got != "203.0.113.7" {
+		t.Errorf("two lines: %s", got)
+	}
+	req.Header.Del("X-Forwarded-For")
+	req.Header.Set("X-Forwarded-For", "::ffff:203.0.113.7")
+	if got := r.IP(req); got != "203.0.113.7" {
+		t.Errorf("mapped address: %s", got)
+	}
+	if LimitKey("2001:db8:1:2:3:4:5:6") != LimitKey("2001:db8:1:2:ffff::1") || LimitKey("203.0.113.7") != "203.0.113.7" {
+		t.Error("an IPv6 /64 is one subscriber")
 	}
 }

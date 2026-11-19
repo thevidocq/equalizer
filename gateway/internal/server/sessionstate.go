@@ -3,6 +3,7 @@ package server
 import (
 	"context"
 	"errors"
+	"github.com/thevidocq/equalizer/gateway/internal/clientip"
 	"log/slog"
 	"net/http"
 	"strings"
@@ -44,6 +45,8 @@ type sessionState struct {
 	ended  bool
 	broken bool // the store is unavailable: no session changes in this request
 	done   bool
+	fresh  bool   // created in this request
+	ipKey  string // the visitor's address, for the new-session limit
 }
 
 type sessionKey struct{}
@@ -53,6 +56,9 @@ type sessionKey struct{}
 func (p *Public) loadSession(r *http.Request, st *site.Site) *sessionState {
 	ss := &sessionState{mgr: p.Sessions, log: p.Log, policy: st.SessionPolicy(),
 		tenant: st.Model.Meta.Tenant, app: st.Model.Meta.App}
+	if p.IPs != nil {
+		ss.ipKey = clientip.LimitKey(p.IPs.IP(r))
+	}
 	if p.Sessions == nil {
 		ss.broken = true
 		return ss
@@ -218,6 +224,7 @@ func (ss *sessionState) login(role string) {
 // newSession starts a session for this visitor.
 func newSession(ss *sessionState) *session.Session {
 	ss.id = session.NewID()
+	ss.fresh = true
 	return &session.Session{Tenant: ss.tenant, App: ss.app}
 }
 
@@ -277,7 +284,22 @@ func (ss *sessionState) commit(ctx context.Context, h http.Header) {
 		}
 		return
 	}
-	if err := ss.mgr.Save(ctx, ss.id, ss.s, ss.policy); err != nil {
+	policy := ss.policy
+	if ss.fresh && !ss.authenticated() {
+		if ok, first := anonSessions.check(ss.ipKey, time.Now()); !ok {
+			// Reported once per address, not at every request of a flood.
+			// The page is served without a session.
+			if first {
+				ss.log.WarnContext(ctx, "new sessions refused: too many from one address")
+			}
+			return
+		}
+		// Until the visitor comes back with the cookie (a bot never does),
+		// the session lives a few minutes only; the next save after
+		// touchEvery gives it the site's own idle time.
+		policy.Idle = min(policy.Idle, freshIdle)
+	}
+	if err := ss.mgr.Save(ctx, ss.id, ss.s, policy); err != nil {
 		ss.log.ErrorContext(ctx, "session not saved", slog.String("error", err.Error()))
 		return
 	}

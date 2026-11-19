@@ -38,6 +38,46 @@ prototype.
 
 ## Entries
 
+### 2026-11-19 — Harden the public gateway against hostile clients
+
+- **Branch:** fix/gateway-hardening
+- **What:**
+  - `server/guard.go`: panics answer 500 and are logged; request bodies
+    keep a minimum pace; answers the client stops reading are given up;
+    `IdleTimeout` on the public server, full timeouts on the admin one.
+  - `server/oidc.go`: `safeReturn` refuses control characters and `\`,
+    which browsers drop or read as `/` (defence in depth: its callers
+    already normalise the address).
+  - `server/area.go`, `asset.go`: `..;`, `..\`, `.. ` and `...` refused,
+    as Tomcat and Windows servers resolve them.
+  - `rebuild`: at most 10,000 fields in a query or form and parts in a
+    multipart form; in-memory bodies down to 16 MB with a shared 256 MB
+    budget (`server/membudget.go`); precise forms capped too.
+  - `server/sessionlimit.go`: a new anonymous session lives 5 minutes
+    until its visitor comes back; at most 600 a minute per address after a
+    burst of 300 (60 was too few for a NAT: the lab, all on one address,
+    hit it).
+  - `clientip`: every `X-Forwarded-For` line read from the right, mapped
+    IPv4 normalised; rate limits count IPv6 per /64.
+  - area: the legacy origin in `Link` headers becomes the public one.
+  - lab `test_03b_hostile.py`: paths that climb, request smuggling, huge
+    headers, other hosts, too many fields, forged addresses, session
+    flood, a body sent at a drip; `down.sh` stops lab processes started by
+    any path, `up.sh` refuses to start on busy ports; login helpers say
+    what the site answered when a login does not go through.
+  - docs: architecture, "The public gateway under attack".
+- **Why:** the gateway faces the Internet. A review found a slow-body hold,
+  memory exhaustion by a form of millions of fields, a session-store
+  flood, path variants that climb on Tomcat and IIS, a client address
+  spoofable with two forwarding lines and IPv6 rate limits per address. Four of the new lab
+  tests fail on the previous gateway and pass now.
+- **Status:** unit tests pass (also with -race); the clean lab passes 57
+  of 57.
+- **Next steps:**
+  1. Manual test on a server by the project owner, then tag v0.1.0.
+  2. External penetration test before real portals.
+  3. Panel and relay: the same review.
+
 ### 2026-11-19 — Lab with Joomla, Drupal and a custom app; fixes found
 
 - **Branch:** feat/lab-cms-sites

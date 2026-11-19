@@ -17,7 +17,7 @@ import (
 // maxMemoryBody bounds the bodies rebuilt in memory (forms, JSON, XML,
 // text). Multipart forms, which carry uploads, are rebuilt into a
 // temporary file up to the area's own limit.
-const maxMemoryBody = 64 << 20
+const maxMemoryBody = 16 << 20
 
 // rebuiltBody is a request body ready for the legacy application.
 type rebuiltBody struct {
@@ -25,9 +25,14 @@ type rebuiltBody struct {
 	size  int64
 	ctype string
 	file  *os.File
+	held  int64 // bytes of bodyMemory to give back
 }
 
 func (b *rebuiltBody) close() {
+	if b.held > 0 {
+		bodyMemory.give(b.held)
+		b.held = 0
+	}
 	if b.file != nil {
 		_ = b.file.Close()
 		_ = os.Remove(b.file.Name())
@@ -54,19 +59,33 @@ func (p *Public) areaBody(w http.ResponseWriter, r *http.Request, st *site.Site,
 		}
 		return spoolRaw(src, mt)
 	}
+	// The body and its rebuilt copy are held until the legacy application
+	// has answered: reserve them, sized by Content-Length when there is one.
+	held := int64(maxMemoryBody)
+	if r.ContentLength >= 0 && r.ContentLength < held {
+		held = r.ContentLength
+	}
+	held *= 2
+	if !bodyMemory.take(held) {
+		return nil, http.StatusServiceUnavailable, "busy"
+	}
+	b := &rebuiltBody{held: held}
 	raw, err := io.ReadAll(io.LimitReader(src, maxMemoryBody+1))
 	if err != nil || len(raw) > maxMemoryBody {
+		b.close()
 		return bodyError(err, len(raw) > maxMemoryBody)
 	}
 	body, out, err := areabody.Body(ctype, raw, cs)
-	if err != nil {
-		return rebuildError(err)
-	}
-	if body == nil {
+	if err != nil || body == nil {
+		b.close()
+		if err != nil {
+			return rebuildError(err)
+		}
 		return none, 0, ""
 	}
 	body = st.Inbound.Bytes(body) // the legacy application keeps its own address
-	return &rebuiltBody{r: bytes.NewReader(body), size: int64(len(body)), ctype: out}, 0, ""
+	b.r, b.size, b.ctype = bytes.NewReader(body), int64(len(body)), out
+	return b, 0, ""
 }
 
 // spoolMultipart rebuilds a multipart form into a temporary file, removed

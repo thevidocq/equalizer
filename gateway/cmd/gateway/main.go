@@ -132,8 +132,12 @@ func run() error {
 	admin := &server.Admin{Maps: store, Version: version}
 
 	servers := []*http.Server{
-		{Addr: cfg.PublicAddr, Handler: public.Handler(), ReadHeaderTimeout: 10 * time.Second, MaxHeaderBytes: 32 << 10},
-		{Addr: cfg.AdminAddr, Handler: admin.Handler(), ReadHeaderTimeout: 5 * time.Second},
+		// No ReadTimeout or WriteTimeout: uploads and live updates may last;
+		// the handler's guard sets their pace instead.
+		{Addr: cfg.PublicAddr, Handler: public.Handler(), ReadHeaderTimeout: 10 * time.Second, MaxHeaderBytes: 32 << 10,
+			IdleTimeout: 120 * time.Second},
+		{Addr: cfg.AdminAddr, Handler: admin.Handler(), ReadHeaderTimeout: 5 * time.Second, ReadTimeout: 30 * time.Second,
+			WriteTimeout: 30 * time.Second, IdleTimeout: 60 * time.Second, MaxHeaderBytes: 16 << 10},
 	}
 	errs := make(chan error, len(servers))
 	for _, s := range servers {

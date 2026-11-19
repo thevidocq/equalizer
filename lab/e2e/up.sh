@@ -29,6 +29,13 @@ wait_http() { # url
   echo "not answering: $1" >&2; exit 1
 }
 
+# A process left from an earlier run would answer in place of the new one.
+for port in 443 18080 19090 18081 18082 19091 18085 19092 18090 18091 18092 18093 18095 2525; do
+  if (exec 3<>"/dev/tcp/127.0.0.1/$port") 2>/dev/null; then
+    echo "port $port is busy: run ./down.sh first" >&2; exit 1
+  fi
+done
+
 echo "Building…"
 for svc in gateway tunnel-relay connector panel-api; do
   main=$(find "$ROOT/$svc/cmd" -mindepth 1 -maxdepth 1 -type d | head -1)

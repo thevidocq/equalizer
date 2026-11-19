@@ -9,6 +9,7 @@ import (
 	"net/url"
 
 	"github.com/thevidocq/equalizer/gateway/internal/mapmodel"
+	areabody "github.com/thevidocq/equalizer/gateway/internal/rebuild"
 	"github.com/thevidocq/equalizer/gateway/internal/upload"
 	"github.com/thevidocq/equalizer/gateway/internal/validate"
 )
@@ -34,7 +35,10 @@ func readSubmission(w http.ResponseWriter, r *http.Request, form *mapmodel.Form)
 	mr := multipart.NewReader(http.MaxBytesReader(w, r.Body, min(limit, MaxUploadBody)), params["boundary"])
 	vals, blobs := url.Values{}, map[string][]byte{}
 	text := 0
-	for {
+	for parts := 0; ; parts++ {
+		if parts >= areabody.MaxFields {
+			return nil, nil, http.StatusBadRequest, areabody.ReasonTooMany
+		}
 		part, err := mr.NextPart()
 		if errors.Is(err, io.EOF) {
 			return vals, blobs, 0, ""

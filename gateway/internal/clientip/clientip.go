@@ -32,16 +32,19 @@ func (r *Resolver) IP(req *http.Request) string {
 	}
 	if v := strings.TrimSpace(req.Header.Get("CF-Connecting-IP")); r.Cloudflare && v != "" {
 		if a, err := netip.ParseAddr(v); err == nil {
-			return a.String()
+			return a.Unmap().WithZone("").String()
 		}
 	}
 	// The last untrusted address in X-Forwarded-For is the client.
-	parts := strings.Split(req.Header.Get("X-Forwarded-For"), ",")
+	// Every X-Forwarded-For line counts: a proxy may add its own line instead
+	// of appending to the client's, and the client's must never win.
+	parts := strings.Split(strings.Join(req.Header.Values("X-Forwarded-For"), ","), ",")
 	for i := len(parts) - 1; i >= 0; i-- {
 		a, err := netip.ParseAddr(strings.TrimSpace(parts[i]))
 		if err != nil {
 			break
 		}
+		a = a.Unmap().WithZone("")
 		if !r.isTrusted(a) {
 			return a.String()
 		}
@@ -68,4 +71,19 @@ func peerAddr(remote string) netip.Addr {
 		return netip.Addr{}
 	}
 	return a.Unmap()
+}
+
+// LimitKey is the address rate limits count by: the IPv4 address, or the
+// /64 network of an IPv6 address (one subscriber gets a whole /64 and could
+// otherwise change address at every request).
+func LimitKey(ip string) string {
+	a, err := netip.ParseAddr(ip)
+	if err != nil || a.Is4() {
+		return ip
+	}
+	p, err := a.Prefix(64)
+	if err != nil {
+		return ip
+	}
+	return p.String()
 }

@@ -1,6 +1,7 @@
 package server
 
 import (
+	"github.com/thevidocq/equalizer/gateway/internal/clientip"
 	"log/slog"
 	"math"
 	"net/http"
@@ -21,7 +22,7 @@ var lastStoreError atomic.Int64
 // subject identifies the visitor for limits.
 func (p *Public) subject(r *http.Request) limits.Subject {
 	ss := sessionOf(r)
-	subj := limits.Subject{IP: p.IPs.IP(r), Authenticated: ss.authenticated()}
+	subj := limits.Subject{IP: clientip.LimitKey(p.IPs.IP(r)), Authenticated: ss.authenticated()}
 	if h := ss.hash(); h != nil {
 		subj.Session = *h
 	}

@@ -16,6 +16,7 @@ import (
 	"github.com/thevidocq/equalizer/gateway/internal/limits"
 	"github.com/thevidocq/equalizer/gateway/internal/mapmodel"
 	"github.com/thevidocq/equalizer/gateway/internal/placeholder"
+	areabody "github.com/thevidocq/equalizer/gateway/internal/rebuild"
 	"github.com/thevidocq/equalizer/gateway/internal/router"
 	"github.com/thevidocq/equalizer/gateway/internal/site"
 	"github.com/thevidocq/equalizer/gateway/internal/telemetry"
@@ -183,6 +184,9 @@ func readForm(w http.ResponseWriter, r *http.Request) (url.Values, int, string) 
 			return nil, http.StatusRequestEntityTooLarge, "body_too_large"
 		}
 		return nil, http.StatusBadRequest, "body_unreadable"
+	}
+	if bytes.Count(raw, []byte("&")) >= areabody.MaxFields {
+		return nil, http.StatusBadRequest, areabody.ReasonTooMany
 	}
 	vals, err := url.ParseQuery(string(raw))
 	if err != nil {

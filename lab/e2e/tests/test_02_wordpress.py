@@ -62,7 +62,10 @@ def wp_login(page, remember=False):
     if remember:
         page.check("#rememberme")
     page.click("#wp-submit")
-    page.wait_for_url(re.compile(r"/wp-admin/"))
+    try:
+        page.wait_for_url(re.compile(r"/wp-admin/"))
+    except Exception as e:  # say what WordPress answered, not only that it timed out
+        raise AssertionError(f"login stuck on {page.url}: {page.inner_text('body')[:300]!r}") from e
 
 
 def test_login_and_dashboard(page):

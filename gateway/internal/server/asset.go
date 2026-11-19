@@ -106,7 +106,7 @@ func validAssetFile(file string) bool {
 		return false
 	}
 	for _, seg := range strings.Split(file, "/") {
-		if seg == "." || seg == ".." || seg == "" {
+		if seg == "" || dotSegment(seg) { // also ".. " and "...", which Windows reads as ".."
 			return false
 		}
 	}

@@ -190,3 +190,33 @@ Ed25519-signed maps; the gateway runs on its own if the panel is down; fail
 closed; secrets only in the vault; dependency scanning and SBOM in CI;
 non-root containers; mandatory review on `pipeline/`, `legacyclient/`,
 `mapstore/`; penetration test before use on real portals.
+
+### The public gateway under attack
+
+The gateway is the only part reachable from the Internet besides the panel
+and the relay, and it is built to hold against clients that do not play by
+the rules:
+
+- **Slow and idle clients**: request headers within 10 s, at most 32 KB;
+  a request body must keep a minimum pace (no 30 s without data, at least
+  2 KB/s on average after the first 30 s); an answer the client stops
+  reading is given up after 60 s; idle connections close after 120 s.
+- **Memory**: forms, JSON, XML and text bodies are rebuilt in memory up to
+  16 MB each and 256 MB for all requests together (past that, 503 and the
+  client retries); uploads go to temporary files; queries and forms have
+  at most 10,000 fields.
+- **Sessions**: a new anonymous session lives 5 minutes until its visitor
+  comes back with the cookie (a bot never does), and an address creates at
+  most 600 a minute after a burst of 300, enough for an office or a mobile
+  carrier behind one address; past that the page is served without a
+  session and the gateway logs one warning for that address.
+- **Client address**: taken from `X-Forwarded-For` only behind trusted
+  proxies, reading every line from the right; IPv6 rate limits count per
+  /64, the network one subscriber gets.
+- **Paths**: `..` and its variants that some servers resolve (`..;`,
+  `..\`, `.. `, `...`) are refused before anything is sent on.
+- **Panics** answer 500 and are logged; the connection is not dropped
+  silently.
+
+The lab's `test_03b_hostile.py` sends these requests byte by byte on the
+wire.

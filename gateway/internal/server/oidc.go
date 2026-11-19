@@ -87,8 +87,16 @@ func navigation(r *http.Request) bool {
 
 // safeReturn keeps only a path of this site: never another host.
 func safeReturn(s string) string {
-	if !strings.HasPrefix(s, "/") || strings.HasPrefix(s, "//") || strings.HasPrefix(s, "/\\") ||
-		strings.HasPrefix(s, oidcPrefix) || len(s) > 2000 || strings.ContainsAny(s, "\r\n") {
+	// Browsers drop tabs and line breaks from addresses and read "\" as "/":
+	// "/\t/evil.example" or "/\\evil.example" would leave the site.
+	clean := strings.Map(func(r rune) rune {
+		if r < 0x20 || r == 0x7f {
+			return -1
+		}
+		return r
+	}, s)
+	if clean != s || !strings.HasPrefix(s, "/") || len(s) > 2000 || strings.HasPrefix(s, oidcPrefix) ||
+		strings.HasPrefix(strings.ReplaceAll(s, "\\", "/"), "//") {
 		return "/"
 	}
 	return s

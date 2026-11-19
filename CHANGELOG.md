@@ -38,6 +38,19 @@ prototype.
 
 ## Entries
 
+### 2026-11-19 — Keep the tagline within the width of the name
+
+- **Branch:** fix/logo-tagline
+- **What:** panel-ui `Logo`: the tagline is drawn in an SVG as wide as
+  "Equalizer" (box with no width of its own, letters spaced with
+  `textLength`), in the sidebar and on the login steps. README banner
+  (`docs/brand/logo-banner.*`) aligned the same way. Screenshots taken
+  again.
+- **Why:** owner's request: "PROTECT LEGACY WEB APPS" must never be longer
+  than the name.
+- **Status:** measured in the browser: same left and right edges.
+- **Next steps:** none for the logo.
+
 ### 2026-11-19 — Add the logo, fix legacy compatibility bugs, align docs
 
 - **Branch:** feat/logo-and-fixes

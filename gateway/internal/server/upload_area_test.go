@@ -2,6 +2,7 @@ package server
 
 import (
 	"bytes"
+	"compress/gzip"
 	"crypto/sha256"
 	"io"
 	"mime/multipart"
@@ -10,6 +11,8 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+
+	"github.com/thevidocq/equalizer/gateway/internal/useragent"
 )
 
 func TestLargeUploadStreamed(t *testing.T) {
@@ -51,5 +54,30 @@ func TestLargeUploadStreamed(t *testing.T) {
 	left, _ := filepath.Glob(filepath.Join(os.Getenv("TMPDIR"), "eq-upload-*"))
 	if len(left) != 0 {
 		t.Errorf("temporary files left: %v", left)
+	}
+}
+
+func TestLegacyCompressionAndUserAgent(t *testing.T) {
+	var ua, ae string
+	legacy := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		ua, ae = r.UserAgent(), r.Header.Get("Accept-Encoding")
+		w.Header().Set("Content-Type", "text/html")
+		w.Header().Set("Content-Encoding", "gzip") // some apps compress whatever was asked
+		zw := gzip.NewWriter(w)
+		_, _ = io.WriteString(zw, "<html><body><p>Ciao</p></body></html>")
+		_ = zw.Close()
+	}))
+	defer legacy.Close()
+	h := areaPublic(t, legacy.URL, 0).Handler()
+	req := httptest.NewRequest("GET", "/mobile", nil)
+	req.Host = "blog.example"
+	req.Header.Set("User-Agent", "Mozilla/5.0 (iPhone; CPU iPhone OS 17_5 like Mac OS X) Safari/604.1' OR '1'='1")
+	rec := httptest.NewRecorder()
+	h.ServeHTTP(rec, req)
+	if rec.Code != 200 || !bytes.Contains(rec.Body.Bytes(), []byte("<p>Ciao</p>")) || rec.Header().Get("Content-Encoding") != "" {
+		t.Fatalf("compressed page: %d %q %q", rec.Code, rec.Header().Get("Content-Encoding"), rec.Body.String())
+	}
+	if ua != useragent.SafariIPhone || ae != "identity" {
+		t.Errorf("towards the legacy app: UA %q, Accept-Encoding %q", ua, ae)
 	}
 }

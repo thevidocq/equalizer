@@ -166,7 +166,9 @@ A row opens its detail in plain words; on a path that is not in the map,
 **Add to the map** opens a new version. **Live** refreshes every few
 seconds; **Export CSV** downloads up to 10 000 events (recorded in
 Activity). Field values are never stored, only the field name and the rule
-that refused it.
+that refused it. The IP address is the visitor's real one, the same the
+legacy site receives in `X-Forwarded-For` (its own logs and bans keep
+working).
 
 ![Logs](../screenshots/logs.png)
 
@@ -184,7 +186,9 @@ to this version**: it is live again within 15 seconds.
 
 ## 4. What the map protects
 
-- **The whole site works as before**, admin included: Equalizer does not
+- **The whole site works as before**, admin included, with its logins,
+  "remember me", uploads (up to the size chosen in the template), live
+  updates and mobile version. Equalizer does not
   decide who may do what, the legacy site does. It removes the direct
   contact with the legacy server and rebuilds every request (path, query,
   forms, JSON, XML; malformed requests, XML entities and unknown binary

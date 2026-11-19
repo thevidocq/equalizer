@@ -2,12 +2,14 @@
 
 Equalizer is a gateway that stands in for legacy applications that cannot be
 updated: it hides them from the Internet and serves an identical copy,
-rebuilt on every request. A crawler and an AI agent generate the allowlist
-map; people approve it from a multitenant panel.
+rebuilt on every request. A signed map says what exists: by default the
+whole site, admin included (areas), plus precise entries with typed values
+where they are declared. Templates per CMS and a crawler with an optional AI
+agent propose the map; people approve it from a multitenant panel.
 
 ## Non-negotiable requirements
 
-1. **Interface 100% identical**: faithful rendering by default, verified with
+1. **Interface 100% identical**: faithful rendering by default. Planned:
    automatic visual comparison (Playwright, pixel by pixel).
 2. **No exposure of the legacy application**: only the connector reaches it,
    opening the tunnel outbound, both in cloud and on-prem.
@@ -35,7 +37,7 @@ Internet ──► gateway ──► tunnel-relay ◄══ outbound tunnel ═�
 
 | Service | Language | Responsibility | Contract |
 | --- | --- | --- | --- |
-| `gateway` | Go | Public traffic, allowlist, rebuilding, faithful rendering | Signed map, events, metrics |
+| `gateway` | Go | Public traffic, areas and precise entries, rebuilding, faithful rendering, sessions with legacy cookies, optional OIDC login, rate limits | Signed map, events, metrics |
 | `tunnel-relay` | Go | Terminates connector tunnels, routes requests | `schema/tunnel/tunnel.md` |
 | `connector` | Go | Next to the legacy app; outbound tunnel; allowed destinations only | `schema/tunnel/tunnel.md` |
 | `orchestrator` | Go | Applies the configured capacity (replicas, autoscaling, pools) | Desired state from panel-api |
@@ -43,7 +45,7 @@ Internet ──► gateway ──► tunnel-relay ◄══ outbound tunnel ═�
 | `panel-ui` | TypeScript, React | Panel | Client generated from OpenAPI |
 | `agent` | Python | Read-only discovery through the connector (anonymous and logged in), CMS fingerprint, map proposals, IDOR proposals for JSON APIs, optional AI with the tenant's model, review summaries | OpenAPI, `LLMProvider` interface |
 | `postgres` | — | Control-plane data | Versioned migrations |
-| `redis` | — | Sessions, rate limits, cache, new-map notifications | Keys documented per module |
+| `redis` | — | Sessions, rate limits and behaviour counters, shared by the gateway replicas | Keys documented per module |
 
 Observability: Vector (log collection), Loki (logs, 30 days), Grafana
 (analysis); the panel's Logs and Status pages read Loki. Planned: Tempo
@@ -72,10 +74,11 @@ Observability: Vector (log collection), Loki (logs, 30 days), Grafana
 ## Discovery
 
 The agent explores a site read-only through its connector and proposes a
-draft map: crawl, fixed exclusions (admin, backups, actions), fingerprint
-(CMS, version, components), deterministic routes and types, then an
-optional AI review with the tenant's own model that can only rename,
-exclude or narrow. The gateway reports the paths it refused, so discovery
+draft map: crawl (it never follows admin, backup or action links: it only
+reads), fingerprint (CMS, version, components), deterministic routes and
+types, IDOR protection for JSON APIs, then an optional AI review with the
+tenant's own model that can only rename, exclude or narrow. The draft always
+keeps the `/` area, so the whole site, admin included, is served. The gateway reports the paths it refused, so discovery
 also sees what real visitors miss. Continuous discovery (daily or weekly)
 proposes a draft only when something changed. Every proposal goes through
 the usual approval.
@@ -99,18 +102,28 @@ is not implemented: today the platform cannot see tenant data at all.
 
 ## Faithful rendering (gateway pipeline)
 
-For each page, independent steps implementing the same `Step` interface:
+For each page, independent steps implementing the same `Step` interface
+(`gateway/internal/pipeline`):
 
-1. **Parsing** HTML5 into a DOM and serialising it again.
-2. **Invisible cleanup**: comments, version meta tags, headers revealing the
-   stack, internal hidden fields, debug output.
-3. **URL rewriting** of links, `src`, `action`, URLs inside CSS.
-4. **Forms**: `action` pointing to the gateway, legacy hidden fields kept
-   server-side in a sealed token bound to the browser (CSRF), values
-   re-encoded into the legacy charset on submission.
-5. **Scripts** allowed only by hash (CSP).
-6. **Assets** served after checking their real type.
-7. **Security headers** (CSP, HSTS, ...).
+1. **Parsing** HTML5 into a DOM (after conversion to UTF-8 from the
+   legacy charset) and serialising it again.
+2. **Invisible cleanup**: comments, version meta tags, internal hidden
+   fields, debug output.
+3. **URL rewriting** of links, `src`, `action`, URLs inside CSS, so that
+   nothing points to the legacy address.
+4. **Forms**: `action` pointing to the gateway; for precise entries, legacy
+   hidden fields kept server-side in a sealed token bound to the browser
+   (CSRF), values re-encoded into the legacy charset on submission.
+
+Around the pipeline: assets served after checking their real type, legacy
+headers filtered (revealing and internal ones dropped), security headers
+(HSTS, `nosniff`, frame and referrer policies). Planned: scripts allowed by
+hash (CSP).
+
+Towards the legacy application every request is written again: path,
+query and body parsed and re-encoded, headers from a list (the browser's
+User-Agent becomes a fixed string for its kind of device), the client's
+address in `X-Forwarded-For`, private legacy cookies from the session.
 
 ## Modularity rules
 
@@ -149,8 +162,9 @@ write, and every proposal that widens the surface needs human approval.
 
 Services with no local state; shared state in Redis and PostgreSQL; no sticky
 sessions. When a map is published, replicas download it, verify the
-signature and activate it. The budget towards the legacy application is
-counted in Redis and applies across all replicas. Each site's capacity is
+signature and activate it. Rate limits and behaviour counters are kept
+in Redis and apply across all replicas; the budget of concurrent requests
+towards the legacy application is per replica for now. Each site's capacity is
 configured from the panel; the `orchestrator` applies it with the `compose`
 driver (prototype) or the `kubernetes` driver (cloud: operator with a
 `ProtectedSite` resource, HPA, PDB).

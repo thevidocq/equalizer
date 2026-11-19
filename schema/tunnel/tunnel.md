@@ -69,6 +69,10 @@ Request from the relay:
   destination is used.
 - `X-Eq-Scheme: http|https` says how to reach the destination.
 - `X-Eq-Request-Id` carries the gateway's request id, for the logs.
+- `X-Eq-Authorization` (optional) is the legacy site's own HTTP login
+  (Basic, Bearer…), rebuilt by the gateway: `Authorization` is taken by the
+  gateway token on the way to the relay. The connector sends it as
+  `Authorization`.
 
 The connector:
 
@@ -76,8 +80,10 @@ The connector:
    otherwise it answers `403` with `X-Eq-Error: destination_not_allowed`.
    It connects only to the destination, whatever `X-Eq-Host` says: one
    connector serves every site of the servers it may reach.
-2. Removes the `X-Eq-*` headers and the hop-by-hop headers.
-3. Executes the request (redirects are not followed, timeout 30 s).
+2. Moves `X-Eq-Authorization` to `Authorization`, then removes the other
+   `X-Eq-*` headers and the hop-by-hop headers.
+3. Executes the request (redirects are not followed; response headers
+   within 30 s, the whole exchange at most 10 minutes for large files).
 4. Returns status, headers and body as they are.
 
 Connector errors:
@@ -103,6 +109,7 @@ X-Eq-Destination: 10.20.0.15:443
 X-Eq-Host: permits.example-city.gov
 X-Eq-Scheme: https
 X-Eq-Request-Id: r-4ffd4c18cbf386ec
+X-Eq-Authorization: Basic …            (only when the legacy site uses an HTTP login)
 ```
 
 - The gateway sends only destinations in the map's `legacy.reach.allow`
@@ -112,8 +119,8 @@ X-Eq-Request-Id: r-4ffd4c18cbf386ec
   customer's connector (the panel refuses such maps too).
 - `X-Eq-Host` comes from the map's `base_url` when `legacy.reach.address`
   is set; it travels unchanged to the connector.
-- The relay removes `Authorization`, `X-Eq-Connector`, `X-Eq-Tenant` and
-  `X-Eq-Destination` and sends the request on a stream of one of the
+- The relay removes `Authorization` (its own token), `X-Eq-Connector`,
+  `X-Eq-Tenant` and `X-Eq-Destination`, keeps `X-Eq-Authorization`, and sends the request on a stream of one of the
   connector's sessions.
 
 Relay errors (always with `X-Eq-Error`):

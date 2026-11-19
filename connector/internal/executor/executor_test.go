@@ -33,6 +33,7 @@ func TestExecutor(t *testing.T) {
 		req.Host = host
 		req.Header.Set("X-Eq-Scheme", scheme)
 		req.Header.Set("X-Eq-Request-Id", "r-1")
+		req.Header.Set("X-Eq-Authorization", "Basic YWxleDpwdw==")
 		rec := httptest.NewRecorder()
 		e.ServeHTTP(rec, req)
 		return rec
@@ -42,7 +43,8 @@ func TestExecutor(t *testing.T) {
 	if rec.Code != 200 || rec.Body.String() != "legacy page" || rec.Header().Get("Server") != "Apache/2.2" {
 		t.Fatalf("response: %d %q %v", rec.Code, rec.Body.String(), rec.Header())
 	}
-	if seen.URL.RequestURI() != "/index.jsp?a=1" || seen.Header.Get("X-Eq-Scheme") != "" || seen.Header.Get("X-Eq-Request-Id") != "" {
+	if seen.URL.RequestURI() != "/index.jsp?a=1" || seen.Header.Get("X-Eq-Scheme") != "" || seen.Header.Get("X-Eq-Request-Id") != "" ||
+		seen.Header.Get("Authorization") != "Basic YWxleDpwdw==" || seen.Header.Get("X-Eq-Authorization") != "" {
 		t.Errorf("legacy saw %s %v", seen.URL.RequestURI(), seen.Header)
 	}
 	// The gateway translates redirects: the connector never follows them.

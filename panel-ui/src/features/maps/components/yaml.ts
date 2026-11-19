@@ -59,6 +59,16 @@ roles:
   list:
     guest: {}
 
+# The whole site, admin included, served as the legacy site serves it.
+areas:
+  - id: site
+    prefix: /
+    methods: [GET, HEAD, POST, PUT, PATCH, DELETE, OPTIONS]
+    max_body_kb: 51200
+    origin: human
+    risk: medium
+
+# Precise entries add typed checks where they match.
 routes:
   - id: home
     path: /

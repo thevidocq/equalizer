@@ -63,7 +63,7 @@ func (p *Public) oidcGate(w http.ResponseWriter, r *http.Request, st *site.Site,
 		p.block(w, r, st, http.StatusNotFound, "route_not_mapped")
 		return true
 	}
-	if !st.Model.Roles.Auth.LoginRequired() || (ss.s != nil && ss.s.Identity != nil) {
+	if (ss.s != nil && ss.s.Identity != nil) || !loginNeeded(st.Model.Roles.Auth, r.URL.Path) {
 		return false
 	}
 	if r.Method != http.MethodGet && r.Method != http.MethodHead || !navigation(r) {

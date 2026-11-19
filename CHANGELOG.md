@@ -38,6 +38,27 @@ prototype.
 
 ## Entries
 
+### 2026-11-19 — Ask for the identity provider's login on chosen paths
+
+- **Branch:** feat/oidc-paths (on top of feat/help-guides, #36)
+- **What:**
+  - schema: `roles.auth.paths` (both copies): only these prefixes need the
+    OIDC login, the rest keeps the anonymous role.
+  - gateway: `loginNeeded`/`loginPath` (`server/oidcpaths.go`): paths are
+    matched on a cleaned, lower-case path (`\`, `//`, dot segments,
+    `;params`, trailing dots and spaces), so no spelling slips past;
+    `Authorization` (legacy HTTP login, application passwords) reaches the
+    legacy site only after the provider.
+  - panel-ui: Login tab: "The whole site / Only some paths / Optional", path
+    list, ready paths for WordPress (with XML-RPC), Joomla, Drupal, Moodle.
+  - docs: map format, customer guide (synced Help), release notes.
+- **Why:** owner's request: protect admin and login pages with the
+  organisation's SSO without a login on the public site.
+- **Status:** tests cover the bypass spellings, 401 on writes, the
+  Authorization rule and the panel form.
+- **Next steps:** single login into the legacy site after the provider
+  (later, if customers ask).
+
 ### 2026-11-19 — Add the in-panel Help, scroll long map documents
 
 - **Branch:** feat/help-guides

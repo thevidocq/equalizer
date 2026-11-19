@@ -204,6 +204,24 @@ the usual review and approval.
 
 ![Login](/help-img/login.png)
 
+### Where the login is asked
+
+- **The whole site**: every page asks for the login first. For intranets
+  and internal applications.
+- **Only some paths**: the admin and login pages ask for it, the public
+  site stays open. **Use the WordPress paths** (or Joomla, Drupal, Moodle)
+  fills the list: for WordPress `/wp-admin/`, `/wp-login.php` and
+  `/xmlrpc.php`. Spellings like `/WP-ADMIN/` or `//wp-admin/` are matched
+  too.
+- **Optional**: nobody is sent to the login; visitors log in at
+  `/.eq/oidc/login`.
+
+After the identity provider, visitors still log in to the site with its
+own account (two logins): the provider says they are one of yours, the
+site's login says what they may do inside it. Until they pass the
+provider, the site's HTTP login (e.g. WordPress application passwords)
+never reaches the site.
+
 ### Client secret and redirect URI
 
 In your provider register the redirect URI shown on the page, and save the

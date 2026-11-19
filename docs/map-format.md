@@ -402,6 +402,33 @@ roles:
     required: true                     # false: anonymous until /.eq/oidc/login
 ```
 
+**Where the login is asked.** Three choices:
+
+- the whole site (`required: true`, the default): every page first;
+- only some paths (`paths`): pages starting with one of them ask for the
+  login, the rest of the site stays open with the anonymous role. For a CMS
+  this protects its admin and login pages and leaves the public site as it
+  is:
+
+  ```yaml
+  auth:
+    provider: oidc
+    # issuer, client_id, roles as above
+    paths: [/wp-admin/, /wp-login.php, /xmlrpc.php]
+  ```
+
+  Paths are matched the way a legacy server could read them: case
+  ignored, `\` as `/`, double slashes, `.` and `..`, `;params` and trailing
+  dots or spaces resolved, `/wp-admin` and `/wp-admin/` alike. The panel
+  suggests the paths of WordPress (including XML-RPC, which takes a
+  password without the login page), Joomla, Drupal and Moodle;
+- optional (`required: false`): nobody is sent to the provider; visitors
+  log in at `/.eq/oidc/login`.
+
+With the identity provider on, the site's own HTTP login (`Authorization`:
+Basic, Bearer, e.g. WordPress application passwords) reaches the legacy site
+only for visitors who passed the provider.
+
 - The role comes from the user's groups, never from the browser or from the
   legacy login; a user in no listed group gets 403.
 - The gateway checks the ID token itself: signature with the provider's
@@ -419,6 +446,11 @@ roles:
   account per user is not available yet.
 - The review aid flags turning it on or off, another issuer, `required:
   false` and a `*` group.
+- With `paths`, the legacy site's own login still decides who may do what
+  inside it: Equalizer only makes sure that nobody reaches the login and
+  admin pages without the identity provider. Pages outside the paths that
+  write with the legacy session (e.g. `/wp-json/`, `admin-ajax.php`) need
+  that session, which only exists after the protected login page.
 
 ## Import and export
 

@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router";
 import { hasRole, useMe } from "@/features/auth";
 import { useCreateDraft, useMapVersion, useMapVersions } from "@/features/maps";
+import { useApp } from "@/features/sites";
 import { describeError } from "@/shared/api/errors";
 import { Button, EmptyState, Notice } from "@/shared/ui";
 import { applyAuth, problems, readAuth, rolesOf, type AuthForm } from "../components/auth";
@@ -19,6 +20,7 @@ export function LoginTab() {
   const base = useMapVersion(app, source?.version ?? 0).data;
   const doc = base?.document as Record<string, unknown> | undefined;
   const info = useOIDCInfo(app).data;
+  const kind = useApp(app).data?.kind;
   const create = useCreateDraft(app);
   const [form, setForm] = useState<AuthForm>(() => readAuth(undefined));
   useEffect(() => { if (doc) setForm(readAuth(doc)); }, [doc]);
@@ -40,7 +42,7 @@ export function LoginTab() {
   return (
     <div className="flex max-w-4xl flex-col gap-6">
       <p className="text-sm">
-        {live ? "Visitors log in with your identity provider before they reach the site."
+        {live ? "Visitors log in with your identity provider before they reach the site, or the paths you chose."
           : "Off: visitors reach the site with its own login, as today."}{" "}
         The settings below go in a new version of the map, reviewed and approved like any other; the secret is kept apart.
         Starting from version {source?.version} ({source?.status}).
@@ -50,7 +52,7 @@ export function LoginTab() {
         <input type="checkbox" checked={form.on} disabled={!canWrite} onChange={(e) => setForm({ ...form, on: e.target.checked })} />
         Log visitors in with the identity provider (OIDC)
       </label>
-      {form.on ? <AuthFields form={form} roles={roles} set={setForm} /> : null}
+      {form.on ? <AuthFields form={form} roles={roles} kind={kind} set={setForm} /> : null}
       {issues.length ? <Notice tone="info">{issues.join(" ")}</Notice> : null}
       {canWrite ? (
         <div><Button variant="primary" busy={create.isPending} disabled={!doc || issues.length > 0} onClick={save}>Save as new draft</Button></div>

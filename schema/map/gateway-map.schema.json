@@ -246,7 +246,14 @@
                 }
               }
             },
-            "required": { "type": "boolean", "description": "Every page needs the login (default true); false: visitors keep the anonymous role until they log in at /.eq/oidc/login" }
+            "required": { "type": "boolean", "description": "Every page needs the login (default true); false: visitors keep the anonymous role until they log in at /.eq/oidc/login. Ignored when paths is set" },
+            "paths": {
+              "type": "array",
+              "minItems": 1,
+              "maxItems": 50,
+              "description": "Only these path prefixes need the login (e.g. /wp-admin/, /wp-login.php); the rest keeps the anonymous role. Matched on the cleaned path, case-insensitive. Absent: the whole site, as required says",
+              "items": { "type": "string", "pattern": "^/[A-Za-z0-9._~%!$&'()*+,=:@/-]{0,200}$" }
+            }
           },
           "if": { "properties": { "provider": { "const": "oidc" } } },
           "then": { "required": ["issuer", "client_id", "roles"] }

@@ -16,6 +16,7 @@ import (
 	"github.com/thevidocq/equalizer/gateway/internal/legacyurl"
 	"github.com/thevidocq/equalizer/gateway/internal/limits"
 	"github.com/thevidocq/equalizer/gateway/internal/mapmodel"
+	"github.com/thevidocq/equalizer/gateway/internal/oidc"
 	"github.com/thevidocq/equalizer/gateway/internal/pipeline"
 	"github.com/thevidocq/equalizer/gateway/internal/pipeline/clean"
 	"github.com/thevidocq/equalizer/gateway/internal/pipeline/forms"
@@ -52,7 +53,8 @@ type Site struct {
 	Forms     *formmap.Map
 	Pipeline  *pipeline.Pipeline
 	Limits    *limits.Set
-	Notes     []string // map features accepted but not applied yet
+	Notes     []string       // map features accepted but not applied yet
+	OIDC      *oidc.Provider // nil: the legacy login only (default)
 
 	unsupported map[string]string            // form id → reason it cannot be served yet
 	owned       map[string]map[string]string // entry → role → owned_by_user target
@@ -78,6 +80,11 @@ func BuildWith(m *mapmodel.Model, opts Options) (*Site, error) {
 		if _, ok := m.Roles.List[m.Roles.Anonymous]; !ok {
 			return nil, fmt.Errorf("roles.anonymous %q is not in roles.list", m.Roles.Anonymous)
 		}
+	}
+
+	idp, err := checkOIDC(m)
+	if err != nil {
+		return nil, err
 	}
 
 	v := validate.New(m.Types, m.Defaults.String)
@@ -178,6 +185,7 @@ func BuildWith(m *mapmodel.Model, opts Options) (*Site, error) {
 
 		unsupported: unsupported,
 		owned:       owned,
+		OIDC:        idp,
 	}, nil
 }
 

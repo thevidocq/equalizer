@@ -12,6 +12,7 @@ import { UsersPage } from "@/features/users";
 import { AuditPage } from "@/features/audit";
 import { LogsPage } from "@/features/logs";
 import { PlatformStatusPage, StatusPage } from "@/features/status";
+import { LoginTab } from "@/features/sitelogin";
 import { Shell } from "./Shell";
 import { Home } from "./Home";
 
@@ -45,6 +46,7 @@ export const router = createBrowserRouter([
           { path: "maps/:version", element: <VersionPage /> },
           { path: "discovery", element: <DiscoveryPage /> },
           { path: "isolation", element: <IsolationPage /> },
+          { path: "login", element: <LoginTab /> },
         ],
       },
       { path: "*", element: <p className="text-ink-soft">This page does not exist.</p> },

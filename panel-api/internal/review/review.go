@@ -108,6 +108,7 @@ func (c *cmp) legacy(b, n obj) {
 }
 
 func (c *cmp) roles(b, n obj) {
+	c.login(b, n)
 	if len(b) > 0 && !reflect.DeepEqual(b, n) {
 		c.add(Change{"roles", "roles", "changed", ""})
 		if str(b["anonymous"]) != str(n["anonymous"]) {

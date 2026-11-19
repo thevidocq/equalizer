@@ -1344,6 +1344,156 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/internal/oidc": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Client secrets of the sites that log in with OIDC, in clear (used by the gateways, control network only) */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Secrets */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            items: {
+                                app: string;
+                                client_secret: string;
+                            }[];
+                        };
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/apps/{app}/oidc": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** What the identity provider needs for this site (addresses to register) and whether a client secret is saved. Issuer, client and group → role rules are in the map (roles.auth); OIDC is off until a map turns it on */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    app: components["parameters"]["app"];
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OIDC settings kept outside the map */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            /** @description Register it in the identity provider */
+                            redirect_uri: string;
+                            /** @description Address to allow after logout */
+                            logout_uri: string;
+                            has_secret: boolean;
+                        };
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/apps/{app}/oidc/secret": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Save the client secret (tenant administrators); it is sealed and never returned */
+        put: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    app: components["parameters"]["app"];
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": {
+                        client_secret: string;
+                    };
+                };
+            };
+            responses: {
+                /** @description Saved */
+                204: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                403: components["responses"]["Error"];
+                422: components["responses"]["Error"];
+            };
+        };
+        post?: never;
+        /** Delete the client secret (public client with PKCE only) */
+        delete: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    app: components["parameters"]["app"];
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Deleted */
+                204: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                403: components["responses"]["Error"];
+            };
+        };
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/tenants/{tenant}/llm": {
         parameters: {
             query?: never;

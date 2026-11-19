@@ -348,6 +348,47 @@ the version → **Roll back to this version**, approvers and administrators):
 it was approved when it first went live, and its signed document is the
 same.
 
+## Login with the identity provider (OIDC)
+
+Off by default: without `roles.auth`, or with `provider: passthrough` or
+`none`, visitors use the site's own login as today. With `oidc` the gateway
+logs them in with the organisation's identity provider first (Entra ID,
+Google, Okta, Keycloak…), with the authorization code flow and PKCE:
+
+```yaml
+roles:
+  anonymous: guest
+  list: { guest: {}, staff: {}, manager: {} }
+  auth:
+    provider: oidc
+    issuer: https://login.microsoftonline.com/<tenant id>/v2.0
+    client_id: 7d2a91c4-…
+    scopes: [openid, email, profile]   # openid is always added
+    groups_claim: groups               # claim with the user's groups
+    roles:                             # first match wins; * = every user
+      - { group: Portal managers, role: manager }
+      - { group: Portal staff, role: staff }
+    required: true                     # false: anonymous until /.eq/oidc/login
+```
+
+- The role comes from the user's groups, never from the browser or from the
+  legacy login; a user in no listed group gets 403.
+- The gateway checks the ID token itself: signature with the provider's
+  keys (RSA or EC, never `none` or HMAC), issuer, audience, expiry, nonce;
+  the login state is tied to the browser's session and expires in 10
+  minutes; after the login the session gets a new id.
+- Its own paths: `/.eq/oidc/login`, `/.eq/oidc/callback` (to register in
+  the provider as `https://<public domain>/.eq/oidc/callback`),
+  `/.eq/oidc/logout`. Pages answer with a redirect to the provider, APIs and
+  writes with 401.
+- The client secret is not in the map: it is saved in the panel (Site →
+  Login), encrypted, and given only to the gateways. Without one the client
+  is public and relies on PKCE.
+- The legacy site still sees its own login, if it has one: one legacy
+  account per user is not available yet.
+- The review aid flags turning it on or off, another issuer, `required:
+  false` and a `*` group.
+
 ## Import and export
 
 Every version can be downloaded as YAML (**Download as YAML**), without the

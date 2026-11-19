@@ -43,9 +43,30 @@ type Session struct {
 	Cookies map[string]string `json:"c,omitempty"` // legacy cookies by name
 	// Issued holds, per entry and target ("permit:params.id"), the values
 	// the site showed this session: owned_by_user lets it open only those.
-	Issued   map[string][]string `json:"i,omitempty"`
-	Created  time.Time           `json:"cr"`
-	LastSeen time.Time           `json:"ls"`
+	Issued map[string][]string `json:"i,omitempty"`
+	// Identity is the user the identity provider logged in (OIDC maps).
+	Identity *Identity `json:"id,omitempty"`
+	// Pending is an OIDC login started and not finished yet.
+	Pending  *Pending  `json:"pl,omitempty"`
+	Created  time.Time `json:"cr"`
+	LastSeen time.Time `json:"ls"`
+}
+
+// Identity is who logged in with the identity provider, and the role the
+// map grants their groups.
+type Identity struct {
+	Subject string `json:"s"`
+	Email   string `json:"e,omitempty"`
+	Role    string `json:"r"`
+}
+
+// Pending holds what the OIDC callback must find again.
+type Pending struct {
+	State    string    `json:"s"`
+	Nonce    string    `json:"n"`
+	Verifier string    `json:"v"`
+	Return   string    `json:"r"`
+	Expires  time.Time `json:"x"`
 }
 
 // Policy limits a session's life.

@@ -34,7 +34,8 @@ requests to the legacy application and renders pages with faithful rendering.
 | Refused paths counted per site (path only) and sent to the panel every minute (`EQ_UNMAPPED_URL`, default next to `EQ_MAP_URL`) | Done |
 | Authorisation `owned_by_user` / `never` / `always` per role on routes and APIs: values issued by the site's own links, redirects and JSON answers (`response.issues`), kept in the session | Done |
 | File uploads: real type sniffed, size bound, images rebuilt with `scan: cdr`, random names, multipart rebuilt towards the legacy app; no virus scan (left to the security stack) | Done |
-| OIDC, per-user legacy accounts | To do |
+| Login with the identity provider (OIDC, code flow with PKCE, ID token checked with the standard library, groups → roles, `/.eq/oidc/*`), off by default; client secrets from the panel (`EQ_OIDC_SECRETS_URL`, default next to `EQ_MAP_URL`) | Done |
+| Per-user legacy accounts behind OIDC | To do |
 | Connector mode through tunnel-relay (destination checked against `legacy.reach.allow`, relay and connector errors mapped to 502) | Done |
 | Prometheus metrics | To do |
 
@@ -74,6 +75,7 @@ internal/server/      public and admin handlers
 | `EQ_INSTANCE` | hostname | Instance name in logs |
 | `EQ_LOG_LEVEL` | `info` | `debug`, `info`, `warn`, `error` |
 | `EQ_MAP_URL` | — | Panel endpoint with every published map (`/v1/internal/maps`, ETag); each map is served on its `meta.public_domain`. Empty: `EQ_MAP_FILE` |
+| `EQ_OIDC_SECRETS_URL` | next to `EQ_MAP_URL` | Panel endpoint with the client secrets of sites logging in with OIDC (`/v1/internal/oidc`), read every 15 s |
 | `EQ_MAP_FILE` | `/maps/current.json` | Signed document (SignedMap, or `{"items": [...]}`); a single map without `public_domain` is served for every host |
 | `EQ_MAP_PUBKEY` or `EQ_MAP_PUBKEY_FILE` | — | Ed25519 public key in base64 (required) |
 | `EQ_MAP_KEY_ID` | — | Expected key id (optional) |

@@ -78,3 +78,20 @@ func TestIssuesAdded(t *testing.T) {
 	}
 	t.Error("issues_added not found")
 }
+
+func TestLoginRules(t *testing.T) {
+	off := `{"roles":{"list":{"staff":{}}}}`
+	on := `{"roles":{"list":{"staff":{}},"auth":{"provider":"oidc","issuer":"https://idp","client_id":"x","roles":[{"group":"*","role":"staff"}],"required":false}}}`
+	got := map[string]bool{}
+	for _, f := range Compare([]byte(off), []byte(on)).Findings {
+		got[f.Rule] = true
+	}
+	for _, f := range Compare([]byte(on), []byte(off)).Findings {
+		got[f.Rule] = true
+	}
+	for _, want := range []string{"oidc_on", "oidc_everyone", "oidc_optional", "oidc_off"} {
+		if !got[want] {
+			t.Errorf("%s not found: %v", want, got)
+		}
+	}
+}

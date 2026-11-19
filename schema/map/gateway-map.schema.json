@@ -215,10 +215,32 @@
           "type": "object",
           "additionalProperties": false,
           "required": ["provider"],
+          "description": "How visitors log in. Absent, passthrough or none: the legacy login as it is. oidc: the gateway asks the organisation's identity provider first (off by default).",
           "properties": {
             "provider": { "enum": ["oidc", "passthrough", "none"] },
-            "issuer": { "type": "string" }
-          }
+            "issuer": { "type": "string", "pattern": "^https://[^\\s]+$", "description": "OIDC issuer, e.g. https://login.microsoftonline.com/<tenant>/v2.0" },
+            "client_id": { "type": "string", "minLength": 1, "maxLength": 200 },
+            "scopes": { "type": "array", "items": { "type": "string", "pattern": "^[A-Za-z0-9_.:/-]{1,100}$" }, "maxItems": 20 },
+            "groups_claim": { "type": "string", "pattern": "^[A-Za-z0-9_.:/-]{1,100}$", "description": "Claim of the ID token with the user's groups (default groups)" },
+            "roles": {
+              "type": "array",
+              "minItems": 1,
+              "maxItems": 50,
+              "description": "Group → role of the map, first match wins; a user in no listed group is refused",
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["group", "role"],
+                "properties": {
+                  "group": { "type": "string", "minLength": 1, "maxLength": 200, "description": "Group name or id, or * for every authenticated user" },
+                  "role": { "$ref": "#/$defs/identifier" }
+                }
+              }
+            },
+            "required": { "type": "boolean", "description": "Every page needs the login (default true); false: visitors keep the anonymous role until they log in at /.eq/oidc/login" }
+          },
+          "if": { "properties": { "provider": { "const": "oidc" } } },
+          "then": { "required": ["issuer", "client_id", "roles"] }
         },
         "list": {
           "type": "object",

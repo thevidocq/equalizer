@@ -95,7 +95,32 @@ type Reach struct {
 type Roles struct {
 	Anonymous string         `json:"anonymous"`
 	List      map[string]any `json:"list"`
+	Auth      *Auth          `json:"auth"`
 }
+
+// Auth says how visitors log in. Provider oidc: the organisation's identity
+// provider first; anything else: the legacy login as it is.
+type Auth struct {
+	Provider    string     `json:"provider"`
+	Issuer      string     `json:"issuer"`
+	ClientID    string     `json:"client_id"`
+	Scopes      []string   `json:"scopes"`
+	GroupsClaim string     `json:"groups_claim"`
+	Roles       []AuthRole `json:"roles"` // group → role, first match wins
+	Required    *bool      `json:"required"`
+}
+
+// AuthRole maps a group of the identity provider to a role of the map.
+type AuthRole struct {
+	Group string `json:"group"`
+	Role  string `json:"role"`
+}
+
+// OIDC reports whether the map logs visitors in with OIDC.
+func (m *Model) OIDC() bool { return m.Roles.Auth != nil && m.Roles.Auth.Provider == "oidc" }
+
+// LoginRequired reports whether every page needs the OIDC login.
+func (a *Auth) LoginRequired() bool { return a.Required == nil || *a.Required }
 
 // Defaults holds the map's default values.
 type Defaults struct {

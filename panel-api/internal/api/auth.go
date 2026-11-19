@@ -5,6 +5,7 @@ import (
 	"log/slog"
 	"net"
 	"net/http"
+	"net/netip"
 	"strings"
 
 	"github.com/thevidocq/equalizer/panel-api/internal/auth"
@@ -16,14 +17,26 @@ type loginRequest struct {
 	Password string `json:"password"`
 }
 
+// Failed logins allowed per window (Throttle.Window, 15 minutes).
+const (
+	loginPerPair    = 5
+	loginPerAddress = 20
+	loginPerAccount = 50
+)
+
 func (s *Server) login(w http.ResponseWriter, r *http.Request) {
 	var in loginRequest
 	if !decode(w, r, &in) {
 		return
 	}
 	email := strings.ToLower(strings.TrimSpace(in.Email))
-	keys := []string{"ip:" + clientIP(r), "email:" + email}
-	if s.Throttle.Blocked(keys...) {
+	// Three counts: one address on one account (5), one address on any
+	// account (20), any address on one account (50). Locking someone out
+	// takes 50 attempts from many addresses, not 5 from anywhere.
+	ip := s.clientIP(r)
+	keys := []string{"pair:" + ip + "|" + email, "ip:" + ip, "email:" + email}
+	if s.Throttle.Exceeds(keys[0], loginPerPair) || s.Throttle.Exceeds(keys[1], loginPerAddress) ||
+		s.Throttle.Exceeds(keys[2], loginPerAccount) {
 		fail(w, http.StatusTooManyRequests, "too_many_attempts", "try again later")
 		return
 	}
@@ -37,12 +50,12 @@ func (s *Server) login(w http.ResponseWriter, r *http.Request) {
 	}
 	if err != nil || !auth.CheckPassword(hash, in.Password) {
 		s.Throttle.Fail(keys...)
-		s.Log.WarnContext(r.Context(), "panel login failed", slog.Group("detail", slog.String("ip", clientIP(r))))
-		_ = s.Store.Record(r.Context(), nil, nil, "auth.login_failed", "", map[string]any{"ip": clientIP(r)})
+		s.Log.WarnContext(r.Context(), "panel login failed", slog.Group("detail", slog.String("ip", s.clientIP(r))))
+		_ = s.Store.Record(r.Context(), nil, nil, "auth.login_failed", "", map[string]any{"ip": s.clientIP(r)})
 		fail(w, http.StatusUnauthorized, "invalid_credentials", "")
 		return
 	}
-	s.Throttle.Reset(keys...)
+	s.Throttle.Reset(keys[0]) // only this address on this account: a login of one's own must not clear the others
 	// The session is complete only when no second step is due.
 	u.MFAVerified = !u.MFAEnabled && !s.MFARequired
 	id, err := s.Sessions.Create(r.Context(), u.ID, u.MFAVerified)
@@ -51,7 +64,7 @@ func (s *Server) login(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	s.setSessionCookie(w, id)
-	_ = s.Store.Record(r.Context(), &u.ID, u.Tenant, "auth.login", "", map[string]any{"ip": clientIP(r)})
+	_ = s.Store.Record(r.Context(), &u.ID, u.Tenant, "auth.login", "", map[string]any{"ip": s.clientIP(r)})
 	writeJSON(w, http.StatusOK, u)
 }
 
@@ -73,12 +86,37 @@ func (s *Server) me(w http.ResponseWriter, _ *http.Request, u *auth.User) {
 	writeJSON(w, http.StatusOK, u)
 }
 
-// clientIP is the peer address: the panel is reached directly (VPN or SSH
-// tunnel), never through a proxy.
-func clientIP(r *http.Request) string {
+// clientIP is the visitor's address: the peer, or behind the trusted
+// proxies (Caddy, panel-ui) the last address in X-Forwarded-For that is
+// not one of them. Without that, every visitor would share the proxy's
+// address, and five wrong passwords would lock everyone out.
+func (s *Server) clientIP(r *http.Request) string {
 	host, _, err := net.SplitHostPort(r.RemoteAddr)
 	if err != nil {
-		return r.RemoteAddr
+		host = r.RemoteAddr
+	}
+	peer, err := netip.ParseAddr(host)
+	if err != nil || !s.trusted(peer.Unmap()) {
+		return host
+	}
+	parts := strings.Split(strings.Join(r.Header.Values("X-Forwarded-For"), ","), ",")
+	for i := len(parts) - 1; i >= 0; i-- {
+		a, err := netip.ParseAddr(strings.TrimSpace(parts[i]))
+		if err != nil {
+			break
+		}
+		if a = a.Unmap(); !s.trusted(a) {
+			return a.String()
+		}
 	}
 	return host
+}
+
+func (s *Server) trusted(a netip.Addr) bool {
+	for _, p := range s.TrustedProxies {
+		if p.Contains(a) {
+			return true
+		}
+	}
+	return false
 }

@@ -146,6 +146,6 @@ func (s *Server) mfaAllowed(w http.ResponseWriter, u *auth.User) bool {
 func (s *Server) mfaFailed(w http.ResponseWriter, r *http.Request, u *auth.User) {
 	s.MFAThrottle.Fail(throttleKey(u))
 	s.Log.WarnContext(r.Context(), "second login step failed", slog.Group("detail", slog.Int64("user_id", u.ID)))
-	_ = s.Store.Record(r.Context(), &u.ID, u.Tenant, "auth.mfa_failed", "", map[string]any{"ip": clientIP(r)})
+	_ = s.Store.Record(r.Context(), &u.ID, u.Tenant, "auth.mfa_failed", "", map[string]any{"ip": s.clientIP(r)})
 	fail(w, http.StatusBadRequest, "invalid_code", "the code is wrong or expired")
 }

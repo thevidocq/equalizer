@@ -191,7 +191,9 @@ closed; secrets only in the vault; dependency scanning and SBOM in CI;
 non-root containers; mandatory review on `pipeline/`, `legacyclient/`,
 `mapstore/`; penetration test before use on real portals.
 
-### The public gateway under attack
+### Exposed services under attack
+
+#### The gateway
 
 The gateway is the only part reachable from the Internet besides the panel
 and the relay, and it is built to hold against clients that do not play by
@@ -220,3 +222,34 @@ the rules:
 
 The lab's `test_03b_hostile.py` sends these requests byte by byte on the
 wire.
+
+#### The relay
+
+- Connector tokens are compared in constant time; an address that sends
+  20 wrong tokens in a minute is refused without a check until the minute
+  ends, and reported once.
+- The connector's address in logs is the one the edge proxy added (the
+  last in `X-Forwarded-For`), never one the client wrote.
+- Requests go only from the relay to the connector: streams the connector
+  opens are closed at once, so a stolen token cannot fill the relay's
+  memory with unread streams.
+- Idle connections close; a tunnel has no deadline left from its upgrade
+  (yamux keep-alives find a dead peer).
+
+#### The panel
+
+- The visitor's address comes from `X-Forwarded-For` only behind
+  `EQ_TRUSTED_PROXIES` (Caddy, then panel-ui): login limits and the audit
+  log see the visitor, not the proxy.
+- Failed logins in 15 minutes: 5 per address and account, 20 per
+  address, 50 per account. Locking an account takes many addresses; a
+  successful login clears only its own address and account.
+- Writes need the `X-Eq-Panel` header (no cross-site forms), bodies are at
+  most 4 MB, and the server gives a client a minute to send a request and
+  two to read the answer.
+- The agent calls a tenant's model server without following redirects and
+  only if the address it connected to is public (no way into the
+  platform's networks by a redirect or a changing DNS answer).
+
+The lab's `test_03c_relay_panel.py` tries these on the relay and the
+panel.

@@ -47,6 +47,14 @@ func (t *Throttle) Blocked(keys ...string) bool {
 	return false
 }
 
+// Exceeds reports whether a key reached max failures in the window (a
+// limit of its own, not Max).
+func (t *Throttle) Exceeds(key string, max int) bool {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	return len(t.recent(key, time.Now())) >= max
+}
+
 // Fail records a failure for every key.
 func (t *Throttle) Fail(keys ...string) {
 	t.mu.Lock()

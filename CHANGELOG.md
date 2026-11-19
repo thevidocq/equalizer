@@ -38,6 +38,38 @@ prototype.
 
 ## Entries
 
+### 2026-11-19 — Harden the relay, the panel and the agent's model calls
+
+- **Branch:** fix/relay-panel-hardening
+- **What:**
+  - relay `tunnel`: 20 wrong tokens a minute per address, then refused
+    without a check and reported once (`failures.go`); the connector's
+    address is the last `X-Forwarded-For` value; streams opened by the
+    connector are closed (`AcceptBacklog` 4); no deadline left on a
+    hijacked tunnel; idle and admin timeouts.
+  - panel `clientIP`: `X-Forwarded-For` behind `EQ_TRUSTED_PROXIES` (new
+    setting; compose and lab set it); panel-ui's Caddy trusts the edge.
+  - panel login: 5 failures per address and account, 20 per address, 50
+    per account (`Throttle.Exceeds`); a successful login clears only its
+    own pair; server read, write and idle timeouts.
+  - agent `llm._post`: no redirects followed; the connected address must be
+    public (checked after connecting, against DNS rebinding).
+  - lab `test_03c_relay_panel.py`; docs: architecture "Exposed services
+    under attack", admin manual, lab README.
+- **Why:** behind Caddy every panel visitor had the proxy's address: five
+  wrong passwords from anyone locked every user out, and the audit showed
+  the proxy. The relay let anyone guess tokens without limit and logged
+  the address the client wrote. A tenant's model server could redirect the
+  agent into the platform's networks. Two of the new lab tests fail on the
+  previous code and pass now.
+- **Status:** unit tests pass (Go with -race, agent); the clean lab passes
+  61 of 61.
+- **Next steps:**
+  1. Manual test on a server by the project owner, then tag v0.1.0.
+  2. External penetration test before real portals.
+  3. Optional customer certificate per site (upload, encrypted, expiry
+     alert), if wanted.
+
 ### 2026-11-19 — Harden the public gateway against hostile clients
 
 - **Branch:** fix/gateway-hardening

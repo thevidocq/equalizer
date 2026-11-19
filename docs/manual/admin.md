@@ -112,7 +112,7 @@ platform does not read them in the panel.
 | `EQ_VERSION` | Release installed |
 | `EQ_PANEL_DOMAIN`, `EQ_RELAY_DOMAIN` | Public domains of the panel and of the relay |
 | `EQ_GATEWAY_REPLICAS` | Gateway replicas |
-| `EQ_TRUSTED_PROXIES` | Networks allowed to state the client IP (Caddy's) |
+| `EQ_TRUSTED_PROXIES` | Networks allowed to state the client IP (Caddy's, and panel-ui's for the panel): the gateway's rate limits and the panel's login limits and audit use the visitor's address |
 | `EQ_BEHIND_CLOUDFLARE` | `true` only when protected sites are reachable through Cloudflare alone: the IP is read from `CF-Connecting-IP` |
 | `EQ_DIRECT_DESTINATIONS` | Lab only: destinations a map may reach without a connector |
 | `EQ_EXPOSURE_INTERVAL` | How often protected sites are checked on their old IP |

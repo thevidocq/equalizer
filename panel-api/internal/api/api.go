@@ -8,6 +8,7 @@ import (
 	"encoding/hex"
 	"log/slog"
 	"net/http"
+	"net/netip"
 	"strings"
 	"time"
 
@@ -24,21 +25,23 @@ import (
 
 // Server holds what the handlers need.
 type Server struct {
-	Store         *store.Store
-	Sessions      *auth.Sessions
-	Throttle      *auth.Throttle
-	Log           *slog.Logger
-	SigningKey    ed25519.PrivateKey
-	KeyID         string
-	InternalToken string
-	UI            http.Handler // static panel-ui files; nil: API only
-	MFA           *mfa.Box     // encrypts authenticator secrets
-	MFARequired   bool         // every panel user must enrol an authenticator
-	MFAThrottle   *auth.Throttle
-	Mail          mail.Sender // invitations
-	PanelURL      string      // base of the links in emails, e.g. https://panel.example.com
-	MailAvailable bool        // the platform sends email (alerts can work)
-	Version       string      // release of the platform; older connectors are outdated
+	// TrustedProxies may set X-Forwarded-For (see clientIP).
+	TrustedProxies []netip.Prefix
+	Store          *store.Store
+	Sessions       *auth.Sessions
+	Throttle       *auth.Throttle
+	Log            *slog.Logger
+	SigningKey     ed25519.PrivateKey
+	KeyID          string
+	InternalToken  string
+	UI             http.Handler // static panel-ui files; nil: API only
+	MFA            *mfa.Box     // encrypts authenticator secrets
+	MFARequired    bool         // every panel user must enrol an authenticator
+	MFAThrottle    *auth.Throttle
+	Mail           mail.Sender // invitations
+	PanelURL       string      // base of the links in emails, e.g. https://panel.example.com
+	MailAvailable  bool        // the platform sends email (alerts can work)
+	Version        string      // release of the platform; older connectors are outdated
 	// Destinations a map may reach in direct mode (EQ_DIRECT_DESTINATIONS);
 	// empty: tenant maps must use a connector.
 	DirectDestinations map[string]bool

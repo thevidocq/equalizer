@@ -1,6 +1,7 @@
 """A real WordPress behind Equalizer, used with a real browser: what a
 visitor and an editor do every day must work as on the legacy site."""
 import re
+import time
 
 import requests
 
@@ -38,12 +39,13 @@ def test_page_and_search(page):
 
 def test_comment(page):
     page.goto(SITE + "/news-from-the-lab/")
-    page.fill("#comment", "Great post, è tutto ok.")
+    text = f"Great post, è tutto ok. ({time.time_ns()})"  # WordPress refuses duplicates
+    page.fill("#comment", text)
     page.fill("#author", "Visitor One")
     page.fill("#email", "visitor@example.org")
     page.click("#submit")
     page.wait_for_load_state()
-    assert "Great post, è tutto ok." in page.content()
+    assert text in page.content()
 
 
 def test_other_domains_redirect():
@@ -117,7 +119,8 @@ def test_admin_has_no_mixed_content(page):
     errors = []
     page.on("console", lambda m: errors.append(m.text) if "Mixed Content" in m.text else None)
     page.goto(SITE + "/wp-admin/post-new.php")
-    page.wait_for_load_state("networkidle")
+    page.wait_for_load_state("load")
+    page.wait_for_timeout(4000)  # the block editor never stops polling: no "network idle"
     assert not errors, errors[:3]
     assert "http://www.acme.test" not in page.content()
 
@@ -129,3 +132,33 @@ def test_media_upload_form(page):
     page.click("#html-upload")
     page.wait_for_url(re.compile(r"upload\.php"))
     assert "photo" in page.content()
+
+
+def test_settings_keep_the_legacy_address(page):
+    """The form shows the public https address; WordPress must keep its own."""
+    wp_login(page)
+    page.goto(SITE + "/wp-admin/options-general.php")
+    page.fill("#blogdescription", "Saved through Equalizer")
+    page.click("#submit")
+    page.wait_for_url(re.compile(r"settings-updated=true"))
+    direct = requests.get("http://127.0.0.1:18090/wp-json/", headers={"Host": "www.acme.test"},
+                          proxies={"http": None, "https": None}, timeout=20).json()
+    assert direct["description"] == "Saved through Equalizer"
+    assert direct["url"] == "http://www.acme.test" and direct["home"] == "http://www.acme.test", direct["url"]
+
+
+def test_block_editor_publishes(page):
+    wp_login(page)
+    page.goto(SITE + "/wp-admin/post-new.php")
+    close = page.get_by_role("button", name="Close")
+    try:
+        close.first.click(timeout=5000)  # the welcome guide, first visit only
+    except Exception:
+        pass
+    title = f"Published through Equalizer {time.time_ns()}"
+    editor = page.frame_locator("iframe[name=editor-canvas]")
+    editor.get_by_role("textbox", name="Add title").fill(title)
+    page.get_by_role("button", name="Publish", exact=True).click()
+    page.locator(".editor-post-publish-panel").get_by_role("button", name="Publish", exact=True).click()
+    page.get_by_text("is now live").wait_for(timeout=20000)
+    assert title in requests.get(SITE + "/", verify=CA, timeout=20).text

@@ -5,12 +5,17 @@ from lab import RUN
 
 
 @pytest.fixture(scope="session")
-def browser():
+def playwright():
     with sync_playwright() as p:
-        exe = "/usr/bin/google-chrome"
-        b = p.chromium.launch(executable_path=exe, args=["--no-sandbox"]) if __import__("os").path.exists(exe) else p.chromium.launch()
-        yield b
-        b.close()
+        yield p
+
+
+@pytest.fixture(scope="session")
+def browser(playwright):
+    exe = "/usr/bin/google-chrome"
+    b = playwright.chromium.launch(executable_path=exe, args=["--no-sandbox"]) if __import__("os").path.exists(exe) else playwright.chromium.launch()
+    yield b
+    b.close()
 
 
 @pytest.fixture()

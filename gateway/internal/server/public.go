@@ -69,10 +69,13 @@ func (p *Public) serve(w http.ResponseWriter, r *http.Request) {
 func (p *Public) handle(w http.ResponseWriter, r *http.Request) string {
 	switch r.Method {
 	case http.MethodOptions:
-		// Answered by the gateway, never forwarded. No CORS policy for now.
-		w.Header().Set("Allow", "GET, HEAD, POST")
-		w.WriteHeader(http.StatusNoContent)
-		return ""
+		if !p.optionsToLegacy(r) {
+			// Answered by the gateway: CORS preflights (no cross-site
+			// policy for now) and areas that do not list OPTIONS.
+			w.Header().Set("Allow", "GET, HEAD, POST")
+			w.WriteHeader(http.StatusNoContent)
+			return ""
+		}
 	case http.MethodGet, http.MethodHead, http.MethodPost, http.MethodPut, http.MethodPatch, http.MethodDelete:
 	default:
 		p.block(w, r, nil, http.StatusMethodNotAllowed, "method_not_allowed")

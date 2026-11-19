@@ -55,7 +55,8 @@ func (p *Public) serveArea(w http.ResponseWriter, r *http.Request, st *site.Site
 		p.refuseArea(w, r, st, a, err)
 		return
 	}
-	body, status, reason := p.areaBody(w, r, a, cs)
+	query = string(st.Inbound.Bytes([]byte(query)))
+	body, status, reason := p.areaBody(w, r, st, a, cs)
 	if status != 0 {
 		p.block(w, r, st, status, reason)
 		return

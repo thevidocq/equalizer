@@ -1,8 +1,9 @@
 import { useState } from "react";
-import { NavLink, useNavigate } from "react-router";
-import { canManage, hasRole, useLogout, useMe } from "@/features/auth";
+import { NavLink } from "react-router";
+import { canManage, hasRole, useMe } from "@/features/auth";
 import { CreateSiteDialog, SiteList } from "@/features/sites";
 import { Logo } from "@/shared/ui";
+import { SidebarFooter } from "./SidebarFooter";
 
 const link = ({ isActive }: { isActive: boolean }) =>
   `block rounded-[var(--radius-control)] px-3 py-1.5 text-sm ${isActive ? "bg-paper/12 text-paper" : "text-paper/75 hover:text-paper"}`;
@@ -10,8 +11,6 @@ const link = ({ isActive }: { isActive: boolean }) =>
 /** Platform users see the customer list; tenant people see their own tenant. Never both. */
 export function Sidebar() {
   const me = useMe().data;
-  const logout = useLogout();
-  const navigate = useNavigate();
   const [adding, setAdding] = useState(false);
   const tenant = me?.tenant ?? "";
 
@@ -40,13 +39,7 @@ export function Sidebar() {
         {me?.platform_role ? <NavLink to="/status" className={link}>Platform status</NavLink> : null}
         {me?.platform_role ? <NavLink to="/activity" end className={link}>Activity</NavLink> : null}
       </nav>
-      <div className="mt-auto flex flex-col gap-1 border-t border-paper/15 px-3 pt-4 text-sm">
-        <NavLink to="/help" className={({ isActive }) => `${isActive ? "text-paper" : "text-paper/75"} hover:text-paper`}>Help</NavLink>
-        <NavLink to="/account" className="truncate text-paper/75 hover:text-paper" title="Your account">{me?.email}</NavLink>
-        <button type="button" className="text-left text-paper/75 hover:text-paper" onClick={() => logout.mutate(undefined, { onSettled: () => navigate("/login") })}>
-          Log out
-        </button>
-      </div>
+      <SidebarFooter email={me?.email} />
       {tenant ? <CreateSiteDialog tenant={tenant} open={adding} onOpenChange={setAdding} /> : null}
     </aside>
   );

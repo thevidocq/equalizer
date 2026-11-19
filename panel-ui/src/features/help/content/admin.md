@@ -13,8 +13,9 @@ fictitious company, Acme.
   the VPS localhost, port 8088 (over an SSH tunnel or a VPN).
 - An authenticator app is mandatory: the first login links it and shows ten
   recovery codes once.
-- Platform users see **Tenants**, **Platform status**, **Activity** and
-  **Help**.
+- Platform users see **Tenants**, **Platform status**, **Activity**; at the
+  bottom of the sidebar their account, **Help** (question mark) and **Log
+  out**.
 
 ![Login](/help-img/panel-login.png)
 

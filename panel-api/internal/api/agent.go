@@ -29,6 +29,7 @@ type discoveryJob struct {
 	CurrentMap json.RawMessage  `json:"current_map"`
 	Template   json.RawMessage  `json:"template"`
 	Account    map[string]any   `json:"account"`
+	Accounts   []testAccount    `json:"accounts"`
 	LLM        map[string]any   `json:"llm"`
 	MaxPages   int              `json:"max_pages"`
 	Unmapped   []store.Unmapped `json:"unmapped"`
@@ -58,17 +59,35 @@ func (s *Server) claimDiscovery(w http.ResponseWriter, r *http.Request) {
 		_ = json.Unmarshal(rr.Reach, &reach)
 		job.Template, _ = templates.Render(*c.App.Kind, templates.Fill{BaseURL: rr.BaseURL, Connector: reach.ConnectorID, Address: reach.Address})
 	}
-	if c.AccountUser != nil {
-		pw, err := s.MFA.OpenFor("discovery:"+c.App.ID, c.AccountSecret)
-		if err == nil {
-			job.Account = map[string]any{"username": *c.AccountUser, "password": string(pw)}
-		}
+	job.Accounts = s.jobAccounts(c)
+	if len(job.Accounts) > 0 {
+		// agents before the study read only the first account
+		job.Account = map[string]any{"username": job.Accounts[0].Username, "password": job.Accounts[0].Password}
 	}
 	if c.UseAI {
 		job.LLM = s.tenantModel(r, c.App.Tenant)
 	}
 	job.Unmapped, _ = s.Store.UnmappedOf(r.Context(), c.App.ID, 200)
 	writeJSON(w, http.StatusOK, job)
+}
+
+// jobAccounts opens the test accounts of a claimed discovery: the sealed
+// list, or the single account of a discovery started before it.
+func (s *Server) jobAccounts(c store.Claim) []testAccount {
+	label := "discovery:" + c.App.ID
+	if c.AccountsSecret != nil {
+		var out []testAccount
+		if blob, err := s.MFA.OpenFor(label, c.AccountsSecret); err == nil && json.Unmarshal(blob, &out) == nil {
+			return out
+		}
+		return nil
+	}
+	if c.AccountUser != nil && c.AccountSecret != nil {
+		if pw, err := s.MFA.OpenFor(label, c.AccountSecret); err == nil {
+			return []testAccount{{Label: "account", Username: *c.AccountUser, Password: string(pw)}}
+		}
+	}
+	return nil
 }
 
 // tenantModel is the tenant's AI model with its key opened, for the agent;

@@ -53,8 +53,14 @@ func TestDiscovery(t *testing.T) {
 		UseAI       bool `json:"use_ai"`
 		WithAccount bool `json:"with_account"`
 	}
+	many := []map[string]string{{"label": "a", "username": "u1"}, {"label": "b", "username": "u2"}, {"label": "c", "username": "u3"}}
+	boss.must(422, "POST", "/v1/apps/blog/discoveries", map[string]any{"connector_id": "cn-web01", "address": "127.0.0.1:8443",
+		"account": map[string]string{"username": "tester", "password": "s3cret!"}, "accounts": many}, nil)
+	boss.must(422, "POST", "/v1/apps/blog/discoveries", map[string]any{"connector_id": "cn-web01", "address": "127.0.0.1:8443",
+		"accounts": []map[string]string{{"label": "a", "username": "u1"}, {"label": "a", "username": "u2"}}}, nil)
 	boss.must(201, "POST", "/v1/apps/blog/discoveries", map[string]any{"connector_id": "cn-web01", "address": "127.0.0.1:8443",
-		"account": map[string]string{"username": "tester", "password": "s3cret!"}}, &d)
+		"account":  map[string]string{"username": "tester", "password": "s3cret!"},
+		"accounts": []map[string]string{{"label": "administrator", "username": "admin", "password": "adm1n!"}}}, &d)
 	if !d.UseAI || !d.WithAccount {
 		t.Fatalf("discovery: %+v", d)
 	}
@@ -73,6 +79,7 @@ func TestDiscovery(t *testing.T) {
 		BaseURL  string `json:"base_url"`
 		Template map[string]any
 		Account  map[string]string
+		Accounts []map[string]string
 		LLM      map[string]any
 		Unmapped []map[string]any
 	}
@@ -80,6 +87,7 @@ func TestDiscovery(t *testing.T) {
 		t.Fatalf("claim: %d", code)
 	}
 	if job.ID != d.ID || job.BaseURL != "https://blog.acme.test" || job.Template == nil || job.Account["password"] != "s3cret!" ||
+		len(job.Accounts) != 2 || job.Accounts[1]["label"] != "administrator" || job.Accounts[1]["password"] != "adm1n!" ||
 		job.LLM["api_key"] != "sk-test-123" || len(job.Unmapped) != 1 {
 		t.Fatalf("job: %+v", job)
 	}
@@ -108,7 +116,7 @@ func TestDiscovery(t *testing.T) {
 		t.Fatalf("draft: %+v", ver)
 	}
 	var sealed int
-	_ = e.st.DB.QueryRowContext(context.Background(), `SELECT count(*) FROM discoveries WHERE account_secret IS NOT NULL`).Scan(&sealed)
+	_ = e.st.DB.QueryRowContext(context.Background(), `SELECT count(*) FROM discoveries WHERE account_secret IS NOT NULL OR accounts_secret IS NOT NULL`).Scan(&sealed)
 	if sealed != 0 {
 		t.Fatal("the test account password was kept after the discovery")
 	}

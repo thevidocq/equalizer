@@ -38,6 +38,41 @@ prototype.
 
 ## Entries
 
+### 2026-11-20 — Study test accounts and form fields
+
+- **Branch:** feat/agent-accounts-forms (on top of feat/maps-try)
+- **What:**
+  - panel-api: up to three test accounts per discovery (`accounts`, with a
+    label; `account` counts as the first), sealed together in the new
+    `discoveries.accounts_secret` (migration 0013), erased at the end like
+    before; the job hands them to the agent (and the first as `account` for
+    older agents).
+  - agent: one pass per account, each with a new session; the report says
+    how each logged in (`accounts`). `fields.py` types each form field from
+    its HTML: choices (select, radio, checkbox), number ranges, email, date,
+    phone, URL, colour, time, HTML patterns kept only when RE2 reads them the
+    same (no lookaround, repeats ≤ 1000). Free text refuses HTML and
+    template code; names and codes also refuse SQL delimiters. Query strings
+    seen in links get `no_html` and `no_template_meta`. A new `open` list in
+    the report says what is still open and why (not opened, action links,
+    legacy errors, fields that must accept SQL characters).
+  - panel-ui: up to three test accounts on the Discovery form; report shows
+    the accounts and the still-open list.
+  - Design correction (docs/agent.md, contract): accounts do not become map
+    roles. Equalizer never decides access; the legacy site does (project
+    decision). The accounts only let the agent reach pages behind a login.
+  - Docs: tenant manual, agent README, agent.md rollout (3a done, 3b next).
+- **Why:** step 3 of docs/agent.md, first half.
+- **Status:** agent, panel-api and panel-ui tests pass; a generated map
+  loads in the gateway (checked by hand with the gateway's own Build). The
+  administration is still never opened: that needs step 3b's lab study
+  showing nothing changes on the four lab sites.
+- **Next steps:**
+  1. 3b: browser and read-only proxy, administration read-only, declared
+     APIs, discovery run in the lab against the four sites (database
+     unchanged before and after).
+  2. Step 4: the two checks and the score.
+
 ### 2026-11-19 — Let the agent try a draft map on the gateway
 
 - **Branch:** feat/maps-try (on top of docs/agent-study)

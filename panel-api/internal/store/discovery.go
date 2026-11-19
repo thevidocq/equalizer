@@ -64,16 +64,18 @@ type NewDiscovery struct {
 	Reach         json.RawMessage
 	AccountUser   *string
 	AccountSecret []byte
-	RequestedBy   *int64
+	// AccountsSecret holds every test account, sealed (JSON list).
+	AccountsSecret []byte
+	RequestedBy    *int64
 }
 
 // StartDiscovery queues a discovery; ErrConflict while another is active.
 func (s *Store) StartDiscovery(ctx context.Context, n NewDiscovery) (Discovery, error) {
 	var id int64
 	err := s.DB.QueryRowContext(ctx, `
-		INSERT INTO discoveries (app_id, trigger, use_ai, max_pages, reach, account_user, account_secret, requested_by)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING id`,
-		n.App, n.Trigger, n.UseAI, n.MaxPages, []byte(n.Reach), n.AccountUser, n.AccountSecret, n.RequestedBy).Scan(&id)
+		INSERT INTO discoveries (app_id, trigger, use_ai, max_pages, reach, account_user, account_secret, accounts_secret, requested_by)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING id`,
+		n.App, n.Trigger, n.UseAI, n.MaxPages, []byte(n.Reach), n.AccountUser, n.AccountSecret, n.AccountsSecret, n.RequestedBy).Scan(&id)
 	if err != nil {
 		return Discovery{}, translate(err)
 	}
@@ -125,13 +127,14 @@ func (s *Store) Discovery(ctx context.Context, app string, id int64) (Discovery,
 
 // Claim is a discovery taken by the agent.
 type Claim struct {
-	ID            int64
-	App           App
-	UseAI         bool
-	MaxPages      int
-	Reach         json.RawMessage
-	AccountUser   *string
-	AccountSecret []byte
+	ID             int64
+	App            App
+	UseAI          bool
+	MaxPages       int
+	Reach          json.RawMessage
+	AccountUser    *string
+	AccountSecret  []byte
+	AccountsSecret []byte
 }
 
 // ClaimDiscovery marks the oldest queued discovery running and returns it;
@@ -139,7 +142,7 @@ type Claim struct {
 func (s *Store) ClaimDiscovery(ctx context.Context) (Claim, error) {
 	if _, err := s.DB.ExecContext(ctx, `
 		UPDATE discoveries SET status = 'failed', error = 'the agent stopped answering', finished_at = now(),
-			account_secret = NULL
+			account_secret = NULL, accounts_secret = NULL
 		WHERE status = 'running' AND started_at < now() - interval '2 hours'`); err != nil {
 		return Claim{}, err
 	}
@@ -147,8 +150,8 @@ func (s *Store) ClaimDiscovery(ctx context.Context) (Claim, error) {
 	err := s.DB.QueryRowContext(ctx, `
 		UPDATE discoveries SET status = 'running', started_at = now()
 		WHERE id = (SELECT id FROM discoveries WHERE status = 'queued' ORDER BY id FOR UPDATE SKIP LOCKED LIMIT 1)
-		RETURNING id, app_id, use_ai, max_pages, reach, account_user, account_secret`).
-		Scan(&c.ID, &c.App.ID, &c.UseAI, &c.MaxPages, &c.Reach, &c.AccountUser, &c.AccountSecret)
+		RETURNING id, app_id, use_ai, max_pages, reach, account_user, account_secret, accounts_secret`).
+		Scan(&c.ID, &c.App.ID, &c.UseAI, &c.MaxPages, &c.Reach, &c.AccountUser, &c.AccountSecret, &c.AccountsSecret)
 	if err != nil {
 		return Claim{}, translate(err)
 	}
@@ -181,7 +184,7 @@ func (s *Store) FinishDiscovery(ctx context.Context, id int64, report json.RawMe
 	}
 	res, err := s.DB.ExecContext(ctx, `
 		UPDATE discoveries SET status = $2, report = $3, draft_version = $4, error = $5, finished_at = now(),
-			account_secret = NULL
+			account_secret = NULL, accounts_secret = NULL
 		WHERE id = $1 AND status = 'running'`, id, status, rep, draft, failure)
 	return affected(res, err)
 }

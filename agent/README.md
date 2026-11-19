@@ -14,7 +14,8 @@ browser and two checks of its own map: see [docs/agent.md](../docs/agent.md).
    pages, the paths real visitors asked for (reported by the gateway), then
    every same-site link, GET form and URL found in scripts. At most
    `max_pages`, 20 URLs per shape (calendars, searches), `EQ_RATE` requests
-   per second. With a test account, a second pass logged in.
+   per second. With test accounts (up to three), one more pass per account,
+   each with a new session.
 2. **Never opened** (`rules.py`, fixed): admin areas of each CMS, tooling
    (`phpmyadmin`, `server-status`…), backups and dot files, links that change
    something (logout, delete…). They are listed in the report.
@@ -24,7 +25,10 @@ browser and two checks of its own map: see [docs/agent.md](../docs/agent.md).
 4. **Map** (`cluster.py`, `mapbuild.py`): varying segments become typed
    parameters (`{id}` int, `{slug}` with the admin names refused), query
    values give their types, POST forms become forms (hidden fields kept on
-   the gateway), assets are grouped by folder. The base is the published map
+   the gateway), assets are grouped by folder. Form fields get the narrowest
+   type their HTML declares (`fields.py`: choices, ranges, formats, RE2-safe
+   patterns) and free text refuses HTML and template code; the report lists
+   what is still open, with the reason. The base is the published map
    (continuous discovery: only additions, nothing removed) or the CMS
    template.
 5. **AI** (`llm/`, optional): the tenant's own model reviews the structure

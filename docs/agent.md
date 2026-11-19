@@ -31,7 +31,7 @@ with a score that was measured, not estimated.
 | --- | --- | --- |
 | Exploration | Follows links and GET forms with plain HTTP requests | A real browser (headless Chrome): scripts run, their AJAX and REST calls are seen |
 | Administration | Never opened | Opened read-only with a test administrator |
-| Accounts | One optional test account | Up to three (for example visitor, customer, administrator): who uses what becomes roles in the map |
+| Accounts | One optional test account | Up to three (for example customer and administrator), each in its own pass, to reach the pages behind their login |
 | Forms | Field names; hidden fields kept on the gateway | Also `type`, `maxlength`, `min`/`max`, `pattern`, `required`, the options of every `<select>` and radio group: tight types without guessing |
 | APIs the site declares | Not read | Read: `/wp-json/` (WordPress lists its routes with argument types), Drupal JSON:API, OpenAPI files |
 | Map | Precise entries for public pages, everything else in the `/` area | A precise entry for every function understood; the `/` area keeps only what is listed under "still open" |
@@ -68,17 +68,22 @@ Deterministic, no AI needed:
   list of values (`enum`) when the site offers a closed set (a `<select>`,
   links that only ever use `asc` and `desc`), a date, an email, a slug, a
   text with its maximum length.
-- **Text fields**: a field whose values never contain markup or SQL
-  delimiters gets the gateway's `no_html`, `no_sql_meta` and
-  `no_template_meta` rules. A field that must accept them (a rich-text
-  editor, a code snippet) does not, and is listed under "still open" with
-  the reason.
-- **Roles**: a page seen only by the administrator account becomes an entry
-  for that role only; a page seen by everyone stays open to everyone.
-- **Ownership**: when two accounts open the same path with different ids and
-  each sees only their own (`/account/orders/{id}/`), the entry gets the
-  map's `owned_by_user` rule: a session opens only the ids the site itself
-  showed it.
+- **Form fields** (read-only, so from what the page declares, never from
+  submitted values): a `<select>`, radio group or checkbox becomes a list of
+  values; a number its range; email, date, phone, URL, colour and time
+  their formats; an HTML `pattern` is kept when it means the same in the
+  gateway's RE2 (no lookaround, at most 1000 repeats).
+- **Text fields**: every free-text field refuses HTML and template code
+  (`no_html`, `no_template_meta`). A single-line field whose name says it
+  holds a name or a code (name, city, zip, phone, code…) also refuses SQL
+  delimiters (`no_sql_meta`, an apostrophe between letters stays allowed).
+  The others (a search, a message, a nickname) must still accept them and
+  are listed under "still open" with the reason.
+- **Access stays with the site**: the map does not restrict pages by
+  account. Equalizer rebuilds every request and the legacy site keeps
+  deciding who sees what (a project decision). The accounts only let the
+  agent reach and study the pages behind a login; the report says which
+  account reached what.
 
 ### 3. Write the map
 
@@ -230,7 +235,8 @@ Each step is its own pull request, tested in the lab before the next.
 | --- | --- | --- |
 | 1 | This document and the contracts | Done |
 | 2 | Gateway: `POST /maps/try` (preview and dry-run); panel-api: signing for tries | Done |
-| 3 | Agent: browser and read-only proxy, several accounts, forms and declared APIs, roles and ownership, tighter map | Planned |
+| 3a | Agent: several accounts, form fields typed from their HTML, text rules, "still open" in the report; panel: accounts | Done |
+| 3b | Agent: browser and read-only proxy, administration read-only, declared APIs; a lab study of the four sites | Planned |
 | 4 | Agent: the two checks and the score; panel-api verification queue | Planned |
 | 5 | Panel: score and "still open" on the Discovery tab, Verify button on drafts | Planned |
 | 6 | Lab: studies of WordPress, Joomla, Drupal and the intranet with the expected scores | Planned |

@@ -3909,7 +3909,7 @@ export interface components {
                 username?: string;
                 password?: string;
             } | null;
-            /** @description Test accounts (for example customer and administrator). Each is explored in its own pass; what each one sees becomes the roles of the map. Kept encrypted, deleted when the discovery ends. Replaces account */
+            /** @description Test accounts (for example customer and administrator). Each is explored in its own pass, to reach the pages behind its login; the map does not restrict pages by account (the legacy site decides access). Kept encrypted, deleted when the discovery ends. account counts as the first one */
             accounts?: components["schemas"]["TestAccount"][];
             /** @description Needed while the site has no published map */
             connector_id?: string;
@@ -3972,8 +3972,6 @@ export interface components {
         TestAccount: {
             /** @description How the report names it, e.g. customer, administrator */
             label: string;
-            /** @description Map role its pages get; default: the label */
-            role?: string | null;
             username: string;
             password: string;
         };
@@ -3995,8 +3993,8 @@ export interface components {
             /** @description Map entries (route, form, API ids) */
             entries: string[];
             paths?: string[];
-            /** @description Accounts that used it; empty: everyone */
-            roles?: string[];
+            /** @description Test accounts that reached it (information: the map does not restrict by account) */
+            accounts?: string[];
             /** @description The rule written for it, in words */
             rule?: string;
         };
@@ -4087,7 +4085,6 @@ export interface components {
             } | null;
             accounts?: {
                 label: string;
-                role?: string | null;
                 username: string;
                 password: string;
             }[];

@@ -24,6 +24,7 @@ class Seen:
     ctype: str
     title: str = ""
     logged_in: bool = False
+    seen_by: set = field(default_factory=set)  # "anonymous" and test account labels
 
 
 @dataclass
@@ -35,7 +36,8 @@ class CrawlResult:
     skipped_actions: set = field(default_factory=set)
     generator: str = ""
     urls: list = field(default_factory=list)  # every same-site URL seen, for fingerprinting
-    login: str = ""  # outcome of the test account login
+    login: str = ""  # outcome of the first test account's login
+    logins: dict = field(default_factory=dict)  # account label -> ok, failed, no_login_form
     errors: int = 0
 
 
@@ -58,15 +60,27 @@ class Crawler:
         self.r = CrawlResult()
         self.shapes: dict = {}
         self.scripts = 0
+        self.label = "anonymous"
 
     def anonymous(self, seeds: list) -> CrawlResult:
+        self.label = "anonymous"
         self._crawl(seeds, logged_in=False)
         return self.r
 
-    def logged_in(self, account: dict) -> CrawlResult:
-        """Second pass with the test account (call after the CMS is known)."""
-        if self._login(account):
+    def logged_in(self, account: dict, label: str = "account") -> CrawlResult:
+        """One pass per test account (call after the CMS is known). Each
+        starts from a new session: what one account sees never comes from
+        another's cookies."""
+        self.f.cookies = {}
+        self._tried_known = False
+        self.label = label
+        ok = self._login(account)
+        self.r.logins[label] = self.r.login
+        if len(self.r.logins) > 1:
+            self.r.login = next(iter(self.r.logins.values()))
+        if ok:
             self._crawl(["/"] + [p for p in list(self.r.pages)[:50]], logged_in=True)
+        self.f.cookies = {}
         return self.r
 
     def _crawl(self, seeds, logged_in):
@@ -97,6 +111,7 @@ class Crawler:
             first = pq not in self.r.pages
             if first or logged_in:
                 self.r.pages.setdefault(pq, Seen(resp.status, resp.content_type, logged_in=logged_in))
+            self.r.pages[pq].seen_by.add(self.label)
             if resp.status in (301, 302, 303, 307, 308) and resp.location:
                 self._enqueue(queue, urllib.parse.urljoin(resp.url, resp.location))
                 continue

@@ -1878,8 +1878,9 @@ components:
           type: array
           maxItems: 3
           description: >-
-            Test accounts (for example customer and administrator). Each is explored in its own pass; what each one
-            sees becomes the roles of the map. Kept encrypted, deleted when the discovery ends. Replaces account
+            Test accounts (for example customer and administrator). Each is explored in its own pass, to reach the
+            pages behind its login; the map does not restrict pages by account (the legacy site decides access).
+            Kept encrypted, deleted when the discovery ends. account counts as the first one
           items: { $ref: "#/components/schemas/TestAccount" }
         connector_id: { type: string, description: "Needed while the site has no published map" }
         address: { type: string, description: "host:port the connector reaches" }
@@ -1942,7 +1943,6 @@ components:
       required: [label, username, password]
       properties:
         label: { type: string, maxLength: 60, description: "How the report names it, e.g. customer, administrator" }
-        role: { type: [string, "null"], maxLength: 60, description: "Map role its pages get; default: the label" }
         username: { type: string, maxLength: 200 }
         password: { type: string, writeOnly: true, maxLength: 200 }
     StudyScore:
@@ -1962,7 +1962,7 @@ components:
         name: { type: string, description: "What the pages do, e.g. Article search" }
         entries: { type: array, items: { type: string }, description: "Map entries (route, form, API ids)" }
         paths: { type: array, items: { type: string } }
-        roles: { type: array, items: { type: string }, description: "Accounts that used it; empty: everyone" }
+        accounts: { type: array, items: { type: string }, description: "Test accounts that reached it (information: the map does not restrict by account)" }
         rule: { type: string, description: "The rule written for it, in words" }
     StillOpen:
       type: object
@@ -2040,7 +2040,6 @@ components:
             required: [label, username, password]
             properties:
               label: { type: string }
-              role: { type: [string, "null"] }
               username: { type: string }
               password: { type: string }
         llm: { type: [object, "null"], additionalProperties: true, description: "provider, model, endpoint, api_key; null without AI" }

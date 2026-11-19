@@ -8,11 +8,16 @@ from html.parser import HTMLParser
 
 @dataclass
 class Input:
+    """A form field with what its HTML says about its values."""
     name: str
     type: str = "text"
     required: bool = False
     maxlength: int = 0
-    options: list = field(default_factory=list)
+    options: list = field(default_factory=list)  # select options, radio and checkbox values
+    pattern: str = ""
+    min: str = ""
+    max: str = ""
+    step: str = ""
 
 
 @dataclass
@@ -75,9 +80,21 @@ class _Parser(HTMLParser):
             self.form = Form(self._abs(a.get("action") or self.base), (a.get("method") or "get").upper())
             self.page.forms.append(self.form)
         elif tag in ("input", "textarea", "select") and self.form is not None and a.get("name"):
-            t = "textarea" if tag == "textarea" else "select" if tag == "select" else a.get("type", "text").lower()
+            t = "textarea" if tag == "textarea" else "select" if tag == "select" else (a.get("type") or "text").lower()
+            if t in ("radio", "checkbox"):
+                # one field, the values of its boxes
+                value = a.get("value") or "on"
+                same = next((i for i in self.form.inputs if i.name == a["name"] and i.type == t), None)
+                if same is not None:
+                    if value not in same.options:
+                        same.options.append(value)
+                    same.required = same.required or "required" in a
+                    return
+                self.form.inputs.append(Input(a["name"], t, "required" in a, options=[value]))
+                return
             ml = a.get("maxlength", "")
-            inp = Input(a["name"], t, "required" in a, int(ml) if ml.isdigit() else 0)
+            inp = Input(a["name"], t, "required" in a, int(ml) if ml.isdigit() else 0,
+                        pattern=a.get("pattern", "")[:300], min=a.get("min", ""), max=a.get("max", ""), step=a.get("step", ""))
             self.form.inputs.append(inp)
             if tag == "select":
                 self.select = inp

@@ -17,6 +17,13 @@ HOME = """<html><head><meta name="generator" content="WordPress 5.8"><title>City
 <input name="author" maxlength="80"><input type="email" name="email"><input type="hidden" name="comment_post_ID" value="12">
 <input type="submit" value="Send"></form>
 <form action="/upload.php" method="post"><input type="file" name="doc"><input name="title"></form>
+<form action="/signup/" method="post"><input name="first_name" maxlength="60" required>
+<input name="nickname"><input type="tel" name="phone"><input type="url" name="site">
+<input name="zip" pattern="[0-9]{5}"><input name="bad" pattern="(?=a)b">
+<input type="number" name="age" min="18" max="120"><input type="number" name="weight" step="0.1">
+<input type="radio" name="plan" value="free"><input type="radio" name="plan" value="pro">
+<input type="checkbox" name="news" value="yes"><select name="country"><option value="it">IT</option><option value="fr">FR</option></select>
+<textarea name="bio"></textarea><input type="submit"></form>
 %s</body></html>"""
 LOGIN = """<html><body><form action="/wp-login.php" method="post"><input name="log"><input type="password" name="pwd">
 <input type="hidden" name="testcookie" value="1"></form></body></html>"""
@@ -41,16 +48,22 @@ class Site:
 
             def do_GET(self):
                 site.requests.append(("GET", self.path, self.headers.get("Host")))
-                logged = "session=ok" in (self.headers.get("Cookie") or "")
+                cookie = self.headers.get("Cookie") or ""
+                logged = "session=ok" in cookie
+                editor = "session=ed" in cookie
                 p = self.path.split("?")[0]
                 if p == "/":
                     # like most PHP sites: an anonymous session cookie on the first visit
-                    return self._send(200, HOME % ('<a href="/members/area/profile">Members</a>' if logged else ""),
+                    extra = ('<a href="/members/area/profile">Members</a>' if logged else "") + \
+                        ('<a href="/editors/desk">Desk</a>' if editor else "")
+                    return self._send(200, HOME % extra,
                                       headers={"Set-Cookie": "PHPSESSID=anon; Path=/"})
                 if p in ("/about/", "/contact/", "/team/", "/category/a/", "/category/b/", "/category/c/", "/events/list"):
                     return self._send(200, "<html><title>%s</title><body>page</body></html>" % p)
                 if p == "/members/area/profile" and logged:
                     return self._send(200, "<html><title>Members</title></html>")
+                if p == "/editors/desk" and editor:
+                    return self._send(200, "<html><title>Desk</title></html>")
                 if p.endswith(".js"):
                     return self._send(200, 'fetch("/wp-json/wp/v2/posts"); var u = "/events/list";', "application/javascript")
                 if p == "/wp-login.php":
@@ -63,8 +76,10 @@ class Site:
                 n = int(self.headers.get("Content-Length") or 0)
                 body = self.rfile.read(n).decode()
                 site.requests.append(("POST", self.path, body))
-                if self.path == "/wp-login.php" and "log=tester" in body and "pwd=pw" in body and "testcookie=1" in body:
+                if self.path == "/wp-login.php" and "log=tester" in body and "pwd=pw&" in body + "&" and "testcookie=1" in body:
                     return self._send(302, "", headers={"Location": "/", "Set-Cookie": "session=ok; Path=/"})
+                if self.path == "/wp-login.php" and "log=editor" in body and "pwd=pw2" in body and "testcookie=1" in body:
+                    return self._send(302, "", headers={"Location": "/", "Set-Cookie": "session=ed; Path=/"})
                 return self._send(200, LOGIN)
 
         self.server = ThreadingHTTPServer(("127.0.0.1", int(__import__("os").environ.get("FAKE_PORT", "0"))), H)

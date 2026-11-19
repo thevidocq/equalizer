@@ -22,6 +22,14 @@ def seeds(job: dict, cms: str | None) -> list:
     return list(dict.fromkeys(out))
 
 
+def accounts(job: dict) -> list:
+    """The test accounts: the list, or the single account of an older panel."""
+    out = [a for a in job.get("accounts") or [] if a.get("username")]
+    if not out and (job.get("account") or {}).get("username"):
+        out = [dict(job["account"], label="account")]
+    return out[:3]
+
+
 def run(job: dict, cfg, panel, log) -> None:
     jid = job["id"]
     try:
@@ -36,8 +44,8 @@ def run(job: dict, cfg, panel, log) -> None:
         result = c.anonymous(seeds(job, cms))
         fingerprint.detect(fp, result.generator, result.urls)
         c.cms = fp.cms  # its admin rules and login page from now on
-        if job.get("account"):
-            result = c.logged_in(job["account"])
+        for account in accounts(job):
+            result = c.logged_in(account, account["label"])
             fingerprint.detect(fp, result.generator, result.urls)
     except ReachError as e:
         panel.result(jid, error=str(e))

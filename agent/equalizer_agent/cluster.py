@@ -81,7 +81,10 @@ def infer(values: list) -> dict:
     if len(vals) >= 5 and len(distinct) <= 8 and all(CODE.match(v) for v in distinct):
         return {"type": "enum", "values": distinct, "required": False}
     longest = max(len(v) for v in vals)
-    return {"type": "string", "max_length": min(200, max(50, longest * 2)), "required": False}
+    # no markup or template code in a value seen in links; SQL delimiters
+    # may be part of a search and stay allowed (reported as still open)
+    return {"type": "string", "max_length": min(200, max(50, longest * 2)), "required": False,
+            "rules": ["no_html", "no_template_meta"]}
 
 
 def routes(pages: dict, loose_top: bool = False) -> list:

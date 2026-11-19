@@ -3,6 +3,7 @@ import { Button, Notice, SelectField, TextField, useToast } from "@/shared/ui";
 import { describeError } from "@/shared/api/errors";
 import { useConnectors } from "@/features/connectors";
 import { useStartDiscovery } from "../hooks/useDiscovery";
+import { TestAccounts, type TestAccount } from "./TestAccounts";
 
 type Props = { tenant: string; app: string; firstTime: boolean; aiState: "on" | "off" | "unknown"; isAdmin: boolean };
 
@@ -12,7 +13,7 @@ export function StartForm({ tenant, app, firstTime, aiState, isAdmin }: Props) {
   const connectors = useConnectors(tenant);
   const toast = useToast();
   const [useAI, setUseAI] = useState(true);
-  const [account, setAccount] = useState({ username: "", password: "" });
+  const [accounts, setAccounts] = useState<TestAccount[]>([]);
   const [reach, setReach] = useState({ connector_id: "", address: "127.0.0.1:8443", scheme: "https" as "https" | "http" });
   const [maxPages, setMaxPages] = useState("500");
   const connector = reach.connector_id || connectors.data?.[0]?.id || "";
@@ -21,9 +22,9 @@ export function StartForm({ tenant, app, firstTime, aiState, isAdmin }: Props) {
     e.preventDefault();
     start.mutate({
       use_ai: useAI, max_pages: Number(maxPages) || 500,
-      account: account.username ? account : null,
+      accounts: accounts.filter((a) => a.username.trim() !== ""),
       ...(firstTime ? { ...reach, connector_id: connector } : {}),
-    }, { onSuccess: () => { setAccount({ username: "", password: "" }); toast("Discovery queued"); } });
+    }, { onSuccess: () => { setAccounts([]); toast("Discovery queued"); } });
   }
 
   return (
@@ -53,11 +54,8 @@ export function StartForm({ tenant, app, firstTime, aiState, isAdmin }: Props) {
           </SelectField>
         </div>
       ) : null}
+      <TestAccounts value={accounts} onChange={setAccounts} />
       <div className="grid gap-4 sm:grid-cols-3">
-        <TextField label="Test account (optional)" autoComplete="off" value={account.username}
-          onChange={(e) => setAccount({ ...account, username: e.target.value })} hint="Explores as a logged-in user too." />
-        <TextField label="Its password" type="password" autoComplete="new-password" value={account.password}
-          onChange={(e) => setAccount({ ...account, password: e.target.value })} hint="Kept encrypted, deleted at the end." />
         <TextField label="Pages at most" type="number" min={10} max={2000} value={maxPages} onChange={(e) => setMaxPages(e.target.value)} />
       </div>
       <div>

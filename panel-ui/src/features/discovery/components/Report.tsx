@@ -25,6 +25,16 @@ function List({ title, items, render }: { title: string; items?: R[]; render: (i
   );
 }
 
+const LOGIN: Record<string, string> = { ok: "logged in", failed: "login failed", no_login_form: "no login form found" };
+
+/** Why something is still open (StillOpen.reason). */
+const OPEN: Record<string, string> = {
+  not_reached: "not opened, served by the site area", legacy_error: "the site answered an error",
+  action_not_performed: "changes something: never opened", cannot_narrow: "values could not be narrowed",
+  accepts_sql: "accepts SQL characters", accepts_markup: "accepts HTML", accepts_template: "accepts template code",
+  accepts_path: "accepts paths", accepts_shell: "accepts shell characters", other: "other",
+};
+
 /** What a finished discovery found and proposes. */
 export function Report({ d }: { d: Discovery }) {
   const r = (d.report ?? {}) as R;
@@ -52,9 +62,14 @@ export function Report({ d }: { d: Discovery }) {
       <List title="Forms added" items={r.forms_added} render={(i) => `${i.route}  ${i.fields.join(", ")}`} />
       <List title="Protection against IDOR proposed" items={r.issues_proposed}
         render={(i) => `${i.list} → ${i.detail}  (${i.field}${i.roles?.length ? `, owned_by_user for ${i.roles.join(", ")}` : ""})`} />
-      <List title="Not opened by the agent (still served, by the site area)" items={r.excluded} render={(i) => `${i.path}  ${i.reason}`} />
+      <List title="Test accounts" items={r.accounts} render={(i) => `${i.label}  ${LOGIN[i.login] ?? i.login}`} />
+      {r.open ? (
+        <List title="Still open" items={r.open} render={(i) => `${i.target}  ${OPEN[i.reason] ?? i.reason}${i.detail ? ` (${i.detail})` : ""}`} />
+      ) : (
+        <List title="Not opened by the agent (still served, by the site area)" items={r.excluded} render={(i) => `${i.path}  ${i.reason}`} />
+      )}
       <List title="Asked by visitors, still missing" items={r.visitors_missing} render={(i) => `${i.path}  (${i.clients} visitors)`} />
-      <List title="Served by the site area, without typed checks" items={r.not_supported} render={(i) => `${i.path}  ${i.reason}`} />
+      <List title="Served by the site area, without typed checks" items={r.open ? [] : r.not_supported} render={(i) => `${i.path}  ${i.reason}`} />
       <List title="In the map, not seen any more" items={(r.not_seen_anymore ?? []).map((p: string) => ({ p }))} render={(i) => i.p} />
       <List title="Components" items={r.components} render={(i) => `${i.name}${i.version ? " " + i.version : ""}`} />
     </div>

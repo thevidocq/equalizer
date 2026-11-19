@@ -17,6 +17,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/thevidocq/equalizer/gateway/internal/certfeed"
 	"github.com/thevidocq/equalizer/gateway/internal/clientip"
 	"github.com/thevidocq/equalizer/gateway/internal/config"
 	"github.com/thevidocq/equalizer/gateway/internal/formtoken"
@@ -117,6 +118,12 @@ func run() error {
 			Log: log.With(slog.String("module", "oidcsecrets"))}
 		go secrets.Run(ctx, 15*time.Second)
 	}
+	var certificates *certfeed.Source
+	if cfg.CertificatesURL != "" {
+		certificates = &certfeed.Source{URL: cfg.CertificatesURL, Token: cfg.MapToken, Client: &http.Client{Timeout: 10 * time.Second},
+			Log: log.With(slog.String("module", "certfeed"))}
+		go certificates.Run(ctx, 10*time.Second)
+	}
 	ips := clientip.New(cfg.TrustedProxies)
 	ips.Cloudflare = cfg.BehindCloudflare
 	public := &server.Public{
@@ -130,11 +137,17 @@ func run() error {
 		Events:      events,
 	}
 	admin := &server.Admin{Maps: store, Version: version}
+	if certificates != nil {
+		admin.Certs = certificates
+	}
 
 	servers := []*http.Server{
 		// No ReadTimeout or WriteTimeout: uploads and live updates may last;
 		// the handler's guard sets their pace instead.
 		{Addr: cfg.PublicAddr, Handler: public.Handler(), ReadHeaderTimeout: 10 * time.Second, MaxHeaderBytes: 32 << 10,
+			IdleTimeout: 120 * time.Second},
+		// Plain http from Caddy's port 80: http sites, and redirects to https.
+		{Addr: cfg.PublicHTTPAddr, Handler: public.HandlerPlain(), ReadHeaderTimeout: 10 * time.Second, MaxHeaderBytes: 32 << 10,
 			IdleTimeout: 120 * time.Second},
 		{Addr: cfg.AdminAddr, Handler: admin.Handler(), ReadHeaderTimeout: 5 * time.Second, ReadTimeout: 30 * time.Second,
 			WriteTimeout: 30 * time.Second, IdleTimeout: 60 * time.Second, MaxHeaderBytes: 16 << 10},

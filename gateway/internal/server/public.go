@@ -96,13 +96,18 @@ func (p *Public) handle(w http.ResponseWriter, r *http.Request) string {
 				if r.Method != http.MethodGet && r.Method != http.MethodHead {
 					code = http.StatusPermanentRedirect // keeps the method and the body
 				}
-				http.Redirect(w, r, "https://"+s.Model.Meta.PublicDomain+safeReturn(r.URL.RequestURI()), code)
+				http.Redirect(w, r, s.Model.Meta.Scheme()+"://"+s.Model.Meta.PublicDomain+safeReturn(r.URL.RequestURI()), code)
 				return "alias_redirect"
 			}
 		}
 		// No published map for this domain: it does not exist here.
 		p.block(w, r, nil, http.StatusNotFound, "unknown_host")
 		return ""
+	}
+
+	if plainRequest(r) && !plainSite(active) {
+		toHTTPS(w, r, active)
+		return "https_redirect"
 	}
 
 	ss := p.loadSession(r, active)

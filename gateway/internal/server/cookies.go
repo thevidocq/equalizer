@@ -48,7 +48,7 @@ func sessionLike(name string) bool {
 
 // gatewayCookie reports whether a browser cookie belongs to the gateway.
 func gatewayCookie(name string) bool {
-	return strings.HasPrefix(name, "__Host-eq") || name == bindingCookie
+	return strings.HasPrefix(name, "__Host-eq") || name == bindingCookie || name == plainSessionCookie || name == plainBindingCookie
 }
 
 func persistent(c *http.Cookie, now time.Time) (time.Time, bool) {
@@ -61,10 +61,11 @@ func persistent(c *http.Cookie, now time.Time) (time.Time, bool) {
 	return time.Time{}, false
 }
 
-// toBrowser rewrites a public legacy cookie for the public domain.
-func toBrowser(c *http.Cookie) *http.Cookie {
+// toBrowser rewrites a public legacy cookie for the public domain (Secure
+// unless the site is served in http).
+func toBrowser(c *http.Cookie, plain bool) *http.Cookie {
 	out := &http.Cookie{Name: c.Name, Value: c.Value, Path: c.Path, Expires: c.Expires, MaxAge: c.MaxAge,
-		Secure: true, SameSite: c.SameSite}
+		Secure: !plain, SameSite: c.SameSite}
 	if !strings.HasPrefix(out.Path, "/") {
 		out.Path = "/"
 	}

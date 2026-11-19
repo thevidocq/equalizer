@@ -25,6 +25,34 @@ SITES = {
     "drupal": ("docs.acme.test", "docs", "127.0.0.1:18092", "Acme Docs"),
     "generic": ("intranet.acme.test", "intranet", "127.0.0.1:18093", "Acme Intranet"),
 }
+# The intranet is served in http, as it was before Equalizer.
+HTTP_SITES = {"intranet.acme.test"}
+
+
+def site_certificate(*names: str, days: int = 90) -> str:
+    """The legacy site's own certificate, as its customer uploads it: issued
+    here by the lab CA (a company CA), with the CA and the private key, PEM."""
+    import datetime
+    from cryptography import x509
+    from cryptography.hazmat.primitives import hashes, serialization
+    from cryptography.hazmat.primitives.asymmetric import ec
+    from cryptography.x509.oid import ExtendedKeyUsageOID, NameOID
+    ca_pem = (RUN / "ca.pem").read_bytes()
+    ca = x509.load_pem_x509_certificate(ca_pem)
+    ca_key = serialization.load_pem_private_key((RUN / "ca-key.pem").read_bytes(), None)
+    key = ec.generate_private_key(ec.SECP256R1())
+    now = datetime.datetime.now(datetime.timezone.utc)
+    cert = (x509.CertificateBuilder().subject_name(x509.Name([x509.NameAttribute(NameOID.COMMON_NAME, names[0])]))
+            .issuer_name(ca.subject).public_key(key.public_key()).serial_number(x509.random_serial_number())
+            .not_valid_before(now - datetime.timedelta(hours=1)).not_valid_after(now + datetime.timedelta(days=days))
+            .add_extension(x509.SubjectAlternativeName([x509.DNSName(n) for n in names]), critical=False)
+            .add_extension(x509.ExtendedKeyUsage([ExtendedKeyUsageOID.SERVER_AUTH]), critical=False)
+            .add_extension(x509.AuthorityKeyIdentifier.from_issuer_subject_key_identifier(
+                ca.extensions.get_extension_for_class(x509.SubjectKeyIdentifier).value), critical=False)
+            .add_extension(x509.SubjectKeyIdentifier.from_public_key(key.public_key()), critical=False)
+            .sign(ca_key, hashes.SHA256()))
+    return (cert.public_bytes(serialization.Encoding.PEM) + ca_pem + key.private_bytes(
+        serialization.Encoding.PEM, serialization.PrivateFormat.PKCS8, serialization.NoEncryption())).decode()
 os.environ["NO_PROXY"] = "127.0.0.1,localhost,.lab.test,.acme.test,acme.test"
 os.environ["no_proxy"] = os.environ["NO_PROXY"]
 # requests prefers these over a session's own CA: the lab CA must win.

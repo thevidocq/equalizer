@@ -237,4 +237,9 @@ func TestOIDC(t *testing.T) {
 	if _, err := site.Build(&bad); err == nil {
 		t.Error("a role not in the map was accepted")
 	}
+	bad = *m
+	bad.Meta.PublicScheme = "http"
+	if _, err := site.Build(&bad); err == nil || !strings.Contains(err.Error(), "https") {
+		t.Errorf("OIDC on a site served in http: %v", err)
+	}
 }

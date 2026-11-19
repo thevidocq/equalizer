@@ -24,14 +24,15 @@ type binder struct {
 	cookie string
 	fresh  bool // the cookie was created for this response
 	used   bool
+	plain  bool // an http site: see bindingCookieName
 }
 
 func (p *Public) newBinder(r *http.Request, forms *formmap.Map) *binder {
 	if p.Forms == nil || forms == nil {
 		return nil
 	}
-	b := &binder{forms: forms, sealer: p.Forms}
-	if c, err := r.Cookie(bindingCookie); err == nil && validBinding(c.Value) {
+	b := &binder{forms: forms, sealer: p.Forms, plain: sessionOf(r).plain}
+	if c, err := r.Cookie(bindingCookieName(b.plain)); err == nil && validBinding(c.Value) {
 		b.cookie = c.Value
 	}
 	return b
@@ -63,8 +64,8 @@ func (b *binder) setCookie(w http.ResponseWriter) {
 		return
 	}
 	http.SetCookie(w, &http.Cookie{
-		Name: bindingCookie, Value: b.cookie, Path: "/",
-		Secure: true, HttpOnly: true, SameSite: http.SameSiteLaxMode,
+		Name: bindingCookieName(b.plain), Value: b.cookie, Path: "/",
+		Secure: !b.plain, HttpOnly: true, SameSite: http.SameSiteLaxMode,
 	})
 }
 

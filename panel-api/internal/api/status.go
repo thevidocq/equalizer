@@ -53,7 +53,11 @@ func (s *Server) SiteStatuses(ctx context.Context, tenant string) ([]health.Site
 	recent, errs, drops, dates, logsOK := s.statusLogs(ctx, tenant)
 	sites := make([]health.Site, 0, len(apps))
 	for _, a := range apps {
-		in := health.Input{App: a.ID, Name: a.Name, Domain: a.PublicDomain, Tunnels: tunnels, Traffic: logsOK, Exposure: a.Exposure.Status}
+		in := health.Input{App: a.ID, Name: a.Name, Domain: a.PublicDomain, Tunnels: tunnels, Traffic: logsOK, Exposure: a.Exposure.Status,
+			TLSStatus: a.TLS.Status}
+		if c := a.TLS.Certificate; c != nil {
+			in.CertExpires = &c.NotAfter
+		}
 		if v, err := s.Store.Published(ctx, a.ID); err == nil {
 			in.MapVersion, in.Map = v.Version, v.Document
 		} else if !errors.Is(err, store.ErrNotFound) {

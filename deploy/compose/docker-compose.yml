@@ -57,6 +57,7 @@ services:
       replicas: ${EQ_GATEWAY_REPLICAS:-2}
     environment:
       EQ_PUBLIC_ADDR: ":8080"
+      EQ_PUBLIC_HTTP_ADDR: ":8081" # plain http from Caddy: http sites, redirects to https
       EQ_ADMIN_ADDR: ":9090"
       EQ_LOG_LEVEL: ${EQ_LOG_LEVEL:-info}
       # Every published map comes from the panel; each is served on its own

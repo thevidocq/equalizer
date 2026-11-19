@@ -11,7 +11,7 @@ from PIL import Image, ImageChops
 from playwright.sync_api import sync_playwright
 
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "tests"))
-from lab import RUN  # noqa: E402  (also sets NO_PROXY)
+from lab import HTTP_SITES, RUN  # noqa: E402  (also sets NO_PROXY)
 
 OUT = os.path.join(RUN, "fidelity")
 CHROME = "/usr/bin/google-chrome"
@@ -82,8 +82,9 @@ def visit(page, url):
 def compare(host, path, a, b):
     ta, sa, pa = a
     tb, sb, pb = b
-    shown = ta != ta.replace("http://" + host, "https://" + host)  # the page shows the site's address
-    ta = ta.replace("http://" + host, "https://" + host)  # as visitors see it
+    public = ("http://" if host in HTTP_SITES else "https://") + host
+    shown = ta != ta.replace("http://" + host, public)  # the page shows the site's address
+    ta = ta.replace("http://" + host, public)  # as visitors see it
     w, h = max(sa.width, sb.width), max(sa.height, sb.height)
     ca, cb = Image.new("RGB", (w, h), "white"), Image.new("RGB", (w, h), "white")
     ca.paste(sa)
@@ -102,7 +103,7 @@ def compare(host, path, a, b):
     print(f"{host + path:60} size {sa.size}→{sb.size}  pixels differ {pct:.2f}%  text lines differ {len(textdiff)}")
     for line in textdiff[:6]:
         print("    text", line[:150])
-    only_gw = sorted(set(pb) - set(p.replace("http://" + host, "https://" + host) for p in pa))
+    only_gw = sorted(set(pb) - set(p.replace("http://" + host, public) for p in pa))
     for p in only_gw[:6]:
         print("    gateway only", p)
     return pct, textdiff, only_gw, host + path, shown
@@ -120,7 +121,7 @@ def main(pw=None, sites=None):
     gw = pw.chromium.launch(executable_path=CHROME, args=["--no-sandbox"])
     for host in sites or SITES:
         _, public, login, admin = SITES[host]
-        d, g = "http://" + host, "https://" + host
+        d, g = "http://" + host, ("http://" if host in HTTP_SITES else "https://") + host
         dctx, gctx = context(direct), context(gw)
         dp, gp = dctx.new_page(), gctx.new_page()
         for path in public:

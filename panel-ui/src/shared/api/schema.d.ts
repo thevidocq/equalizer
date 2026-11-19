@@ -966,6 +966,11 @@ export interface paths {
                     "application/json": {
                         /** @enum {unknown} */
                         discovery_schedule?: "off" | "daily" | "weekly";
+                        /**
+                         * @description https: the site's own certificate (Certificate); http: in clear, as the legacy site was. Applied at once to the published map, which is signed again
+                         * @enum {unknown}
+                         */
+                        public_scheme?: "https" | "http";
                         /** @description Public IP the site answered on before Equalizer: the exposure check probes it. A public unicast IPv4 or IPv6 address; null stops the checks */
                         legacy_ip?: string | null;
                     };
@@ -1027,6 +1032,78 @@ export interface paths {
         };
         post?: never;
         delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/apps/{app}/certificate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Upload the site's own certificate (the legacy site's, never a new one): PEM (certificate, chain and private key) or PKCS#12 (.pfx, as IIS exports it) with its password. Checked before it is kept: the key matches, the chain is complete, it covers the public domain and the other domains, it is valid now. The private key is stored encrypted and never returned. Applies at once; the tenant administrators get an email (tenant administrators) */
+        put: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    app: components["parameters"]["app"];
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": {
+                        /** @description Certificate, chain and private key, PEM blocks in any order */
+                        pem?: string;
+                        /** @description PKCS#12 file in base64 */
+                        pfx?: string;
+                        /** @description Password of the .pfx or of an encrypted PEM key */
+                        password?: string;
+                    };
+                };
+            };
+            responses: {
+                /** @description Site with its certificate */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["App"];
+                    };
+                };
+                422: components["responses"]["Error"];
+            };
+        };
+        post?: never;
+        /** Remove the site's certificate (HTTPS stops for the site) (tenant administrators) */
+        delete: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    app: components["parameters"]["app"];
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Site */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["App"];
+                    };
+                };
+            };
+        };
         options?: never;
         head?: never;
         patch?: never;
@@ -1510,6 +1587,50 @@ export interface paths {
             requestBody?: never;
             responses: {
                 200: components["responses"]["Object"];
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/internal/certificates": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Certificates of the published https sites with their private keys in clear, for the gateways to give Caddy at TLS handshake (control network only) */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Certificates */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            items: {
+                                app: string;
+                                /** @description Domains of the site this certificate covers */
+                                domains: string[];
+                                chain_pem: string;
+                                key_pem: string;
+                            }[];
+                        };
+                    };
+                };
             };
         };
         put?: never;
@@ -3408,6 +3529,34 @@ export interface components {
              */
             discovery_schedule?: "off" | "daily" | "weekly";
             exposure?: components["schemas"]["Exposure"];
+            tls?: components["schemas"]["SiteTLS"];
+        };
+        /** @description How visitors reach the site and its certificate */
+        SiteTLS: {
+            /** @enum {unknown} */
+            public_scheme: "https" | "http";
+            /**
+             * @description ok; missing: https without a certificate (visitors get no HTTPS); incomplete: it does not cover every domain of the site; expiring: within 30 days; expired; not_needed: http
+             * @enum {unknown}
+             */
+            status: "ok" | "missing" | "incomplete" | "expiring" | "expired" | "not_needed";
+            certificate?: components["schemas"]["Certificate"] | null;
+        };
+        Certificate: {
+            subject: string;
+            issuer: string;
+            /** @description Names the certificate covers (wildcards included) */
+            domains: string[];
+            /** @description Domains of the site it does not cover */
+            missing?: string[];
+            /** Format: date-time */
+            not_before: string;
+            /** Format: date-time */
+            not_after: string;
+            fingerprint_sha256: string;
+            /** Format: date-time */
+            uploaded_at: string;
+            uploaded_by?: string;
         };
         /** @description Whether the site still answers directly, bypassing Equalizer */
         Exposure: {
@@ -3506,7 +3655,13 @@ export interface components {
             name: string;
             public_domain: string;
             state: components["schemas"]["HealthState"];
+            /** @description Map, Connector, Legacy site, Isolation, Certificate */
             checks: components["schemas"]["Check"][];
+            /**
+             * Format: date-time
+             * @description End of the site's certificate, if it has one
+             */
+            certificate_expires?: string;
             /** @description Last 7 days, oldest first */
             days: {
                 /** Format: date */

@@ -50,12 +50,27 @@ func TestUnknownHost(t *testing.T) {
 		t.Fatalf("unknown host: %d %s", rec.Code, events.String())
 	}
 
-	admin := (&Admin{Maps: hostMaps{"portal.example.org", st}}).Handler()
-	for domain, want := range map[string]int{"portal.example.org": 200, "evil.example.org": 404} {
+	// Caddy never gets a certificate of its own for a protected site; it gets
+	// the site's own, uploaded in the panel, only for a domain served here.
+	certs := fixedCerts{"portal.example.org": []byte("PEM"), "evil.example.org": []byte("PEM")}
+	admin := (&Admin{Maps: hostMaps{"portal.example.org", st}, Certs: certs}).Handler()
+	for target, want := range map[string]int{
+		"/tls/allowed?domain=portal.example.org":           404,
+		"/tls/certificate?server_name=portal.example.org":  200,
+		"/tls/certificate?server_name=PORTAL.example.org.": 200,
+		"/tls/certificate?server_name=evil.example.org":    204, // a certificate, but no site here
+		"/tls/certificate?server_name=other.example.org":   204,
+	} {
 		rec := httptest.NewRecorder()
-		admin.ServeHTTP(rec, httptest.NewRequest("GET", "/tls/allowed?domain="+domain, nil))
-		if rec.Code != want {
-			t.Errorf("tls/allowed %s: %d", domain, rec.Code)
+		admin.ServeHTTP(rec, httptest.NewRequest("GET", target, nil))
+		if rec.Code != want || (want == 200 && rec.Body.String() != "PEM") {
+			t.Errorf("%s: %d", target, rec.Code)
 		}
 	}
+}
+
+type fixedCerts map[string][]byte
+
+func (f fixedCerts) Bundle(d string) []byte {
+	return f[strings.ToLower(strings.TrimSuffix(d, "."))]
 }

@@ -24,8 +24,8 @@ export function AliasesForm({ app, domain, current }: Props) {
         <h2 className="text-base font-semibold">Other domains</h2>
         <p className="mt-1 text-sm text-ink-soft">
           Names of the same site, e.g. <span className="font-mono">{bare}</span> next to <span className="font-mono">{domain}</span>.
-          Point them to Equalizer as well: they get a certificate and send visitors to {domain} (permanent redirect), so the
-          old server is never reached through them.
+          Point them to Equalizer as well: they send visitors to {domain} (permanent redirect), so the old server is never
+          reached through them. In https, the site&apos;s certificate must cover them too (Site → Certificate).
         </p>
       </div>
       {setAliases.isError ? <Notice tone="error">{describeError(setAliases.error)}</Notice> : null}

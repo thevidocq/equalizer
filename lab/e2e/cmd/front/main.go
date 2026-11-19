@@ -14,6 +14,8 @@ import (
 	"crypto/x509/pkix"
 	"encoding/pem"
 	"flag"
+	"fmt"
+	"io"
 	"log"
 	"math/big"
 	"net"
@@ -28,24 +30,21 @@ import (
 
 func main() {
 	addr := flag.String("addr", ":443", "HTTPS address")
-	plain := flag.String("http", ":80", "HTTP address (redirects to HTTPS)")
+	plain := flag.String("http", ":80", "HTTP address: lab names go to HTTPS, sites to the gateway's plain port")
 	dir := flag.String("dir", ".run", "where the CA is written (ca.pem)")
 	panelUI := flag.String("panel-ui", "", "built panel UI (dist)")
 	panelAPI := flag.String("panel-api", "http://127.0.0.1:18085", "panel API")
 	gateway := flag.String("gateway", "http://127.0.0.1:18080", "gateway public address")
+	gatewayHTTP := flag.String("gateway-http", "http://127.0.0.1:18084", "gateway plain http address")
+	gatewayAdmin := flag.String("gateway-admin", "http://127.0.0.1:19090", "gateway admin: the sites' certificates")
 	relay := flag.String("relay", "http://127.0.0.1:18081", "relay tunnel address")
 	idp := flag.String("idp", "http://127.0.0.1:18095", "fake identity provider")
 	domain := flag.String("domain", "lab.test", "lab domain (panel., relay., idp.)")
 	sites := flag.String("sites", "acme.test", "comma-separated domains of the protected sites (and their subdomains)")
 	flag.Parse()
 
-	names := []string{*domain, "*." + *domain}
-	for _, d := range strings.Split(*sites, ",") {
-		if d = strings.TrimSpace(d); d != "" {
-			names = append(names, d, "*."+d)
-		}
-	}
-	cert, err := certificate(*dir, names)
+	_ = sites // the sites' certificates come from the gateway, as with Caddy
+	cert, err := certificate(*dir, []string{*domain, "*." + *domain})
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -67,12 +66,28 @@ func main() {
 		}
 		gw.ServeHTTP(w, r)
 	})
+	gwPlain := proxy(*gatewayHTTP, true)
 	go func() {
 		log.Fatal(http.ListenAndServe(*plain, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			http.Redirect(w, r, "https://"+r.Host+r.URL.RequestURI(), http.StatusMovedPermanently)
+			if strings.HasSuffix(strings.Split(strings.ToLower(r.Host), ":")[0], "."+*domain) {
+				http.Redirect(w, r, "https://"+r.Host+r.URL.RequestURI(), http.StatusMovedPermanently)
+				return
+			}
+			gwPlain.ServeHTTP(w, r) // as Caddy's http:// block
 		})))
 	}()
-	srv := &http.Server{Addr: *addr, Handler: h, TLSConfig: &tls.Config{Certificates: []tls.Certificate{cert}},
+	// As Caddy's get_certificate: the lab's own names have the lab
+	// certificate, a site has the certificate its customer uploaded, which
+	// the gateway gives; without one, no handshake.
+	lab := "." + *domain
+	getCert := func(hello *tls.ClientHelloInfo) (*tls.Certificate, error) {
+		name := strings.ToLower(hello.ServerName)
+		if strings.HasSuffix(name, lab) {
+			return &cert, nil
+		}
+		return siteCertificate(*gatewayAdmin, name)
+	}
+	srv := &http.Server{Addr: *addr, Handler: h, TLSConfig: &tls.Config{GetCertificate: getCert},
 		ReadHeaderTimeout: 10 * time.Second}
 	log.Printf("lab front on %s", *addr)
 	log.Fatal(srv.ListenAndServeTLS("", ""))
@@ -141,6 +156,11 @@ func certificate(dir string, names []string) (tls.Certificate, error) {
 	if err := os.WriteFile(filepath.Join(dir, "ca.pem"), pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: caDER}), 0o644); err != nil {
 		return tls.Certificate{}, err
 	}
+	// The tests issue the "legacy sites' own certificates" with this CA.
+	caKeyDER, _ := x509.MarshalPKCS8PrivateKey(caKey)
+	if err := os.WriteFile(filepath.Join(dir, "ca-key.pem"), pem.EncodeToMemory(&pem.Block{Type: "PRIVATE KEY", Bytes: caKeyDER}), 0o600); err != nil {
+		return tls.Certificate{}, err
+	}
 	key, _ := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
 	tmpl := &x509.Certificate{SerialNumber: big.NewInt(2), Subject: pkix.Name{CommonName: names[0]},
 		DNSNames: names, NotBefore: time.Now().Add(-time.Hour), NotAfter: time.Now().Add(30 * 24 * time.Hour),
@@ -156,4 +176,26 @@ func randomID() []byte {
 	b := make([]byte, 20)
 	_, _ = rand.Read(b)
 	return b
+}
+
+// siteCertificate asks the gateway for a site's certificate, as Caddy does.
+func siteCertificate(admin, name string) (*tls.Certificate, error) {
+	c := &http.Client{Timeout: 5 * time.Second}
+	resp, err := c.Get(admin + "/tls/certificate?server_name=" + url.QueryEscape(name))
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("no certificate for %s", name)
+	}
+	b, err := io.ReadAll(io.LimitReader(resp.Body, 1<<20))
+	if err != nil {
+		return nil, err
+	}
+	pair, err := tls.X509KeyPair(b, b)
+	if err != nil {
+		return nil, err
+	}
+	return &pair, nil
 }

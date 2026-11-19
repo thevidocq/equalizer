@@ -23,13 +23,31 @@ func (s *Server) patchApp(w http.ResponseWriter, r *http.Request, u *auth.User) 
 	var in struct {
 		LegacyIP json.RawMessage `json:"legacy_ip"`
 		Schedule *string         `json:"discovery_schedule"`
+		Scheme   *string         `json:"public_scheme"`
 	}
 	if !decode(w, r, &in) {
 		return
 	}
-	if in.LegacyIP == nil && in.Schedule == nil {
+	if in.LegacyIP == nil && in.Schedule == nil && in.Scheme == nil {
 		fail(w, http.StatusUnprocessableEntity, "invalid", "nothing to change")
 		return
+	}
+	if in.Scheme != nil && *in.Scheme != a.TLS.PublicScheme {
+		if err := s.setPublicScheme(r, a, *in.Scheme); err != nil {
+			var ie *inputError
+			switch {
+			case errors.As(err, &ie):
+				fail(w, http.StatusUnprocessableEntity, "invalid", ie.msg)
+			case !s.mapCheckFail(w, err):
+				s.storeError(w, r, err)
+			}
+			return
+		}
+		_ = s.Store.Record(r.Context(), &u.ID, &a.Tenant, "app.public_scheme", a.ID, map[string]any{"scheme": *in.Scheme})
+		if in.LegacyIP == nil && in.Schedule == nil {
+			s.writeApp(w, r, a.ID)
+			return
+		}
 	}
 	if in.Schedule != nil {
 		if *in.Schedule != "off" && *in.Schedule != "daily" && *in.Schedule != "weekly" {

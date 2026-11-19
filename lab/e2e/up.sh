@@ -30,7 +30,7 @@ wait_http() { # url
 }
 
 # A process left from an earlier run would answer in place of the new one.
-for port in 443 18080 19090 18081 18082 19091 18085 19092 18090 18091 18092 18093 18095 2525; do
+for port in 443 18080 18084 19090 18081 18082 19091 18085 19092 18090 18091 18092 18093 18095 2525; do
   if (exec 3<>"/dev/tcp/127.0.0.1/$port") 2>/dev/null; then
     echo "port $port is busy: run ./down.sh first" >&2; exit 1
   fi
@@ -110,7 +110,7 @@ fi
 start relay env EQ_TUNNEL_ADDR=127.0.0.1:18081 EQ_INTERNAL_ADDR=127.0.0.1:18082 EQ_ADMIN_ADDR=127.0.0.1:19091 \
   EQ_CONNECTORS_URL=http://127.0.0.1:18085/v1/internal/connectors EQ_PANEL_TOKEN_FILE="$S/panel-internal.token" \
   EQ_GATEWAY_TOKEN_FILE="$S/relay.token" "$BIN/tunnel-relay"
-start gateway env EQ_PUBLIC_ADDR=127.0.0.1:18080 EQ_ADMIN_ADDR=127.0.0.1:19090 \
+start gateway env EQ_PUBLIC_ADDR=127.0.0.1:18080 EQ_PUBLIC_HTTP_ADDR=127.0.0.1:18084 EQ_ADMIN_ADDR=127.0.0.1:19090 \
   EQ_MAP_URL=http://127.0.0.1:18085/v1/internal/maps EQ_MAP_TOKEN_FILE="$S/panel-internal.token" \
   EQ_MAP_FILE="$RUN/maps/current.json" EQ_MAP_PUBKEY_FILE="$S/map-signing.pub" EQ_MAP_KEY_ID=k1 \
   EQ_FORM_KEY_FILE="$S/form.key" EQ_RELAY_URL=http://127.0.0.1:18082 EQ_RELAY_TOKEN_FILE="$S/relay.token" \

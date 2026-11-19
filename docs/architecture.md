@@ -55,8 +55,14 @@ Observability: Vector (log collection), Loki (logs, 30 days), Grafana
 
 - **One gateway, many sites.** The gateway loads every published map and
   picks it by the request's host (`meta.public_domain`); an unknown host is
-  404. Caddy issues certificates on demand, only for the domains the
-  gateway serves (`/tls/allowed`).
+  404. Each https site has its own certificate (the legacy site's,
+  uploaded in the panel, key sealed with the panel's secret): the gateways
+  read them from the panel (`/v1/internal/certificates`) and give them to
+  Caddy at each TLS handshake (`/tls/certificate`); Caddy never gets one
+  itself for a protected site (`/tls/allowed` always says no). Only the
+  platform's domains (panel, relay) have Let's Encrypt certificates. A site
+  can stay in http (`meta.public_scheme`): Caddy's port 80 goes to the
+  gateway's plain port, which serves it, and sends https sites to https.
 - **One connector per server.** A connector belongs to a tenant and serves
   all its sites on the addresses in its `EQ_ALLOW`. For virtual hosts the
   map sets `reach.address`; the site's name travels as `X-Eq-Host` and

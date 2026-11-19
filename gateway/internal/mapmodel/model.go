@@ -108,6 +108,10 @@ type Meta struct {
 	PublicDomain string `json:"public_domain"`
 	// Aliases are other domains of the site, redirected to PublicDomain.
 	Aliases []string `json:"aliases"`
+	// PublicScheme is how visitors reach the site: "https" (default, with
+	// the site's own certificate) or "http" (in clear, as the legacy site
+	// was).
+	PublicScheme string `json:"public_scheme"`
 }
 
 // Legacy describes how to reach the protected application.
@@ -260,6 +264,14 @@ type Route struct {
 type AuthzRule struct {
 	Check  string `json:"check"`  // owned_by_user, always, never
 	Target string `json:"target"` // e.g. params.id: the value checked
+}
+
+// Scheme is PublicScheme with its default.
+func (m Meta) Scheme() string {
+	if m.PublicScheme == "http" {
+		return "http"
+	}
+	return "https"
 }
 
 // Link maps a legacy URL found in a page to a public route.

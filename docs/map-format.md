@@ -27,7 +27,7 @@ Full example: [`schema/map/examples/permits-portal.yaml`](../schema/map/examples
 
 | Section | Contents |
 | --- | --- |
-| `meta` | Schema, tenant, app, version, status, author, approver, `public_domain` (set by the panel: the host the map is served on), `aliases` (set by the panel: other domains of the site, redirected to `public_domain` with 301, or 308 for writes; a certificate is taken for them too) |
+| `meta` | Schema, tenant, app, version, status, author, approver, `public_domain` (set by the panel: the host the map is served on), `aliases` (set by the panel: other domains of the site, redirected to `public_domain` with 301, or 308 for writes; in https the site's certificate must cover them), `public_scheme` (set by the panel: `https`, the default, with the site's own certificate; or `http`, in clear as the legacy site was: cookies without `Secure`, no OIDC login) |
 | `legacy` | `base_url`, `reach` (connector or direct, allowed destinations), login, expired session, error detection |
 | `roles` | Role of unauthenticated visitors (`anonymous`), authentication on the gateway, legacy account per role |
 | `defaults` | Rate limits, budget towards the legacy app, cache, string constraints, error template |

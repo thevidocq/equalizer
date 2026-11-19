@@ -7,7 +7,7 @@ What only exists on a VPS is replaced by small stand-ins:
 
 | On a VPS | In the lab |
 | --- | --- |
-| Caddy with real certificates | `cmd/front`: HTTPS on 443 with a lab CA (`.run/ca.pem`) |
+| Caddy with real certificates | `cmd/front`: HTTPS on 443 with a lab CA (`.run/ca.pem`, key in `.run/ca-key.pem`). Panel and relay get a lab certificate; protected sites get the one uploaded in Site → Certificate, fetched from the gateway like Caddy does (`/tls/certificate`). Port 80 redirects the lab names to https and sends protected sites to the gateway's plain port 18084 |
 | The customer's identity provider | `cmd/idp`: OIDC provider with two users, alice and bob |
 | An SMTP server | `smtp_sink.py`: every email saved in `.run/mail/` |
 | DNS | a line in `/etc/hosts` marked `# equalizer-lab` |
@@ -21,7 +21,7 @@ protected sites, each a real application served by PHP's own server:
 | `www.acme.test` (aliases `acme.test`, `old.acme.test`) | WordPress 6.9 on SQLite | 127.0.0.1:18090 |
 | `news.acme.test` | Joomla 5.4 on PostgreSQL | 127.0.0.1:18091 |
 | `docs.acme.test` | Drupal 11.4 on SQLite | 127.0.0.1:18092 |
-| `intranet.acme.test` | Acme Intranet, an old-style PHP app in `apps/intranet` (sessions, ISO-8859-1 pages, attachments) | 127.0.0.1:18093 |
+| `intranet.acme.test` | Acme Intranet, an old-style PHP app in `apps/intranet` (sessions, ISO-8859-1 pages, attachments), published in plain http with no certificate | 127.0.0.1:18093 |
 
 Joomla and Drupal come from GitHub only: their dependencies are installed
 from each project's `composer.lock` (`cms.sh`). The first `up.sh` builds

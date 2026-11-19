@@ -31,15 +31,33 @@ export function Logo({ size = "sm", inverted = false, tagline = true }: Props) {
     <div className={`flex items-center ${lg ? "gap-4" : "gap-2.5"}`}>
       <LogoMark size={lg ? 76 : 34} />
       <div className="flex flex-col">
-        <span className={`${lg ? "text-[40px]" : "text-[19px]"} font-semibold leading-none tracking-[-0.01em] ${inverted ? "text-paper" : "text-ink"}`}>
+        <span className={`${lg ? "text-[40px]" : "text-[21px]"} font-semibold leading-none tracking-[-0.01em] ${inverted ? "text-paper" : "text-ink"}`}>
           Equalizer
         </span>
-        {tagline ? (
-          <span className={`${lg ? "mt-2 text-[11px] tracking-[0.2em]" : "mt-1 text-[8.5px] tracking-[0.16em]"} font-medium ${inverted ? "text-paper/70" : "text-ink-soft"}`}>
-            PROTECT LEGACY WEB APPS
-          </span>
-        ) : null}
+        {tagline ? <Tagline lg={lg} inverted={inverted} /> : null}
       </div>
+    </div>
+  );
+}
+
+/**
+ * The tagline spans exactly the width of the name, never more: the box
+ * takes no width of its own (w-0 min-w-full) and the letters are spaced to
+ * fill it (textLength).
+ */
+function Tagline({ lg, inverted }: { lg: boolean; inverted: boolean }) {
+  const size = lg ? 10.5 : 6.4;
+  const height = Math.ceil(size * 1.3);
+  return (
+    <div className={`w-0 min-w-full ${lg ? "mt-2.5" : "mt-1.5"}`}>
+      <svg width="100%" height={height} aria-label="Protect legacy web apps" role="img" className="block overflow-visible">
+        <text
+          x="0" y={size} textLength="100%" lengthAdjust="spacing" fontSize={size} fontWeight={500}
+          fill="currentColor" className={inverted ? "text-paper/70" : "text-ink-soft"}
+        >
+          PROTECT LEGACY WEB APPS
+        </text>
+      </svg>
     </div>
   );
 }

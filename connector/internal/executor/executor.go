@@ -17,8 +17,12 @@ import (
 	"github.com/thevidocq/equalizer/connector/internal/logging"
 )
 
-// Timeout bounds one request to the legacy application.
+// Timeout bounds the wait for the legacy application's response headers.
 const Timeout = 30 * time.Second
+
+// MaxDuration bounds a whole request, body included: downloads served by
+// an area are streamed and can take minutes.
+const MaxDuration = 10 * time.Minute
 
 // HeaderError carries the error reason back to the relay.
 const HeaderError = "X-Eq-Error"
@@ -99,7 +103,7 @@ func (e *Executor) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	ctx = context.WithValue(ctx, destKey{}, r.Host)
-	ctx, cancel := context.WithTimeout(ctx, Timeout)
+	ctx, cancel := context.WithTimeout(ctx, MaxDuration)
 	defer cancel()
 	start := time.Now()
 	rec := &statusWriter{ResponseWriter: w, status: http.StatusOK}

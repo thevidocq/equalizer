@@ -62,7 +62,10 @@ VPN or an SSH tunnel.
 ```bash
 git clone https://github.com/thevidocq/equalizer.git
 cd equalizer
+git checkout v0.1.0        # a release; main is the development version
 ```
+
+Releases and what they contain: `docs/releases/`.
 
 Check the contracts *(available)*:
 
@@ -83,6 +86,7 @@ Main values in `.env`:
 
 | Variable | Example | Meaning |
 | --- | --- | --- |
+| `EQ_VERSION` | `0.1.0` | Release being installed (shown by the services; `dev` when unset) |
 | `EQ_RELAY_DOMAIN` | `relay.example.com` | Public domain of the relay, where connectors open their tunnel |
 | `EQ_PANEL_DOMAIN` | `panel.example.com` | Public domain of the panel (customers, invitation links) |
 | `EQ_ACME_EMAIL` | `admin@example.com` | Email for Let's Encrypt |
@@ -243,7 +247,10 @@ docker run -d --name eq-connector --restart unless-stopped --network host \
   the recommended way to take a protected site off the public IP.
 - For an `https` legacy app with a self-signed certificate: mount its CA and
   set `EQ_LEGACY_CA_FILE`, or as a last resort `EQ_LEGACY_INSECURE_TLS=true`.
-- The image is published by CI on every merge to `main`. GitHub packages
+- Use the connector of the same release as the platform:
+  `ghcr.io/thevidocq/equalizer-connector:0.1.0` (`latest` follows `main`).
+- The image is published by CI on every merge to `main` and on every
+  release tag. GitHub packages
   start private: make `equalizer-connector` public in the repository's
   *Packages* settings, or run `docker login ghcr.io` first. Without the
   registry, build it on the machine:

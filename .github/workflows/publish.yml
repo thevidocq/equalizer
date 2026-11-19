@@ -1,10 +1,12 @@
 name: publish
 
-# Publishes the images to GitHub Container Registry on every merge to main,
+# Publishes the images to GitHub Container Registry on every merge to main
+# (tags latest and the commit) and on every release tag vX.Y.Z (tag X.Y.Z),
 # so the connector can be installed with a plain `docker run`.
 on:
   push:
     branches: [main]
+    tags: ["v*.*.*"]
 
 permissions:
   contents: read
@@ -28,6 +30,12 @@ jobs:
           name=${{ matrix.service }}
           [ "$name" = tools ] && name=eqtool
           image=ghcr.io/${{ github.repository_owner }}/equalizer-$name
-          docker build --build-arg VERSION=${GITHUB_SHA::12} -t "$image:latest" -t "$image:${GITHUB_SHA::12}" ${{ matrix.service }}
-          docker push "$image:latest"
-          docker push "$image:${GITHUB_SHA::12}"
+          if [ "${GITHUB_REF_TYPE}" = tag ]; then
+            version=${GITHUB_REF_NAME#v}
+            docker build --build-arg VERSION=$version -t "$image:$version" ${{ matrix.service }}
+            docker push "$image:$version"
+          else
+            docker build --build-arg VERSION=${GITHUB_SHA::12} -t "$image:latest" -t "$image:${GITHUB_SHA::12}" ${{ matrix.service }}
+            docker push "$image:latest"
+            docker push "$image:${GITHUB_SHA::12}"
+          fi

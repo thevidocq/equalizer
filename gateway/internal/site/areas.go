@@ -45,3 +45,19 @@ func checkAreas(m *mapmodel.Model) error {
 	}
 	return nil
 }
+
+// NoteCharset records the charset of a legacy page just rendered: forms
+// posting into an area are encoded back in it (pages reach the browser in
+// UTF-8, the legacy application expects its own charset).
+func (s *Site) NoteCharset(cs string) {
+	if cs != "" {
+		s.charset.Store(cs)
+	}
+}
+
+// LegacyCharset returns the charset the legacy pages use ("" before the
+// first page: UTF-8).
+func (s *Site) LegacyCharset() string {
+	cs, _ := s.charset.Load().(string)
+	return cs
+}

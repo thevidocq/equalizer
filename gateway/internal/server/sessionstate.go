@@ -30,8 +30,11 @@ type sessionState struct {
 	log    *slog.Logger
 	policy session.Policy
 	out    []*http.Cookie // public legacy cookies for the browser
-	tenant string
-	app    string
+	// keepAll: every cookie of this answer is private (a login form: its
+	// cookies are the login, whatever their names).
+	keepAll bool
+	tenant  string
+	app     string
 
 	id     string           // current id; "" without a session
 	s      *session.Session // nil without a session
@@ -128,17 +131,20 @@ func (ss *sessionState) apply(req *http.Request) {
 // session when needed (many legacy apps need theirs before login); public
 // ones go to the browser (see cookies.go).
 func (ss *sessionState) absorb(cookies []*http.Cookie) {
-	if len(cookies) == 0 || ss.broken || ss.ended {
-		return
-	}
 	now := time.Now()
+	var remember time.Time // longest persistent login cookie of this answer
+	forgot := false        // a login cookie was deleted
 	for _, c := range cookies {
 		if c.Name == "" || gatewayCookie(c.Name) {
 			continue
 		}
-		if !c.HttpOnly && !sessionLike(c.Name) && (ss.s == nil || !ss.s.Private[c.Name]) {
+		if !ss.keepAll && !c.HttpOnly && !sessionLike(c.Name) && (ss.s == nil || !ss.s.Private[c.Name]) {
 			ss.out = append(ss.out, toBrowser(c))
 			continue
+		}
+		gone := c.MaxAge < 0 || (!c.Expires.IsZero() && c.Expires.Before(now)) || c.Value == ""
+		if ss.broken || ss.ended || (gone && ss.s == nil) {
+			continue // no session to keep it in, or nothing to delete
 		}
 		if ss.s == nil {
 			ss.s = newSession(ss)
@@ -153,15 +159,17 @@ func (ss *sessionState) absorb(cookies []*http.Cookie) {
 			ss.s.Private[c.Name] = true
 		}
 		ss.dirty = true
-		if until, ok := persistent(c, now); ok && c.Value != "" && ss.policy.Remember > 0 {
+		if until, ok := persistent(c, now); ok && !gone && ss.policy.Remember > 0 {
 			// "remember me": the session lives as long as the legacy login
-			until = minTime(until, now.Add(ss.policy.Remember))
-			if until.After(ss.s.RememberUntil) {
-				ss.s.RememberUntil = until
+			if until = minTime(until, now.Add(ss.policy.Remember)); until.After(remember) {
+				remember = until
 			}
 		}
-		if c.MaxAge < 0 || (!c.Expires.IsZero() && c.Expires.Before(time.Now())) || c.Value == "" {
-			delete(ss.s.Cookies, c.Name)
+		if gone {
+			if _, had := ss.s.Cookies[c.Name]; had {
+				delete(ss.s.Cookies, c.Name)
+				forgot = true
+			}
 			continue
 		}
 		if len(c.Value) > maxLegacyCookieSize {
@@ -171,6 +179,13 @@ func (ss *sessionState) absorb(cookies []*http.Cookie) {
 			continue
 		}
 		ss.s.Cookies[c.Name] = c.Value
+	}
+	switch {
+	case ss.s == nil:
+	case remember.After(ss.s.RememberUntil):
+		ss.s.RememberUntil = remember // "remember me": as long as the legacy login
+	case forgot && remember.IsZero():
+		ss.s.RememberUntil = time.Time{} // the legacy login is being undone
 	}
 }
 
@@ -228,16 +243,22 @@ func (ss *sessionState) end() {
 
 // commit writes the session to the store and to the browser.
 func (ss *sessionState) commit(ctx context.Context, h http.Header) {
-	if ss.done || ss.broken {
+	if ss.done {
 		return
 	}
 	ss.done = true
+	for _, c := range ss.out {
+		h.Add("Set-Cookie", c.String())
+	}
+	if len(ss.out) > 0 {
+		h.Set("Cache-Control", "private, no-store") // a cookie is never shared
+	}
+	if ss.broken {
+		return
+	}
 	if ss.s != nil {
 		// Pages of a session never go to shared caches.
 		h.Set("Cache-Control", "private, no-store")
-	}
-	for _, c := range ss.out {
-		h.Add("Set-Cookie", c.String())
 	}
 	if !ss.dirty {
 		return
@@ -289,9 +310,7 @@ func (c *commitWriter) Unwrap() http.ResponseWriter { return c.ResponseWriter }
 // Flush sends what is buffered (live updates, see streamCopy).
 func (c *commitWriter) Flush() {
 	c.ss.commit(c.ctx, c.ResponseWriter.Header())
-	if f, ok := c.ResponseWriter.(http.Flusher); ok {
-		f.Flush()
-	}
+	_ = http.NewResponseController(c.ResponseWriter).Flush()
 }
 
 // legacySessionExpired reports whether the legacy answer says its own

@@ -37,6 +37,7 @@ func sessionLike(name string) bool {
 	}
 	for _, s := range []string{"sess", "sid", "auth", "token", "login", "logged", "remember", "jwt", "user",
 		"admin", "role", "priv", "perm", "level", "acl", "group", "debug",
+		"uid", "pass", "pwd", "secret", "hash", "member", "account",
 		"wordpress_", "wp_", "moodle", "joomla", "drupal", "phpbb", "asp.net", ".aspx", "jsession", "laravel", "ci_", "connect."} {
 		if strings.Contains(n, s) {
 			return true

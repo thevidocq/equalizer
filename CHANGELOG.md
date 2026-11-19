@@ -38,6 +38,31 @@ prototype.
 
 ## Entries
 
+### 2026-11-19 — Fix review findings in the compatibility work
+
+- **Branch:** fix/compat-review
+- **What:**
+  - gateway: live updates were never flushed in production: the status
+    recorder hid the server's flusher (`statusRecorder.Unwrap`,
+    `commitWriter.Flush` through `http.ResponseController`); end-to-end test.
+  - gateway: every cookie of a `session.start` answer is private, so
+    `success.cookie` works whatever the cookie's name.
+  - gateway: "remember me" ends when the legacy login cookie is deleted,
+    not when a stale cookie is; deletions alone create no session; public
+    cookies still reach the browser when the session store is down; answers
+    setting cookies get `Cache-Control: private, no-store`.
+  - gateway: more cookie names kept private (`uid`, `pass`, `pwd`,
+    `secret`, `hash`, `member`, `account`).
+  - gateway: request headers trusted as set by a proxy are refused (method
+    override, SSO identity like `X-Remote-User`, `X-Middleware-Subrequest`,
+    `X-True-Client-IP`…); response headers for front proxies or debugging
+    are dropped (`X-Accel-Redirect`, `X-Sendfile`, `X-Debug*`, `X-Varnish`…).
+- **Why:** bugfix session on the compatibility work before the first
+  customer tests.
+- **Status:** tests pass; not yet tried on real sites.
+- **Next steps:** tag `v0.1.0` (by the owner: this session cannot push
+  tags); lab tests on real CMS.
+
 ### 2026-11-19 — Widen compatibility with real legacy sites
 
 - **Branch:** feat/compat

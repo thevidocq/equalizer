@@ -21,14 +21,15 @@ type Rewriter struct {
 	keep int // bytes kept between writes so a split origin is still found
 }
 
-// New builds the replacements: the legacy base's scheme and host, its
-// other scheme, both also with JSON's escaped slashes. Nil when there is
+// New builds the replacements towards publicScheme://publicHost: the
+// legacy base's scheme and host, its other scheme, both also with JSON's
+// escaped slashes. Nil when there is
 // nothing to replace (legacy and public origins are the same).
-func New(legacy *url.URL, publicHost string) *Rewriter {
+func New(legacy *url.URL, publicScheme, publicHost string) *Rewriter {
 	if legacy == nil || publicHost == "" {
 		return nil
 	}
-	public := "https://" + publicHost
+	public := publicScheme + "://" + publicHost
 	r := &Rewriter{}
 	for _, scheme := range []string{"http", "https"} {
 		o := scheme + "://" + legacy.Host
@@ -51,11 +52,11 @@ func New(legacy *url.URL, publicHost string) *Rewriter {
 // query or a body (plain, JSON-escaped or percent-encoded) becomes the
 // legacy one again, so a form showing the public address (WordPress's site
 // address, a profile's website) saves the legacy application's own value.
-func NewReverse(legacy *url.URL, publicHost string) *Rewriter {
+func NewReverse(legacy *url.URL, publicScheme, publicHost string) *Rewriter {
 	if legacy == nil || publicHost == "" {
 		return nil
 	}
-	public := "https://" + publicHost
+	public := publicScheme + "://" + publicHost
 	target := legacy.Scheme + "://" + legacy.Host
 	if strings.EqualFold(public, target) {
 		return nil

@@ -81,8 +81,9 @@ The original site keeps working as it is during the whole procedure.
 2. Install a connector on its server.
 3. Write the first map (from a template).
 4. Optionally run discovery.
-5. Have the map approved and publish it.
-6. Point the domain to Equalizer and isolate the old server.
+5. Upload the site's certificate (or choose http, if the site never had one).
+6. Have the map approved and publish it.
+7. Point the domain to Equalizer and isolate the old server.
 
 ### Add the site
 
@@ -156,12 +157,44 @@ too. Approving stays a person's decision.
 **Approve**, then **Publish**: the gateways load the signed map within 15
 seconds.
 
+### The site's certificate
+
+Equalizer never makes a certificate for a protected site: visitors see the
+site's own, the one its server uses today. In **Site → Certificate** an
+administrator uploads it:
+
+- a **.pfx** file (IIS exports it this way, with a password), or
+- the **PEM** files or text: the certificate, its chain (intermediate
+  certificates) and its private key; an encrypted key asks for its password.
+
+Before keeping it the panel checks that the key matches, that the chain is
+complete (a public CA, or your company's CA if you upload it too), that it
+is valid today and that it covers the site's main domain. The page shows
+the domains it covers, the other domains it does not cover (those get no
+HTTPS), its issuer and its end. The private key is kept encrypted and never
+shown again; every administrator of the company gets an email when the
+certificate is uploaded, replaced or removed. The gateways use a new
+certificate within seconds.
+
+Upload it **before** pointing the domain: then the switch has no gap. A
+site published without a certificate gets no HTTPS (the panel warns at
+publication) until one is uploaded. When the certificate is near its end,
+**Status** turns yellow and the administrators get an email 30, 14, 7 and 1
+days before; upload the renewed one in the same place.
+
+A site that never had a certificate can stay in **http**, as before
+Equalizer (**Site → Certificate → Serve it in http**): pages and logins
+travel in clear, and the login with an identity provider is not available.
+A site in https sends visitors who type `http://` to `https://`.
+
+![Certificate](../screenshots/certificate.png)
+
 ### Point the domain and isolate the site
 
 1. Point the site's DNS records to the platform (the address is given by the
    platform operator): the main domain and its other names (the bare
-   domain next to `www`, old domains). Certificates are issued
-   automatically. In **Site → Isolation → Other domains** list the other
+   domain next to `www`, old domains). In https the site's certificate must
+   cover them. In **Site → Isolation → Other domains** list the other
    names: visitors on them are sent to the main domain, as sites usually
    do. They apply at once, without a new version of the map.
 2. **Site → Isolation**: enter the old public IP of the site. Equalizer

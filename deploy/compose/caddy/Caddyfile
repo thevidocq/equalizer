@@ -2,22 +2,45 @@
 	email {$EQ_ACME_EMAIL}
 	# no Caddy admin endpoint
 	admin off
+	# Caddy would get a certificate itself for a protected site that has none:
+	# the gateway always says no. Protected sites use only their own
+	# certificate (uploaded in the panel); the platform's domains below get
+	# Let's Encrypt certificates, not on demand.
 	on_demand_tls {
 		ask http://gateway:9090/tls/allowed
 	}
 }
 
-# Plain HTTP: certificate challenges (handled by Caddy first), then HTTPS.
+# Plain HTTP. The platform's domains are redirected to HTTPS by Caddy
+# itself (their certificate challenges are answered first). Protected sites
+# go to the gateway's plain port: a site served in http is served there, a
+# site in https is redirected to https.
 http:// {
-	redir https://{host}{uri} permanent
+	reverse_proxy {
+		dynamic a {
+			name gateway
+			port 8081
+			refresh 10s
+		}
+		lb_policy round_robin
+		health_uri /readyz
+		health_port 9090
+		health_interval 10s
+	}
+
+	log {
+		output stdout
+		format json
+	}
 }
 
-# Protected sites: any domain, but a certificate only for the domains of
-# published maps (the gateway answers /tls/allowed). Unknown hosts get no
-# certificate, so no TLS handshake.
+# Protected sites in HTTPS, each with its own certificate: the legacy site's,
+# uploaded in the panel, which the gateway gives at each TLS handshake. A
+# site without one gets no TLS handshake.
 https:// {
 	tls {
 		on_demand
+		get_certificate http http://gateway:9090/tls/certificate
 	}
 	encode zstd gzip
 

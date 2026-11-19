@@ -421,6 +421,9 @@ paths:
               type: object
               properties:
                 discovery_schedule: { enum: [off, daily, weekly] }
+                public_scheme:
+                  enum: [https, http]
+                  description: "https: the site's own certificate (Certificate); http: in clear, as the legacy site was. Applied at once to the published map, which is signed again"
                 legacy_ip:
                   type: [string, "null"]
                   description: "Public IP the site answered on before Equalizer: the exposure check probes it. A public unicast IPv4 or IPv6 address; null stops the checks"
@@ -456,6 +459,43 @@ paths:
               schema: { $ref: "#/components/schemas/App" }
         "409": { $ref: "#/components/responses/Error" }
         "422": { $ref: "#/components/responses/Error" }
+  /apps/{app}/certificate:
+    put:
+      tags: [apps]
+      summary: >-
+        Upload the site's own certificate (the legacy site's, never a new one): PEM (certificate, chain and private
+        key) or PKCS#12 (.pfx, as IIS exports it) with its password. Checked before it is kept: the key matches, the
+        chain is complete, it covers the public domain and the other domains, it is valid now. The private key is
+        stored encrypted and never returned. Applies at once; the tenant administrators get an email (tenant
+        administrators)
+      parameters: [{ $ref: "#/components/parameters/app" }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                pem: { type: string, maxLength: 200000, description: "Certificate, chain and private key, PEM blocks in any order" }
+                pfx: { type: string, maxLength: 300000, description: "PKCS#12 file in base64" }
+                password: { type: string, maxLength: 1000, description: "Password of the .pfx or of an encrypted PEM key" }
+      responses:
+        "200":
+          description: Site with its certificate
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/App" }
+        "422": { $ref: "#/components/responses/Error" }
+    delete:
+      tags: [apps]
+      summary: Remove the site's certificate (HTTPS stops for the site) (tenant administrators)
+      parameters: [{ $ref: "#/components/parameters/app" }]
+      responses:
+        "200":
+          description: Site
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/App" }
   /apps/{app}/exposure/check:
     post:
       tags: [apps]
@@ -651,6 +691,32 @@ paths:
       security: [{ serviceToken: [] }]
       responses:
         "200": { $ref: "#/components/responses/Object" }
+  /internal/certificates:
+    get:
+      tags: [internal]
+      summary: >-
+        Certificates of the published https sites with their private keys in clear, for the gateways to give Caddy
+        at TLS handshake (control network only)
+      security: [{ serviceToken: [] }]
+      responses:
+        "200":
+          description: Certificates
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items:
+                    type: array
+                    items:
+                      type: object
+                      required: [app, domains, chain_pem, key_pem]
+                      properties:
+                        app: { type: string }
+                        domains: { type: array, items: { type: string }, description: "Domains of the site this certificate covers" }
+                        chain_pem: { type: string }
+                        key_pem: { type: string }
   /internal/oidc:
     get:
       tags: [internal]
@@ -1524,6 +1590,30 @@ components:
         kind: { $ref: "#/components/schemas/SiteKind" }
         discovery_schedule: { enum: [off, daily, weekly], description: "Continuous discovery: run again and propose what changed" }
         exposure: { $ref: "#/components/schemas/Exposure" }
+        tls: { $ref: "#/components/schemas/SiteTLS" }
+    SiteTLS:
+      type: object
+      description: How visitors reach the site and its certificate
+      required: [public_scheme, status]
+      properties:
+        public_scheme: { enum: [https, http] }
+        status:
+          enum: [ok, missing, incomplete, expiring, expired, not_needed]
+          description: "ok; missing: https without a certificate (visitors get no HTTPS); incomplete: it does not cover every domain of the site; expiring: within 30 days; expired; not_needed: http"
+        certificate: { oneOf: [{ $ref: "#/components/schemas/Certificate" }, { type: "null" }] }
+    Certificate:
+      type: object
+      required: [subject, issuer, domains, not_before, not_after, fingerprint_sha256, uploaded_at]
+      properties:
+        subject: { type: string }
+        issuer: { type: string }
+        domains: { type: array, items: { type: string }, description: "Names the certificate covers (wildcards included)" }
+        missing: { type: array, items: { type: string }, description: "Domains of the site it does not cover" }
+        not_before: { type: string, format: date-time }
+        not_after: { type: string, format: date-time }
+        fingerprint_sha256: { type: string }
+        uploaded_at: { type: string, format: date-time }
+        uploaded_by: { type: string }
     Exposure:
       type: object
       description: Whether the site still answers directly, bypassing Equalizer
@@ -1626,7 +1716,8 @@ components:
         name: { type: string }
         public_domain: { type: string }
         state: { $ref: "#/components/schemas/HealthState" }
-        checks: { type: array, items: { $ref: "#/components/schemas/Check" } }
+        checks: { type: array, items: { $ref: "#/components/schemas/Check" }, description: "Map, Connector, Legacy site, Isolation, Certificate" }
+        certificate_expires: { type: string, format: date-time, description: "End of the site's certificate, if it has one" }
         days:
           type: array
           description: Last 7 days, oldest first

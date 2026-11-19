@@ -5,6 +5,7 @@ import (
 	"context"
 	"crypto/ed25519"
 	"crypto/rand"
+	"crypto/x509"
 	"encoding/hex"
 	"log/slog"
 	"net/http"
@@ -25,6 +26,9 @@ import (
 
 // Server holds what the handlers need.
 type Server struct {
+	// CertRoots are the CAs a site certificate must chain to; nil: the
+	// system's (a company's own CA can still come with the upload).
+	CertRoots *x509.CertPool
 	// TrustedProxies may set X-Forwarded-For (see clientIP).
 	TrustedProxies []netip.Prefix
 	Store          *store.Store
@@ -87,6 +91,8 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("GET /v1/apps/{app}", s.authed(s.getApp))
 	mux.HandleFunc("PATCH /v1/apps/{app}", s.authed(s.patchApp))
 	mux.HandleFunc("PUT /v1/apps/{app}/aliases", s.authed(s.putAliases))
+	mux.HandleFunc("PUT /v1/apps/{app}/certificate", s.authed(s.putCertificate))
+	mux.HandleFunc("DELETE /v1/apps/{app}/certificate", s.authed(s.deleteCertificate))
 	mux.HandleFunc("POST /v1/apps/{app}/exposure/check", s.authed(s.checkExposure))
 	mux.HandleFunc("GET /v1/tenants/{tenant}/connectors", s.authed(s.listConnectors))
 	mux.HandleFunc("POST /v1/tenants/{tenant}/connectors", s.authed(s.createConnector))
@@ -121,6 +127,7 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("GET /v1/status/platform", s.authed(s.platformStatus))
 	mux.HandleFunc("GET /v1/audit", s.authed(s.listAudit))
 	// Internal services
+	mux.HandleFunc("GET /v1/internal/certificates", s.internal(s.internalCertificates))
 	mux.HandleFunc("GET /v1/internal/apps/{app}/map", s.internal(s.internalMap))
 	mux.HandleFunc("GET /v1/internal/maps", s.internal(s.internalMaps))
 	mux.HandleFunc("POST /v1/internal/discoveries/claim", s.internal(s.claimDiscovery))

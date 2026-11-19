@@ -8,7 +8,7 @@ import requests
 
 from lab import CA
 
-NEWS, DOCS, INTRANET = "https://news.acme.test", "https://docs.acme.test", "https://intranet.acme.test"
+NEWS, DOCS, INTRANET = "https://news.acme.test", "https://docs.acme.test", "http://intranet.acme.test"  # the intranet in http
 PNG = bytes.fromhex("89504e470d0a1a0a0000000d4948445200000001000000010806000000"
                     "1f15c4890000000d49444154789c6360f8cf00000301010018dd8db00000000049454e44ae426082")
 

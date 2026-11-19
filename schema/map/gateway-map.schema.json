@@ -107,6 +107,11 @@
           "maxItems": 10,
           "description": "Other domains of the site, set by the panel (e.g. the bare domain next to www): the gateway redirects them (301) to public_domain",
           "items": { "type": "string", "pattern": "^([a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?\\.)+[a-z]{2,63}$" }
+        },
+        "public_scheme": {
+          "enum": ["https", "http"],
+          "default": "https",
+          "description": "How visitors reach the site, set by the panel. https: with the site's own certificate (uploaded in the panel), HSTS and Secure cookies; plain http is redirected. http: in clear, as the legacy site was: no HSTS, cookies without Secure, no OIDC login."
         }
       }
     },

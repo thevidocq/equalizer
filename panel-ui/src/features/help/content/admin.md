@@ -143,7 +143,8 @@ archive back, on the same VPS or a new one (`INSTALL.md`, section 10).
 | A replica not ready | `docker compose ps`, then the service's logs in Grafana (`{service="gateway"}`) |
 | A tenant says its site is down | Ask them to open **Status**: it says whether the connector, the legacy site or the map is the cause |
 | Connector offline for a tenant | The connector machine or its network: the tenant restarts it (`INSTALL.md`, section 7) |
-| Certificate missing for a domain | The domain must point to the VPS and have a published map (`/tls/allowed`) |
+| A site has no HTTPS | Its company must upload its certificate (**Site → Certificate**): the platform never issues one for a protected site. **Status** of the tenant shows it red |
+| Certificate missing for the panel or the relay | `EQ_PANEL_DOMAIN` and `EQ_RELAY_DOMAIN` must point to the VPS, ports 80 and 443 open: Caddy gets them from Let's Encrypt |
 | Exposure on a tenant's site | Their legacy site answers on its old IP: they must close it (Site → Isolation) |
 | Someone forgot the password | **Forgot your password?** on the login page (needs the mail server); a lost authenticator is reset by their administrator; platform users use one of their recovery codes |
 | Customers get no alerts or links | The mail server: `EQ_SMTP_ADDR`; without it nothing is emailed |

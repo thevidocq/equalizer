@@ -47,6 +47,7 @@ type sessionState struct {
 	done   bool
 	fresh  bool   // created in this request
 	ipKey  string // the visitor's address, for the new-session limit
+	plain  bool   // an http site: cookies without __Host- and Secure
 }
 
 type sessionKey struct{}
@@ -55,7 +56,7 @@ type sessionKey struct{}
 // store fails, the visitor is anonymous.
 func (p *Public) loadSession(r *http.Request, st *site.Site) *sessionState {
 	ss := &sessionState{mgr: p.Sessions, log: p.Log, policy: st.SessionPolicy(),
-		tenant: st.Model.Meta.Tenant, app: st.Model.Meta.App}
+		tenant: st.Model.Meta.Tenant, app: st.Model.Meta.App, plain: plainSite(st)}
 	if p.IPs != nil {
 		ss.ipKey = clientip.LimitKey(p.IPs.IP(r))
 	}
@@ -63,7 +64,7 @@ func (p *Public) loadSession(r *http.Request, st *site.Site) *sessionState {
 		ss.broken = true
 		return ss
 	}
-	c, err := r.Cookie(session.CookieName)
+	c, err := r.Cookie(sessionCookieName(ss.plain))
 	if err != nil {
 		return ss
 	}
@@ -146,7 +147,7 @@ func (ss *sessionState) absorb(cookies []*http.Cookie) {
 			continue
 		}
 		if !ss.keepAll && !c.HttpOnly && !sessionLike(c.Name) && (ss.s == nil || !ss.s.Private[c.Name]) {
-			ss.out = append(ss.out, toBrowser(c))
+			ss.out = append(ss.out, toBrowser(c, ss.plain))
 			continue
 		}
 		gone := c.MaxAge < 0 || (!c.Expires.IsZero() && c.Expires.Before(now)) || c.Value == ""
@@ -276,7 +277,7 @@ func (ss *sessionState) commit(ctx context.Context, h http.Header) {
 			ss.log.ErrorContext(ctx, "session not deleted", slog.String("error", err.Error()))
 		}
 	}
-	cookie := &http.Cookie{Name: session.CookieName, Path: "/", Secure: true, HttpOnly: true, SameSite: http.SameSiteLaxMode}
+	cookie := &http.Cookie{Name: sessionCookieName(ss.plain), Path: "/", Secure: !ss.plain, HttpOnly: true, SameSite: http.SameSiteLaxMode}
 	if ss.s == nil {
 		if ss.oldID != "" {
 			cookie.MaxAge = -1

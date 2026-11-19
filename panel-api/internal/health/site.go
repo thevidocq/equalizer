@@ -28,6 +28,8 @@ type Site struct {
 	State        string  `json:"state"`
 	Checks       []Check `json:"checks"`
 	Days         []Day   `json:"days"`
+	// CertificateExpires: the end of the site's certificate (reminders).
+	CertificateExpires *time.Time `json:"certificate_expires,omitempty"`
 }
 
 // Input is what is known of a site, gathered by the caller.
@@ -41,6 +43,8 @@ type Input struct {
 	Served, Errors    int             // last 15 minutes
 	Traffic           bool            // false: the log store did not answer
 	Exposure          string          // closed, exposed, error, pending, …
+	TLSStatus         string          // SiteTLS status: ok, missing, incomplete, expiring, expired, not_needed
+	CertExpires       *time.Time      // the site's certificate, if any
 }
 
 // Connector returns the connector id of a map, "" in direct mode.
@@ -110,8 +114,30 @@ func Evaluate(in Input) Site {
 	default:
 		s.Checks = append(s.Checks, Check{"Isolation", Unknown, "old IP not set (Site → Isolation)"})
 	}
+	s.Checks = append(s.Checks, certificateCheck(in))
+	s.CertificateExpires = in.CertExpires
 	s.State = worst(s.Checks)
 	return s
+}
+
+func certificateCheck(in Input) Check {
+	until := ""
+	if in.CertExpires != nil {
+		until = in.CertExpires.UTC().Format(time.DateOnly)
+	}
+	switch in.TLSStatus {
+	case "ok":
+		return Check{"Certificate", OK, "valid until " + until}
+	case "expiring":
+		return Check{"Certificate", Degraded, "expires on " + until + ": upload the renewed certificate"}
+	case "incomplete":
+		return Check{"Certificate", Degraded, "does not cover every domain of the site: those get no HTTPS"}
+	case "expired":
+		return Check{"Certificate", Down, "expired on " + until + ": browsers refuse the site"}
+	case "missing":
+		return Check{"Certificate", Down, "no certificate: visitors get no HTTPS (Site → Certificate)"}
+	}
+	return Check{"Certificate", NotUsed, "the site is served in http"}
 }
 
 func worst(cs []Check) string {

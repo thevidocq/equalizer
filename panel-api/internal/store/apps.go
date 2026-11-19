@@ -2,6 +2,7 @@ package store
 
 import (
 	"context"
+	"database/sql"
 	"github.com/lib/pq"
 	"time"
 )
@@ -18,6 +19,7 @@ type App struct {
 	Kind         *string   `json:"kind"`              // wordpress, joomla, ... or nil
 	Schedule     string    `json:"discovery_schedule"`
 	Exposure     Exposure  `json:"exposure"`
+	TLS          SiteTLS   `json:"tls"`
 }
 
 // Exposure is the result of the last exposure check of a site.
@@ -40,24 +42,42 @@ func (s *Store) CreateApp(ctx context.Context, a App) (App, error) {
 const appColumns = `a.id, a.tenant_id, a.name, a.public_domain, a.created_at,
 	(SELECT version FROM map_versions m WHERE m.app_id = a.id AND m.status = 'published'),
 	a.legacy_ip, a.exposure_status, a.exposure_reason, a.exposure_checked_at, a.kind, a.discovery_schedule,
-	ARRAY(SELECT x.domain FROM app_aliases x WHERE x.app_id = a.id ORDER BY x.domain)`
+	ARRAY(SELECT x.domain FROM app_aliases x WHERE x.app_id = a.id ORDER BY x.domain), a.public_scheme,
+	c.subject, c.issuer, c.domains, c.not_before, c.not_after, c.fingerprint, c.uploaded_at, c.chain_pem,
+	(SELECT u.email FROM users u WHERE u.id = c.uploaded_by)`
+
+// appFrom is the FROM of app queries: the site and its certificate, if any.
+const appFrom = ` FROM apps a LEFT JOIN app_certificates c ON c.app_id = a.id`
 
 type scanner interface{ Scan(...any) error }
 
 func scanApp(row scanner) (App, error) {
 	var a App
+	var (
+		subject, issuer, fingerprint, chain sql.NullString
+		domains                             []string
+		notBefore, notAfter, uploadedAt     sql.NullTime
+		uploadedBy                          *string
+	)
 	err := row.Scan(&a.ID, &a.Tenant, &a.Name, &a.PublicDomain, &a.CreatedAt, &a.Published,
 		&a.Exposure.LegacyIP, &a.Exposure.Status, &a.Exposure.Reason, &a.Exposure.CheckedAt, &a.Kind, &a.Schedule,
-		pq.Array(&a.Aliases))
+		pq.Array(&a.Aliases), &a.TLS.PublicScheme, &subject, &issuer, pq.Array(&domains), &notBefore, &notAfter,
+		&fingerprint, &uploadedAt, &chain, &uploadedBy)
 	if a.Aliases == nil {
 		a.Aliases = []string{}
 	}
+	if subject.Valid {
+		a.TLS.Certificate = &Certificate{Subject: subject.String, Issuer: issuer.String, Domains: domains,
+			NotBefore: notBefore.Time, NotAfter: notAfter.Time, Fingerprint: fingerprint.String,
+			UploadedAt: uploadedAt.Time, UploadedBy: uploadedBy, ChainPEM: chain.String}
+	}
+	fillTLS(&a, time.Now())
 	return a, err
 }
 
 // Apps lists the sites of a tenant.
 func (s *Store) Apps(ctx context.Context, tenant string) ([]App, error) {
-	rows, err := s.DB.QueryContext(ctx, `SELECT `+appColumns+` FROM apps a WHERE a.tenant_id = $1 ORDER BY a.id`, tenant)
+	rows, err := s.DB.QueryContext(ctx, `SELECT `+appColumns+appFrom+` WHERE a.tenant_id = $1 ORDER BY a.id`, tenant)
 	if err != nil {
 		return nil, err
 	}
@@ -75,7 +95,7 @@ func (s *Store) Apps(ctx context.Context, tenant string) ([]App, error) {
 
 // App returns one site.
 func (s *Store) App(ctx context.Context, id string) (App, error) {
-	a, err := scanApp(s.DB.QueryRowContext(ctx, `SELECT `+appColumns+` FROM apps a WHERE a.id = $1`, id))
+	a, err := scanApp(s.DB.QueryRowContext(ctx, `SELECT `+appColumns+appFrom+` WHERE a.id = $1`, id))
 	return a, translate(err)
 }
 

@@ -5,6 +5,7 @@ import { TenantsPage } from "@/features/tenants";
 import { SiteLayout, SitesPage } from "@/features/sites";
 import { ConnectorsPage } from "@/features/connectors";
 import { IsolationPage } from "@/features/exposure";
+import { CertificatePage } from "@/features/certificate";
 import { DiscoveryPage } from "@/features/discovery";
 import { SettingsPage } from "@/features/settings";
 import { MapsPage, NewVersionPage, VersionPage } from "@/features/maps";
@@ -50,6 +51,7 @@ export const router = createBrowserRouter([
           { path: "maps/:version", element: <VersionPage /> },
           { path: "discovery", element: <DiscoveryPage /> },
           { path: "isolation", element: <IsolationPage /> },
+          { path: "certificate", element: <CertificatePage /> },
           { path: "login", element: <LoginTab /> },
         ],
       },

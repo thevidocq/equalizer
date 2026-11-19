@@ -200,8 +200,8 @@ func BuildWith(m *mapmodel.Model, opts Options) (*Site, error) {
 		Legacy:    lc,
 		Budget:    budget.New(m.Defaults.LegacyBudget.MaxConcurrency, budgetWait),
 		URLs:      urls,
-		Origin:    origin.New(lc.Base(), m.Meta.PublicDomain),
-		Inbound:   origin.NewReverse(lc.Base(), m.Meta.PublicDomain),
+		Origin:    origin.New(lc.Base(), m.Meta.Scheme(), m.Meta.PublicDomain),
+		Inbound:   origin.NewReverse(lc.Base(), m.Meta.Scheme(), m.Meta.PublicDomain),
 		Forms:     formmap.New(lc.Base(), m),
 		Pipeline:  pipeline.New(DefaultSteps()...),
 

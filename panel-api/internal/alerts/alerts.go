@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"log/slog"
 	"sort"
+	"strconv"
 	"strings"
 	"time"
 
@@ -20,7 +21,12 @@ import (
 
 // Watched are the checks that send alerts; a missing map is a site being
 // set up, not an incident.
-var Watched = map[string]bool{"Connector": true, "Legacy site": true, "Isolation": true}
+var Watched = map[string]bool{"Connector": true, "Legacy site": true, "Isolation": true, "Certificate": true}
+
+// Reminders before a certificate ends, in days: one email each.
+var Reminders = []int{30, 14, 7, 1}
+
+const expiryCheck = "Certificate expiry"
 
 // Store is what the runner needs from the database.
 type Store interface {
@@ -160,7 +166,34 @@ func (r *Runner) site(ctx context.Context, s health.Site) []change {
 			return nil
 		}
 	}
+	if c, ok := r.expiry(ctx, s, known[expiryCheck], now); ok {
+		out = append(out, c)
+	}
 	return out
+}
+
+// expiry sends one reminder when the certificate crosses each of Reminders
+// (30, 14, 7, 1 days before its end); a renewed certificate starts again.
+func (r *Runner) expiry(ctx context.Context, s health.Site, k store.SiteAlert, now time.Time) (change, bool) {
+	if s.CertificateExpires == nil {
+		return change{}, false
+	}
+	left := int(s.CertificateExpires.Sub(now).Hours() / 24)
+	due := ""
+	for _, d := range Reminders {
+		if left < d && left >= 0 {
+			due = strconv.Itoa(d)
+		}
+	}
+	if due == k.Notified || (due == "" && k.Notified == "") {
+		return change{}, false
+	}
+	k = store.SiteAlert{State: due, Since: now, Notified: due}
+	if err := r.Store.SaveSiteAlert(ctx, s.App, expiryCheck, k); err != nil || due == "" {
+		return change{}, false // renewed: nothing to say
+	}
+	return change{s.Name, s.PublicDomain, expiryCheck, fmt.Sprintf("the certificate ends on %s (%d days): upload the renewed one in Site → Certificate",
+		s.CertificateExpires.UTC().Format(time.DateOnly), left), true}, true
 }
 
 func (r *Runner) recipients(ctx context.Context, tenant string, s store.AlertSettings) []string {

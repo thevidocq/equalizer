@@ -2,6 +2,7 @@ import { Button, Notice, useToast } from "@/shared/ui";
 import { describeError } from "@/shared/api/errors";
 import type { MapVersion, User } from "@/shared/api/client";
 import { hasRole } from "@/features/auth";
+import { useSite } from "@/features/exposure";
 import { useMapAction, type MapAction } from "../hooks/useMaps";
 
 const done: Record<MapAction, string> = {
@@ -11,6 +12,8 @@ const done: Record<MapAction, string> = {
 /** The next step of a version, offered only to who may take it. */
 export function VersionActions({ v, tenant, me }: { v: MapVersion; tenant: string; me: User }) {
   const action = useMapAction(v.app, v.version);
+  const tls = useSite(v.app).data?.tls;
+  const noCert = tls?.public_scheme === "https" && tls.status === "missing";
   const toast = useToast();
   const run = (a: MapAction) => action.mutate(a, { onSuccess: () => toast(`Version ${v.version}: ${done[a].toLowerCase()}`) });
   const isAuthor = v.author_id === me.id;
@@ -31,6 +34,11 @@ export function VersionActions({ v, tenant, me }: { v: MapVersion; tenant: strin
   } else if (v.status === "approved" && decider) {
     body = (
       <div className="flex flex-col gap-2">
+        {noCert ? (
+          <Notice tone="error">
+            The site has no certificate yet: once published, visitors get no HTTPS until it is uploaded in Site → Certificate.
+          </Notice>
+        ) : null}
         <div><Button variant="primary" busy={action.isPending} onClick={() => run("publish")}>Publish</Button></div>
         <p className="text-sm text-ink-soft">The gateways pick it up within 15 seconds; the published version is retired.</p>
       </div>

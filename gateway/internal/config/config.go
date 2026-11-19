@@ -21,6 +21,8 @@ type Config struct {
 	MapToken         string         // token for MapURL
 	UnmappedURL      string         // panel endpoint for refused paths; default next to MapURL
 	OIDCSecretsURL   string         // panel endpoint of OIDC client secrets; default next to MapURL
+	CertificatesURL  string         // panel endpoint of the sites' certificates; default next to MapURL
+	PublicHTTPAddr   string         // plain http traffic from Caddy (http sites; https sites are redirected)
 	MapPublicKey     string         // Ed25519 public key, base64
 	MapPublicKeyID   string         // expected key identifier
 	TrustedProxies   []netip.Prefix // networks allowed to set X-Forwarded-For
@@ -37,6 +39,7 @@ func FromEnv() (Config, error) {
 	host, _ := os.Hostname()
 	cfg := Config{
 		PublicAddr:      env("EQ_PUBLIC_ADDR", ":8080"),
+		PublicHTTPAddr:  env("EQ_PUBLIC_HTTP_ADDR", ":8081"),
 		AdminAddr:       env("EQ_ADMIN_ADDR", ":9090"),
 		Instance:        env("EQ_INSTANCE", host),
 		LogLevel:        env("EQ_LOG_LEVEL", "info"),
@@ -64,6 +67,10 @@ func FromEnv() (Config, error) {
 	cfg.UnmappedURL = os.Getenv("EQ_UNMAPPED_URL")
 	if cfg.UnmappedURL == "" && strings.HasSuffix(cfg.MapURL, "/v1/internal/maps") {
 		cfg.UnmappedURL = strings.TrimSuffix(cfg.MapURL, "/maps") + "/unmapped"
+	}
+	cfg.CertificatesURL = os.Getenv("EQ_CERTIFICATES_URL")
+	if cfg.CertificatesURL == "" && strings.HasSuffix(cfg.MapURL, "/v1/internal/maps") {
+		cfg.CertificatesURL = strings.TrimSuffix(cfg.MapURL, "/maps") + "/certificates"
 	}
 	cfg.OIDCSecretsURL = os.Getenv("EQ_OIDC_SECRETS_URL")
 	if cfg.OIDCSecretsURL == "" && strings.HasSuffix(cfg.MapURL, "/v1/internal/maps") {

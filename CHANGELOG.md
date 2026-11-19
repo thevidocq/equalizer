@@ -31,12 +31,53 @@ prototype.
 | connector | Outbound tunnel, local allowlist, reconnection; one per server, virtual hosts |
 | orchestrator | Not implemented yet |
 | panel-api | Discovery jobs and continuous discovery, tenant AI settings, map templates per CMS, auth with mandatory TOTP, tenants, email invitations, tenant connectors, map reach checks, exposure check, Logs page backend (Loki), status page, platform/tenant privacy, users, sites, connectors, maps with approval and signing, audit, internal endpoints |
-| panel-ui | Logo (sidebar, login), discovery tab and tenant AI settings, login, joining by invitation, platform tenant overview, sites with isolation, tenant connectors, people with invitations, maps with editor, approval, import and export, activity, logs, status |
+| panel-ui | Logo (sidebar, login), discovery tab and tenant AI settings, login, joining by invitation, platform tenant overview, sites with isolation and certificate, tenant connectors, people with invitations, maps with editor, approval, import and export, activity, logs, status |
 | agent | Discovery: read-only crawl through the connector, whole-site area, IDOR proposals, CMS fingerprint, deterministic routes and types, optional AI review with the tenant's model, proposed drafts |
-| deploy/compose | Caddy (on-demand certificates for protected sites, relay and panel domains), SMTP settings, gateway (2 replicas), Redis, PostgreSQL, panel-api, panel-ui, tunnel-relay, Vector, Loki, Grafana; statically validated |
+| deploy/compose | Caddy (protected sites use the certificate uploaded in the panel, Let's Encrypt only for relay and panel), SMTP settings, gateway (2 replicas), Redis, PostgreSQL, panel-api, panel-ui, tunnel-relay, Vector, Loki, Grafana; statically validated |
 | tools (eqtool) | Map signing keys, form key, relay token, connector registration, map signing |
 
 ## Entries
+
+### 2026-11-19 — Serve protected sites with their own certificates
+
+- **Branch:** feat/site-certificates
+- **What:**
+  - Contracts: map `meta.public_scheme` (`https` default, `http`); panel API
+    PUT/DELETE `/apps/{app}/certificate`, `public_scheme` on PATCH `/apps/{app}`,
+    `App.tls` (`SiteTLS`), `/internal/certificates`, `certificate_expires` in
+    the site status.
+  - panel-api: `certs` package (PEM or PKCS#12, one matching key, RSA ≥2048
+    or ECDSA P-256/P-384, chain to system roots or an uploaded private CA,
+    validity, coverage of the domain and aliases); vendored SSLMate
+    go-pkcs12 using stdlib pbkdf2; migration 0012; the key is sealed per
+    site; every tenant admin gets an email on upload and removal; health
+    check "Certificate" and reminder emails at 30/14/7/1 days; publish and
+    alias re-sign carry `public_scheme`.
+  - gateway: `certfeed` pulls the certificates every 10 s (keeps the last
+    good set on errors); admin `/tls/certificate` gives Caddy the bundle;
+    `/tls/allowed` always 404, so Caddy never asks Let's Encrypt for a
+    protected site; plain listener `EQ_PUBLIC_HTTP_ADDR` (`:8081`) serves
+    http sites and redirects https ones (301/308); http sites use
+    `eq_session`/`eq_form` cookies without Secure and refuse OIDC.
+  - deploy: Caddyfile `get_certificate http` for sites, http catch-all to
+    gateway 8081; compose sets `EQ_PUBLIC_HTTP_ADDR`.
+  - panel-ui: Site → Certificate page (status, upload of .pfx or PEM,
+    removal, http/https switch); publish warns when an https site has no
+    certificate.
+  - Lab: front mimics Caddy's certificate fetch and port 80 routing; tests
+    upload real lab-CA certificates, compare fingerprints, check redirects,
+    refuse another site's certificate; the intranet runs in http.
+  - Docs: tenant manual section and screenshot, admin manual rows,
+    architecture, map format, lab README.
+- **Why:** visitors must keep seeing the legacy site's real certificate;
+  Equalizer never issues new or temporary ones for protected sites. Let's
+  Encrypt stays only for the panel and relay domains.
+- **Status:** unit tests, lab tests and full lab pass. Deploy note: Caddy must
+  reach the gateway on port 8081 (set in compose).
+- **Next steps:**
+  1. Manual test on the server with a real certificate (.pfx from IIS and PEM).
+  2. Optional: panel behind Cloudflare.
+  3. SIEM/S3 log forwarding, external pentest, Moodle in the lab.
 
 ### 2026-11-19 — Harden the relay, the panel and the agent's model calls
 

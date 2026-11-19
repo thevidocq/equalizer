@@ -16,6 +16,9 @@ func checkOIDC(m *mapmodel.Model) (*oidc.Provider, error) {
 	if !m.OIDC() {
 		return nil, nil
 	}
+	if m.Meta.Scheme() == "http" {
+		return nil, fmt.Errorf("roles.auth: the login with the identity provider needs the site in https (meta.public_scheme)")
+	}
 	a := m.Roles.Auth
 	if !strings.HasPrefix(a.Issuer, "https://") || a.ClientID == "" {
 		return nil, fmt.Errorf("roles.auth: oidc needs an https issuer and a client_id")

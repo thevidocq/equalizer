@@ -8,7 +8,7 @@ import (
 
 func TestRewrite(t *testing.T) {
 	base, _ := url.Parse("http://www.acme.test")
-	r := New(base, "www.acme.test")
+	r := New(base, "https", "www.acme.test")
 	in := `<link href='http://www.acme.test/a.css'><script>var s={"root":"http:\/\/www.acme.test\/wp-json\/"}</script>https://www.acme.test/x http://other.example/`
 	want := `<link href='https://www.acme.test/a.css'><script>var s={"root":"https:\/\/www.acme.test\/wp-json\/"}</script>https://www.acme.test/x http://other.example/`
 	if got := string(r.Bytes([]byte(in))); got != want {
@@ -16,7 +16,7 @@ func TestRewrite(t *testing.T) {
 	}
 	// An internal address, in a stream cut anywhere.
 	internal, _ := url.Parse("http://10.0.0.5:8080")
-	r = New(internal, "portal.acme.test")
+	r = New(internal, "https", "portal.acme.test")
 	for cut := 1; cut < 40; cut++ {
 		var out bytes.Buffer
 		w := r.Writer(&out)
@@ -30,7 +30,7 @@ func TestRewrite(t *testing.T) {
 			t.Fatalf("cut %d: %s", cut, out.String())
 		}
 	}
-	if New(mustURL("https://www.acme.test"), "www.acme.test") == nil {
+	if New(mustURL("https://www.acme.test"), "https", "www.acme.test") == nil {
 		t.Error("the http form of the same name must still be rewritten")
 	}
 	if !Text("application/json; charset=utf-8") || Text("image/png") || !Text("application/rss+xml") {
@@ -39,13 +39,13 @@ func TestRewrite(t *testing.T) {
 }
 
 func TestReverse(t *testing.T) {
-	r := NewReverse(mustURL("http://www.acme.test"), "www.acme.test")
+	r := NewReverse(mustURL("http://www.acme.test"), "https", "www.acme.test")
 	in := `siteurl=https%3A%2F%2Fwww.acme.test&home=https%3a%2f%2fwww.acme.test%2F {"url":"https:\/\/www.acme.test"} https://www.acme.test/x https://www.acme.testing/ https://www.acme.test.evil.example/ https://www.acme.test.`
 	want := `siteurl=http%3A%2F%2Fwww.acme.test&home=http%3a%2f%2fwww.acme.test%2F {"url":"http:\/\/www.acme.test"} http://www.acme.test/x https://www.acme.testing/ https://www.acme.test.evil.example/ http://www.acme.test.`
 	if got := string(r.Bytes([]byte(in))); got != want {
 		t.Fatalf("got  %s\nwant %s", got, want)
 	}
-	if NewReverse(mustURL("https://www.acme.test"), "www.acme.test") != nil {
+	if NewReverse(mustURL("https://www.acme.test"), "https", "www.acme.test") != nil {
 		t.Error("same origin: nothing to undo")
 	}
 }

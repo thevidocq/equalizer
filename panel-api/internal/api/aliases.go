@@ -72,6 +72,12 @@ func (s *Server) putAliases(w http.ResponseWriter, r *http.Request, u *auth.User
 // republishAliases signs the published version again with the new aliases
 // in its meta; nothing to do before the first publication.
 func (s *Server) republishAliases(r *http.Request, app string, aliases []string) error {
+	return s.republishMeta(r, app, map[string]any{"aliases": aliases})
+}
+
+// republishMeta signs the published version again with new meta values
+// (aliases, public scheme): settings of the site that apply at once.
+func (s *Server) republishMeta(r *http.Request, app string, meta map[string]any) error {
 	v, err := s.Store.Published(r.Context(), app)
 	if err == store.ErrNotFound {
 		return nil
@@ -79,7 +85,7 @@ func (s *Server) republishAliases(r *http.Request, app string, aliases []string)
 	if err != nil {
 		return err
 	}
-	doc, err := store.SetMeta(v.Document, map[string]any{"aliases": aliases})
+	doc, err := store.SetMeta(v.Document, meta)
 	if err != nil {
 		return err
 	}

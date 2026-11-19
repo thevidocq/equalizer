@@ -105,7 +105,7 @@ Security:
 | `EQ_DIRECT_DESTINATIONS` | — | `host:port` list allowed in `direct` mode (lab apps); empty: connectors only |
 | `EQ_LOKI_URL` | none | Loki for the Logs page (Compose: `http://loki:3100`); empty: the page answers 503 |
 | `EQ_RELAY_ADMIN` | none | Relays' admin endpoint for the status page (Compose: `tunnel-relay:9091`) |
-| `EQ_GATEWAY_ADMIN` | none | Gateways' admin endpoint for the platform status (Compose: `gateway:9090`) |
+| `EQ_GATEWAY_ADMIN` | none | Gateways' admin endpoint (Compose: `gateway:9090`): checks every draft and publish with the gateway's own rules (`POST /maps/check`), and the platform status. Empty: schema checks only |
 | `EQ_EXPOSURE_INTERVAL` | `1h` | Interval between exposure checks of a site (at least `5m`; `0` turns them off) |
 | `EQ_UI_DIR` | — | Static files of panel-ui, served on `/` |
 | `EQ_LOG_LEVEL` | `info` | `debug`, `info`, `warn`, `error` |

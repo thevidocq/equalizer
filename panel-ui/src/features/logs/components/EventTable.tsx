@@ -1,7 +1,7 @@
 import type { App } from "@/shared/api/client";
-import { kindOf, reasonLabel, type LogEvent } from "./kinds";
+import { eventKey, kindOf, reasonLabel, type LogEvent } from "./kinds";
 
-type Props = { events: LogEvent[]; apps: App[]; selected: number; onSelect: (i: number) => void };
+type Props = { events: LogEvent[]; apps: App[]; selected: string | null; onSelect: (key: string) => void };
 
 const mono = "font-mono text-[13px]";
 
@@ -29,15 +29,17 @@ export function EventTable({ events, apps, selected, onSelect }: Props) {
         <tbody>
           {events.map((e, i) => {
             const k = kindOf(e.type);
+            const key = eventKey(e);
+            const on = key === selected;
             return (
-              <tr key={`${e.ts}-${e.request_id ?? i}`} onClick={() => onSelect(i)}
-                className={`cursor-pointer border-b border-rule-soft ${i === selected ? "bg-signal-soft" : "hover:bg-paper"}`}>
+              <tr key={`${key}|${i}`} onClick={() => onSelect(key)}
+                className={`cursor-pointer border-b border-rule-soft ${on ? "bg-signal-soft" : "hover:bg-paper"}`}>
                 <td className="whitespace-nowrap px-4 py-2 tabular-nums text-ink-soft">
                   <time dateTime={e.ts}>{eventTime(e.ts)}</time>
                 </td>
                 <td className="px-2 py-2">
-                  <button type="button" onClick={(ev) => { ev.stopPropagation(); onSelect(i); }}
-                    aria-pressed={i === selected} className="flex flex-col text-left">
+                  <button type="button" onClick={(ev) => { ev.stopPropagation(); onSelect(key); }}
+                    aria-pressed={on} className="flex flex-col text-left">
                     <span className="flex items-center gap-1.5 font-medium">
                       <span aria-hidden="true" className="size-2 rounded-full" style={{ background: k.color }} />
                       {k.label}

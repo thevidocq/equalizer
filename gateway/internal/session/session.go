@@ -46,8 +46,9 @@ type Session struct {
 	Issued map[string][]string `json:"i,omitempty"`
 	// Identity is the user the identity provider logged in (OIDC maps).
 	Identity *Identity `json:"id,omitempty"`
-	// Pending is an OIDC login started and not finished yet.
-	Pending  *Pending  `json:"pl,omitempty"`
+	// Pending are OIDC logins started and not finished yet: one per tab
+	// sent to the provider, the oldest dropped past a few.
+	Pending  []Pending `json:"pls,omitempty"`
 	Created  time.Time `json:"cr"`
 	LastSeen time.Time `json:"ls"`
 }

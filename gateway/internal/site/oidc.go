@@ -43,3 +43,37 @@ func (s *Site) OIDCRules() []oidc.RoleRule {
 	}
 	return out
 }
+
+// checkEntryRoles refuses entries open to a role the map does not declare:
+// a typo would silently close the page to everyone.
+func checkEntryRoles(m *mapmodel.Model) error {
+	check := func(kind, id string, roles []string) error {
+		for _, r := range roles {
+			if _, ok := m.Roles.List[r]; !ok {
+				return fmt.Errorf("%s %q: role %q is not in roles.list", kind, id, r)
+			}
+		}
+		return nil
+	}
+	for _, r := range m.Routes {
+		if err := check("route", r.ID, r.Roles); err != nil {
+			return err
+		}
+	}
+	for _, f := range m.Forms {
+		if err := check("form", f.ID, f.Roles); err != nil {
+			return err
+		}
+	}
+	for _, a := range m.API {
+		if err := check("api", a.ID, a.Roles); err != nil {
+			return err
+		}
+	}
+	for _, a := range m.Assets {
+		if err := check("assets", a.Prefix, a.Roles); err != nil {
+			return err
+		}
+	}
+	return nil
+}

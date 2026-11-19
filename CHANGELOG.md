@@ -35,6 +35,37 @@ Add a section at the top of "Entries" for every commit:
 
 ## Entries
 
+### 2026-11-19 — Bugfix session 1
+
+- **Branch:** `fix/bugfix-session-1`
+- **What (each with a test):**
+  - **Maps the gateway would refuse could be published.** The panel checked
+    only the JSON schema; the gateway then kept the previous version (the
+    panel said v2, v1 was served) or, for a first version, did not serve the
+    site. Now the gateway answers `POST /maps/check` on its admin endpoint
+    with its own checks, and panel-api asks it on every draft
+    (`map_inconsistent`, 422) and before publishing (no gateway answering:
+    `map_unchecked`, 503, never published unchecked) and on rollback.
+  - **Entries open to an undeclared role** were accepted and silently closed
+    to everyone: the gateway now refuses them (routes, forms, APIs, assets).
+    The panel's CMS templates are checked to load (test).
+  - **OIDC, several tabs:** a second login overwrote the first; the first
+    tab came back with 400. Up to 4 logins in progress per session, the one
+    finished is removed, the others stay valid.
+  - **OIDC, scripts:** a `fetch()` without `Accept: application/json` got a
+    redirect to the provider; now any non-navigation (Sec-Fetch-Mode) gets
+    401.
+  - **Relay handover** copied hop-by-hop headers (Connection,
+    Transfer-Encoding…) between replicas: now dropped both ways.
+  - **Logs page:** with Live on, the detail jumped to another event every
+    refresh (it followed the row, not the event); "Load older" while Live
+    left gaps in the list (Live now pauses, and resuming starts from the
+    newest page); the cursor's own event could appear twice across pages.
+- **Why:** bugs found by reading the code written in the last days.
+- **Status:** all tests pass.
+- **Next steps:** bugfix session 2 (agent, discovery jobs, uploads,
+  sessions), then the lab campaign.
+
 ### 2026-11-19 — Login with the identity provider (OIDC), off by default
 
 - **Branch:** `feat/oidc` (on top of `docs/align-screenshots`)

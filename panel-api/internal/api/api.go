@@ -17,6 +17,7 @@ import (
 	"github.com/thevidocq/equalizer/panel-api/internal/logging"
 	"github.com/thevidocq/equalizer/panel-api/internal/logsearch"
 	"github.com/thevidocq/equalizer/panel-api/internal/mail"
+	"github.com/thevidocq/equalizer/panel-api/internal/mapcheck"
 	"github.com/thevidocq/equalizer/panel-api/internal/mfa"
 	"github.com/thevidocq/equalizer/panel-api/internal/store"
 )
@@ -41,8 +42,9 @@ type Server struct {
 	DirectDestinations map[string]bool
 	Exposure           *exposure.Runner // nil: no exposure checks
 	ExposureThrottle   *auth.Throttle
-	Logs               *logsearch.Loki // nil: the Logs page answers 503
-	Health             *health.Probe   // nil: connectors and services shown as unknown
+	Logs               *logsearch.Loki   // nil: the Logs page answers 503
+	Health             *health.Probe     // nil: connectors and services shown as unknown
+	MapCheck           *mapcheck.Checker // nil: maps are checked against the schema only
 }
 
 type userKey struct{}

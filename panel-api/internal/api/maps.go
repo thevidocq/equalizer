@@ -88,6 +88,9 @@ func (s *Server) createMap(w http.ResponseWriter, r *http.Request, u *auth.User)
 		s.reachFail(w, r, err, http.StatusUnprocessableEntity)
 		return
 	}
+	if !s.checkMap(w, r, doc, false) {
+		return
+	}
 	version, err := s.Store.CreateDraft(r.Context(), a.ID, doc, strings.TrimSpace(in.Note), u.ID)
 	if err != nil {
 		s.storeError(w, r, err)
@@ -148,10 +151,17 @@ func (s *Server) mapAction(w http.ResponseWriter, r *http.Request, u *auth.User)
 			return
 		}
 		if err = s.checkReach(r.Context(), a.Tenant, v.Document); err == nil {
+			// lenient: going back must work even when no gateway answers
+			err = s.mapChecked(r.Context(), v.Document, false)
+		}
+		if err == nil {
 			err = s.Store.Rollback(r.Context(), a.ID, version)
 		}
 	default:
 		fail(w, http.StatusNotFound, "not_found", "")
+		return
+	}
+	if s.mapCheckFail(w, err) {
 		return
 	}
 	var re *reachError
@@ -191,6 +201,9 @@ func (s *Server) publish(r *http.Request, a store.App, v store.MapVersion) error
 		"published_at": time.Now().UTC().Format(time.RFC3339),
 	})
 	if err != nil {
+		return err
+	}
+	if err := s.mapChecked(r.Context(), doc, true); err != nil {
 		return err
 	}
 	signed, err := signing.Sign(doc, v.Version, s.SigningKey, s.KeyID)

@@ -465,7 +465,10 @@ paths:
                   next_cursor: { type: [string, "null"] }
     post:
       tags: [maps]
-      summary: New draft version (validated against the map schema)
+      summary: >-
+        New draft version, validated against the map schema and then by a gateway (POST /maps/check on
+        EQ_GATEWAY_ADMIN): map_inconsistent (422) when the gateway would refuse it; if no gateway answers the
+        draft is saved anyway
       parameters: [{ $ref: "#/components/parameters/app" }]
       requestBody:
         required: true
@@ -533,6 +536,8 @@ paths:
               schema: { $ref: "#/components/schemas/MapVersion" }
         "403": { $ref: "#/components/responses/Error" }
         "409": { $ref: "#/components/responses/Error" }
+        "422": { description: "publish, rollback: map_inconsistent, the gateway would refuse the map", content: { application/json: { schema: { $ref: "#/components/schemas/Error" } } } }
+        "503": { description: "publish: map_unchecked, no gateway could check the map (never published unchecked)", content: { application/json: { schema: { $ref: "#/components/schemas/Error" } } } }
   /internal/apps/{app}/map:
     get:
       tags: [internal]

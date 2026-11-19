@@ -1,4 +1,4 @@
-import { useInfiniteQuery, useMutation, useQuery } from "@tanstack/react-query";
+import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api, unwrap } from "@/shared/api/client";
 import type { EventType, Since } from "../components/kinds";
 
@@ -26,6 +26,12 @@ export function useLogs(tenant: string, f: LogFilter, isLive: boolean) {
     refetchInterval: isLive ? live : false,
     enabled: f.types.length > 0,
   });
+}
+
+/** Back to the newest page only: live refresh of several pages would leave gaps. */
+export function useRestartLogs(tenant: string) {
+  const qc = useQueryClient();
+  return () => void qc.resetQueries({ queryKey: ["logs", tenant] });
 }
 
 /** Counts per type and the refused chart, for the same filters. */

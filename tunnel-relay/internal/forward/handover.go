@@ -25,6 +25,9 @@ func (h *Handler) handOver(w http.ResponseWriter, r *http.Request, id string) bo
 			continue
 		}
 		out.Header = r.Header.Clone()
+		for k := range hopByHop {
+			out.Header.Del(k)
+		}
 		out.Header.Set(HeaderHop, "1")
 		resp, err := h.peer.Do(out)
 		if err != nil {
@@ -36,6 +39,9 @@ func (h *Handler) handOver(w http.ResponseWriter, r *http.Request, id string) bo
 			continue
 		}
 		for k, vs := range resp.Header {
+			if hopByHop[http.CanonicalHeaderKey(k)] {
+				continue
+			}
 			for _, v := range vs {
 				w.Header().Add(k, v)
 			}
@@ -47,4 +53,10 @@ func (h *Handler) handOver(w http.ResponseWriter, r *http.Request, id string) bo
 		return true
 	}
 	return false
+}
+
+// hopByHop headers belong to one connection and are never passed on.
+var hopByHop = map[string]bool{
+	"Connection": true, "Keep-Alive": true, "Proxy-Authenticate": true, "Proxy-Authorization": true,
+	"Te": true, "Trailer": true, "Transfer-Encoding": true, "Upgrade": true, "Proxy-Connection": true,
 }

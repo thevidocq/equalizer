@@ -193,6 +193,27 @@ func TestOIDC(t *testing.T) {
 		t.Errorf("a refused callback leaves no login to finish: %d", rec.Code)
 	}
 
+	// Two tabs start a login: both callbacks still work.
+	tabs := &browser{t: t, h: p.Handler(), cookies: map[string]string{}}
+	idp.groups = []string{"employees"}
+	first := idp.authorize(t, tabs.do("GET", "/", nil).Header().Get("Location"))
+	second := idp.authorize(t, tabs.do("GET", "/reports", nil).Header().Get("Location"))
+	if rec := tabs.do("GET", second, nil); rec.Code != http.StatusFound {
+		t.Fatalf("second tab: %d", rec.Code)
+	}
+	if rec := tabs.do("GET", first, nil); rec.Code != http.StatusFound {
+		t.Errorf("first tab after the second: %d", rec.Code)
+	}
+
+	// A script's fetch (Sec-Fetch-Mode: cors) gets 401 even without asking for JSON.
+	fr := httptest.NewRequest("GET", "/", nil)
+	fr.Header.Set("Sec-Fetch-Mode", "cors")
+	fw := httptest.NewRecorder()
+	p.Handler().ServeHTTP(fw, fr)
+	if fw.Code != http.StatusUnauthorized {
+		t.Errorf("fetch without login: %d", fw.Code)
+	}
+
 	// APIs and writes get 401, not a redirect; the return path stays local.
 	req := httptest.NewRequest("GET", "/reports", nil)
 	req.Header.Set("Accept", "application/json")

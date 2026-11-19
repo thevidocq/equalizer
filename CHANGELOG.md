@@ -31,12 +31,41 @@ prototype.
 | connector | Outbound tunnel, local allowlist, reconnection; one per server, virtual hosts |
 | orchestrator | Not implemented yet |
 | panel-api | Discovery jobs and continuous discovery, tenant AI settings, map templates per CMS, auth with mandatory TOTP, tenants, email invitations, tenant connectors, map reach checks, exposure check, Logs page backend (Loki), status page, platform/tenant privacy, users, sites, connectors, maps with approval and signing, audit, internal endpoints |
-| panel-ui | Discovery tab and tenant AI settings, login, joining by invitation, platform tenant overview, sites with isolation, tenant connectors, people with invitations, maps with editor, approval, import and export, activity, logs, status |
+| panel-ui | Logo (sidebar, login), discovery tab and tenant AI settings, login, joining by invitation, platform tenant overview, sites with isolation, tenant connectors, people with invitations, maps with editor, approval, import and export, activity, logs, status |
 | agent | Discovery: read-only crawl through the connector, whole-site area, IDOR proposals, CMS fingerprint, deterministic routes and types, optional AI review with the tenant's model, proposed drafts |
 | deploy/compose | Caddy (on-demand certificates for protected sites, relay and panel domains), SMTP settings, gateway (2 replicas), Redis, PostgreSQL, panel-api, panel-ui, tunnel-relay, Vector, Loki, Grafana; statically validated |
 | tools (eqtool) | Map signing keys, form key, relay token, connector registration, map signing |
 
 ## Entries
+
+### 2026-11-19 — Add the logo, fix legacy compatibility bugs, align docs
+
+- **Branch:** feat/logo-and-fixes
+- **What:**
+  - panel-ui: Equalizer logo (`shared/ui/Logo.tsx`, `BrandBanner.tsx`) in
+    the sidebar and on the login steps, tagline "PROTECT LEGACY WEB APPS";
+    new favicon; the old `Wordmark` is gone. Logo files in `docs/brand/`
+    (SVG, PNG), banner in the README. Screenshots taken again.
+  - gateway: the legacy site's HTTP login (`Authorization`) was lost in
+    connector mode: the relay token took its header. It now travels as
+    `X-Eq-Authorization` and the connector puts it back (contract
+    `schema/tunnel/tunnel.md` updated first).
+  - gateway: the browser's User-Agent becomes a fixed string for its kind
+    of device (`internal/useragent`): mobile versions work, the client's
+    own string never reaches the legacy app.
+  - gateway: `Accept-Encoding: identity` towards the legacy app; gzip and
+    deflate answers are decompressed (`legacyclient/encoding.go`), so pages
+    of apps that always compress render instead of breaking.
+  - docs: architecture (pipeline as built, CSP by hash and visual
+    comparison marked planned, legacy budget per replica), map format,
+    tenant and admin manuals, INSTALL (`EQ_BEHIND_CLOUDFLARE`, update by
+    release tag, connector version), release notes.
+- **Why:** owner's request (logo, a status point) and a bugfix round
+  before the lab tests.
+- **Status:** tests pass in every service. Older connectors keep working
+  but drop the legacy HTTP login: update them with the VPS.
+- **Next steps:** lab tests by the owner, then tag `v0.1.0`; WebSocket;
+  SIEM forwarding; capacity from the panel.
 
 ### 2026-11-19 — Fix review findings in the compatibility work
 

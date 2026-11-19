@@ -50,11 +50,15 @@ func TestRelayTransport(t *testing.T) {
 	do := func(method, target, body string) (*http.Response, error) {
 		ctx := telemetry.WithRequestID(context.Background(), "r-abc")
 		req, _ := http.NewRequestWithContext(ctx, method, target, strings.NewReader(body))
+		req.Header.Set("Authorization", "Basic YWxleDpwdw==") // the legacy site's own login
 		return rt.RoundTrip(req)
 	}
 	resp, err := do("POST", "http://10.20.0.15:8080/app/a%2Fb/save.do?x=1", "k=v")
 	if err != nil {
 		t.Fatal(err)
+	}
+	if seen.Header.Get("Authorization") != "Bearer "+token || seen.Header.Get("X-Eq-Authorization") != "Basic YWxleDpwdw==" {
+		t.Errorf("logins: relay %q, legacy %q", seen.Header.Get("Authorization"), seen.Header.Get("X-Eq-Authorization"))
 	}
 	b, _ := io.ReadAll(resp.Body)
 	if string(b) != "legacy page" {

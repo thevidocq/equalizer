@@ -106,6 +106,12 @@ func (t *relayTransport) RoundTrip(req *http.Request) (*http.Response, error) {
 	target.Fragment = ""
 	out.URL = &target
 	out.Host = t.cfg.URL.Host
+	// The legacy site's own HTTP login travels apart: Authorization carries
+	// the relay token (the connector puts it back).
+	out.Header.Del("X-Eq-Authorization")
+	if v := out.Header.Get("Authorization"); v != "" {
+		out.Header.Set("X-Eq-Authorization", v)
+	}
 	out.Header.Set("Authorization", "Bearer "+t.cfg.Token)
 	out.Header.Set("X-Eq-Connector", t.connector)
 	out.Header.Set("X-Eq-Tenant", t.tenant)

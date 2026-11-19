@@ -454,6 +454,12 @@ redirects to other sites passed on. Equalizer still sits in between:
   included, names cleaned), JSON (same order, same numbers), XML (a DOCTYPE,
   where external entities live, is refused) and plain text; any other body
   is 415;
+- the browser's `User-Agent` becomes a fixed, ordinary string for its kind
+  of device and browser (iPhone, Android, desktop Chrome, Firefox, Safari,
+  Edge, old Internet Explorer), so the site still picks its mobile or
+  desktop version but never receives the string the client wrote;
+- the legacy application is asked for uncompressed answers; when it
+  compresses anyway (gzip, deflate) the gateway decompresses;
 - request headers are rebuilt from a list: `Accept`, `Accept-Language`,
   `Range`, cache validators, `Authorization` (Basic, Bearer, Digest and
   Token, for sites with an HTTP login), the application's own `X-*` headers

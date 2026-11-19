@@ -15,6 +15,8 @@ logs and routine procedures.
   authenticator app is mandatory.
 - Platform users see **Tenants**, **Platform status** and **Activity**.
 
+![Login](../screenshots/panel-login.png)
+
 ## 2. Tenants
 
 ![Tenants](../screenshots/platform-tenants.png)
@@ -67,7 +69,7 @@ the panel.
 | Connector offline for a tenant | The connector machine or its network: the tenant restarts it (`INSTALL.md`, section 7) |
 | Certificate missing for a domain | The domain must point to the VPS and have a published map (`/tls/allowed`) |
 | Exposure on a tenant's site | Their legacy site answers on its old IP: they must close it (Site → Isolation) |
-| Update | `git pull`, `docker compose build`, `docker compose up -d` (see `INSTALL.md`) |
+| Update | Check out the new release tag, set `EQ_VERSION`, `docker compose up -d --build`, then update the connectors (`INSTALL.md`, section 9) |
 
 ## 6. Not available yet
 

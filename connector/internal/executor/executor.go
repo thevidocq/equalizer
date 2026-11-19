@@ -57,6 +57,10 @@ func New(allow *allowlist.List, tlsConfig *tls.Config, log *slog.Logger) *Execut
 			pr.Out.URL.Scheme = pr.In.Header.Get("X-Eq-Scheme")
 			pr.Out.URL.Host = name
 			pr.Out.Host = name
+			pr.Out.Header.Del("Authorization") // only the legacy site's own login, below
+			if v := pr.In.Header.Get("X-Eq-Authorization"); v != "" {
+				pr.Out.Header.Set("Authorization", v)
+			}
 			for k := range pr.Out.Header {
 				if strings.HasPrefix(strings.ToLower(k), "x-eq-") {
 					pr.Out.Header.Del(k)

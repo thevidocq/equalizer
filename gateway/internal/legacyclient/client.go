@@ -157,6 +157,7 @@ func (c *Client) BuildTyped(ctx context.Context, lr mapmodel.LegacyRequest, vals
 	}
 	req.Header.Set("User-Agent", c.userAgent)
 	req.Header.Set("Accept", accept)
+	req.Header.Set("Accept-Encoding", "identity")
 	return req, nil
 }
 
@@ -170,7 +171,11 @@ func (c *Client) Do(req *http.Request) (*Response, error) {
 		return nil, err
 	}
 	defer resp.Body.Close()
-	body, err := io.ReadAll(io.LimitReader(resp.Body, MaxBody+1))
+	rd, _, err := decode(resp)
+	if err != nil {
+		return nil, err
+	}
+	body, err := io.ReadAll(io.LimitReader(rd, MaxBody+1))
 	if err != nil {
 		return nil, fmt.Errorf("reading response: %w", err)
 	}

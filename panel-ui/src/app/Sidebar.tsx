@@ -1,7 +1,8 @@
 import { useState } from "react";
 import { NavLink, useNavigate } from "react-router";
-import { Wordmark, canManage, hasRole, useLogout, useMe } from "@/features/auth";
+import { canManage, hasRole, useLogout, useMe } from "@/features/auth";
 import { CreateSiteDialog, SiteList } from "@/features/sites";
+import { Logo } from "@/shared/ui";
 
 const link = ({ isActive }: { isActive: boolean }) =>
   `block rounded-[var(--radius-control)] px-3 py-1.5 text-sm ${isActive ? "bg-paper/12 text-paper" : "text-paper/75 hover:text-paper"}`;
@@ -16,7 +17,7 @@ export function Sidebar() {
 
   return (
     <aside className="flex w-64 shrink-0 flex-col gap-6 bg-ink px-3 py-5 text-paper">
-      <div className="px-3"><Wordmark inverted /></div>
+      <div className="px-3"><Logo inverted /></div>
       {tenant ? (
         <nav aria-label="Protected sites" className="flex flex-col gap-1">
           <NavLink to={`/t/${tenant}`} end className={link}>Protected sites</NavLink>

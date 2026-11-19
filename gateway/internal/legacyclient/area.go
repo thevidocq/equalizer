@@ -67,6 +67,7 @@ func (c *Client) BuildRaw(ctx context.Context, method, path, rawQuery string, bo
 		req.Header.Set("Content-Type", contentType)
 	}
 	req.Header.Set("User-Agent", c.userAgent)
+	req.Header.Set("Accept-Encoding", "identity")
 	return req, nil
 }
 
@@ -79,11 +80,22 @@ func (c *Client) Open(req *http.Request) (*Stream, error) {
 		cancel()
 		return nil, err
 	}
-	s := &Stream{Status: resp.StatusCode, Header: http.Header{}, Cookies: resp.Cookies(), Body: resp.Body, Start: start, cancel: cancel}
+	body, decoded, err := decode(resp)
+	if err != nil {
+		resp.Body.Close()
+		cancel()
+		return nil, err
+	}
+	s := &Stream{Status: resp.StatusCode, Header: http.Header{}, Cookies: resp.Cookies(), Body: readCloser{body, resp.Body}, Start: start, cancel: cancel}
 	for _, h := range areaResponseHeaders {
 		for _, v := range resp.Header.Values(h) {
 			s.Header.Add(h, v)
 		}
+	}
+	if decoded {
+		s.Header.Del("Content-Length")
+		s.Header.Del("Content-Range")
+		s.Header.Del("Accept-Ranges")
 	}
 	// The application's own headers (X-WP-Total, X-CSRF-Token, …): never
 	// those that name the legacy software or its internal address.

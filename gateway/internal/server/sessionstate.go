@@ -11,6 +11,7 @@ import (
 	"github.com/thevidocq/equalizer/gateway/internal/mapmodel"
 	"github.com/thevidocq/equalizer/gateway/internal/session"
 	"github.com/thevidocq/equalizer/gateway/internal/site"
+	"github.com/thevidocq/equalizer/gateway/internal/useragent"
 )
 
 // Legacy cookies kept per session: a bound against a legacy app that sets
@@ -339,6 +340,9 @@ func legacySessionExpired(se *mapmodel.SessionExpired, status int, location stri
 func (p *Public) prepare(req *http.Request, r *http.Request, st *site.Site, ss *sessionState) {
 	ss.apply(req)
 	browserCookies(req, r, ss.s)
+	if ua := useragent.Canonical(r.UserAgent()); ua != "" {
+		req.Header.Set("User-Agent", ua) // the kind of browser, never its own string
+	}
 	if v := r.Header.Get("Authorization"); len(v) <= 8192 && authValue.MatchString(v) {
 		req.Header.Set("Authorization", v) // the legacy site's own HTTP login
 	}

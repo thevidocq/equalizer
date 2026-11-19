@@ -97,6 +97,10 @@ Main values in `.env`:
 | `EQ_MAP_KEY_ID` | `k1` | Identifier of the map signing key |
 | `EQ_GRAFANA_PASSWORD` | *(choose one)* | Password of the Grafana `admin` user |
 | `EQ_UID` / `EQ_GID` | `1000` | VPS user owning the files created by `eqtool` |
+| `EQ_BEHIND_CLOUDFLARE` | `false` | `true` only when protected sites are reachable through Cloudflare alone (proxied records, VPS firewall open to Cloudflare only): the visitor's IP is then read from `CF-Connecting-IP` |
+
+Connectors and the VPS must run the same release: an older connector
+does not pass the legacy site's own HTTP login (Basic, Bearer).
 
 ## 5. Keys and secrets *(available)*
 
@@ -276,12 +280,19 @@ docker compose logs tunnel-relay | grep "connector connected"
 
 ## 9. Update
 
+Move to the new release, set it in `.env`, rebuild:
+
 ```bash
-git pull
+git fetch --tags
+git checkout v0.1.1            # the release to install
 cd deploy/compose
-docker compose pull
+sed -i 's/^EQ_VERSION=.*/EQ_VERSION=0.1.1/' .env
+docker compose pull            # third-party images (Caddy, Postgres, …)
 docker compose up -d --build
 ```
+
+Database migrations run on their own when `panel-api` starts. Update the
+connectors to the same release (section 7).
 
 ## 10. Uninstall
 

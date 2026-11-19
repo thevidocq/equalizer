@@ -29,7 +29,8 @@ organisation.
 - **Status**, **Connectors**, **People**, **Activity**, **Logs**,
   **Settings**: some pages depend on your role.
 - A site has four tabs: **Map**, **Discovery**, **Isolation**, **Login**.
-- **Help** (this guide) and your account are at the bottom of the sidebar.
+- At the bottom of the sidebar: your account (your email), **Help** (the
+  question mark: this guide) and **Log out** (the arrow out of the door).
 
 ### Roles
 

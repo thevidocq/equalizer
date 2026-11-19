@@ -38,6 +38,17 @@ prototype.
 
 ## Entries
 
+### 2026-11-19 — Help and logout as icons in the sidebar
+
+- **Branch:** feat/sidebar-icons
+- **What:** panel-ui `app/SidebarFooter.tsx`: the account on the left,
+  Help (question mark) and Log out (muted red) as SVG icon buttons on the
+  right, with labels for screen readers and tooltips. Guides and
+  screenshots updated.
+- **Why:** owner's request.
+- **Status:** checked in the browser.
+- **Next steps:** none.
+
 ### 2026-11-19 — Other domains per site, connector releases in the panel
 
 - **Branch:** feat/aliases-connector-version

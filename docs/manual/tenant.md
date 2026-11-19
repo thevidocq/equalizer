@@ -72,7 +72,8 @@ whatever it is asked.
 
 - **Start from a template**: choose the connector and the address of the
   site on the server; the editor fills with the pages, files and forms of
-  that CMS. The whole site works at once, admin included.
+  that CMS. The whole site works at once, admin included. **Max upload
+  (MB)** is the largest file the site accepts (default 50, at most 1024).
 - **Import a map file**: a YAML or JSON map exported from another site.
 - Or write it in the editor (format in `docs/map-format.md`).
 

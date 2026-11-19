@@ -32,13 +32,13 @@
    "max_concurrency": 10
   },
   "string": {
-   "max_length": 200
+   "max_length": 1000
   }
  },
  "types": {
   "slug": {
    "base": "string",
-   "pattern": "^[A-Za-z0-9][A-Za-z0-9_-]{0,119}$",
+   "pattern": "^[^/<>{}\"'\\\\\\x00-\\x1f\\x7f]{1,200}$",
    "deny": [
     "admin",
     "administrator",
@@ -75,8 +75,8 @@
   },
   "search": {
    "base": "string",
-   "max_length": 100,
-   "pattern": "^[^<>{}\\x00-\\x1f]{1,100}$"
+   "max_length": 200,
+   "pattern": "^[^<>{}\\x00-\\x1f]{1,200}$"
   }
  },
  "routes": [
@@ -153,7 +153,8 @@
     "OPTIONS"
    ],
    "origin": "human",
-   "risk": "medium"
+   "risk": "medium",
+   "max_body_kb": 51200
   }
  ],
  "assets": [

@@ -48,10 +48,19 @@ type Session struct {
 	Identity *Identity `json:"id,omitempty"`
 	// Pending are OIDC logins started and not finished yet: one per tab
 	// sent to the provider, the oldest dropped past a few.
-	Pending  []Pending `json:"pls,omitempty"`
-	Created  time.Time `json:"cr"`
-	LastSeen time.Time `json:"ls"`
+	Pending []Pending `json:"pls,omitempty"`
+	// Private names the legacy cookies kept on the gateway: the browser can
+	// never send a cookie of that name (no session fixation).
+	Private map[string]bool `json:"pv,omitempty"`
+	// RememberUntil: the legacy site keeps this visitor logged in ("remember
+	// me") until then; the session lives as long, idle or not.
+	RememberUntil time.Time `json:"rm,omitempty"`
+	Created       time.Time `json:"cr"`
+	LastSeen      time.Time `json:"ls"`
 }
+
+// Remembered reports whether the legacy "remember me" still holds.
+func (s *Session) Remembered(now time.Time) bool { return now.Before(s.RememberUntil) }
 
 // Identity is who logged in with the identity provider, and the role the
 // map grants their groups.
@@ -74,10 +83,11 @@ type Pending struct {
 type Policy struct {
 	Idle     time.Duration
 	Absolute time.Duration
+	Remember time.Duration // longest "remember me"; 0: never past Absolute
 }
 
 // DefaultPolicy applies when the map says nothing.
-var DefaultPolicy = Policy{Idle: 30 * time.Minute, Absolute: 12 * time.Hour}
+var DefaultPolicy = Policy{Idle: 30 * time.Minute, Absolute: 12 * time.Hour, Remember: 30 * 24 * time.Hour}
 
 // Manager loads and saves sessions. It is safe for concurrent use.
 type Manager struct {
@@ -153,7 +163,7 @@ func (m *Manager) Load(ctx context.Context, id, tenant, app string, p Policy) (*
 	if err := json.Unmarshal(plain, &s); err != nil {
 		return nil, ErrNotFound
 	}
-	if s.Tenant != tenant || s.App != app || m.now().Sub(s.Created) > p.Absolute {
+	if s.Tenant != tenant || s.App != app || (m.now().Sub(s.Created) > p.Absolute && !s.Remembered(m.now())) {
 		return nil, ErrNotFound
 	}
 	return &s, nil
@@ -167,6 +177,9 @@ func (m *Manager) Save(ctx context.Context, id string, s *Session, p Policy) err
 	}
 	s.LastSeen = now
 	ttl := min(p.Idle, p.Absolute-now.Sub(s.Created))
+	if s.Remembered(now) {
+		ttl = s.RememberUntil.Sub(now)
+	}
 	if ttl <= 0 {
 		return m.Delete(ctx, id)
 	}

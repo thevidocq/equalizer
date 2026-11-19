@@ -46,7 +46,7 @@ func (p *Public) serveAsset(w http.ResponseWriter, r *http.Request, st *site.Sit
 		p.block(w, r, st, http.StatusNotFound, "asset_name_rejected")
 		return
 	}
-	ss.apply(req) // cookies set by assets are ignored
+	p.prepare(req, r, st, ss) // cookies set by assets are ignored
 	if !p.acquireLegacy(r, st, m.Entry.ID) {
 		writePage(w, http.StatusServiceUnavailable, pageUnavailable)
 		return

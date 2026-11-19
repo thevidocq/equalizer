@@ -76,6 +76,7 @@ services:
       EQ_REDIS_URL: redis://redis:6379/0
       # edge network: only Caddy may state the client IP
       EQ_TRUSTED_PROXIES: ${EQ_TRUSTED_PROXIES:-172.16.0.0/12}
+      EQ_BEHIND_CLOUDFLARE: ${EQ_BEHIND_CLOUDFLARE:-false}
     volumes:
       - ./maps:/maps:ro
       - ./secrets/map-signing.pub:/secrets/map-signing.pub:ro

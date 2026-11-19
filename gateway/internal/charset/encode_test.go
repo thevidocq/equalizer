@@ -18,7 +18,7 @@ func TestFromUTF8(t *testing.T) {
 		{ISO885915, "€ œ", "\xa4 \xbd", nil},
 		{ISO885915, "¤", "", ErrUnrepresentable},
 		{ISO88591, "日本", "", ErrUnrepresentable},
-		{"koi8-r", "x", "", ErrUnsupported},
+		{"shift_jis", "x", "", ErrUnsupported},
 	}
 	for _, c := range cases {
 		got, err := FromUTF8(c.cs, c.in)

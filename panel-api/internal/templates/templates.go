@@ -1,7 +1,8 @@
 // Package templates holds starting maps for common CMS and generic sites.
 // A template is a normal map with four markers: __BASE_URL__,
 // __CONNECTOR__ and __ADDRESS__ are filled in for the site; _template
-// carries its name and description and is removed.
+// carries its name and description and is removed. The upload size is set
+// on every area and on the asset folders that have a size limit.
 package templates
 
 import (
@@ -48,9 +49,18 @@ func List() []Template {
 	return out
 }
 
+// DefaultUploadMB is the upload size when none is given.
+const DefaultUploadMB = 50
+
+// Fill holds the site's values for a template.
+type Fill struct {
+	BaseURL, Connector, Address string
+	MaxUploadMB                 int // 1–1024; 0: DefaultUploadMB
+}
+
 // Render fills a template for a site. The values must already be valid:
 // they are placed in JSON strings, never interpreted.
-func Render(id, baseURL, connector, address string) (json.RawMessage, error) {
+func Render(id string, f Fill) (json.RawMessage, error) {
 	if strings.ContainsAny(id, "/.\\") {
 		return nil, ErrUnknown
 	}
@@ -63,8 +73,34 @@ func Render(id, baseURL, connector, address string) (json.RawMessage, error) {
 		return nil, err
 	}
 	delete(doc, "_template")
-	fill(doc, map[string]string{"__BASE_URL__": baseURL, "__CONNECTOR__": connector, "__ADDRESS__": address})
+	fill(doc, map[string]string{"__BASE_URL__": f.BaseURL, "__CONNECTOR__": f.Connector, "__ADDRESS__": f.Address})
+	mb := f.MaxUploadMB
+	if mb <= 0 {
+		mb = DefaultUploadMB
+	}
+	setUpload(doc, min(mb, 1024)*1024)
 	return json.Marshal(doc)
+}
+
+// setUpload sets the largest request body of every area and raises the
+// download limit of asset folders (uploaded files are served from there).
+func setUpload(doc map[string]any, kb int) {
+	areas, _ := doc["areas"].([]any)
+	for _, a := range areas {
+		if m, ok := a.(map[string]any); ok {
+			m["max_body_kb"] = kb
+		}
+	}
+	assets, _ := doc["assets"].([]any)
+	for _, a := range assets {
+		m, ok := a.(map[string]any)
+		if !ok {
+			continue
+		}
+		if cur, ok := m["max_size_kb"].(float64); ok && int(cur) < kb {
+			m["max_size_kb"] = kb
+		}
+	}
 }
 
 func fill(v any, with map[string]string) any {

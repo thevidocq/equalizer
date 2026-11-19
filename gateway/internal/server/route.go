@@ -64,7 +64,7 @@ func (p *Public) serveRoute(w http.ResponseWriter, r *http.Request, st *site.Sit
 		return
 	}
 
-	ss.apply(req)
+	p.prepare(req, r, st, ss)
 	if !p.acquireLegacy(r, st, route.ID) {
 		writePage(w, http.StatusServiceUnavailable, pageUnavailable)
 		return
@@ -109,6 +109,12 @@ func (p *Public) writeLegacy(w http.ResponseWriter, r *http.Request, st *site.Si
 		return http.StatusNotFound
 	case resp.Status >= 300 && resp.Status < 400:
 		return p.redirect(w, r, st, routeID, pageURL, resp)
+	case resp.Status == http.StatusUnauthorized && resp.Header.Get("WWW-Authenticate") != "":
+		// The legacy site's HTTP login: the browser asks for the password.
+		securityHeaders(w.Header())
+		w.Header().Set("WWW-Authenticate", resp.Header.Get("WWW-Authenticate"))
+		writePage(w, http.StatusUnauthorized, pageForbidden)
+		return http.StatusUnauthorized
 	case resp.Status >= 400:
 		writePage(w, http.StatusBadRequest, pageBadRequest)
 		return http.StatusBadRequest

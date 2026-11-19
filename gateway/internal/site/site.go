@@ -206,6 +206,9 @@ func (s *Site) SessionPolicy() session.Policy {
 	if h := s.Model.Defaults.Session.AbsoluteHours; h > 0 {
 		p.Absolute = time.Duration(h) * time.Hour
 	}
+	if d := s.Model.Defaults.Session.RememberDays; d != nil {
+		p.Remember = time.Duration(*d) * 24 * time.Hour
+	}
 	return p
 }
 

@@ -11,7 +11,7 @@ export function TemplatePicker({ tenant, app, kind, onFill }: Props) {
   const templates = useTemplates();
   const connectors = useConnectors(tenant);
   const fill = useFillTemplate(app);
-  const [input, setInput] = useState<TemplateInput>({ template: kind ?? "generic", connector_id: "", address: "127.0.0.1:8443", scheme: "https" });
+  const [input, setInput] = useState<TemplateInput>({ template: kind ?? "generic", connector_id: "", address: "127.0.0.1:8443", scheme: "https", max_upload_mb: 50 });
   const set = (k: keyof TemplateInput) => (e: { target: { value: string } }) => setInput({ ...input, [k]: e.target.value });
   const chosen = templates.data?.find((t) => t.id === input.template);
   const connector = input.connector_id || connectors.data?.[0]?.id || "";
@@ -26,7 +26,7 @@ export function TemplatePicker({ tenant, app, kind, onFill }: Props) {
       <h3 className="text-base font-semibold">Start from a template</h3>
       {fill.isError ? <Notice tone="error">{describeError(fill.error)}</Notice> : null}
       {connectors.data?.length === 0 ? <Notice tone="info">Add a connector first (Connectors in the sidebar): the map needs it.</Notice> : null}
-      <div className="grid gap-4 sm:grid-cols-4">
+      <div className="grid gap-4 sm:grid-cols-5">
         <SelectField label="Template" value={input.template} onChange={set("template")}>
           {templates.data?.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
         </SelectField>
@@ -37,6 +37,10 @@ export function TemplatePicker({ tenant, app, kind, onFill }: Props) {
         <SelectField label="Protocol" value={input.scheme} onChange={set("scheme")}>
           <option value="https">HTTPS</option><option value="http">HTTP</option>
         </SelectField>
+        <TextField
+          label="Max upload (MB)" type="number" min={1} max={1024} required value={input.max_upload_mb}
+          onChange={(e) => setInput({ ...input, max_upload_mb: Number(e.target.value) })} hint="Largest file the site accepts"
+        />
       </div>
       {chosen ? <p className="max-w-prose text-sm text-ink-soft">{chosen.description}</p> : null}
       <div>

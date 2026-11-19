@@ -988,6 +988,11 @@ export interface paths {
                          * @enum {unknown}
                          */
                         scheme?: "https" | "http";
+                        /**
+                         * @description Largest request body the site accepts, uploads included, and largest file served from upload folders
+                         * @default 50
+                         */
+                        max_upload_mb?: number;
                     };
                 };
             };

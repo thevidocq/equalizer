@@ -1,0 +1,110 @@
+package server
+
+import (
+	"bytes"
+	"errors"
+	"io"
+	"mime"
+	"net/http"
+	"os"
+
+	"github.com/thevidocq/equalizer/gateway/internal/mapmodel"
+	areabody "github.com/thevidocq/equalizer/gateway/internal/rebuild"
+)
+
+// maxMemoryBody bounds the bodies rebuilt in memory (forms, JSON, XML,
+// text). Multipart forms, which carry uploads, are rebuilt into a
+// temporary file up to the area's own limit.
+const maxMemoryBody = 64 << 20
+
+// rebuiltBody is a request body ready for the legacy application.
+type rebuiltBody struct {
+	r     io.Reader
+	size  int64
+	ctype string
+	file  *os.File
+}
+
+func (b *rebuiltBody) close() {
+	if b.file != nil {
+		_ = b.file.Close()
+		_ = os.Remove(b.file.Name())
+	}
+}
+
+// areaBody reads and rebuilds the request body within the area's limit.
+func (p *Public) areaBody(w http.ResponseWriter, r *http.Request, a *mapmodel.Area, cs string) (*rebuiltBody, int, string) {
+	none := &rebuiltBody{size: 0}
+	if r.Body == nil || r.Method == http.MethodGet || r.Method == http.MethodHead {
+		return none, 0, ""
+	}
+	limit := int64(a.MaxBodyKB) * 1024
+	if limit == 0 {
+		limit = mapmodel.DefaultAreaBodyKB * 1024
+	}
+	src := http.MaxBytesReader(w, r.Body, limit)
+	ctype := r.Header.Get("Content-Type")
+	if mt, params, err := mime.ParseMediaType(ctype); err == nil && mt == "multipart/form-data" {
+		return spoolMultipart(src, params["boundary"], cs)
+	}
+	raw, err := io.ReadAll(io.LimitReader(src, maxMemoryBody+1))
+	if err != nil || len(raw) > maxMemoryBody {
+		return bodyError(err, len(raw) > maxMemoryBody)
+	}
+	body, out, err := areabody.Body(ctype, raw, cs)
+	if err != nil {
+		return rebuildError(err)
+	}
+	if body == nil {
+		return none, 0, ""
+	}
+	return &rebuiltBody{r: bytes.NewReader(body), size: int64(len(body)), ctype: out}, 0, ""
+}
+
+// spoolMultipart rebuilds a multipart form into a temporary file, removed
+// once the legacy application has answered.
+func spoolMultipart(src io.Reader, boundary, cs string) (*rebuiltBody, int, string) {
+	f, err := os.CreateTemp("", "eq-upload-*")
+	if err != nil {
+		return nil, http.StatusInternalServerError, "spool_failed"
+	}
+	b := &rebuiltBody{file: f}
+	ctype, err := areabody.Multipart(f, src, boundary, cs)
+	if err != nil {
+		b.close()
+		var re *areabody.Error
+		if errors.As(err, &re) {
+			return rebuildError(err)
+		}
+		return bodyError(err, false)
+	}
+	size, err := f.Seek(0, io.SeekCurrent)
+	if err == nil {
+		_, err = f.Seek(0, io.SeekStart)
+	}
+	if err != nil {
+		b.close()
+		return nil, http.StatusInternalServerError, "spool_failed"
+	}
+	b.r, b.size, b.ctype = f, size, ctype
+	return b, 0, ""
+}
+
+func bodyError(err error, over bool) (*rebuiltBody, int, string) {
+	var tooLarge *http.MaxBytesError
+	if over || errors.As(err, &tooLarge) {
+		return nil, http.StatusRequestEntityTooLarge, "body_too_large"
+	}
+	return nil, http.StatusBadRequest, "malformed_body"
+}
+
+func rebuildError(err error) (*rebuiltBody, int, string) {
+	var re *areabody.Error
+	if errors.As(err, &re) {
+		if re.Reason == areabody.ReasonUnsupported {
+			return nil, http.StatusUnsupportedMediaType, re.Reason
+		}
+		return nil, http.StatusBadRequest, re.Reason
+	}
+	return nil, http.StatusBadRequest, "malformed_body"
+}

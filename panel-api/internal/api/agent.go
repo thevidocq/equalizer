@@ -56,7 +56,7 @@ func (s *Server) claimDiscovery(w http.ResponseWriter, r *http.Request) {
 			Address     string `json:"address"`
 		}
 		_ = json.Unmarshal(rr.Reach, &reach)
-		job.Template, _ = templates.Render(*c.App.Kind, rr.BaseURL, reach.ConnectorID, reach.Address)
+		job.Template, _ = templates.Render(*c.App.Kind, templates.Fill{BaseURL: rr.BaseURL, Connector: reach.ConnectorID, Address: reach.Address})
 	}
 	if c.AccountUser != nil {
 		pw, err := s.MFA.OpenFor("discovery:"+c.App.ID, c.AccountSecret)

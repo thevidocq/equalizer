@@ -117,13 +117,15 @@ func run() error {
 			Log: log.With(slog.String("module", "oidcsecrets"))}
 		go secrets.Run(ctx, 15*time.Second)
 	}
+	ips := clientip.New(cfg.TrustedProxies)
+	ips.Cloudflare = cfg.BehindCloudflare
 	public := &server.Public{
 		OIDCSecrets: secrets,
 		Unmapped:    reporter,
 		Forms:       sealer,
 		Sessions:    sessions,
 		Maps:        store,
-		IPs:         clientip.New(cfg.TrustedProxies),
+		IPs:         ips,
 		Log:         telemetry.Logger(os.Stdout, cfg.Instance, level).With(slog.String("module", "server.public")),
 		Events:      events,
 	}

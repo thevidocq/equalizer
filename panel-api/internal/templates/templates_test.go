@@ -1,6 +1,7 @@
 package templates
 
 import (
+	"encoding/json"
 	"testing"
 
 	"github.com/thevidocq/equalizer/panel-api/internal/mapschema"
@@ -17,7 +18,7 @@ func TestTemplatesAreValidMaps(t *testing.T) {
 		if tp.Name == "" || tp.Description == "" {
 			t.Errorf("%s: name and description required", tp.ID)
 		}
-		doc, err := Render(tp.ID, "https://portal.example.org", "cn-srv-01", "127.0.0.1:8443")
+		doc, err := Render(tp.ID, Fill{BaseURL: "https://portal.example.org", Connector: "cn-srv-01", Address: "127.0.0.1:8443", MaxUploadMB: 200})
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -25,8 +26,17 @@ func TestTemplatesAreValidMaps(t *testing.T) {
 		if err := mapschema.Validate(doc); err != nil {
 			t.Errorf("%s: %v", tp.ID, err)
 		}
+		var m struct {
+			Areas []struct {
+				MaxBodyKB int `json:"max_body_kb"`
+			} `json:"areas"`
+		}
+		_ = json.Unmarshal(doc, &m)
+		if len(m.Areas) == 0 || m.Areas[0].MaxBodyKB != 200*1024 {
+			t.Errorf("%s: upload size not set: %+v", tp.ID, m.Areas)
+		}
 	}
-	if _, err := Render("../secret", "", "", ""); err != ErrUnknown {
+	if _, err := Render("../secret", Fill{}); err != ErrUnknown {
 		t.Error("path outside the templates accepted")
 	}
 }

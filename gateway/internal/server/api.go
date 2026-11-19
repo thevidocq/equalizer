@@ -60,7 +60,7 @@ func (p *Public) serveAPI(w http.ResponseWriter, r *http.Request, st *site.Site,
 		writeAPIError(w, http.StatusInternalServerError, "error")
 		return
 	}
-	ss.apply(req)
+	p.prepare(req, r, st, ss)
 	if !p.acquireLegacy(r, st, api.ID) {
 		writeAPIError(w, http.StatusServiceUnavailable, "unavailable")
 		return

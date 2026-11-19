@@ -28,7 +28,7 @@ var ErrTooLarge = errors.New("legacy response too large")
 // Everything else (Server, X-Powered-By, Set-Cookie, ...) is dropped.
 var responseHeaders = []string{
 	"Content-Type", "Content-Language", "Content-Disposition",
-	"Cache-Control", "Expires", "Last-Modified",
+	"Cache-Control", "Expires", "Last-Modified", "WWW-Authenticate",
 }
 
 // Response is the already filtered legacy response.

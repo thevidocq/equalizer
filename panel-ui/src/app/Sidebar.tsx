@@ -39,7 +39,7 @@ export function Sidebar() {
         {me?.platform_role ? <NavLink to="/status" className={link}>Platform status</NavLink> : null}
         {me?.platform_role ? <NavLink to="/activity" end className={link}>Activity</NavLink> : null}
       </nav>
-      <SidebarFooter email={me?.email} />
+      <SidebarFooter name={me?.name} email={me?.email} role={me?.tenant_role ?? me?.platform_role} platform={!me?.tenant_role && !!me?.platform_role} />
       {tenant ? <CreateSiteDialog tenant={tenant} open={adding} onOpenChange={setAdding} /> : null}
     </aside>
   );

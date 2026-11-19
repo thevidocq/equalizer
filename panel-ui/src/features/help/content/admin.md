@@ -14,8 +14,8 @@ fictitious company, Acme.
 - An authenticator app is mandatory: the first login links it and shows ten
   recovery codes once.
 - Platform users see **Tenants**, **Platform status**, **Activity**; at the
-  bottom of the sidebar their account, **Help** (question mark) and **Log
-  out**.
+  bottom of the sidebar their name and role (their account), **Help**
+  (question mark) and **Log out**.
 
 ![Login](/help-img/panel-login.png)
 

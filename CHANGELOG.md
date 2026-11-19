@@ -38,6 +38,17 @@ prototype.
 
 ## Entries
 
+### 2026-11-19 — Account card at the bottom of the sidebar
+
+- **Branch:** fix/sidebar-account
+- **What:** panel-ui `app/SidebarFooter.tsx`: initials, name and role
+  (opens the account) with Help and Log out as small icon buttons on the
+  same line, instead of the bare email next to the icons. Guides and
+  screenshots updated.
+- **Why:** owner's request: the icons did not sit well with the email.
+- **Status:** checked in the browser for customers and platform users.
+- **Next steps:** none.
+
 ### 2026-11-19 — Help and logout as icons in the sidebar
 
 - **Branch:** feat/sidebar-icons

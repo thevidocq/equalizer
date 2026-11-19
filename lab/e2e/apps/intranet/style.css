@@ -1,0 +1,5 @@
+body { font-family: Verdana, Arial, sans-serif; font-size: 13px; margin: 0; background: #eef; }
+#top { background: #336; color: #fff; padding: 6px 10px; }
+#top a { color: #fff; }
+#main { background: #fff; margin: 10px; padding: 10px 16px; border: 1px solid #99c; }
+.error { color: #900; }

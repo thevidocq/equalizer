@@ -137,9 +137,10 @@ func (p *Public) handle(w http.ResponseWriter, r *http.Request) string {
 	}
 
 	// A path that only looks like a precise entry (/{slug}/ against
-	// /wp-login.php) belongs to the area: path parameters are part of the
-	// match. Queries and bodies of a real match are still checked.
-	if a := active.Model.AreaFor(r.URL.Path); a != nil && !pathFits(active, m) {
+	// /wp-login.php), or a query the route does not declare, belongs to the
+	// area: both are part of the match. Values of a real match are still
+	// checked.
+	if a := active.Model.AreaFor(r.URL.Path); a != nil && (!pathFits(active, m) || !queryFits(active, m, r.URL.RawQuery)) {
 		if !p.checkLimits(w, r, active, a.ID, false) {
 			return a.ID
 		}

@@ -38,6 +38,47 @@ prototype.
 
 ## Entries
 
+### 2026-11-19 — Lab with Joomla, Drupal and a custom app; fixes found
+
+- **Branch:** feat/lab-cms-sites
+- **What:**
+  - lab: Joomla 5.4 (PostgreSQL), Drupal 11.4 (SQLite) and Acme Intranet,
+    an old-style PHP app (`apps/intranet`: sessions, ISO-8859-1 pages,
+    attachments), next to WordPress; built from GitHub only (`cms.sh`,
+    `joomla-setup.php`, `drupal-setup.php`); published from their
+    templates in the onboarding test; `test_02c_sites.py` reads pages,
+    searches, logs in, writes articles in Joomla's and Drupal's editors,
+    attaches files; the pixel comparison covers about 40 pages of the four
+    sites.
+  - gateway `legacyclient`: a relative `Location` is kept as written and
+    resolved against the legacy page; it was resolved against the relay,
+    so redirects pointed browsers to the relay's internal address.
+  - gateway `rebuild/files.go`: files in area forms and raw uploads are
+    refused (415) when the server could run them: server extensions (also
+    inside the name), `.htaccess` and the like, programs, PHP code anywhere,
+    pages sent as files, pictures or PDFs that are not.
+  - gateway `pipeline/fragment.go`: HTML fragments (AJAX) are rendered as
+    fragments, table rows in their context; JSON or text sent as text/html
+    is passed on as it is.
+  - gateway: a query the route does not declare sends the request to the
+    area instead of being dropped; entries with `authz` are never bypassed,
+    by query or by path parameters.
+  - templates: favicons as `image/vnd.microsoft.icon`; Drupal's
+    `/sites/default/files/` served by the area (generated CSS, JS and image
+    styles need their query).
+  - docs: map format, lab README.
+- **Why:** test more kinds of legacy sites before the manual test. The lab
+  found an internal address leaked by relative redirects, a PHP script
+  uploaded through an ordinary form and run by the legacy server, broken
+  AJAX answers in Joomla's admin, Joomla's search served as its home page,
+  and Drupal's styles missing.
+- **Status:** unit tests pass; the clean lab passes 48 of 48 (tests 3–5
+  in the full run before the last fidelity tweak, 1–2c after it).
+- **Next steps:**
+  1. Manual test on a server by the project owner, then tag v0.1.0.
+  2. Moodle in the lab (its template is not tested yet).
+  3. Log forwarding to S3/block storage, then SIEM.
+
 ### 2026-11-19 — Keep wp-admin faithful: OPTIONS, legacy address in forms
 
 - **Branch:** fix/lab-fidelity

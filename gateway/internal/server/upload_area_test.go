@@ -96,11 +96,12 @@ func TestRawUpload(t *testing.T) {
 	}))
 	defer legacy.Close()
 	h := areaPublic(t, legacy.URL, 4096).Handler()
+	name := `..\\evil\\pic.png`
 	send := func(ctype string, body []byte) int {
 		req := httptest.NewRequest("POST", "/upload/chunk", bytes.NewReader(body))
 		req.Host = "blog.example"
 		req.Header.Set("Content-Type", ctype)
-		req.Header.Set("Content-Disposition", `attachment; filename="..\\evil\\pic.png"; size=3`)
+		req.Header.Set("Content-Disposition", `attachment; filename="`+name+`"; size=3`)
 		rec := httptest.NewRecorder()
 		h.ServeHTTP(rec, req)
 		return rec.Code
@@ -118,6 +119,14 @@ func TestRawUpload(t *testing.T) {
 	if code := send("application/octet-stream", []byte("MZ\x90\x00program")); code != http.StatusUnsupportedMediaType {
 		t.Errorf("program: %d", code)
 	}
+	if code := send("image/png", append(png[:4096:4096], []byte("<?php system($_GET['c']);")...)); code != http.StatusUnsupportedMediaType {
+		t.Errorf("PHP inside a picture: %d", code)
+	}
+	name = "shell.php"
+	if code := send("image/png", png[:64]); code != http.StatusUnsupportedMediaType {
+		t.Errorf("picture named as a script: %d", code)
+	}
+	name = "pic.png"
 	if code := send("application/octet-stream", bytes.Repeat([]byte{1}, 5<<20)); code != http.StatusRequestEntityTooLarge {
 		t.Errorf("over the limit: %d", code)
 	}

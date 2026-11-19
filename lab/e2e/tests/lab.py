@@ -18,6 +18,13 @@ RUN = LAB / ".run"
 CA = str(RUN / "ca.pem")
 PANEL = "https://panel.lab.test"
 SITE = "https://www.acme.test"
+# The other legacy sites: public domain, app id, template, address on the
+# legacy server, a word only their home page has.
+SITES = {
+    "joomla": ("news.acme.test", "news", "127.0.0.1:18091", "Acme News"),
+    "drupal": ("docs.acme.test", "docs", "127.0.0.1:18092", "Acme Docs"),
+    "generic": ("intranet.acme.test", "intranet", "127.0.0.1:18093", "Acme Intranet"),
+}
 os.environ["NO_PROXY"] = "127.0.0.1,localhost,.lab.test,.acme.test,acme.test"
 os.environ["no_proxy"] = os.environ["NO_PROXY"]
 # requests prefers these over a session's own CA: the lab CA must win.
@@ -94,7 +101,7 @@ def mails(to: str, since: float) -> list[email.message.Message]:
 class Connector:
     """The connector process on the legacy server."""
 
-    def __init__(self, cid: str, token: str, allow: str = "127.0.0.1:18090"):
+    def __init__(self, cid: str, token: str, allow: str = "127.0.0.1:18090,127.0.0.1:18091,127.0.0.1:18092,127.0.0.1:18093"):
         self.env = dict(os.environ, EQ_RELAY_URL="https://relay.lab.test", EQ_CONNECTOR_ID=cid,
                         EQ_CONNECTOR_TOKEN=token, EQ_ALLOW=allow, EQ_RELAY_CA_FILE=CA)
         self.p = None

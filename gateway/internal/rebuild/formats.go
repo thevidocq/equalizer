@@ -158,8 +158,9 @@ func multipartBody(body []byte, boundary, cs string) ([]byte, string, error) {
 
 // Multipart rebuilds a multipart form from src into dst with a new
 // boundary, part by part: fields are re-encoded like urlencoded values,
-// files keep their content under a cleaned name. Files are streamed, so
-// large uploads never sit in memory.
+// files keep their content under a cleaned name, unless the server could
+// run them (fileCheck). Files are streamed, so large uploads never sit in
+// memory.
 func Multipart(dst io.Writer, src io.Reader, boundary, cs string) (string, error) {
 	if boundary == "" {
 		return "", refuse(ReasonMalformed)
@@ -202,9 +203,13 @@ func Multipart(dst io.Writer, src io.Reader, boundary, cs string) (string, error
 			}
 			continue
 		}
+		file := cleanName(part.FileName())
+		if runnableName(file) {
+			return "", refuse(ReasonFileRefused)
+		}
 		h := textproto.MIMEHeader{}
 		// as browsers write it: name first, both quoted
-		h.Set("Content-Disposition", `form-data; name="`+quoteEscaper.Replace(key)+`"; filename="`+quoteEscaper.Replace(cleanName(part.FileName()))+`"`)
+		h.Set("Content-Disposition", `form-data; name="`+quoteEscaper.Replace(key)+`"; filename="`+quoteEscaper.Replace(file)+`"`)
 		ct := "application/octet-stream"
 		if mt, _, err := mime.ParseMediaType(part.Header.Get("Content-Type")); err == nil {
 			ct = mt
@@ -214,8 +219,16 @@ func Multipart(dst io.Writer, src io.Reader, boundary, cs string) (string, error
 		if err != nil {
 			return "", err
 		}
-		if _, err := io.Copy(w, part); err != nil {
+		check := &fileCheck{declared: ct}
+		if _, err := io.Copy(io.MultiWriter(check, w), part); err != nil {
+			var re *Error
+			if errors.As(err, &re) {
+				return "", err
+			}
 			return "", malformed(err)
+		}
+		if err := check.done(); err != nil {
+			return "", err
 		}
 	}
 	if err := mw.Close(); err != nil {

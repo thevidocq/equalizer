@@ -49,6 +49,9 @@ func (p *Public) areaBody(w http.ResponseWriter, r *http.Request, st *site.Site,
 	if mt, params, err := mime.ParseMediaType(ctype); err == nil && mt == "multipart/form-data" {
 		return spoolMultipart(src, params["boundary"], cs)
 	} else if err == nil && upload.IsRawType(mt) {
+		if _, params, err := mime.ParseMediaType(r.Header.Get("Content-Disposition")); err == nil && areabody.RunnableName(params["filename"]) {
+			return nil, http.StatusUnsupportedMediaType, areabody.ReasonFileRefused
+		}
 		return spoolRaw(src, mt)
 	}
 	raw, err := io.ReadAll(io.LimitReader(src, maxMemoryBody+1))
@@ -116,12 +119,20 @@ func spoolRaw(src io.Reader, mt string) (*rebuiltBody, int, string) {
 		return nil, http.StatusInternalServerError, "spool_failed"
 	}
 	b := &rebuiltBody{file: f, ctype: ctype}
-	size, err := io.Copy(f, io.MultiReader(bytes.NewReader(head), src))
+	check := areabody.NewFileCheck(ctype) // PHP code anywhere in the file
+	size, err := io.Copy(io.MultiWriter(check, f), io.MultiReader(bytes.NewReader(head), src))
+	if err == nil {
+		err = check.Done()
+	}
 	if err == nil {
 		_, err = f.Seek(0, io.SeekStart)
 	}
 	if err != nil {
 		b.close()
+		var re *areabody.Error
+		if errors.As(err, &re) {
+			return nil, http.StatusUnsupportedMediaType, re.Reason
+		}
 		return bodyError(err, false)
 	}
 	b.r, b.size = f, size
@@ -139,7 +150,7 @@ func bodyError(err error, over bool) (*rebuiltBody, int, string) {
 func rebuildError(err error) (*rebuiltBody, int, string) {
 	var re *areabody.Error
 	if errors.As(err, &re) {
-		if re.Reason == areabody.ReasonUnsupported {
+		if re.Reason == areabody.ReasonUnsupported || re.Reason == areabody.ReasonFileRefused {
 			return nil, http.StatusUnsupportedMediaType, re.Reason
 		}
 		return nil, http.StatusBadRequest, re.Reason

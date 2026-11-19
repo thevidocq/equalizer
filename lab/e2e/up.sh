@@ -3,7 +3,7 @@
 # Equalizer services built from this checkout, a real WordPress as the legacy
 # site, and stand-ins for what only exists on a VPS (HTTPS front instead of
 # Caddy, SMTP sink, identity provider). Everything listens on 127.0.0.1.
-# Needs: Go, Node, PHP (pdo_sqlite), PostgreSQL 16, Redis, Python 3, root
+# Needs: Go, Node, PHP (pdo_sqlite, pdo_pgsql, gd, intl), Composer, PostgreSQL 16, Redis, Python 3, root
 # (ports 80/443 and /etc/hosts).
 set -euo pipefail
 cd "$(dirname "$0")"
@@ -47,8 +47,8 @@ S="$RUN/secrets"
 for t in relay.token panel-internal.token; do [ -f "$S/$t" ] || "$BIN/eqtool" secret -out "$S/$t"; done
 
 echo "Names…"
-hosts="127.0.0.1 panel.lab.test relay.lab.test idp.lab.test www.acme.test acme.test old.acme.test"
-if ! grep -q "# equalizer-lab" /etc/hosts; then echo "$hosts # equalizer-lab" >> /etc/hosts; fi
+hosts="127.0.0.1 panel.lab.test relay.lab.test idp.lab.test www.acme.test acme.test old.acme.test news.acme.test docs.acme.test intranet.acme.test"
+sed -i '/# equalizer-lab/d' /etc/hosts && echo "$hosts # equalizer-lab" >> /etc/hosts
 
 echo "PostgreSQL and Redis…"
 # The postgres user may not reach this checkout: its data lives in /var/tmp.
@@ -81,6 +81,11 @@ if [ ! -f "$RUN/wp-db/wordpress.sqlite" ] || ! curl -s -H "Host: www.acme.test" 
     --data-urlencode "pw_weak=1" --data-urlencode "admin_email=editor@acme.test" --data-urlencode "blog_public=0"
 fi
 php "$LAB/wp-setup.php" "$RUN/wordpress" > /dev/null
+"$LAB/cms.sh"
+start joomla env PHP_CLI_SERVER_WORKERS=4 php -S 127.0.0.1:18091 -t "$RUN/joomla" "$LAB/router.php"
+start drupal env -C "$RUN/drupal" PHP_CLI_SERVER_WORKERS=4 php -S 127.0.0.1:18092 -t "$RUN/drupal" "$RUN/drupal/.ht.router.php" # Drupal expects its root as working directory
+start intranet env PHP_CLI_SERVER_WORKERS=4 INTRANET_DB="$RUN/intranet-db/intranet.sqlite" php -S 127.0.0.1:18093 -t "$RUN/intranet"
+for port in 18091 18092 18093; do wait_http "http://127.0.0.1:$port/"; done
 
 echo "Equalizer…"
 export EQ_LOG_LEVEL=info

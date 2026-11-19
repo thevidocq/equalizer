@@ -4,7 +4,9 @@ import time
 
 import requests
 
-from lab import CA, SITE, Connector, Panel, mail_link, totp
+import pytest
+
+from lab import CA, SITE, SITES, Connector, Panel, mail_link, totp
 import state
 
 
@@ -74,3 +76,30 @@ def test_site_from_template_published():
             pass
         time.sleep(0.5)
     assert r.status_code == 200 and "Acme Blog" in r.text, r.status_code
+
+
+def publish(app, name, domain, kind, address):
+    b = state.boss
+    b.call("POST", "/tenants/acme/apps", {"id": app, "name": name, "public_domain": domain, "kind": kind}, 201)
+    doc = b.call("POST", f"/apps/{app}/map-template", {"template": kind, "connector_id": "cn-web",
+                                                       "address": address, "scheme": "http", "max_upload_mb": 20}, 200)["document"]
+    v = b.call("POST", f"/apps/{app}/maps", {"document": doc, "note": f"From the {kind} template"}, 201)["version"]
+    b.call("POST", f"/apps/{app}/maps/{v}/submit", None, 200)
+    state.ann.call("POST", f"/apps/{app}/maps/{v}/approve", None, 200)
+    state.ann.call("POST", f"/apps/{app}/maps/{v}/publish", None, 200)
+
+
+@pytest.mark.parametrize("kind", list(SITES))
+def test_other_sites_published(kind):
+    domain, app, address, marker = SITES[kind]
+    publish(app, marker, domain, kind, address)
+    r = None
+    for _ in range(60):
+        try:
+            r = requests.get(f"https://{domain}/", verify=CA, timeout=10)
+            if r.status_code == 200 and marker in r.content.decode(r.encoding or "utf-8", "replace"):
+                break
+        except requests.RequestException:
+            pass
+        time.sleep(0.5)
+    assert r is not None and r.status_code == 200 and marker in r.text, (kind, r and r.status_code)

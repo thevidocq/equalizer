@@ -172,6 +172,9 @@ func (s *Server) proposeDraft(ctx context.Context, a store.App, id int64, reques
 	if err := s.checkReach(ctx, a.Tenant, doc); err != nil {
 		return nil, "the proposed map: " + err.Error()
 	}
+	if err := s.mapChecked(ctx, doc, false); err != nil {
+		return nil, truncate("the proposed map: "+err.Error(), 500)
+	}
 	if v, err := s.Store.Published(ctx, a.ID); err == nil && sameMap(v.Document, doc) {
 		return nil, "" // nothing changed: no draft
 	}

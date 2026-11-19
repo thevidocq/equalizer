@@ -53,6 +53,20 @@ class DiscoveryTest(unittest.TestCase):
         self.assertEqual(len(panel.results), 1)
         return panel.results[0]
 
+    def test_wrong_password_is_not_a_login(self):
+        # the site set an anonymous session cookie: that is not a login
+        job = dict(self.job, account={"username": "tester", "password": "wrong"})
+        rep = self.run_job(job)["report"]
+        self.assertEqual(rep["login"], "failed")
+
+    def test_logged_in_pass_has_its_own_budget(self):
+        # the anonymous pass spends the whole budget; the members' page is
+        # still found by the logged-in pass
+        job = dict(self.job, max_pages=6)
+        res = self.run_job(job)
+        self.assertEqual(res["report"]["login"], "ok")
+        self.assertTrue(any(p == "/members/area/profile" for m, p, *_ in self.site.requests if m == "GET"))
+
     def test_discovery(self):
         res = self.run_job()
         self.assertIsNone(res["error"])

@@ -79,9 +79,39 @@ class Crawler:
         if len(self.r.logins) > 1:
             self.r.login = next(iter(self.r.logins.values()))
         if ok:
-            self._crawl(["/"] + [p for p in list(self.r.pages)[:50]], logged_in=True)
+            admin = [] if self.cms in rules.WRITES_ON_VIEW else rules.ADMIN_HOME.get(self.cms or "", [])
+            if self.cms in rules.ADMIN_LOGIN and admin:
+                self._admin_login(account)
+            self._crawl(["/"] + admin + [p for p in list(self.r.pages)[:50]], logged_in=True)
         self.f.cookies = {}
         return self.r
+
+    def _admin_login(self, account: dict) -> bool:
+        """An administration with its own login (Joomla): its form, posted
+        once like the site's. Its outcome does not change the report's."""
+        page = rules.ADMIN_LOGIN[self.cms]
+        try:
+            resp = self.f.get(page)
+        except (ReachError, OSError, ValueError):
+            return False
+        html = resp.body.decode("utf-8", "replace")
+        for form in extract.parse(html, resp.url).forms:
+            pw = [i for i in form.inputs if i.type == "password"]
+            user = [i for i in form.visible() if i.type in ("text", "email")]
+            if form.method != "POST" or not pw or not user or not self.f.same_site(form.action):
+                continue
+            data = {i.name: "" for i in form.inputs if i.type not in ("submit", "button", "image", "reset")}
+            data.update(_hidden_values(html, [h.name for h in form.hidden()]))
+            data[user[0].name], data[pw[0].name] = account.get("username", ""), account.get("password", "")
+            before = dict(self.f.cookies)
+            try:
+                r = self.f.request("POST", path_query(form.action), data, login=True)
+            except (ReachError, OSError, ValueError):
+                return False
+            ok = _logged_in(r, before, self.f.cookies)
+            self.log.info("test account administration login", outcome="ok" if ok else "failed", form=page)
+            return ok
+        return False
 
     def _crawl(self, seeds, logged_in):
         queue = deque(dict.fromkeys(seeds))
@@ -149,7 +179,7 @@ class Crawler:
                 self.progress({"pages": len(self.r.pages), "forms": len(self.r.forms), "logged_in": logged_in})
 
     def _allowed(self, pq: str) -> bool:
-        reason = rules.excluded(pq, self.cms)
+        reason = rules.excluded(pq, self.cms, logged_in=getattr(self, "logged_pass", False))
         if reason:
             self.r.excluded[pq] = reason
             return False
@@ -217,7 +247,7 @@ class Crawler:
             data[pw[0].name] = account.get("password", "")
             before = dict(self.f.cookies)
             try:
-                resp = self.f.request("POST", page_pq, data)
+                resp = self.f.request("POST", page_pq, data, login=True)
             except (ReachError, OSError, ValueError):
                 self.r.login = "failed"
                 return False

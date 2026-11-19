@@ -9,6 +9,7 @@ What only exists on a VPS is replaced by small stand-ins:
 | --- | --- |
 | Caddy with real certificates | `cmd/front`: HTTPS on 443 with a lab CA (`.run/ca.pem`, key in `.run/ca-key.pem`). Panel and relay get a lab certificate; protected sites get the one uploaded in Site → Certificate, fetched from the gateway like Caddy does (`/tls/certificate`). Port 80 redirects the lab names to https and sends protected sites to the gateway's plain port 18084 |
 | The customer's identity provider | `cmd/idp`: OIDC provider with two users, alice and bob |
+| The discovery agent | `python3 -m equalizer_agent` from this checkout, logs in `.run/logs/agent.log` |
 | An SMTP server | `smtp_sink.py`: every email saved in `.run/mail/` |
 | DNS | a line in `/etc/hosts` marked `# equalizer-lab` |
 | Docker networks | everything listens on 127.0.0.1 only |
@@ -79,7 +80,13 @@ The tests run in order and build on each other:
 4. **sso**: OIDC on `/wp-admin/`, `/wp-login.php` and `/xmlrpc.php` only, public pages
    without login, allowed and refused users, tricks around the paths;
 5. **operations**: password reset by email, alert when the connector
-   stops and when it comes back.
+   stops and when it comes back;
+6. **study**: the discovery agent (started by `up.sh`, through the relay
+   and the connector) studies each of the four sites with the editor as a
+   test administrator; each site's content in its database is the same
+   before and after, and Drupal's and Joomla's administrations become
+   precise entries of the draft (WordPress's stays closed: it writes when
+   its screens are only viewed).
 
 `python3 fidelity.py [host…]` runs the comparison alone (on a lab without
 SSO, such as right after test 2) and writes side-by-side

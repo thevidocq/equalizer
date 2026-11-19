@@ -38,6 +38,37 @@ prototype.
 
 ## Entries
 
+### 2026-11-20 — Study administrations read-only, proven in the lab
+
+- **Branch:** feat/agent-admin-readonly (on top of feat/agent-accounts-forms)
+- **What:**
+  - agent: one read-only guard in `fetch.py` (GET and HEAD only, plus the
+    test accounts' login POST); test accounts' passes now open the
+    administration (Drupal from `/admin`, Joomla after its own
+    administrator login), never what `rules.NEVER` lists (scheduled jobs,
+    installers, updates, exports, "add new" screens) and never action
+    links (verbs as whole words, `task=`, `layout=edit`, one-time tokens).
+    WordPress's administration stays closed (`rules.WRITES_ON_VIEW`).
+    A base route covers a path only when the values fit its types (deny
+    lists included), and one route per shape (the gateway refuses two that
+    differ only by parameter names).
+  - lab: the agent runs in the lab (`up.sh`, `down.sh`); new
+    `test_06_study.py` studies the four sites with an administrator account
+    and checks that each site's content (WordPress, Joomla on PostgreSQL,
+    Drupal, intranet) is the same before and after, and that Drupal's and
+    Joomla's administrations became precise entries.
+  - Docs: agent.md (read-only proof, WordPress finding, rollout 3b done),
+    tenant manual.
+- **Why:** step 3b of docs/agent.md. The lab found that WordPress writes
+  to its database when its administration is only viewed (Quick Draft,
+  global styles, privacy texts); the rule now keeps it closed.
+- **Status:** agent unit tests and lab tests 01 + 06 pass (four studies,
+  databases unchanged). Full lab run: see the PR.
+- **Next steps:**
+  1. 3c: browser (Playwright) behind the same guard, script requests,
+     declared APIs.
+  2. Step 4: the two checks and the score.
+
 ### 2026-11-20 — Study test accounts and form fields
 
 - **Branch:** feat/agent-accounts-forms (on top of feat/maps-try)

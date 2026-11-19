@@ -45,6 +45,10 @@ def _dest(u: urllib.parse.SplitResult) -> str:
     return f"{(u.hostname or '').lower()}:{port}"
 
 
+class ReadOnlyError(ValueError):
+    """A request that could change the site."""
+
+
 @dataclass
 class Fetcher:
     base_url: str
@@ -78,9 +82,13 @@ class Fetcher:
     def get(self, path_query: str) -> Response:
         return self.request("GET", path_query)
 
-    def request(self, method: str, path_query: str, form: dict | None = None) -> Response:
+    def request(self, method: str, path_query: str, form: dict | None = None, login: bool = False) -> Response:
+        """Read-only: GET and HEAD, and one POST to log a test account in
+        (login=True). Nothing else ever leaves the agent."""
         if not path_query.startswith("/"):
             raise ValueError("path must start with /")
+        if method not in ("GET", "HEAD") and not (login and method == "POST"):
+            raise ReadOnlyError(method + " refused: the agent never writes to the site")
         self._throttle()
         data = urllib.parse.urlencode(form).encode() if form is not None else None
         headers = {"User-Agent": "equalizer-discovery/0.1", "Accept": "text/html,application/xhtml+xml,*/*;q=0.8"}

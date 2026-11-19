@@ -33,8 +33,40 @@ def matches(pattern: str, path: str) -> bool:
     return len(a) == len(b) and all(x.startswith("{") or x == y for x, y in zip(a, b))
 
 
+def _shape(path: str) -> str:
+    return re.sub(r"\{[^}]*\}", "{}", path)
+
+
+def fits(doc: dict, route: dict, path: str) -> bool:
+    """Whether the gateway would serve path with route: the segments match
+    and each value fits its parameter's type (the deny list of a slug keeps
+    /administrator/index.php out of /{section}/{slug})."""
+    if not matches(route.get("path", ""), path):
+        return False
+    types = doc.get("types", {})
+    for pat, val in zip(_segs(route.get("path", "")), _segs(path)):
+        if not pat.startswith("{"):
+            continue
+        spec = (route.get("params") or {}).get(pat.strip("{}"), {})
+        t = types.get(spec.get("type", ""), {})
+        base = t.get("base", spec.get("type", ""))
+        if base in ("int", "id") and not val.isdigit():
+            return False
+        deny = {d.lower() for d in (t.get("deny") or []) + (spec.get("deny") or [])}
+        if val.lower() in deny:
+            return False
+        rx = spec.get("pattern") or t.get("pattern")
+        if rx:
+            try:
+                if not re.search(rx, val):
+                    return False
+            except re.error:
+                return False
+    return True
+
+
 def covered(doc: dict, path: str) -> bool:
-    if any(matches(r.get("path", ""), path) for r in doc.get("routes", [])):
+    if any(fits(doc, r, path) for r in doc.get("routes", [])):
         return True
     return any(path.startswith(a.get("prefix", "\0")) for a in doc.get("assets", []))
 
@@ -113,7 +145,10 @@ def build(job: dict, crawl, fp) -> tuple:
         sample = [p for p in paths if matches(r.path, p)]
         if sample and all(covered(doc, p) for p in sample) and not r.query:
             continue
-        if any(matches(e.get("path", ""), r.path) for e in doc.get("routes", [])):
+        # one route per shape: the gateway refuses two that differ only by
+        # their parameters' names; the one already there wins
+        if any(_shape(e.get("path", "")) == _shape(r.path) or ("{" not in r.path and fits(doc, e, r.path))
+               for e in doc.get("routes", [])):
             continue
         e = _route_entry(r, anon, taken)
         if r.logged_in_only:

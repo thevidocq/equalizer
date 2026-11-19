@@ -30,7 +30,7 @@ with a score that was measured, not estimated.
 | | Today | With the study |
 | --- | --- | --- |
 | Exploration | Follows links and GET forms with plain HTTP requests | A real browser (headless Chrome): scripts run, their AJAX and REST calls are seen |
-| Administration | Never opened | Opened read-only with a test administrator |
+| Administration | Never opened | Opened read-only with a test administrator (Drupal, Joomla; WordPress writes when its screens are viewed, so it stays closed) |
 | Accounts | One optional test account | Up to three (for example customer and administrator), each in its own pass, to reach the pages behind their login |
 | Forms | Field names; hidden fields kept on the gateway | Also `type`, `maxlength`, `min`/`max`, `pattern`, `required`, the options of every `<select>` and radio group: tight types without guessing |
 | APIs the site declares | Not read | Read: `/wp-json/` (WordPress lists its routes with argument types), Drupal JSON:API, OpenAPI files |
@@ -150,17 +150,36 @@ without approval.
 
 The agent never changes the legacy site. Three layers:
 
-1. **No writes leave the agent.** The proxy in front of the browser refuses
-   every method other than `GET` and `HEAD`, except the login of the test
-   accounts (one `POST` to the CMS's login page). Forms are read, never
-   submitted.
-2. **No action links.** Some links change something with a plain `GET`
-   (WordPress's "Trash", "Deactivate", "Log out"). They are never opened: a
-   fixed list per CMS plus generic patterns (`delete`, `remove`, `trash`,
-   `deactivate`, `logout`, `action=…`, links carrying a one-time token such
-   as `_wpnonce`). They are listed in the report.
+1. **No writes leave the agent.** Every request goes through one place
+   (`fetch.py`, and the proxy in front of the browser once there is one),
+   which refuses every method other than `GET` and `HEAD`, except the login
+   of the test accounts (a `POST` to the login form, and to the
+   administration's own login where it has one, such as Joomla's). Forms
+   are read, never submitted.
+2. **No action links, no pages that act when viewed.** Some links change
+   something with a plain `GET` (WordPress's "Trash", "Deactivate", "Log
+   out"; Joomla checks an article out when its edit form opens). They are
+   never opened: generic patterns (verbs such as `delete`, `trash`,
+   `publish`, `deactivate`, `logout` as whole words, `action=…`, `task=…`,
+   `layout=edit`, links carrying a one-time token such as `_wpnonce` or
+   Joomla's form token) and a fixed list of pages that run something when
+   opened (scheduled jobs, installers, updates, exports, "add new" screens
+   that save a draft). They are listed in the report.
 3. **Checks stop at the gateway.** Preview only serves `GET` and `HEAD`;
    everything else is dry-run and never forwarded.
+
+**Proven in the lab** (`lab/e2e/tests/test_06_study.py`): the agent
+studies the four lab sites with an administrator account and the content
+of each site's database (pages, articles, comments, users, extensions,
+configuration) is the same before and after. Drupal's and Joomla's
+administrations are studied this way (Joomla's with its own login).
+
+**WordPress's administration stays closed to the agent**, even with an
+administrator account: the lab found that WordPress writes to its database
+when its screens are only viewed (the dashboard saves a "Quick Draft", the
+theme screens save global styles, the privacy screens save suggested
+texts). Its public site and login are studied as before; its
+administration stays served by the site area.
 
 What no rule can catch: a custom application that changes data on a plain
 link with nothing in its address to say so. For such sites, give the agent a
@@ -236,7 +255,8 @@ Each step is its own pull request, tested in the lab before the next.
 | 1 | This document and the contracts | Done |
 | 2 | Gateway: `POST /maps/try` (preview and dry-run); panel-api: signing for tries | Done |
 | 3a | Agent: several accounts, form fields typed from their HTML, text rules, "still open" in the report; panel: accounts | Done |
-| 3b | Agent: browser and read-only proxy, administration read-only, declared APIs; a lab study of the four sites | Planned |
+| 3b | Agent: administration read-only (Drupal, Joomla; not WordPress), single read-only guard, a lab study of the four sites proving nothing changes | Done |
+| 3c | Agent: browser (Playwright) behind the read-only guard, script requests, declared APIs | Planned |
 | 4 | Agent: the two checks and the score; panel-api verification queue | Planned |
 | 5 | Panel: score and "still open" on the Discovery tab, Verify button on drafts | Planned |
 | 6 | Lab: studies of WordPress, Joomla, Drupal and the intranet with the expected scores | Planned |

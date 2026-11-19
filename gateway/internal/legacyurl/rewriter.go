@@ -26,6 +26,9 @@ type Rewriter struct {
 	patterns []pattern
 	assets   []string // asset prefixes
 	areas    []string // area prefixes: same public and legacy path
+	// Fits, when set, says whether captured values have the types of their
+	// route: a legacy URL whose values do not fit is not that route's.
+	Fits func(route *mapmodel.Route, params map[string]string) bool
 }
 
 type pattern struct {
@@ -98,7 +101,11 @@ func (r *Rewriter) Public(u *url.URL) (string, bool) {
 	segs := split(path)
 	q := u.Query()
 	for _, p := range r.patterns {
-		if out, ok := p.apply(segs, q); ok {
+		captured, ok := p.capture(segs, q)
+		if ok && r.Fits != nil && !r.Fits(p.route, captured["params"]) {
+			continue
+		}
+		if out, ok := build(p.route, captured); ok && captured != nil {
 			if u.Fragment != "" {
 				out += "#" + u.Fragment
 			}
@@ -131,14 +138,24 @@ func (r *Rewriter) Fallback(u *url.URL) string {
 }
 
 func (p pattern) apply(segs []string, q url.Values) (string, bool) {
-	if len(segs) != len(p.segments) {
+	captured, ok := p.capture(segs, q)
+	if !ok {
 		return "", false
+	}
+	return build(p.route, captured)
+}
+
+// capture reads the route's values from a legacy URL; ok=false when the URL
+// is not of this pattern.
+func (p pattern) capture(segs []string, q url.Values) (map[string]map[string]string, bool) {
+	if len(segs) != len(p.segments) {
+		return nil, false
 	}
 	captured := map[string]map[string]string{"params": {}, "query": {}}
 	for i, s := range p.segments {
 		if s.ns == "" {
 			if segs[i] != s.literal {
-				return "", false
+				return nil, false
 			}
 			continue
 		}
@@ -147,11 +164,11 @@ func (p pattern) apply(segs []string, q url.Values) (string, bool) {
 	for key, vals := range q {
 		spec, ok := p.query[key]
 		if !ok || len(vals) != 1 {
-			return "", false
+			return nil, false
 		}
 		if spec.ns == "" {
 			if vals[0] != spec.literal {
-				return "", false
+				return nil, false
 			}
 			continue
 		}
@@ -159,10 +176,10 @@ func (p pattern) apply(segs []string, q url.Values) (string, bool) {
 	}
 	for key, spec := range p.query {
 		if spec.ns == "" && !q.Has(key) {
-			return "", false
+			return nil, false
 		}
 	}
-	return build(p.route, captured)
+	return captured, true
 }
 
 // build composes the route's public URL from the captured values.
@@ -183,6 +200,8 @@ func build(route *mapmodel.Route, captured map[string]map[string]string) (string
 	out := b.String()
 	if out == "" {
 		out = "/"
+	} else if strings.HasSuffix(route.Path, "/") {
+		out += "/" // /{slug}/ stays /about/, not /about
 	}
 	if len(captured["query"]) > 0 {
 		qs := url.Values{}

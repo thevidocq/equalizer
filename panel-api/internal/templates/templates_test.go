@@ -2,6 +2,7 @@ package templates
 
 import (
 	"encoding/json"
+	"regexp"
 	"testing"
 
 	"github.com/thevidocq/equalizer/panel-api/internal/mapschema"
@@ -38,5 +39,27 @@ func TestTemplatesAreValidMaps(t *testing.T) {
 	}
 	if _, err := Render("../secret", Fill{}); err != ErrUnknown {
 		t.Error("path outside the templates accepted")
+	}
+}
+
+// Page slugs never take file names: /wp-login.php, /robots.txt and the
+// like must stay with the area, as the legacy site serves them.
+func TestSlugsAreNotFiles(t *testing.T) {
+	for _, tp := range List() {
+		var m struct {
+			Types map[string]struct{ Pattern string } `json:"types"`
+		}
+		doc, _ := Render(tp.ID, Fill{BaseURL: "https://x.example", Connector: "cn-1", Address: "127.0.0.1:80"})
+		_ = json.Unmarshal(doc, &m)
+		p, ok := m.Types["slug"]
+		if !ok {
+			continue
+		}
+		re := regexp.MustCompile(p.Pattern)
+		for s, want := range map[string]bool{"chi-siamo": true, "città-nuova": true, "wp-login.php": false, "robots.txt": false, "a/b": false} {
+			if re.MatchString(s) != want {
+				t.Errorf("%s: slug %q: %v", tp.ID, s, !want)
+			}
+		}
 	}
 }

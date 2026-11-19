@@ -13,7 +13,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        module: [gateway, tunnel-relay, connector, panel-api, tools]
+        module: [gateway, tunnel-relay, connector, panel-api, tools, lab/e2e]
     defaults:
       run:
         working-directory: ${{ matrix.module }}

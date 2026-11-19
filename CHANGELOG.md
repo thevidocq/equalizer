@@ -38,6 +38,39 @@ prototype.
 
 ## Entries
 
+### 2026-11-19 — Add local end-to-end lab and fix what it found
+
+- **Branch:** feat/local-lab
+- **What:**
+  - `lab/e2e/`: a whole platform on one machine without Docker (real
+    services, real WordPress on SQLite, HTTPS front with a lab CA, OIDC
+    provider, SMTP sink), `up.sh`/`down.sh`, and 32 pytest + Playwright
+    tests from onboarding to SSO, attacks, password reset and alerts;
+    README; `go vet` in CI.
+  - gateway `internal/origin`: the legacy origin (both schemes, also
+    JSON-escaped) becomes `https://` + public domain in inline scripts,
+    JSON, JavaScript, CSS and feeds (areas, routes, APIs, assets), streamed
+    where the body is streamed.
+  - gateway: path parameters are match constraints (`pathfit.go`); URLs are
+    rewritten to a route only when captured values fit its types; a
+    trailing `/` is kept.
+  - gateway: raw uploads reach the legacy site with
+    `Content-Disposition: attachment` and a cleaned file name.
+  - templates: slugs refuse dots (no `/wp-config.php` matched as a page);
+    the WordPress comment form has its optional fields and hidden inputs.
+  - docs: map format (origin rewriting, path parameters, raw uploads).
+- **Why:** test real customer flows before the manual test on a server.
+  The lab found mixed content in wp-admin (WordPress on http behind
+  https), files matched as page slugs, broken comment posting and raw
+  uploads without a file name.
+- **Status:** all 32 lab tests pass; unit tests pass. Not covered by the
+  lab: real TLS/ACME, DNS, Compose images, real SMTP, Cloudflare, Loki,
+  backups, replicas.
+- **Next steps:**
+  1. Manual test on a server by the project owner, then tag v0.1.0.
+  2. Log forwarding to S3/block storage, then SIEM.
+  3. Capacity settings from the panel.
+
 ### 2026-11-19 — Account card at the bottom of the sidebar
 
 - **Branch:** fix/sidebar-account

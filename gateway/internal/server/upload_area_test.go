@@ -12,6 +12,9 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/thevidocq/equalizer/gateway/internal/mapmodel"
+	"github.com/thevidocq/equalizer/gateway/internal/site"
+
 	"github.com/thevidocq/equalizer/gateway/internal/useragent"
 )
 
@@ -84,11 +87,11 @@ func TestLegacyCompressionAndUserAgent(t *testing.T) {
 
 func TestRawUpload(t *testing.T) {
 	t.Setenv("TMPDIR", t.TempDir())
-	var gotType string
+	var gotType, gotDisp string
 	var gotLen int
 	legacy := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		b, _ := io.ReadAll(r.Body)
-		gotType, gotLen = r.Header.Get("Content-Type"), len(b)
+		gotType, gotLen, gotDisp = r.Header.Get("Content-Type"), len(b), r.Header.Get("Content-Disposition")
 		_, _ = io.WriteString(w, "ok")
 	}))
 	defer legacy.Close()
@@ -97,6 +100,7 @@ func TestRawUpload(t *testing.T) {
 		req := httptest.NewRequest("POST", "/upload/chunk", bytes.NewReader(body))
 		req.Host = "blog.example"
 		req.Header.Set("Content-Type", ctype)
+		req.Header.Set("Content-Disposition", `attachment; filename="..\\evil\\pic.png"; size=3`)
 		rec := httptest.NewRecorder()
 		h.ServeHTTP(rec, req)
 		return rec.Code
@@ -104,6 +108,9 @@ func TestRawUpload(t *testing.T) {
 	png := append([]byte("\x89PNG\r\n\x1a\n"), bytes.Repeat([]byte{0}, 2<<20)...)
 	if code := send("image/jpeg", png); code != 200 || gotType != "image/png" || gotLen != len(png) {
 		t.Fatalf("picture: %d %q %d", code, gotType, gotLen)
+	}
+	if gotDisp != `attachment; filename=pic.png` {
+		t.Errorf("Content-Disposition: %q", gotDisp)
 	}
 	if code := send("image/png", []byte("<html><script>alert(1)</script></html>")); code != http.StatusUnsupportedMediaType {
 		t.Errorf("page as a picture: %d", code)
@@ -117,5 +124,38 @@ func TestRawUpload(t *testing.T) {
 	left, _ := filepath.Glob(filepath.Join(os.Getenv("TMPDIR"), "eq-upload-*"))
 	if len(left) != 0 {
 		t.Errorf("temporary files left: %v", left)
+	}
+}
+
+func TestPathParamsDecideTheMatch(t *testing.T) {
+	var got []string
+	legacy := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		got = append(got, r.URL.Path)
+		w.Header().Set("Content-Type", "text/html")
+		_, _ = io.WriteString(w, "<p>ok</p>")
+	}))
+	defer legacy.Close()
+	p := areaPublic(t, legacy.URL, 0)
+	st := p.Maps.(fixedMaps).s
+	st.Model.Routes = append(st.Model.Routes, mapmodel.Route{ID: "page", Path: "/{slug}/", Method: "GET", Roles: []string{"guest"},
+		Params:        map[string]mapmodel.FieldSpec{"slug": {Type: "string", Pattern: `^[a-z0-9-]{1,50}$`}},
+		LegacyRequest: mapmodel.LegacyRequest{Method: "GET", Path: "/{{params.slug}}/"}})
+	rebuilt, err := site.Build(st.Model)
+	if err != nil {
+		t.Fatal(err)
+	}
+	p.Maps = fixedMaps{rebuilt}
+	for path, want := range map[string]string{
+		"/wp-login.php": "/wp-login.php", // a file, not a page: the area, as it is
+		"/about/":       "/about/",       // the precise entry
+	} {
+		got = nil
+		req := httptest.NewRequest("GET", path, nil)
+		req.Host = "blog.example"
+		rec := httptest.NewRecorder()
+		p.Handler().ServeHTTP(rec, req)
+		if rec.Code != 200 || len(got) != 1 || got[0] != want {
+			t.Errorf("%s: %d, legacy saw %v", path, rec.Code, got)
+		}
 	}
 }

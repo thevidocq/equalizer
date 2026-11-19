@@ -8,6 +8,7 @@ import (
 
 	"github.com/thevidocq/equalizer/gateway/internal/legacyclient"
 	"github.com/thevidocq/equalizer/gateway/internal/limits"
+	"github.com/thevidocq/equalizer/gateway/internal/origin"
 	"github.com/thevidocq/equalizer/gateway/internal/pipeline"
 	"github.com/thevidocq/equalizer/gateway/internal/placeholder"
 	"github.com/thevidocq/equalizer/gateway/internal/router"
@@ -147,6 +148,10 @@ func (p *Public) writeLegacy(w http.ResponseWriter, r *http.Request, st *site.Si
 			slog.Int("rewritten", ctx.Stats.Rewritten), slog.Int("unmapped", ctx.Stats.Unmapped),
 			slog.Int("removed", ctx.Stats.Removed), slog.Int("forms", ctx.Stats.Forms),
 			slog.Int("forms_unmapped", ctx.Stats.FormsUnmapped), slog.Any("unmapped_paths", ctx.Stats.UnmappedPaths)))
+	}
+	if st.Origin != nil && origin.Text(h.Get("Content-Type")) {
+		body = st.Origin.Bytes(body)
+		h.Del("Content-Length")
 	}
 	securityHeaders(h)
 	w.WriteHeader(resp.Status)

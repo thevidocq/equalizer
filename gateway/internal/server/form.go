@@ -118,6 +118,7 @@ func (p *Public) serveForm(w http.ResponseWriter, r *http.Request, st *site.Site
 		p.legacyFailure(w, r, st, form.ID, err)
 		return
 	}
+	ss.keepAll = form.Session != nil && form.Session.Start != ""
 	p.absorbSession(r, st, ss, resp)
 
 	outcome := "failure"

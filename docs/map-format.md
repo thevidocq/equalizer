@@ -189,6 +189,8 @@ How it works:
   there and adds it to every rebuilt request. The browser holds
   `__Host-eq_session`, a random id, and can never send a cookie of those
   names.
+- **Login answers.** Every cookie set by the answer to a `session.start`
+  form is private, whatever its name.
 - **Other legacy cookies work as on the legacy site.** Language, consent,
   CSRF tokens the page's scripts read: they go to the browser (`Secure`,
   `SameSite=Lax` at least), scripts read and write them, and they come back
@@ -456,11 +458,15 @@ redirects to other sites passed on. Equalizer still sits in between:
   `Range`, cache validators, `Authorization` (Basic, Bearer, Digest and
   Token, for sites with an HTTP login), the application's own `X-*` headers
   (e.g. `X-WP-Nonce`, `X-CSRF-Token`; at most 30, printable values; never
-  `X-Forwarded-*`, `X-Original-*`, `X-Real-IP` and the like); `Referer` and
-  `Origin` become the legacy site's;
+  those a server may trust as set by a proxy: client address and host
+  (`X-Forwarded-*`, `X-Real-IP`…), rewritten URL (`X-Original-URL`), method
+  override (`X-HTTP-Method-Override`), identity (`X-Remote-User`,
+  `X-Auth-User`…), internal sub-requests); `Referer` and `Origin` become
+  the legacy site's;
 - the answer keeps the application's `X-*` headers (e.g. `X-WP-Total`),
   `Link`, `Retry-After` and `WWW-Authenticate`; headers that reveal the
-  platform (`X-Powered-By`, `X-AspNet-Version`…) or the legacy address are
+  platform (`X-Powered-By`, `X-AspNet-Version`…), internal paths
+  (`X-Accel-Redirect`, `X-Sendfile`), debugging or the legacy address are
   dropped;
 - uploads (multipart) are rebuilt part by part into a temporary file, never
   held in memory, up to `max_body_kb` (at most 1 GB); other bodies up to

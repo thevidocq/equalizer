@@ -124,6 +124,20 @@ var revealing = map[string]bool{
 // (X-…) and may reach the browser.
 func appHeader(k string) bool {
 	k = http.CanonicalHeaderKey(k)
-	return strings.HasPrefix(k, "X-") && !revealing[k] && !strings.HasPrefix(k, "X-Eq-") &&
-		!strings.HasPrefix(k, "X-Forwarded") && k != "X-Frame-Options" && k != "X-Content-Type-Options"
+	if !strings.HasPrefix(k, "X-") || revealing[k] || k == "X-Frame-Options" || k == "X-Content-Type-Options" {
+		return false
+	}
+	for _, p := range internalPrefixes {
+		if strings.HasPrefix(k, p) {
+			return false
+		}
+	}
+	return true
+}
+
+// internalPrefixes are response headers meant for a front proxy or for
+// debugging: internal paths (X-Accel-Redirect, X-Sendfile), servers, traces.
+var internalPrefixes = []string{
+	"X-Eq-", "X-Forwarded", "X-Accel-", "X-Sendfile", "X-Lighttpd-", "X-Litespeed-", "X-Debug", "X-Backend",
+	"X-Server", "X-Upstream", "X-Varnish", "X-Php", "X-Aspnet", "X-Sourcemap", "X-Chromelogger", "X-Wf-",
 }

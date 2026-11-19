@@ -177,15 +177,23 @@ func requestAppHeader(k string) bool {
 	if !appName.MatchString(k) {
 		return false
 	}
-	switch {
-	case strings.HasPrefix(k, "X-Forwarded"), strings.HasPrefix(k, "X-Eq-"), strings.HasPrefix(k, "X-Original"):
-		return false
+	for _, p := range blockedPrefixes {
+		if strings.HasPrefix(k, p) {
+			return false
+		}
 	}
-	switch k {
-	case "X-Real-Ip", "X-Client-Ip", "X-Host", "X-Rewrite-Url", "X-Cluster-Client-Ip", "X-Proxyuser-Ip", "X-Remote-Ip", "X-Remote-Addr":
-		return false
-	}
-	return true
+	// identity set by a single sign-on proxy (X-Remote-User, X-Auth-User…)
+	return !strings.HasPrefix(k, "X-User") && !strings.Contains(k, "-User")
+}
+
+// blockedPrefixes are request headers some servers and frameworks trust as
+// set by a proxy: client address, host, rewritten URL, method override,
+// identity, internal sub-requests.
+var blockedPrefixes = []string{
+	"X-Forwarded", "X-Eq-", "X-Original", "X-Real-Ip", "X-Client-Ip", "X-Host", "X-Rewrite-Url",
+	"X-Cluster-Client-Ip", "X-Proxy", "X-Remote-", "X-Originating-", "X-Custom-Ip", "X-True-Client",
+	"X-Http-Method", "X-Method-Override", "X-Middleware-Subrequest", "X-Ms-Client-Principal",
+	"X-Server-", "X-Envoy-", "X-Amzn-", "X-Backend", "X-Internal",
 }
 
 func sameSite(u *url.URL, st *site.Site) bool {

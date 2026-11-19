@@ -117,5 +117,10 @@ start gateway env EQ_PUBLIC_ADDR=127.0.0.1:18080 EQ_PUBLIC_HTTP_ADDR=127.0.0.1:1
   EQ_REDIS_URL=redis://127.0.0.1:16379/0 EQ_TRUSTED_PROXIES=127.0.0.1/32 SSL_CERT_FILE="$RUN/ca-bundle.pem" \
   "$BIN/gateway"
 wait_http http://127.0.0.1:19090/healthz
+# The discovery agent, from this checkout: it reaches the sites only through
+# the relay and the connector, like on a VPS.
+start agent env -C "$ROOT/agent" EQ_PANEL_URL=http://127.0.0.1:18085 EQ_INTERNAL_TOKEN_FILE="$S/panel-internal.token" \
+  EQ_RELAY_URL=http://127.0.0.1:18082 EQ_RELAY_TOKEN_FILE="$S/relay.token" EQ_POLL_SECONDS=2 EQ_RATE=25 \
+  HOSTNAME=lab-agent python3 -m equalizer_agent
 wait_http https://panel.lab.test/
 echo "Lab up: https://panel.lab.test (mail in $RUN/mail, logs in $LOGS)"

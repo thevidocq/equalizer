@@ -80,10 +80,12 @@ class DiscoveryTest(unittest.TestCase):
         self.assertEqual(rep["login"], "ok")
         self.assertIn({"path": "/upload.php", "reason": "file_upload"}, rep["not_supported"])
 
-        # never opened: admin, backups, actions; always the site's own name
-        paths = {p for m, p, *_ in self.site.requests}
-        for bad in ("/wp-admin/", "/backup.zip", "/logout", "/wp-json/wp/v2/posts"):
+        # never opened: backups, actions; the administration only by the
+        # test account, after its login; always the site's own name
+        paths = [p for m, p, *_ in self.site.requests]
+        for bad in ("/backup.zip", "/logout"):
             self.assertNotIn(bad, paths)
+        self.assertNotIn("/wp-admin/", paths)  # WordPress writes when its admin is only viewed
         self.assertTrue(all(h == "news.acme.test" for m, p, h in self.site.requests if m == "GET"))
         self.assertTrue(any(p == "/wp-login.php" and "log=tester" in b for m, p, b in self.site.requests if m == "POST"))
 

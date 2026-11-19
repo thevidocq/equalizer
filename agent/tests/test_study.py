@@ -108,3 +108,37 @@ class FieldsTest(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class ReadOnlyTest(unittest.TestCase):
+    def test_rules(self):
+        from equalizer_agent import rules
+        # the administration: only a test account opens it
+        self.assertEqual(rules.excluded("/admin/content", "drupal"), "admin")
+        self.assertEqual(rules.excluded("/admin/content", "drupal", logged_in=True), "")
+        # WordPress writes when its administration is only viewed: closed
+        self.assertEqual(rules.excluded("/wp-admin/edit.php", "wordpress", logged_in=True), "admin")
+        # never, not even logged in: jobs, installers, updates, exports
+        for p in ("/wp-cron.php", "/wp-admin/update-core.php", "/wp-admin/export.php", "/update.php", "/cron/abc",
+                  "/administrator/index.php?option=com_installer", "/admin/reports/updates",
+                  "/wp-admin/post-new.php"):  # WordPress saves an auto-draft when it opens
+            self.assertEqual(rules.excluded(p, None, logged_in=True), "never", p)
+        # links that act: verbs as words, one-time tokens
+        for p in ("/wp-admin/post.php?post=5&action=trash&_wpnonce=ab12", "/wp-admin/plugins.php?action=deactivate",
+                  "/administrator/index.php?option=com_content&task=articles.publish",
+                  "/admin/content?0123456789abcdef0123456789abcdef=1", "/node/3/delete", "/user/logout?token=x",
+                  "/wp-admin/edit-comments.php?c=2&action=spam",
+                  "/administrator/index.php?option=com_content&view=article&layout=edit&id=1"):
+            self.assertTrue(rules.is_action(p), p)
+        for p in ("/wp-admin/edit.php?post_type=page", "/running-tips/", "/administrator/index.php?option=com_content&view=articles",
+                  "/admin/content", "/nuclear-power/"):
+            self.assertFalse(rules.is_action(p), p)
+
+    def test_fetcher_never_writes(self):
+        from equalizer_agent.fetch import Fetcher, ReadOnlyError
+        f = Fetcher("http://x.test", {"mode": "direct", "allow": ["x.test:80"]}, "t", direct={"x.test:80"})
+        for m in ("POST", "PUT", "PATCH", "DELETE"):
+            with self.assertRaises(ReadOnlyError):
+                f.request(m, "/")
+        with self.assertRaises(ReadOnlyError):
+            f.request("PUT", "/", login=True)

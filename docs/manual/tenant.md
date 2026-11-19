@@ -128,10 +128,14 @@ for review**.
 ### Discovery
 
 **Site → Discovery → Start discovery**. The agent explores the site through
-the connector, never from the Internet, does not open admin pages and
-follows no link that changes something. With test accounts (up to three,
+the connector, never from the Internet, and follows no link that changes
+something. With test accounts (up to three,
 for example a customer and an administrator) it also explores as each of
-them, in a separate pass, to reach the pages behind their login. Give
+them, in a separate pass, to reach the pages behind their login. With an
+administrator account it also studies the administration, read-only
+(Drupal, Joomla): it opens no link or screen that changes something.
+WordPress's administration stays closed to it, because WordPress writes to
+its database when its screens are only viewed. Give
 accounts with the fewest permissions that still see those pages; the
 passwords are encrypted and deleted at the end. The map does not restrict
 pages by account: the site itself still decides who sees what.

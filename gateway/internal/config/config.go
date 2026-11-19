@@ -12,23 +12,24 @@ import (
 
 // Config is the complete gateway configuration.
 type Config struct {
-	PublicAddr      string         // public traffic address (behind the edge proxy)
-	AdminAddr       string         // address of /healthz, /readyz (control network only)
-	Instance        string         // instance name in logs
-	LogLevel        string         // debug, info, warn, error
-	MapFile         string         // SignedMap file (JSON), used when MapURL is empty
-	MapURL          string         // panel-api internal URL of the published map
-	MapToken        string         // token for MapURL
-	UnmappedURL     string         // panel endpoint for refused paths; default next to MapURL
-	OIDCSecretsURL  string         // panel endpoint of OIDC client secrets; default next to MapURL
-	MapPublicKey    string         // Ed25519 public key, base64
-	MapPublicKeyID  string         // expected key identifier
-	TrustedProxies  []netip.Prefix // networks allowed to set X-Forwarded-For
-	FormKey         []byte         // 32-byte key sealing form tokens; nil: random per instance
-	RelayURL        string         // tunnel-relay internal address; empty: no connector mode
-	RelayToken      string         // token presented to the relay
-	RedisURL        string         // session store; empty: in-process store (single replica)
-	ShutdownTimeout time.Duration
+	PublicAddr       string         // public traffic address (behind the edge proxy)
+	AdminAddr        string         // address of /healthz, /readyz (control network only)
+	Instance         string         // instance name in logs
+	LogLevel         string         // debug, info, warn, error
+	MapFile          string         // SignedMap file (JSON), used when MapURL is empty
+	MapURL           string         // panel-api internal URL of the published map
+	MapToken         string         // token for MapURL
+	UnmappedURL      string         // panel endpoint for refused paths; default next to MapURL
+	OIDCSecretsURL   string         // panel endpoint of OIDC client secrets; default next to MapURL
+	MapPublicKey     string         // Ed25519 public key, base64
+	MapPublicKeyID   string         // expected key identifier
+	TrustedProxies   []netip.Prefix // networks allowed to set X-Forwarded-For
+	BehindCloudflare bool           // honour CF-Connecting-IP (EQ_BEHIND_CLOUDFLARE)
+	FormKey          []byte         // 32-byte key sealing form tokens; nil: random per instance
+	RelayURL         string         // tunnel-relay internal address; empty: no connector mode
+	RelayToken       string         // token presented to the relay
+	RedisURL         string         // session store; empty: in-process store (single replica)
+	ShutdownTimeout  time.Duration
 }
 
 // FromEnv builds the configuration from environment variables with safe defaults.
@@ -82,6 +83,7 @@ func FromEnv() (Config, error) {
 		return Config{}, fmt.Errorf("EQ_TRUSTED_PROXIES: %w", err)
 	}
 	cfg.TrustedProxies = proxies
+	cfg.BehindCloudflare = os.Getenv("EQ_BEHIND_CLOUDFLARE") == "true"
 
 	switch cfg.LogLevel {
 	case "debug", "info", "warn", "error":

@@ -60,8 +60,15 @@ func Detect(contentType string, body []byte) (string, error) {
 }
 
 func normalize(name string) (string, error) {
-	if cs, ok := aliases[strings.ToLower(strings.TrimSpace(name))]; ok {
+	n := strings.ToLower(strings.TrimSpace(name))
+	if cs, ok := aliases[n]; ok {
 		return cs, nil
+	}
+	if cs, ok := tableAliases[n]; ok {
+		return cs, nil
+	}
+	if _, ok := tables[n]; ok {
+		return n, nil
 	}
 	return "", fmt.Errorf("%w: %q", ErrUnsupported, name)
 }
@@ -80,6 +87,17 @@ func ToUTF8(name string, body []byte) ([]byte, error) {
 		return decodeSingleByte(body, iso885915), nil
 	case Windows1252:
 		return decodeSingleByte(body, windows1252), nil
+	}
+	if t, ok := tables[name]; ok {
+		out := make([]byte, 0, len(body)+len(body)/4)
+		for _, b := range body {
+			if b < 0x80 {
+				out = append(out, b)
+			} else {
+				out = utf8.AppendRune(out, t[b-0x80])
+			}
+		}
+		return out, nil
 	}
 	return nil, fmt.Errorf("%w: %q", ErrUnsupported, name)
 }

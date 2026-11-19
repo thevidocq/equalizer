@@ -1,7 +1,6 @@
 package legacyclient
 
 import (
-	"bytes"
 	"context"
 	"io"
 	"net/http"
@@ -45,20 +44,21 @@ func (s *Stream) ReadAll() ([]byte, error) {
 
 // BuildRaw builds a request for an area: the same path and the rebuilt
 // query and body, under the legacy base URL.
-func (c *Client) BuildRaw(ctx context.Context, method, path, rawQuery string, body []byte, contentType string, h http.Header) (*http.Request, error) {
+// size is the body's length (body may be nil when it is 0).
+func (c *Client) BuildRaw(ctx context.Context, method, path, rawQuery string, body io.Reader, size int64, contentType string, h http.Header) (*http.Request, error) {
 	u := *c.base
 	u.Path = strings.TrimSuffix(c.base.Path, "/") + path
 	u.RawPath = ""
 	u.RawQuery = rawQuery
 	u.Fragment = ""
-	var rd io.Reader
-	if body != nil {
-		rd = bytes.NewReader(body)
+	if size == 0 {
+		body = nil
 	}
-	req, err := http.NewRequestWithContext(ctx, method, u.String(), rd)
+	req, err := http.NewRequestWithContext(ctx, method, u.String(), body)
 	if err != nil {
 		return nil, err
 	}
+	req.ContentLength = size
 	req.Header = http.Header{}
 	for k, vs := range h {
 		req.Header[k] = vs
@@ -85,6 +85,18 @@ func (c *Client) Open(req *http.Request) (*Stream, error) {
 			s.Header.Add(h, v)
 		}
 	}
+	// The application's own headers (X-WP-Total, X-CSRF-Token, …): never
+	// those that name the legacy software or its internal address.
+	for k, vs := range resp.Header {
+		if !appHeader(k) {
+			continue
+		}
+		for _, v := range vs {
+			if !strings.Contains(strings.ToLower(v), strings.ToLower(c.base.Host)) {
+				s.Header.Add(k, v)
+			}
+		}
+	}
 	if resp.StatusCode >= 300 && resp.StatusCode < 400 {
 		if loc, err := resp.Location(); err == nil {
 			s.Location = loc.String()
@@ -98,4 +110,20 @@ func (c *Client) Open(req *http.Request) (*Stream, error) {
 var areaResponseHeaders = append(append([]string{}, responseHeaders...),
 	"Content-Length", "ETag", "Accept-Ranges", "Content-Range", "Vary", "Pragma",
 	"Access-Control-Allow-Origin", "Access-Control-Allow-Methods", "Access-Control-Allow-Headers",
-	"Access-Control-Allow-Credentials", "Access-Control-Expose-Headers", "Access-Control-Max-Age", "Allow")
+	"Access-Control-Allow-Credentials", "Access-Control-Expose-Headers", "Access-Control-Max-Age", "Allow",
+	"Link", "Retry-After")
+
+// revealing headers name the legacy software or its version.
+var revealing = map[string]bool{
+	"X-Powered-By": true, "X-Aspnet-Version": true, "X-Aspnetmvc-Version": true, "X-Generator": true,
+	"X-Drupal-Cache": true, "X-Drupal-Dynamic-Cache": true, "X-Runtime": true, "X-Debug-Token": true,
+	"X-Debug-Token-Link": true, "X-Sourcefiles": true, "X-Backend-Server": true, "X-Server": true,
+}
+
+// appHeader reports whether a response header is the application's own
+// (X-…) and may reach the browser.
+func appHeader(k string) bool {
+	k = http.CanonicalHeaderKey(k)
+	return strings.HasPrefix(k, "X-") && !revealing[k] && !strings.HasPrefix(k, "X-Eq-") &&
+		!strings.HasPrefix(k, "X-Forwarded") && k != "X-Frame-Options" && k != "X-Content-Type-Options"
+}

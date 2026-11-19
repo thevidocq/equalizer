@@ -2,9 +2,11 @@ package forward
 
 import (
 	"bytes"
+	"errors"
 	"io"
 	"log/slog"
 	"net/http"
+	"os"
 )
 
 // handOver tries the other replicas when this one holds no tunnel of the
@@ -15,15 +17,20 @@ func (h *Handler) handOver(w http.ResponseWriter, r *http.Request, id string) bo
 	if len(peers) == 0 {
 		return false
 	}
-	body, err := io.ReadAll(io.LimitReader(r.Body, MaxHandover+1))
-	if err != nil || len(body) > MaxHandover {
+	body, size, done, err := keep(r.Body)
+	if err != nil {
 		return false
 	}
+	defer done()
 	for _, p := range peers {
-		out, err := http.NewRequestWithContext(r.Context(), r.Method, "http://"+p+r.URL.RequestURI(), bytes.NewReader(body))
+		if _, err := body.Seek(0, io.SeekStart); err != nil {
+			return false
+		}
+		out, err := http.NewRequestWithContext(r.Context(), r.Method, "http://"+p+r.URL.RequestURI(), io.NopCloser(body))
 		if err != nil {
 			continue
 		}
+		out.ContentLength = size
 		out.Header = r.Header.Clone()
 		for k := range hopByHop {
 			out.Header.Del(k)
@@ -59,4 +66,27 @@ func (h *Handler) handOver(w http.ResponseWriter, r *http.Request, id string) bo
 var hopByHop = map[string]bool{
 	"Connection": true, "Keep-Alive": true, "Proxy-Authenticate": true, "Proxy-Authorization": true,
 	"Te": true, "Trailer": true, "Transfer-Encoding": true, "Upgrade": true, "Proxy-Connection": true,
+}
+
+// keep holds a request body to send it again: in memory when small, in a
+// temporary file otherwise (uploads).
+func keep(src io.Reader) (io.ReadSeeker, int64, func(), error) {
+	head, err := io.ReadAll(io.LimitReader(src, memoryHandover+1))
+	if err != nil {
+		return nil, 0, nil, err
+	}
+	if len(head) <= memoryHandover {
+		return bytes.NewReader(head), int64(len(head)), func() {}, nil
+	}
+	f, err := os.CreateTemp("", "eq-handover-*")
+	if err != nil {
+		return nil, 0, nil, err
+	}
+	done := func() { _ = f.Close(); _ = os.Remove(f.Name()) }
+	n, err := io.Copy(f, io.MultiReader(bytes.NewReader(head), io.LimitReader(src, MaxHandover+1-int64(len(head)))))
+	if err != nil || n > MaxHandover {
+		done()
+		return nil, 0, nil, errors.New("body too large to hand over")
+	}
+	return f, n, done, nil
 }

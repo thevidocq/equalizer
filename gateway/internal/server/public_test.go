@@ -115,10 +115,17 @@ func TestReconstructsRequest(t *testing.T) {
 	if seen.URL.Query().Has("debug") || len(seen.URL.Query()) != 2 {
 		t.Fatalf("undeclared parameters forwarded: %q", seen.URL.RawQuery)
 	}
-	for _, h := range []string{"Cookie", "X-Forwarded-For", "Authorization"} {
-		if seen.Header.Get(h) != "" {
-			t.Errorf("client header %s reached the legacy application", h)
-		}
+	// Privilege-like cookie names are never taken from the browser.
+	if seen.Header.Get("Cookie") != "" {
+		t.Errorf("client cookie reached the legacy application: %q", seen.Header.Get("Cookie"))
+	}
+	// The legacy site's HTTP login is passed on, rebuilt.
+	if seen.Header.Get("Authorization") != "Basic YWRtaW46YWRtaW4=" {
+		t.Errorf("Authorization: %q", seen.Header.Get("Authorization"))
+	}
+	// The address is the one the gateway saw, never the client's header.
+	if xff := seen.Header.Get("X-Forwarded-For"); xff == "6.6.6.6" || xff == "" {
+		t.Errorf("X-Forwarded-For towards the legacy application: %q", xff)
 	}
 	if rec.Header().Get("Server") != "" || rec.Header().Get("X-Content-Type-Options") != "nosniff" {
 		t.Errorf("response headers not filtered: %v", rec.Header())

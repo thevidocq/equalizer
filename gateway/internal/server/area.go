@@ -54,19 +54,20 @@ func (p *Public) serveArea(w http.ResponseWriter, r *http.Request, st *site.Site
 		p.refuseArea(w, r, st, a, err)
 		return
 	}
-	body, ctype, status, reason := p.areaBody(w, r, a, cs)
+	body, status, reason := p.areaBody(w, r, a, cs)
 	if status != 0 {
 		p.block(w, r, st, status, reason)
 		return
 	}
-	req, err := st.Legacy.BuildRaw(r.Context(), r.Method, r.URL.Path, query, body, ctype, areaHeaders(r, st))
+	defer body.close()
+	req, err := st.Legacy.BuildRaw(r.Context(), r.Method, r.URL.Path, query, body.r, body.size, body.ctype, areaHeaders(r, st))
 	if err != nil {
 		p.Log.ErrorContext(r.Context(), "cannot build the legacy request", slog.String("error", err.Error()),
 			slog.Group("detail", slog.String("route", a.ID)))
 		writePage(w, http.StatusInternalServerError, pageError)
 		return
 	}
-	ss.apply(req)
+	p.prepare(req, r, st, ss)
 	if !p.acquireLegacy(r, st, a.ID) {
 		writePage(w, http.StatusServiceUnavailable, pageUnavailable)
 		return
@@ -90,37 +91,6 @@ func (p *Public) serveArea(w http.ResponseWriter, r *http.Request, st *site.Site
 	total := float64(p.now().Sub(start).Microseconds()) / 1000
 	ev.LatencyMS = &telemetry.Latency{Gateway: total}
 	p.Events.Emit(ev)
-}
-
-// areaBody reads and rebuilds the request body within the area's limit.
-func (p *Public) areaBody(w http.ResponseWriter, r *http.Request, a *mapmodel.Area, cs string) ([]byte, string, int, string) {
-	if r.Body == nil || r.Method == http.MethodGet || r.Method == http.MethodHead {
-		return nil, "", 0, ""
-	}
-	limit := int64(a.MaxBodyKB) * 1024
-	if limit == 0 {
-		limit = mapmodel.DefaultAreaBodyKB * 1024
-	}
-	raw, err := io.ReadAll(http.MaxBytesReader(w, r.Body, limit))
-	if err != nil {
-		var tooLarge *http.MaxBytesError
-		if errors.As(err, &tooLarge) {
-			return nil, "", http.StatusRequestEntityTooLarge, "body_too_large"
-		}
-		return nil, "", http.StatusBadRequest, "malformed_body"
-	}
-	body, ctype, err := areabody.Body(r.Header.Get("Content-Type"), raw, cs)
-	if err != nil {
-		var re *areabody.Error
-		if errors.As(err, &re) {
-			if re.Reason == areabody.ReasonUnsupported {
-				return nil, "", http.StatusUnsupportedMediaType, re.Reason
-			}
-			return nil, "", http.StatusBadRequest, re.Reason
-		}
-		return nil, "", http.StatusBadRequest, "malformed_body"
-	}
-	return body, ctype, 0, ""
 }
 
 func (p *Public) refuseArea(w http.ResponseWriter, r *http.Request, st *site.Site, a *mapmodel.Area, err error) {
@@ -154,6 +124,8 @@ func cleanPath(path string) bool {
 var (
 	tokenValue = regexp.MustCompile(`^[\x20-\x7e]{1,1000}$`)
 	rangeValue = regexp.MustCompile(`^bytes=\d*-\d*(,\s*\d*-\d*){0,9}$`)
+	authValue  = regexp.MustCompile(`^(Basic|Bearer|Digest|Token) [\x20-\x7e]+$`)
+	appName    = regexp.MustCompile(`^X-[A-Za-z0-9][A-Za-z0-9-]{0,62}$`)
 	etagValue  = regexp.MustCompile(`^(\*|(W/)?"[\x21\x23-\x7e]*"(\s*,\s*(W/)?"[\x21\x23-\x7e]*")*)$`)
 )
 
@@ -166,8 +138,13 @@ func areaHeaders(r *http.Request, st *site.Site) http.Header {
 			h.Set(k, v)
 		}
 	}
-	if r.Header.Get("X-Requested-With") == "XMLHttpRequest" {
-		h.Set("X-Requested-With", "XMLHttpRequest")
+	n := 0
+	for k, vs := range r.Header {
+		if n >= 30 || !requestAppHeader(k) || len(vs) != 1 || len(vs[0]) > 4096 || !tokenValue.MatchString(vs[0]) {
+			continue
+		}
+		h.Set(k, vs[0]) // the application's own: X-WP-Nonce, X-CSRF-Token, X-XSRF-TOKEN, …
+		n++
 	}
 	if v := r.Header.Get("Range"); rangeValue.MatchString(v) {
 		h.Set("Range", v)
@@ -190,6 +167,25 @@ func areaHeaders(r *http.Request, st *site.Site) http.Header {
 		h.Set("Origin", base.Scheme+"://"+base.Host)
 	}
 	return h
+}
+
+// requestAppHeader reports whether a request header is the application's
+// own (X-…): never those a proxy or the gateway sets, nor those some
+// frameworks read as the client's address or host.
+func requestAppHeader(k string) bool {
+	k = http.CanonicalHeaderKey(k)
+	if !appName.MatchString(k) {
+		return false
+	}
+	switch {
+	case strings.HasPrefix(k, "X-Forwarded"), strings.HasPrefix(k, "X-Eq-"), strings.HasPrefix(k, "X-Original"):
+		return false
+	}
+	switch k {
+	case "X-Real-Ip", "X-Client-Ip", "X-Host", "X-Rewrite-Url", "X-Cluster-Client-Ip", "X-Proxyuser-Ip", "X-Remote-Ip", "X-Remote-Addr":
+		return false
+	}
+	return true
 }
 
 func sameSite(u *url.URL, st *site.Site) bool {
@@ -227,9 +223,12 @@ func (p *Public) writeArea(w http.ResponseWriter, r *http.Request, st *site.Site
 	}
 	securityHeaders(h)
 	if !pipeline.IsHTML(resp.Header.Get("Content-Type")) {
+		if eventStream(resp.Header.Get("Content-Type")) {
+			h.Set("X-Accel-Buffering", "no") // proxies in front must not buffer
+		}
 		w.WriteHeader(resp.Status)
 		if r.Method != http.MethodHead {
-			_, _ = io.Copy(w, resp.Body)
+			streamCopy(w, resp.Body, resp.Header.Get("Content-Type"))
 		}
 		return resp.Status
 	}
@@ -260,4 +259,32 @@ func (p *Public) writeArea(w http.ResponseWriter, r *http.Request, st *site.Site
 		_, _ = w.Write(out)
 	}
 	return resp.Status
+}
+
+// streamCopy copies a legacy body to the browser. Live updates
+// (text/event-stream) are flushed event by event instead of buffered.
+func streamCopy(w http.ResponseWriter, body io.Reader, ctype string) {
+	if !eventStream(ctype) {
+		_, _ = io.Copy(w, body)
+		return
+	}
+	rc := http.NewResponseController(w)
+	buf := make([]byte, 4096)
+	for {
+		n, err := body.Read(buf)
+		if n > 0 {
+			if _, werr := w.Write(buf[:n]); werr != nil {
+				return
+			}
+			_ = rc.Flush()
+		}
+		if err != nil {
+			return
+		}
+	}
+}
+
+func eventStream(ctype string) bool {
+	mt, _, _ := strings.Cut(ctype, ";")
+	return strings.EqualFold(strings.TrimSpace(mt), "text/event-stream")
 }

@@ -38,8 +38,13 @@ type sessionKey struct{}
 // handed over again.
 const HeaderHop = "X-Eq-Relay-Hop"
 
-// MaxHandover bounds a body kept to try it on the other replicas.
-const MaxHandover = 50 << 20
+// MaxHandover bounds a body kept to try it on the other replicas (the
+// largest area body plus the multipart framing). Bodies over memoryHandover
+// are kept in a temporary file.
+const (
+	MaxHandover    = 1<<30 + 1<<20
+	memoryHandover = 1 << 20
+)
 
 // Handler forwards gateway requests into tunnels.
 type Handler struct {

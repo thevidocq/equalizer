@@ -8,6 +8,7 @@ import (
 	"io"
 	"mime"
 	"mime/multipart"
+	"net/http"
 	"net/textproto"
 	"path"
 	"strings"
@@ -142,43 +143,62 @@ func qname(n xml.Name) string {
 	return n.Local
 }
 
-// multipartBody rebuilds a multipart form with a new boundary: fields are
-// re-encoded like urlencoded values, files keep their content under a
-// cleaned name.
+// MaxFieldBytes bounds one non-file field of a multipart form.
+const MaxFieldBytes = 8 << 20
+
+// multipartBody rebuilds a multipart form held in memory.
 func multipartBody(body []byte, boundary, cs string) ([]byte, string, error) {
-	if boundary == "" {
-		return nil, "", refuse(ReasonMalformed)
-	}
-	mr := multipart.NewReader(bytes.NewReader(body), boundary)
 	var out bytes.Buffer
-	mw := multipart.NewWriter(&out)
+	ctype, err := Multipart(&out, bytes.NewReader(body), boundary, cs)
+	if err != nil {
+		return nil, "", err
+	}
+	return out.Bytes(), ctype, nil
+}
+
+// Multipart rebuilds a multipart form from src into dst with a new
+// boundary, part by part: fields are re-encoded like urlencoded values,
+// files keep their content under a cleaned name. Files are streamed, so
+// large uploads never sit in memory.
+func Multipart(dst io.Writer, src io.Reader, boundary, cs string) (string, error) {
+	if boundary == "" {
+		return "", refuse(ReasonMalformed)
+	}
+	mr := multipart.NewReader(src, boundary)
+	mw := multipart.NewWriter(dst)
 	for {
 		part, err := mr.NextPart()
 		if errors.Is(err, io.EOF) {
 			break
 		}
 		if err != nil {
-			return nil, "", refuse(ReasonMalformed)
+			return "", malformed(err)
 		}
 		name := part.FormName()
-		data, err := io.ReadAll(part)
-		if err != nil || name == "" {
-			return nil, "", refuse(ReasonMalformed)
+		if name == "" {
+			return "", refuse(ReasonMalformed)
 		}
 		key, err := toLegacy(name, cs)
 		if err != nil {
-			return nil, "", refuse(ReasonCharset)
+			return "", refuse(ReasonCharset)
 		}
 		if part.FileName() == "" && !isFilePart(part) {
+			data, err := io.ReadAll(io.LimitReader(part, MaxFieldBytes+1))
+			if err != nil {
+				return "", malformed(err)
+			}
+			if len(data) > MaxFieldBytes {
+				return "", refuse(ReasonMalformed)
+			}
 			if bytes.IndexByte(data, 0) >= 0 {
-				return nil, "", refuse(ReasonNUL)
+				return "", refuse(ReasonNUL)
 			}
 			v, err := toLegacy(string(data), cs)
 			if err != nil {
-				return nil, "", refuse(ReasonCharset)
+				return "", refuse(ReasonCharset)
 			}
 			if err := mw.WriteField(key, v); err != nil {
-				return nil, "", err
+				return "", err
 			}
 			continue
 		}
@@ -192,14 +212,26 @@ func multipartBody(body []byte, boundary, cs string) ([]byte, string, error) {
 		h.Set("Content-Type", ct)
 		w, err := mw.CreatePart(h)
 		if err != nil {
-			return nil, "", err
+			return "", err
 		}
-		_, _ = w.Write(data)
+		if _, err := io.Copy(w, part); err != nil {
+			return "", malformed(err)
+		}
 	}
 	if err := mw.Close(); err != nil {
-		return nil, "", err
+		return "", err
 	}
-	return out.Bytes(), mw.FormDataContentType(), nil
+	return mw.FormDataContentType(), nil
+}
+
+// malformed keeps reading errors that are not about the form (a body over
+// its limit, a dropped connection) and turns the others into a refusal.
+func malformed(err error) error {
+	var tooLarge *http.MaxBytesError
+	if errors.As(err, &tooLarge) {
+		return err
+	}
+	return refuse(ReasonMalformed)
 }
 
 var quoteEscaper = strings.NewReplacer("\\", "\\\\", `"`, "\\\"", "\r", "", "\n", "")

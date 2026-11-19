@@ -29,6 +29,7 @@ type sessionState struct {
 	mgr    *session.Manager
 	log    *slog.Logger
 	policy session.Policy
+	out    []*http.Cookie // public legacy cookies for the browser
 	tenant string
 	app    string
 
@@ -123,21 +124,41 @@ func (ss *sessionState) apply(req *http.Request) {
 	}
 }
 
-// absorb keeps the cookies the legacy application set, creating a session
-// when needed (many legacy apps need theirs before login).
+// absorb keeps the private cookies the legacy application set, creating a
+// session when needed (many legacy apps need theirs before login); public
+// ones go to the browser (see cookies.go).
 func (ss *sessionState) absorb(cookies []*http.Cookie) {
 	if len(cookies) == 0 || ss.broken || ss.ended {
 		return
 	}
-	if ss.s == nil {
-		ss.s = newSession(ss)
-	}
-	if ss.s.Cookies == nil {
-		ss.s.Cookies = map[string]string{}
-	}
+	now := time.Now()
 	for _, c := range cookies {
-		if c.Name == "" {
+		if c.Name == "" || gatewayCookie(c.Name) {
 			continue
+		}
+		if !c.HttpOnly && !sessionLike(c.Name) && (ss.s == nil || !ss.s.Private[c.Name]) {
+			ss.out = append(ss.out, toBrowser(c))
+			continue
+		}
+		if ss.s == nil {
+			ss.s = newSession(ss)
+		}
+		if ss.s.Cookies == nil {
+			ss.s.Cookies = map[string]string{}
+		}
+		if ss.s.Private == nil {
+			ss.s.Private = map[string]bool{}
+		}
+		if len(ss.s.Private) < maxLegacyCookies {
+			ss.s.Private[c.Name] = true
+		}
+		ss.dirty = true
+		if until, ok := persistent(c, now); ok && c.Value != "" && ss.policy.Remember > 0 {
+			// "remember me": the session lives as long as the legacy login
+			until = minTime(until, now.Add(ss.policy.Remember))
+			if until.After(ss.s.RememberUntil) {
+				ss.s.RememberUntil = until
+			}
 		}
 		if c.MaxAge < 0 || (!c.Expires.IsZero() && c.Expires.Before(time.Now())) || c.Value == "" {
 			delete(ss.s.Cookies, c.Name)
@@ -151,7 +172,13 @@ func (ss *sessionState) absorb(cookies []*http.Cookie) {
 		}
 		ss.s.Cookies[c.Name] = c.Value
 	}
-	ss.dirty = true
+}
+
+func minTime(a, b time.Time) time.Time {
+	if a.Before(b) {
+		return a
+	}
+	return b
 }
 
 func (ss *sessionState) hasCookie(name string) bool {
@@ -187,6 +214,7 @@ func (ss *sessionState) expire() {
 	ss.s.Role = ""
 	ss.s.Cookies = nil
 	ss.s.Issued = nil
+	ss.s.RememberUntil = time.Time{}
 	ss.dirty = true
 }
 
@@ -207,6 +235,9 @@ func (ss *sessionState) commit(ctx context.Context, h http.Header) {
 	if ss.s != nil {
 		// Pages of a session never go to shared caches.
 		h.Set("Cache-Control", "private, no-store")
+	}
+	for _, c := range ss.out {
+		h.Add("Set-Cookie", c.String())
 	}
 	if !ss.dirty {
 		return
@@ -229,6 +260,9 @@ func (ss *sessionState) commit(ctx context.Context, h http.Header) {
 		return
 	}
 	cookie.Value = ss.id
+	if ss.s.Remembered(time.Now()) {
+		cookie.Expires = ss.s.RememberUntil // kept when the browser closes
+	}
 	h.Add("Set-Cookie", cookie.String())
 }
 
@@ -249,6 +283,17 @@ func (c *commitWriter) Write(b []byte) (int, error) {
 	return c.ResponseWriter.Write(b)
 }
 
+// Unwrap lets http.ResponseController reach the server's writer.
+func (c *commitWriter) Unwrap() http.ResponseWriter { return c.ResponseWriter }
+
+// Flush sends what is buffered (live updates, see streamCopy).
+func (c *commitWriter) Flush() {
+	c.ss.commit(c.ctx, c.ResponseWriter.Header())
+	if f, ok := c.ResponseWriter.(http.Flusher); ok {
+		f.Flush()
+	}
+}
+
 // legacySessionExpired reports whether the legacy answer says its own
 // session ended (legacy.session_expired in the map).
 func legacySessionExpired(se *mapmodel.SessionExpired, status int, location string, body []byte) bool {
@@ -267,4 +312,22 @@ func legacySessionExpired(se *mapmodel.SessionExpired, status int, location stri
 		}
 	}
 	return se.BodyContains != "" && strings.Contains(string(body), se.BodyContains)
+}
+
+// prepare readies a legacy request: the legacy cookies of the session and,
+// unless the map says none, the visitor's address written by the gateway
+// (a client's own X-Forwarded-For never gets this far).
+func (p *Public) prepare(req *http.Request, r *http.Request, st *site.Site, ss *sessionState) {
+	ss.apply(req)
+	browserCookies(req, r, ss.s)
+	if v := r.Header.Get("Authorization"); len(v) <= 8192 && authValue.MatchString(v) {
+		req.Header.Set("Authorization", v) // the legacy site's own HTTP login
+	}
+	if st.Model.Legacy.ClientIP == "none" {
+		return
+	}
+	if ip := p.IPs.IP(r); ip != "" {
+		req.Header.Set("X-Forwarded-For", ip)
+		req.Header.Set("X-Real-IP", ip)
+	}
 }

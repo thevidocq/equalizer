@@ -67,6 +67,13 @@ legacy:
 - `mode: direct` (the gateway connects itself) is accepted only towards the
   destinations the platform allows (`EQ_DIRECT_DESTINATIONS`, e.g. lab
   apps); customer sites always use a connector.
+- `client_ip: forwarded` (default) sends the visitor's real address to the
+  legacy application in `X-Forwarded-For` and `X-Real-IP`, as a reverse
+  proxy would: its own logs, bans and geolocation keep working. The address
+  is the one the gateway saw (Caddy, or `CF-Connecting-IP` when
+  `EQ_BEHIND_CLOUDFLARE=true`), never the header the browser sent.
+  `client_ip: none` sends nothing. The same address is in Equalizer's logs
+  (`src_ip`) and in their CSV export.
 
 ## Rendering
 
@@ -174,10 +181,24 @@ routes:
 
 How it works:
 
-- **Legacy cookies never reach the browser.** When the legacy app sets a
-  cookie (often already on the login page), the gateway creates a session
-  and keeps the cookie there; it adds the session's cookies to every
-  rebuilt request. The browser only holds `__Host-eq_session`, a random id.
+- **Private legacy cookies never reach the browser.** A cookie the legacy
+  app marks `HttpOnly`, or whose name looks like a session or a login
+  (`PHPSESSID`, `wordpress_logged_in_*`, `MoodleSession`, anything with
+  `sess`, `auth`, `token`, `user`, `admin`, `role`…), stays on the gateway:
+  it creates a session (often already on the login page), keeps the cookie
+  there and adds it to every rebuilt request. The browser holds
+  `__Host-eq_session`, a random id, and can never send a cookie of those
+  names.
+- **Other legacy cookies work as on the legacy site.** Language, consent,
+  CSRF tokens the page's scripts read: they go to the browser (`Secure`,
+  `SameSite=Lax` at least), scripts read and write them, and they come back
+  to the legacy application rebuilt: at most 50, names and values from a
+  safe character set, privilege-like names dropped.
+- **Remember me.** When the legacy login sets a persistent private cookie
+  (the "keep me signed in" box), the gateway session lives as long as that
+  cookie, up to `defaults.session.remember_days` (default 30, 0 turns it
+  off): the session cookie is kept when the browser closes and the
+  absolute limit no longer applies. Logging out or a legacy expiry ends it.
 - **Role.** A visitor has the `roles.anonymous` role until a form with
   `session.start` succeeds; then the session gets that role and a **new id**
   (no session fixation).
@@ -190,7 +211,8 @@ How it works:
 - **Logout.** A route or form with `session: { end: true }` deletes the
   session after the legacy answer.
 - **Limits.** `defaults.session.idle_minutes` (default 30) and
-  `absolute_hours` (default 12, restarted at login).
+  `absolute_hours` (default 12, restarted at login), except for a
+  remembered session (above).
 - **Storage.** Redis (`EQ_REDIS_URL`), shared by every replica; key = SHA-256
   of the id, content encrypted with AES-256-GCM. Pages of a session are sent
   with `Cache-Control: private, no-store`. If the store is unreachable,
@@ -430,9 +452,25 @@ redirects to other sites passed on. Equalizer still sits in between:
   included, names cleaned), JSON (same order, same numbers), XML (a DOCTYPE,
   where external entities live, is refused) and plain text; any other body
   is 415;
-- only a few request headers are rebuilt (`Accept`, `Accept-Language`,
-  `X-Requested-With`, `Range`; `Referer` and `Origin` become the legacy
-  site's);
+- request headers are rebuilt from a list: `Accept`, `Accept-Language`,
+  `Range`, cache validators, `Authorization` (Basic, Bearer, Digest and
+  Token, for sites with an HTTP login), the application's own `X-*` headers
+  (e.g. `X-WP-Nonce`, `X-CSRF-Token`; at most 30, printable values; never
+  `X-Forwarded-*`, `X-Original-*`, `X-Real-IP` and the like); `Referer` and
+  `Origin` become the legacy site's;
+- the answer keeps the application's `X-*` headers (e.g. `X-WP-Total`),
+  `Link`, `Retry-After` and `WWW-Authenticate`; headers that reveal the
+  platform (`X-Powered-By`, `X-AspNet-Version`…) or the legacy address are
+  dropped;
+- uploads (multipart) are rebuilt part by part into a temporary file, never
+  held in memory, up to `max_body_kb` (at most 1 GB); other bodies up to
+  64 MB;
+- live updates (`text/event-stream`) are passed event by event, up to 10
+  minutes per connection (browsers reconnect by themselves); WebSocket is
+  not supported yet (501);
+- pages in Western, Central European and Cyrillic charsets
+  (`windows-125x`, `iso-8859-*`, `koi8-r/u`, `ibm866`) are converted to UTF-8;
+  the charset is learnt from the site's pages and used for its forms;
 - rate limits and form tokens apply only to precise entries; behaviour
   rules apply everywhere.
 
@@ -447,6 +485,13 @@ Moodle, or a generic site): the first draft starts from a template with the
 `/` area (the whole site works at once, admin included) and precise entries
 for its pages, assets and forms. The page slugs refuse the admin names
 (`deny`), so `/wp-admin/` goes to the area instead of `/{slug}/`.
+
+The precise entries of templates are loose on purpose: slugs take any
+letter of any language, searches up to 200 characters, plain strings up to
+1000; they still refuse markup and template sequences. The largest upload
+is a parameter of the template (**Max upload (MB)**, default 50, at most
+1024): it sets `max_body_kb` of the areas and the size of files served from
+upload folders.
 
 ## Field types
 

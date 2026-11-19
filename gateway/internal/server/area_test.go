@@ -9,6 +9,7 @@ import (
 	"strings"
 	"sync"
 	"testing"
+	"time"
 
 	"github.com/thevidocq/equalizer/gateway/internal/clientip"
 	"github.com/thevidocq/equalizer/gateway/internal/formtoken"
@@ -19,7 +20,7 @@ import (
 )
 
 type seenReq struct {
-	method, uri, body, ctype, cookie, referer, xff string
+	method, uri, body, ctype, cookie, referer, xff, nonce, fwdHost string
 }
 
 func TestAreas(t *testing.T) {
@@ -30,7 +31,7 @@ func TestAreas(t *testing.T) {
 		b, _ := io.ReadAll(r.Body)
 		mu.Lock()
 		seen = append(seen, seenReq{r.Method, r.URL.RequestURI(), string(b), r.Header.Get("Content-Type"), r.Header.Get("Cookie"),
-			r.Header.Get("Referer"), r.Header.Get("X-Forwarded-For")})
+			r.Header.Get("Referer"), r.Header.Get("X-Forwarded-For"), r.Header.Get("X-Wp-Nonce"), r.Header.Get("X-Forwarded-Host")})
 		mu.Unlock()
 		switch r.URL.Path {
 		case "/home":
@@ -46,6 +47,9 @@ func TestAreas(t *testing.T) {
 			_, _ = io.WriteString(w, `{"success":false}`)
 		case "/wp-json/wp/v2/posts":
 			w.Header().Set("Content-Type", "application/json")
+			w.Header().Set("X-WP-Total", "12")
+			w.Header().Set("X-Powered-By", "PHP/5.6.40")
+			w.Header().Set("X-Pingback", legacyURL+"/xmlrpc.php")
 			w.WriteHeader(201)
 			_, _ = io.WriteString(w, `{"id":7}`)
 		case "/backup.zip":
@@ -119,7 +123,7 @@ func TestAreas(t *testing.T) {
 		t.Fatalf("home: %d %s", rec.Code, last().uri)
 	}
 	// Admin pages are served like the rest; links and hidden values work.
-	rec := do("GET", "/wp-admin/edit.php?post_type=page&paged=2", "", "", "Referer", "https://blog.example/wp-admin/", "X-Forwarded-For", "1.2.3.4", "Cookie", "evil=1")
+	rec := do("GET", "/wp-admin/edit.php?post_type=page&paged=2", "", "", "Referer", "https://blog.example/wp-admin/", "X-Forwarded-For", "1.2.3.4", "Cookie", "wp-settings-1=libraryContent%3Dbrowse; admin=1; wordpress_logged_in=forged; bad=a\\b")
 	body := rec.Body.String()
 	if rec.Code != 200 || last().uri != "/wp-admin/edit.php?post_type=page&paged=2" {
 		t.Fatalf("admin page: %d %s", rec.Code, last().uri)
@@ -128,7 +132,7 @@ func TestAreas(t *testing.T) {
 		!strings.Contains(body, `name="_wpnonce" value="n0nce"`) {
 		t.Errorf("rendered admin page:\n%s", body)
 	}
-	if got := last(); got.cookie != "" || got.xff != "" || got.referer != legacy.URL+"/wp-admin/" {
+	if got := last(); got.cookie != "wp-settings-1=libraryContent%3Dbrowse" || got.xff != "192.0.2.1" || got.referer != legacy.URL+"/wp-admin/" { // the address the gateway saw, never the client's header
 		t.Errorf("headers towards the legacy app: %+v", got)
 	}
 	if strings.Contains(rec.Header().Get("Set-Cookie"), "wordpress") {
@@ -143,9 +147,15 @@ func TestAreas(t *testing.T) {
 	if !strings.Contains(last().cookie, "wordpress_logged_in=abc") {
 		t.Errorf("legacy session not kept: %q", last().cookie)
 	}
-	rec = do("POST", "/wp-json/wp/v2/posts", "application/json", ` { "title" : "Hi" } `)
+	rec = do("POST", "/wp-json/wp/v2/posts", "application/json", ` { "title" : "Hi" } `, "X-WP-Nonce", "abc123", "X-Forwarded-Host", "evil.example")
 	if rec.Code != 201 || last().body != `{"title":"Hi"}` {
 		t.Errorf("json: %d %q", rec.Code, last().body)
+	}
+	if last().nonce != "abc123" || last().fwdHost != "" {
+		t.Errorf("app headers: nonce=%q forwarded-host=%q", last().nonce, last().fwdHost)
+	}
+	if rec.Header().Get("X-Wp-Total") != "12" || rec.Header().Get("X-Powered-By") != "" || rec.Header().Get("X-Pingback") != "" {
+		t.Errorf("response headers: %v", rec.Header())
 	}
 	if rec := do("GET", "/backup.zip", "", ""); rec.Code != 200 || rec.Body.String() != "PK\x03\x04binary" {
 		t.Errorf("download: %d", rec.Code)
@@ -197,4 +207,28 @@ func TestAreas(t *testing.T) {
 	if len(seen) != n {
 		t.Errorf("refused requests reached the legacy app: %v", seen[n:])
 	}
+}
+
+type flushSpy struct {
+	*httptest.ResponseRecorder
+	flushed chan string
+}
+
+func (f *flushSpy) Flush() { f.flushed <- f.Body.String() }
+
+func TestEventStreamFlushed(t *testing.T) {
+	spy := &flushSpy{httptest.NewRecorder(), make(chan string, 4)}
+	w := &commitWriter{ResponseWriter: spy, ss: &sessionState{}}
+	pr, pw := io.Pipe()
+	go func() { streamCopy(w, pr, "text/event-stream; charset=utf-8"); _ = pr.Close() }()
+	_, _ = io.WriteString(pw, "data: 1\n\n")
+	select {
+	case got := <-spy.flushed:
+		if got != "data: 1\n\n" {
+			t.Errorf("flushed %q", got)
+		}
+	case <-time.After(time.Second):
+		t.Error("event not flushed")
+	}
+	_ = pw.Close()
 }

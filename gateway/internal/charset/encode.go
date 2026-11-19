@@ -3,6 +3,7 @@ package charset
 import (
 	"errors"
 	"fmt"
+	"sync"
 	"unicode/utf8"
 )
 
@@ -27,7 +28,7 @@ func FromUTF8(name, s string) (string, error) {
 	case Windows1252:
 		reverse = reverseWindows1252
 	default:
-		return "", fmt.Errorf("%w: %q", ErrUnsupported, name)
+		return fromTable(name, s)
 	}
 	out := make([]byte, 0, len(s))
 	for _, r := range s {
@@ -63,6 +64,43 @@ var (
 	reverseWindows1252 = invert(windows1252)
 	reverseISO885915   = invert(iso885915)
 )
+
+var (
+	reverseOnce   sync.Once
+	reverseTables map[string]map[rune]byte
+)
+
+// fromTable encodes with one of the generated single-byte tables.
+func fromTable(name, s string) (string, error) {
+	if _, ok := tables[name]; !ok {
+		return "", fmt.Errorf("%w: %q", ErrUnsupported, name)
+	}
+	reverseOnce.Do(func() {
+		reverseTables = make(map[string]map[rune]byte, len(tables))
+		for n, tb := range tables {
+			m := make(map[rune]byte, 128)
+			for i, r := range tb {
+				if r != 0xFFFD {
+					m[r] = byte(0x80 + i)
+				}
+			}
+			reverseTables[n] = m
+		}
+	})
+	rev := reverseTables[name]
+	out := make([]byte, 0, len(s))
+	for _, r := range s {
+		switch b, ok := rev[r]; {
+		case r < 0x80:
+			out = append(out, byte(r))
+		case ok:
+			out = append(out, b)
+		default:
+			return "", ErrUnrepresentable
+		}
+	}
+	return string(out), nil
+}
 
 func invert(m map[byte]rune) map[rune]byte {
 	out := make(map[rune]byte, len(m))

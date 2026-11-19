@@ -142,6 +142,10 @@
           "description": "URL of the site as its web server knows it (e.g. https://portal.example-city.gov). Its host goes in the Host header and in TLS SNI; reach.address says where to connect when it differs.",
           "pattern": "^https?://"
         },
+        "client_ip": {
+          "enum": ["forwarded", "none"],
+          "description": "forwarded (default): the visitor's address, as the gateway saw it, goes to the legacy application in X-Forwarded-For and X-Real-IP (written by the gateway, never taken from the client), for its logs and its brute-force protection; none: not sent"
+        },
         "reach": {
           "type": "object",
           "additionalProperties": false,
@@ -298,7 +302,11 @@
           "additionalProperties": false,
           "properties": {
             "idle_minutes": { "type": "integer", "minimum": 5, "maximum": 1440 },
-            "absolute_hours": { "type": "integer", "minimum": 1, "maximum": 168 }
+            "absolute_hours": { "type": "integer", "minimum": 1, "maximum": 168 },
+            "remember_days": {
+              "type": "integer", "minimum": 0, "maximum": 365,
+              "description": "When the legacy site keeps a visitor logged in (\"remember me\": a lasting cookie), the gateway session lasts as long, up to these days (default 30; 0: never past the absolute limit)"
+            }
           }
         }
       }

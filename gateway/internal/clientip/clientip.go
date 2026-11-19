@@ -14,6 +14,9 @@ import (
 // Resolver determines the client IP while respecting the trusted networks.
 type Resolver struct {
 	trusted []netip.Prefix
+	// Cloudflare: honour CF-Connecting-IP. Only when the edge really is
+	// Cloudflare: otherwise any client could choose its own address.
+	Cloudflare bool
 }
 
 // New creates a Resolver with the given trusted networks.
@@ -27,7 +30,7 @@ func (r *Resolver) IP(req *http.Request) string {
 	if !peer.IsValid() || !r.isTrusted(peer) {
 		return peer.String()
 	}
-	if v := strings.TrimSpace(req.Header.Get("CF-Connecting-IP")); v != "" {
+	if v := strings.TrimSpace(req.Header.Get("CF-Connecting-IP")); r.Cloudflare && v != "" {
 		if a, err := netip.ParseAddr(v); err == nil {
 			return a.String()
 		}

@@ -115,6 +115,7 @@ type Legacy struct {
 	UserAgent      string          `json:"user_agent"`
 	TimeoutMS      int             `json:"timeout_ms"`
 	SessionExpired *SessionExpired `json:"session_expired"`
+	ClientIP       string          `json:"client_ip"` // forwarded (default) or none
 }
 
 // SessionExpired tells how the legacy application signals that its own
@@ -176,8 +177,9 @@ type Defaults struct {
 
 // SessionPolicy limits the life of gateway sessions.
 type SessionPolicy struct {
-	IdleMinutes   int `json:"idle_minutes"`
-	AbsoluteHours int `json:"absolute_hours"`
+	IdleMinutes   int  `json:"idle_minutes"`
+	AbsoluteHours int  `json:"absolute_hours"`
+	RememberDays  *int `json:"remember_days"`
 }
 
 // StringDefaults applies to string fields without constraints of their own.

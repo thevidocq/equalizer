@@ -55,6 +55,17 @@ func exercise(t *testing.T, store Store) {
 	if _, err := m.Load(ctx, id, "t", "a", p); !errors.Is(err, ErrNotFound) {
 		t.Errorf("absolute limit: %v", err)
 	}
+	// "Remember me" keeps the session past the absolute limit.
+	m.now = time.Now
+	rem := NewID()
+	in.RememberUntil = time.Now().Add(24 * time.Hour)
+	if err := m.Save(ctx, rem, in, p); err != nil {
+		t.Fatal(err)
+	}
+	m.now = func() time.Time { return time.Now().Add(2 * time.Hour) }
+	if got, err := m.Load(ctx, rem, "t", "a", p); err != nil || !got.Remembered(m.now()) {
+		t.Errorf("remembered session: %+v %v", got, err)
+	}
 	m.now = time.Now
 	if err := m.Delete(ctx, id); err != nil {
 		t.Fatal(err)

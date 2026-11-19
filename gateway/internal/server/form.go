@@ -107,7 +107,7 @@ func (p *Public) serveForm(w http.ResponseWriter, r *http.Request, st *site.Site
 		writePage(w, http.StatusInternalServerError, pageError)
 		return
 	}
-	ss.apply(req)
+	p.prepare(req, r, st, ss)
 	if !p.acquireLegacy(r, st, form.ID) {
 		writePage(w, http.StatusServiceUnavailable, pageUnavailable)
 		return

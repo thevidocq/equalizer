@@ -44,7 +44,9 @@ class Site:
                 logged = "session=ok" in (self.headers.get("Cookie") or "")
                 p = self.path.split("?")[0]
                 if p == "/":
-                    return self._send(200, HOME % ('<a href="/members/area/profile">Members</a>' if logged else ""))
+                    # like most PHP sites: an anonymous session cookie on the first visit
+                    return self._send(200, HOME % ('<a href="/members/area/profile">Members</a>' if logged else ""),
+                                      headers={"Set-Cookie": "PHPSESSID=anon; Path=/"})
                 if p in ("/about/", "/contact/", "/team/", "/category/a/", "/category/b/", "/category/c/", "/events/list"):
                     return self._send(200, "<html><title>%s</title><body>page</body></html>" % p)
                 if p == "/members/area/profile" and logged:

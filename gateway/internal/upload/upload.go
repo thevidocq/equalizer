@@ -87,7 +87,7 @@ func Sniff(data []byte) string {
 // office tells OOXML and ODF documents from other zip files.
 func office(data []byte) string {
 	head := data[:min(len(data), 2048)]
-	if bytes.HasPrefix(data[30:min(len(data), 38)], []byte("mimetype")) {
+	if len(data) >= 38 && bytes.HasPrefix(data[30:38], []byte("mimetype")) {
 		for _, t := range []string{"application/vnd.oasis.opendocument.text", "application/vnd.oasis.opendocument.spreadsheet"} {
 			if bytes.Contains(head, []byte(t)) {
 				return t
@@ -107,9 +107,20 @@ func office(data []byte) string {
 	return "application/zip"
 }
 
+// MaxPixels bounds the images rebuilt: a few KB of PNG can declare a
+// picture that needs gigabytes once decoded.
+const MaxPixels = 40_000_000
+
 // Rebuild decodes an image and encodes its pixels again: whatever is not
 // the picture (metadata, scripts, a second file glued after it) is lost.
 func Rebuild(t string, data []byte) ([]byte, error) {
+	cfg, _, err := image.DecodeConfig(bytes.NewReader(data))
+	if err != nil {
+		return nil, err
+	}
+	if cfg.Width <= 0 || cfg.Height <= 0 || int64(cfg.Width)*int64(cfg.Height) > MaxPixels {
+		return nil, errors.New("image too large once decoded")
+	}
 	img, _, err := image.Decode(bytes.NewReader(data))
 	if err != nil {
 		return nil, err

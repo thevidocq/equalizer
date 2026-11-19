@@ -2,6 +2,7 @@ package upload
 
 import (
 	"bytes"
+	"encoding/binary"
 	"errors"
 	"image"
 	"image/color"
@@ -57,5 +58,22 @@ func TestSniffOffice(t *testing.T) {
 	docx := append([]byte("PK\x03\x04"), []byte("....[Content_Types].xml....word/document.xml")...)
 	if got := Sniff(docx); got != "application/vnd.openxmlformats-officedocument.wordprocessingml.document" {
 		t.Fatalf("docx: %s", got)
+	}
+}
+
+func TestHostileFiles(t *testing.T) {
+	// a zip header and nothing else must not crash the sniffer
+	for _, b := range [][]byte{[]byte("PK\x03\x04"), []byte("PK\x03\x04abcdefghijklmnopqrstuvwxyz")} {
+		_ = Sniff(b)
+	}
+	// a tiny PNG that declares 60000 x 60000 pixels: refused before decoding
+	var buf bytes.Buffer
+	_ = png.Encode(&buf, image.NewGray(image.Rect(0, 0, 1, 1)))
+	b := buf.Bytes()
+	binary.BigEndian.PutUint32(b[16:], 60000) // IHDR width
+	binary.BigEndian.PutUint32(b[20:], 60000) // IHDR height
+	spec := mapmodel.FieldSpec{Type: "file", MIME: []string{"image/png"}, MaxSizeKB: 64, Scan: "cdr"}
+	if _, err := Check("pic", spec, b); err == nil {
+		t.Fatal("decompression bomb accepted")
 	}
 }

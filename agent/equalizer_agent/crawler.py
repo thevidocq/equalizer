@@ -72,13 +72,19 @@ class Crawler:
     def _crawl(self, seeds, logged_in):
         queue = deque(dict.fromkeys(seeds))
         visited = set(self.r.pages) if not logged_in else set()
-        while queue and len(self.r.pages) < self.max:
+        # each pass has its own budget: the logged-in pass must not find it
+        # spent by the anonymous one
+        self.shapes = {}
+        self.logged_pass = logged_in
+        fetched = 0
+        while queue and fetched < self.max:
             pq = queue.popleft()
             if pq in visited:
                 continue
             visited.add(pq)
             if not self._allowed(pq):
                 continue
+            fetched += 1
             try:
                 resp = self.f.get(pq)
             except (ReachError, OSError, ValueError) as e:
@@ -148,7 +154,10 @@ class Crawler:
         if ext in ASSET_EXT:
             self._asset(url)
             return
-        queue.append(pq)
+        if getattr(self, "logged_pass", False) and pq not in self.r.pages:
+            queue.appendleft(pq)  # logged in: pages only members see come first
+        else:
+            queue.append(pq)
 
     def _asset(self, url):
         if not self.f.same_site(url):
@@ -191,12 +200,13 @@ class Crawler:
                 pass
             data[user[0].name] = account.get("username", "")
             data[pw[0].name] = account.get("password", "")
+            before = dict(self.f.cookies)
             try:
                 resp = self.f.request("POST", page_pq, data)
             except (ReachError, OSError, ValueError):
                 self.r.login = "failed"
                 return False
-            ok = resp.status in (200, 302, 303) and bool(self.f.cookies)
+            ok = _logged_in(resp, before, self.f.cookies)
             self.r.login = "ok" if ok else "failed"
             self.log.info("test account login", outcome=self.r.login, form=page_pq.split("?")[0])
             return ok
@@ -223,3 +233,18 @@ def _hidden_values(html: str, names: list) -> dict:
         if m:
             out[n] = m.group(1)
     return out
+
+
+def _logged_in(resp, before: dict, after: dict) -> bool:
+    """A login worked when the site set or changed a cookie (a new session)
+    and did not show the login form again: most sites already set a session
+    cookie on the first visit, so a cookie alone proves nothing."""
+    if after == before or not after:
+        return False
+    if resp.status in (301, 302, 303, 307, 308):
+        loc = (resp.location or "").lower()
+        return "login" not in loc or "testsession" in loc  # Moodle: login/index.php?testsession=…
+    if resp.status != 200:
+        return False
+    body = resp.body.decode("utf-8", "replace") if isinstance(resp.body, bytes) else str(resp.body)
+    return not re.search(r"""<input[^>]+type=["']?password""", body, re.I)

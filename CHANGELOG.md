@@ -35,6 +35,29 @@ Add a section at the top of "Entries" for every commit:
 
 ## Entries
 
+### 2026-11-19 — Bugfix session 2
+
+- **Branch:** `fix/bugfix-session-2` (on top of `fix/bugfix-session-1`)
+- **What (each with a test):**
+  - **Uploads, decompression bomb:** with `scan: cdr` a PNG of a few KB
+    declaring 60000 × 60000 pixels made the gateway allocate gigabytes.
+    Images are measured before decoding and refused past 40 megapixels.
+  - **Uploads, crash:** a file under 30 bytes starting like a zip made the
+    Office sniffer panic (slice bounds).
+  - **Discovery, test account:** the login was "ok" as soon as any cookie
+    existed, and most PHP sites set one on the first visit; now a login
+    needs a new or changed cookie and no login form in the answer (a
+    redirect back to the login page is a failure; Moodle's test session is
+    not).
+  - **Discovery, logged-in pass:** it shared the page budget and the
+    per-shape limit with the anonymous pass, so it usually explored nothing;
+    each pass has its own, and pages only members see come first.
+  - **Discovery drafts** are checked by a gateway too, like drafts written in
+    the panel.
+- **Why:** second review of the code of the last days.
+- **Status:** all tests pass.
+- **Next steps:** lab campaign.
+
 ### 2026-11-19 — Bugfix session 1
 
 - **Branch:** `fix/bugfix-session-1`

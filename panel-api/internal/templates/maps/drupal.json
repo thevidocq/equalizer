@@ -216,6 +216,23 @@
    }
   }
  ],
+ "areas": [
+  {
+   "id": "site",
+   "prefix": "/",
+   "methods": [
+    "GET",
+    "HEAD",
+    "POST",
+    "PUT",
+    "PATCH",
+    "DELETE",
+    "OPTIONS"
+   ],
+   "origin": "human",
+   "risk": "medium"
+  }
+ ],
  "assets": [
   {
    "prefix": "/sites/default/files/",
@@ -299,6 +316,6 @@
  ],
  "_template": {
   "name": "Drupal",
-  "description": "Home, nodes, path aliases, taxonomy terms, search and core/theme/module/uploaded files. Closed: /admin, /user, /jsonapi, install.php and update.php."
+  "description": "Home, nodes, path aliases, taxonomy terms, search and core/theme/module/uploaded files. The whole site is served as it is, admin included (area /); these entries add typed checks where they match."
  }
 }

@@ -139,6 +139,23 @@
    }
   }
  ],
+ "areas": [
+  {
+   "id": "site",
+   "prefix": "/",
+   "methods": [
+    "GET",
+    "HEAD",
+    "POST",
+    "PUT",
+    "PATCH",
+    "DELETE",
+    "OPTIONS"
+   ],
+   "origin": "human",
+   "risk": "medium"
+  }
+ ],
  "assets": [
   {
    "prefix": "/css/",
@@ -219,6 +236,6 @@
  ],
  "_template": {
   "name": "Generic site",
-  "description": "Home, pages one and two levels deep and the usual folders for styles, scripts, images and fonts. A start for custom PHP, ASP or JSP sites: add their real pages and forms."
+  "description": "Home, pages one and two levels deep and the usual folders for styles, scripts, images and fonts. A start for custom PHP, ASP or JSP sites: add their real pages and forms. The whole site is served as it is, admin included (area /); these entries add typed checks where they match."
  }
 }

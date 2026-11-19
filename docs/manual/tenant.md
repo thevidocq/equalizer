@@ -72,7 +72,7 @@ whatever it is asked.
 
 - **Start from a template**: choose the connector and the address of the
   site on the server; the editor fills with the pages, files and forms of
-  that CMS. Admin areas stay closed.
+  that CMS. The whole site works at once, admin included.
 - **Import a map file**: a YAML or JSON map exported from another site.
 - Or write it in the editor (format in `docs/map-format.md`).
 
@@ -84,13 +84,15 @@ address is allowed. Then **Send for review**.
 ### Step 4 — Discovery
 
 **Site → Discovery → Start discovery**. The agent explores the site through
-the connector, never from the Internet, opens no admin area and follows no
+the connector, never from the Internet, does not open admin pages and follows no
 link that changes something. With a test account it also explores as a
 logged-in user (the password is encrypted and deleted at the end).
 
 ![Discovery](../screenshots/discovery.png)
 
-The report shows what was found, what was kept out and why, what visitors
+The whole site always stays in the map through the `/` area. The report
+shows what was found, which pages got precise entries, what the agent did
+not open (still served by the area), what visitors
 asked for that the map lacks, and the protection against IDOR it proposes
 for JSON APIs (a list and a detail with the same id). If the map should
 change, a draft is proposed: review it and send it for approval.
@@ -181,11 +183,14 @@ to this version**: it is live again within 15 seconds.
 
 ## 4. What the map protects
 
-- **Only what is declared exists**: any other path is 404, any other method
-  405, any undeclared field 400.
-- **Typed fields** with rules (no SQL or HTML characters where not
-  expected), rate limits and behaviour rules against brute force and
-  scanners.
+- **The whole site works as before**, admin included: Equalizer does not
+  decide who may do what, the legacy site does. It removes the direct
+  contact with the legacy server and rebuilds every request (path, query,
+  forms, JSON, XML; malformed requests, XML entities and unknown binary
+  bodies never reach it).
+- **Typed fields** where the map has precise entries (templates and
+  discovery add them): no SQL or HTML characters where not expected, sealed
+  forms, rate limits and behaviour rules against brute force and scanners.
 - **Authorisation** (`owned_by_user`): each user opens only the objects the
   site showed them, in its pages, redirects or JSON answers; changing the
   number in the address gives 403.

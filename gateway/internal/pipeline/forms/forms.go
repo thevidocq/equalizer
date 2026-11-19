@@ -52,7 +52,10 @@ func bind(form *html.Node, base *url.URL, ctx *pipeline.Context) error {
 	if !strings.EqualFold(strings.TrimSpace(method), "post") {
 		return nil
 	}
-	hidden := takeHidden(form, ctx)
+	// Hidden values are taken away only from forms the gateway binds (it
+	// keeps them server-side); any other form, e.g. one served by an area,
+	// keeps them and works as on the legacy site.
+	hidden, hiddenNodes := collectHidden(form)
 
 	rawAction, _ := pipeline.Attr(form, "action")
 	action, err := url.Parse(strings.TrimSpace(rawAction))
@@ -63,6 +66,13 @@ func bind(form *html.Node, base *url.URL, ctx *pipeline.Context) error {
 	abs := base.ResolveReference(action)
 	m, ok := ctx.Forms.Match(abs, hidden)
 	if !ok {
+		if _, served := ctx.URLs.Public(abs); served && ctx.URLs.Internal(abs) {
+			return nil // posts into an area: served as it is, hidden values included
+		}
+		for _, n := range hiddenNodes { // posts nowhere: nothing to keep in the page
+			n.Parent.RemoveChild(n)
+			ctx.Stats.Removed++
+		}
 		ctx.Stats.FormsUnmapped++
 		if len(ctx.Stats.UnmappedPaths) < 20 {
 			ctx.Stats.UnmappedPaths = append(ctx.Stats.UnmappedPaths, abs.Path)
@@ -72,6 +82,10 @@ func bind(form *html.Node, base *url.URL, ctx *pipeline.Context) error {
 	token, err := ctx.Forms.Token(m, ctx.Stats.Charset)
 	if err != nil {
 		return err
+	}
+	for _, n := range hiddenNodes {
+		n.Parent.RemoveChild(n)
+		ctx.Stats.Removed++
 	}
 	pipeline.SetAttr(form, "action", m.Action)
 	// The form is re-encoded by the gateway: the browser always submits UTF-8.
@@ -98,9 +112,9 @@ func bind(form *html.Node, base *url.URL, ctx *pipeline.Context) error {
 	return nil
 }
 
-// takeHidden removes the form's hidden inputs and returns their values (the
-// first value wins when a name repeats).
-func takeHidden(form *html.Node, ctx *pipeline.Context) map[string]string {
+// collectHidden returns the form's hidden inputs and their values (the first
+// value wins when a name repeats).
+func collectHidden(form *html.Node) (map[string]string, []*html.Node) {
 	values := map[string]string{}
 	var remove []*html.Node
 	pipeline.Walk(form, func(n *html.Node) bool {
@@ -118,11 +132,7 @@ func takeHidden(form *html.Node, ctx *pipeline.Context) map[string]string {
 		remove = append(remove, n)
 		return false
 	})
-	for _, n := range remove {
-		n.Parent.RemoveChild(n)
-		ctx.Stats.Removed++
-	}
-	return values
+	return values, remove
 }
 
 func isControl(n *html.Node) bool {

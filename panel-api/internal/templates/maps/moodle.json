@@ -280,6 +280,23 @@
    }
   }
  ],
+ "areas": [
+  {
+   "id": "site",
+   "prefix": "/",
+   "methods": [
+    "GET",
+    "HEAD",
+    "POST",
+    "PUT",
+    "PATCH",
+    "DELETE",
+    "OPTIONS"
+   ],
+   "origin": "human",
+   "risk": "medium"
+  }
+ ],
  "assets": [
   {
    "prefix": "/theme/",
@@ -333,6 +350,6 @@
  ],
  "_template": {
   "name": "Moodle",
-  "description": "Front page, course and activity pages, the login form (the legacy session stays on the gateway) and theme/script/uploaded files. Closed: /admin, web services, upgrade and install pages. Review roles before opening courses to the public."
+  "description": "Front page, course and activity pages, the login form (the legacy session stays on the gateway) and theme/script/uploaded files. The whole site is served as it is, admin included (area /); these entries add typed checks where they match."
  }
 }

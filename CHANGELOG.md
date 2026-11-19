@@ -35,6 +35,40 @@ Add a section at the top of "Entries" for every commit:
 
 ## Entries
 
+### 2026-11-19 — The whole site is served: areas
+
+- **Branch:** `feat/areas` (on top of `fix/bugfix-session-2`)
+- **Decision (project owner):** Equalizer is in between and must not
+  interfere: the whole site is served, admin included, and access control
+  stays with the legacy application. Leftover files on the legacy server are
+  not Equalizer's concern. Recorded in CLAUDE.md.
+- **What:**
+  - Map contract: `areas` (prefix, methods, optional roles, body limit,
+    legacy charset). Precise entries take precedence.
+  - gateway: requests no entry matches go to the area with the longest
+    prefix; path checked, query and body parsed and written again
+    (`internal/rebuild`: urlencoded and multipart forms in order, files with
+    cleaned names, JSON token by token, XML from its tokens with DOCTYPE
+    refused, UTF-8 text; anything else 415); a few request headers rebuilt,
+    Referer/Origin translated; legacy status and content passed on, pages
+    rendered, downloads streamed (`legacyclient.Open`), redirects to other
+    sites passed on; legacy cookies stay on the gateway; rate limits and
+    form tokens only on precise entries. Forms posting into an area keep
+    their hidden values (nonces); the link rewriter keeps area paths.
+  - Templates: every CMS template has the `/` area with all methods.
+  - Agent: always proposes the `/` area (`site_area` in the report); admin
+    pages and destructive links are still not opened, but served.
+  - Review aid: `area_added` (low), `area_removed` (high).
+  - Docs: map format (areas, principles), tenant manual, gateway README.
+- **Why:** sites must work entirely through Equalizer with little setup,
+  with or without discovery.
+- **Status:** tests pass (end-to-end area test with a WordPress-like admin:
+  ajax, REST JSON, downloads, legacy 403, redirects, nonces kept; XXE,
+  binary, NUL, malformed query, dot segments refused before the legacy
+  app; rebuild unit tests).
+- **Next steps:** lab campaign with WordPress and Moodle fully through the
+  gateway.
+
 ### 2026-11-19 — Bugfix session 2
 
 - **Branch:** `fix/bugfix-session-2` (on top of `fix/bugfix-session-1`)

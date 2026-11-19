@@ -95,3 +95,15 @@ func TestLoginRules(t *testing.T) {
 		}
 	}
 }
+
+func TestAreaRules(t *testing.T) {
+	without := `{"routes":[]}`
+	with := `{"routes":[],"areas":[{"id":"site","prefix":"/"}]}`
+	got := map[string]string{}
+	for _, f := range append(Compare([]byte(without), []byte(with)).Findings, Compare([]byte(with), []byte(without)).Findings...) {
+		got[f.Rule] = f.Severity
+	}
+	if got["area_added"] != "low" || got["area_removed"] != "high" {
+		t.Errorf("area rules: %v", got)
+	}
+}

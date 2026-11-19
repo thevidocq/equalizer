@@ -1,6 +1,8 @@
 // Package mapmodel defines the map types used by the gateway.
 package mapmodel
 
+import "strings"
+
 // Model is the subset of the map (schema/map/gateway-map.schema.json) used so
 // far by the gateway. Full validation against the schema happens in the panel
 // before signing; the gateway trusts only the signature.
@@ -18,6 +20,7 @@ type Model struct {
 	API      []APIRoute         `json:"api"`
 	Compat   []Compat           `json:"compat"`
 	Assets   []Asset            `json:"assets"`
+	Areas    []Area             `json:"areas"`
 	Behavior []BehaviorRule     `json:"behavior"`
 }
 
@@ -43,6 +46,47 @@ type Threshold struct {
 	Count  int    `json:"count"`
 	Window string `json:"window"` // e.g. 10m
 	Per    string `json:"per"`    // ip, session, user
+}
+
+// Area is a whole section of the site served as it is (rebuilt, not
+// typed): "/" for the whole site. Precise entries take precedence.
+type Area struct {
+	ID        string   `json:"id"`
+	Prefix    string   `json:"prefix"`
+	Roles     []string `json:"roles"`   // empty: every role
+	Methods   []string `json:"methods"` // empty: GET, HEAD, POST
+	MaxBodyKB int      `json:"max_body_kb"`
+	Charset   string   `json:"charset"`
+}
+
+// DefaultAreaBodyKB bounds an area's request body when the map says nothing.
+const DefaultAreaBodyKB = 51200
+
+// Allows reports whether the area serves the method.
+func (a *Area) Allows(method string) bool {
+	if len(a.Methods) == 0 {
+		return method == "GET" || method == "HEAD" || method == "POST"
+	}
+	for _, m := range a.Methods {
+		if m == method || (m == "GET" && method == "HEAD") {
+			return true
+		}
+	}
+	return false
+}
+
+// AreaFor returns the area with the longest prefix of path, nil if none.
+func (m *Model) AreaFor(path string) *Area {
+	var best *Area
+	for i := range m.Areas {
+		a := &m.Areas[i]
+		if strings.HasPrefix(path, a.Prefix) || path+"/" == a.Prefix {
+			if best == nil || len(a.Prefix) > len(best.Prefix) {
+				best = a
+			}
+		}
+	}
+	return best
 }
 
 // Asset is a prefix of legacy static files served by the gateway.

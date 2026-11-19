@@ -153,6 +153,7 @@ def build(job: dict, crawl, fp) -> tuple:
     if not doc.get("forms"):
         doc.pop("forms", None)
     issues = idor.propose(doc)
+    area = ensure_site_area(doc)
 
     after = sum(1 for p in paths if covered(doc, p))
     visitors = [u for u in job.get("unmapped", []) if u.get("method") == "GET" and not covered(doc, u.get("path", ""))
@@ -165,6 +166,7 @@ def build(job: dict, crawl, fp) -> tuple:
         "coverage": round(100 * after / len(paths)) if paths else 0,
         "routes_added": added_routes, "forms_added": added_forms, "assets_added": added_assets,
         "issues_proposed": issues,
+        "site_area": area,
         "excluded": [{"path": p.split("?")[0], "reason": r} for p, r in sorted(crawl.excluded.items())][:200],
         "skipped_actions": len(crawl.skipped_actions), "not_supported": not_supported,
         "visitors_missing": [{"path": u["path"], "clients": u.get("clients", 0)} for u in visitors][:50],
@@ -172,6 +174,21 @@ def build(job: dict, crawl, fp) -> tuple:
         "base": "published map" if continuous else ("template" if job.get("template") else "empty map"),
     }
     return doc, report, samples
+
+
+ALL_METHODS = ["GET", "HEAD", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"]
+
+
+def ensure_site_area(doc: dict) -> str:
+    """The whole site is always served: whatever the precise entries do not
+    cover goes through the site area, admin included. Returns "added" or
+    "present"."""
+    if any(a.get("prefix") == "/" for a in doc.get("areas", [])):
+        return "present"
+    ids = {a.get("id") for a in doc.get("areas", [])}
+    doc.setdefault("areas", []).append({"id": "site" if "site" not in ids else "whole_site", "prefix": "/",
+                                        "methods": ALL_METHODS, "origin": "agent", "risk": "medium"})
+    return "added"
 
 
 def _advisories():

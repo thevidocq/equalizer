@@ -60,6 +60,7 @@ func Compare(base, next json.RawMessage) Result {
 		c.entries(sec, byID(b[sec], "id"), byID(n[sec], "id"))
 	}
 	c.assets(byID(b["assets"], "prefix"), byID(n["assets"], "prefix"))
+	c.areas(byID(b["areas"], "prefix"), byID(n["areas"], "prefix"))
 	if len(asList(b["behavior"])) > len(asList(n["behavior"])) {
 		c.add(Change{"behavior", "behavior", "removed", "fewer behaviour rules"})
 		c.find("medium", "behavior", "behavior_removed", "Behaviour rules were removed: scanners and bursts are blocked less.")

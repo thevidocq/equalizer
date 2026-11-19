@@ -31,6 +31,7 @@ import (
 	"github.com/thevidocq/equalizer/panel-api/internal/logging"
 	"github.com/thevidocq/equalizer/panel-api/internal/logsearch"
 	"github.com/thevidocq/equalizer/panel-api/internal/mail"
+	"github.com/thevidocq/equalizer/panel-api/internal/mapcheck"
 	"github.com/thevidocq/equalizer/panel-api/internal/mfa"
 	"github.com/thevidocq/equalizer/panel-api/internal/store"
 	"github.com/thevidocq/equalizer/panel-api/internal/ui"
@@ -123,6 +124,11 @@ func run() error {
 	}
 	if cfg.UIDir != "" {
 		srv.UI = ui.Handler(cfg.UIDir)
+	}
+	if cfg.GatewayAdmin != "" {
+		srv.MapCheck = &mapcheck.Checker{Addr: cfg.GatewayAdmin}
+	} else {
+		log.Warn("EQ_GATEWAY_ADMIN not set: maps are checked against the schema only")
 	}
 	srv.Health = &health.Probe{RelayAdmin: cfg.RelayAdmin, GatewayAdmin: cfg.GatewayAdmin, LokiURL: cfg.LokiURL}
 	if cfg.LokiURL != "" {

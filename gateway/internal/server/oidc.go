@@ -22,6 +22,7 @@ const (
 	oidcPrefix   = "/.eq/oidc/"
 	oidcCallback = oidcPrefix + "callback"
 	pendingTTL   = 10 * time.Minute
+	maxPending   = 4 // logins started in other tabs stay valid
 )
 
 // Secrets gives the client secret of a site's identity provider ("" for a
@@ -65,7 +66,7 @@ func (p *Public) oidcGate(w http.ResponseWriter, r *http.Request, st *site.Site,
 	if !st.Model.Roles.Auth.LoginRequired() || (ss.s != nil && ss.s.Identity != nil) {
 		return false
 	}
-	if r.Method != http.MethodGet && r.Method != http.MethodHead || wantsJSON(r) {
+	if r.Method != http.MethodGet && r.Method != http.MethodHead || !navigation(r) {
 		p.Events.Emit(p.event(r, st, "request.blocked", "login_required", http.StatusUnauthorized, nil))
 		writeAPIError(w, http.StatusUnauthorized, "login_required")
 		return true
@@ -74,8 +75,14 @@ func (p *Public) oidcGate(w http.ResponseWriter, r *http.Request, st *site.Site,
 	return true
 }
 
-func wantsJSON(r *http.Request) bool {
-	return strings.Contains(r.Header.Get("Accept"), "application/json") && !strings.Contains(r.Header.Get("Accept"), "text/html")
+// navigation reports whether the browser is loading a page (a redirect to the
+// provider makes sense) rather than calling from a script (401 instead).
+func navigation(r *http.Request) bool {
+	if mode := r.Header.Get("Sec-Fetch-Mode"); mode != "" {
+		return mode == "navigate"
+	}
+	accept := r.Header.Get("Accept")
+	return !strings.Contains(accept, "application/json") || strings.Contains(accept, "text/html")
 }
 
 // safeReturn keeps only a path of this site: never another host.
@@ -104,7 +111,16 @@ func (p *Public) oidcStart(w http.ResponseWriter, r *http.Request, st *site.Site
 		writePage(w, http.StatusBadGateway, pageBadGateway)
 		return
 	}
-	ss.s.Pending = pend
+	var keep []session.Pending
+	for _, old := range ss.s.Pending {
+		if p.now().Before(old.Expires) {
+			keep = append(keep, old)
+		}
+	}
+	if len(keep) >= maxPending {
+		keep = keep[len(keep)-maxPending+1:]
+	}
+	ss.s.Pending = append(keep, *pend)
 	ss.dirty = true
 	w.Header().Set("Cache-Control", "no-store")
 	http.Redirect(w, r, dest, http.StatusFound)
@@ -124,12 +140,18 @@ func (p *Public) oidcFinish(w http.ResponseWriter, r *http.Request, st *site.Sit
 		}
 		writePage(w, status, page)
 	}
-	if ss.s == nil || ss.s.Pending == nil || p.now().After(ss.s.Pending.Expires) {
+	if ss.s == nil || len(ss.s.Pending) == 0 {
 		refuse("oidc_no_pending_login", http.StatusBadRequest, pageBadRequest, nil)
 		return
 	}
-	pend := *ss.s.Pending
-	if q.Get("error") != "" || q.Get("code") == "" || q.Get("state") == "" || !equal(q.Get("state"), pend.State) {
+	var pend session.Pending
+	found := false
+	for _, c := range ss.s.Pending {
+		if q.Get("state") != "" && equal(q.Get("state"), c.State) && p.now().Before(c.Expires) {
+			pend, found = c, true
+		}
+	}
+	if !found || q.Get("error") != "" || q.Get("code") == "" {
 		refuse("oidc_bad_callback", http.StatusBadRequest, pageBadRequest, nil)
 		return
 	}
@@ -159,7 +181,13 @@ func (p *Public) oidcFinish(w http.ResponseWriter, r *http.Request, st *site.Sit
 	}
 	ss.login(ss.s.Role) // new session id: no fixation
 	ss.s.Identity = &session.Identity{Subject: claims.Subject, Email: claims.Email, Role: role}
-	ss.s.Pending = nil
+	var rest []session.Pending // logins of other tabs stay valid
+	for _, c := range ss.s.Pending {
+		if c.State != pend.State {
+			rest = append(rest, c)
+		}
+	}
+	ss.s.Pending = rest
 	p.Log.InfoContext(r.Context(), "OIDC login", slog.Group("detail", slog.String("role", role)))
 	w.Header().Set("Cache-Control", "no-store")
 	http.Redirect(w, r, (&url.URL{Path: "/"}).ResolveReference(mustParse(pend.Return)).RequestURI(), http.StatusFound)

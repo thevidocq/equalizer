@@ -1049,7 +1049,7 @@ export interface paths {
             };
         };
         put?: never;
-        /** New draft version (validated against the map schema) */
+        /** New draft version, validated against the map schema and then by a gateway (POST /maps/check on EQ_GATEWAY_ADMIN): map_inconsistent (422) when the gateway would refuse it; if no gateway answers the draft is saved anyway */
         post: {
             parameters: {
                 query?: never;
@@ -1224,6 +1224,24 @@ export interface paths {
                 };
                 403: components["responses"]["Error"];
                 409: components["responses"]["Error"];
+                /** @description publish, rollback: map_inconsistent, the gateway would refuse the map */
+                422: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Error"];
+                    };
+                };
+                /** @description publish: map_unchecked, no gateway could check the map (never published unchecked) */
+                503: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Error"];
+                    };
+                };
             };
         };
         delete?: never;

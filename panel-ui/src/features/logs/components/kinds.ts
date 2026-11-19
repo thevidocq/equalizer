@@ -21,6 +21,11 @@ export const defaultKinds = kinds.filter((k) => k.id !== "served").map((k) => k.
 
 const alert: Kind = kinds[3] as Kind;
 
+/** Identifies an event across refreshes (its position in the list changes). */
+export function eventKey(e: LogEvent): string {
+  return `${e.ts}|${e.request_id ?? ""}|${e.type}|${e.path ?? ""}`;
+}
+
 export function kindOf(t: EventType): Kind {
   return kinds.find((k) => k.types.includes(t)) ?? alert;
 }

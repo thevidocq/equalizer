@@ -34,6 +34,7 @@ requests to the legacy application and renders pages with faithful rendering.
 | Refused paths counted per site (path only) and sent to the panel every minute (`EQ_UNMAPPED_URL`, default next to `EQ_MAP_URL`) | Done |
 | Authorisation `owned_by_user` / `never` / `always` per role on routes and APIs: values issued by the site's own links, redirects and JSON answers (`response.issues`), kept in the session | Done |
 | File uploads: real type sniffed, size bound, images rebuilt with `scan: cdr`, random names, multipart rebuilt towards the legacy app; no virus scan (left to the security stack) | Done |
+| Map check for the panel on the admin endpoint (`POST /maps/check`): the same checks as loading a published map | Done |
 | Login with the identity provider (OIDC, code flow with PKCE, ID token checked with the standard library, groups → roles, `/.eq/oidc/*`), off by default; client secrets from the panel (`EQ_OIDC_SECRETS_URL`, default next to `EQ_MAP_URL`) | Done |
 | Per-user legacy accounts behind OIDC | To do |
 | Connector mode through tunnel-relay (destination checked against `legacy.reach.allow`, relay and connector errors mapped to 502) | Done |

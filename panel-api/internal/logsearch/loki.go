@@ -107,7 +107,9 @@ func (l *Loki) Events(ctx context.Context, f Filter, before int64, limit int) ([
 	for _, s := range res.Data.Result {
 		for _, v := range s.Values {
 			ns, err := strconv.ParseInt(v[0], 10, 64)
-			if err == nil {
+			// the cursor's own event was on the previous page, whether or
+			// not Loki treats end as inclusive
+			if err == nil && (before == 0 || ns < before) {
 				lines = append(lines, line{ns, v[1]})
 			}
 		}

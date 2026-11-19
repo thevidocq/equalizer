@@ -86,6 +86,9 @@ func BuildWith(m *mapmodel.Model, opts Options) (*Site, error) {
 	if err != nil {
 		return nil, err
 	}
+	if err := checkEntryRoles(m); err != nil {
+		return nil, err
+	}
 
 	v := validate.New(m.Types, m.Defaults.String)
 	for _, r := range m.Routes {

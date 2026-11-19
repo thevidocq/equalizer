@@ -2,8 +2,10 @@ package server
 
 import (
 	"encoding/json"
+	"io"
 	"net/http"
 
+	"github.com/thevidocq/equalizer/gateway/internal/mapmodel"
 	"github.com/thevidocq/equalizer/gateway/internal/site"
 )
 
@@ -40,6 +42,21 @@ func (a *Admin) Handler() http.Handler {
 				"domain": s.Model.Meta.PublicDomain, "map_version": s.Model.Meta.Version})
 		}
 		writeJSON(w, http.StatusOK, map[string]any{"status": "ready", "sites": sites})
+	})
+	// The panel asks here whether a draft would load: the same checks as a
+	// published map (roles, types, authorisation, issues, login…), so a
+	// version the gateway would refuse is never approved or published.
+	mux.HandleFunc("POST /maps/check", func(w http.ResponseWriter, r *http.Request) {
+		var m mapmodel.Model
+		if err := json.NewDecoder(io.LimitReader(r.Body, 8<<20)).Decode(&m); err != nil {
+			writeJSON(w, http.StatusUnprocessableEntity, map[string]any{"ok": false, "error": "unreadable map: " + err.Error()})
+			return
+		}
+		if _, err := site.Build(&m); err != nil {
+			writeJSON(w, http.StatusUnprocessableEntity, map[string]any{"ok": false, "error": err.Error()})
+			return
+		}
+		writeJSON(w, http.StatusOK, map[string]any{"ok": true})
 	})
 	// Caddy asks here before getting a certificate on demand: only the
 	// domains of published maps get one.

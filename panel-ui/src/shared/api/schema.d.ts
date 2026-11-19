@@ -1424,6 +1424,70 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/apps/{app}/maps/{version}/verify": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Latest verification of this version (docs/agent.md, steps 4 and 5) */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    app: components["parameters"]["app"];
+                    version: components["parameters"]["version"];
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Verification */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Verification"];
+                    };
+                };
+                404: components["responses"]["Error"];
+            };
+        };
+        put?: never;
+        /** Verify this version (editors, approvers, administrators): the agent compares every studied page with and without Equalizer using this version, and tries the attack set on every parameter and field, on the gateway only. Nothing is written to the legacy site */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    app: components["parameters"]["app"];
+                    version: components["parameters"]["version"];
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Queued */
+                202: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Verification"];
+                    };
+                };
+                409: components["responses"]["Error"];
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/apps/{app}/maps/{version}/{action}": {
         parameters: {
             query?: never;
@@ -2162,6 +2226,94 @@ export interface paths {
                         document?: {
                             [key: string]: unknown;
                         };
+                        error?: string;
+                    };
+                };
+            };
+            responses: {
+                /** @description Saved */
+                204: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/internal/verifications/claim": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** The agent takes the next queued verification, with the version, the pages to compare and the reach */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Job */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["VerificationJob"];
+                    };
+                };
+                /** @description Nothing queued */
+                204: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/internal/verifications/{id}/result": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Score and findings of a finished verification */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: components["parameters"]["id"];
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": {
+                        score?: components["schemas"]["StudyScore"];
+                        broken?: components["schemas"]["BrokenPage"][];
+                        open?: components["schemas"]["StillOpen"][];
                         error?: string;
                     };
                 };
@@ -3607,6 +3759,8 @@ export interface components {
             document?: {
                 [key: string]: unknown;
             };
+            /** @description Latest verification of this version, when there is one */
+            verification?: components["schemas"]["Verification"] | null;
         };
         /** @description A security event, with the fields the panel shows (never field values) */
         LogEvent: {
@@ -3755,6 +3909,8 @@ export interface components {
                 username?: string;
                 password?: string;
             } | null;
+            /** @description Test accounts (for example customer and administrator). Each is explored in its own pass; what each one sees becomes the roles of the map. Kept encrypted, deleted when the discovery ends. Replaces account */
+            accounts?: components["schemas"]["TestAccount"][];
             /** @description Needed while the site has no published map */
             connector_id?: string;
             /** @description host:port the connector reaches */
@@ -3781,10 +3937,7 @@ export interface components {
             progress?: {
                 [key: string]: unknown;
             };
-            /** @description CMS, coverage, routes found and excluded, components with known issues, notes */
-            report?: {
-                [key: string]: unknown;
-            } | null;
+            report?: components["schemas"]["StudyReport"] | null;
             /** @description The draft proposed, if the map changes */
             draft_version?: number | null;
             error?: string | null;
@@ -3816,6 +3969,101 @@ export interface components {
                 error?: string | null;
             };
         };
+        TestAccount: {
+            /** @description How the report names it, e.g. customer, administrator */
+            label: string;
+            /** @description Map role its pages get; default: the label */
+            role?: string | null;
+            username: string;
+            password: string;
+        };
+        /** @description Measured by the agent's two checks (docs/agent.md) */
+        StudyScore: {
+            functions_total: number;
+            /** @description Pages and script requests that look and answer the same with and without Equalizer */
+            functions_identical: number;
+            /** @description Parameters and form fields of the map */
+            inputs_total: number;
+            /** @description Those the gateway refuses every value of the attack set for */
+            inputs_protected: number;
+            /** @description Share of the studied requests that only the generic area serves */
+            area_percent: number;
+        };
+        StudyFunction: {
+            /** @description What the pages do, e.g. Article search */
+            name: string;
+            /** @description Map entries (route, form, API ids) */
+            entries: string[];
+            paths?: string[];
+            /** @description Accounts that used it; empty: everyone */
+            roles?: string[];
+            /** @description The rule written for it, in words */
+            rule?: string;
+        };
+        StillOpen: {
+            /** @enum {unknown} */
+            kind: "path" | "input";
+            /** @description A path left to the area, or entry.field */
+            target: string;
+            /** @enum {unknown} */
+            reason: "not_reached" | "legacy_error" | "action_not_performed" | "cannot_narrow" | "accepts_markup" | "accepts_sql" | "accepts_template" | "accepts_path" | "accepts_shell" | "other";
+            detail?: string;
+        };
+        BrokenPage: {
+            path: string;
+            entry?: string | null;
+            /** @enum {unknown} */
+            difference: "status" | "text" | "links" | "forms" | "picture" | "refused";
+            detail?: string;
+        };
+        /** @description Report of a discovery. Reports written before the study have only the older keys (cms, coverage, routes found and excluded, components with known issues, notes) */
+        StudyReport: {
+            score?: components["schemas"]["StudyScore"];
+            functions?: components["schemas"]["StudyFunction"][];
+            open?: components["schemas"]["StillOpen"][];
+            accounts?: {
+                label?: string;
+                /** @enum {unknown} */
+                login?: "ok" | "failed" | "no_login_form";
+            }[];
+            /** @description Links never opened because they change something */
+            skipped_actions?: string[];
+        } & {
+            [key: string]: unknown;
+        };
+        Verification: {
+            version: number;
+            /** @enum {unknown} */
+            status: "queued" | "running" | "done" | "failed";
+            requested_by?: string | null;
+            /** Format: date-time */
+            created_at?: string;
+            /** Format: date-time */
+            finished_at?: string | null;
+            score?: components["schemas"]["StudyScore"] | null;
+            broken?: components["schemas"]["BrokenPage"][];
+            open?: components["schemas"]["StillOpen"][];
+            error?: string | null;
+        };
+        VerificationJob: {
+            id: number;
+            tenant: string;
+            app: string;
+            version: number;
+            /** @description The version to verify */
+            document: {
+                [key: string]: unknown;
+            };
+            base_url: string;
+            reach: {
+                [key: string]: unknown;
+            };
+            /** @description Paths studied by the latest discovery, to compare */
+            pages: string[];
+            accounts?: {
+                [key: string]: unknown;
+            }[];
+        };
         DiscoveryJob: {
             id: number;
             tenant: string;
@@ -3837,6 +4085,12 @@ export interface components {
             account?: {
                 [key: string]: unknown;
             } | null;
+            accounts?: {
+                label: string;
+                role?: string | null;
+                username: string;
+                password: string;
+            }[];
             /** @description provider, model, endpoint, api_key; null without AI */
             llm?: {
                 [key: string]: unknown;

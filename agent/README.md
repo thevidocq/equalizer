@@ -5,6 +5,9 @@ panel-api, explores the site **read-only** through its connector (the same
 way the gateway reaches it) and hands back a report and a proposed map,
 which panel-api saves as a draft: it still needs someone else's approval.
 
+The agent is being extended into a full study of the site, with a real
+browser and two checks of its own map: see [docs/agent.md](../docs/agent.md).
+
 ## What a discovery does
 
 1. **Crawl** (`crawler.py`): `/`, `robots.txt`, `sitemap.xml`, the template's

@@ -38,6 +38,38 @@ prototype.
 
 ## Entries
 
+### 2026-11-19 — Design the agent's study of legacy sites
+
+- **Branch:** docs/agent-study (on top of feat/site-certificates)
+- **What:**
+  - `docs/agent.md`: the agent as Equalizer's strong point. A study with a
+    real browser, read-only (administration included, test accounts with
+    few permissions per CMS), a precise map entry for every function
+    understood, and two checks of its own map: pages compared with and
+    without Equalizer, attack set tried on every parameter and field on the
+    gateway only. Measured score, "still open" list, Verify button, rollout
+    in six steps. AI unchanged (structure only); page contents for the AI
+    planned but not decided.
+  - Contracts: `panel-api.yaml` gets test `accounts` (up to three),
+    `StudyReport`, `Verification`, `GET/POST /apps/{app}/maps/{version}/verify`,
+    `MapVersion.verification`, internal verification queue;
+    new `schema/api/gateway-admin.yaml` documents the gateway's admin
+    endpoint and adds `POST /maps/try` (dry-run and preview of a draft
+    signed for that purpose, service token).
+  - UI types regenerated; architecture and agent README point to the design.
+- **Why:** a map is only as good as it is tight and correct; writing one by
+  hand does not scale. The agent must write it and prove it.
+- **Status:** design and contracts only; nothing implemented yet. The new
+  endpoints are not served yet.
+- **Next steps:**
+  1. Gateway: `POST /maps/try`; panel-api: signing for purpose try.
+  2. Agent: browser and read-only proxy, accounts, forms, declared APIs,
+     roles and ownership, tighter map.
+  3. Agent: the two checks and the score; panel-api verification queue.
+  4. Panel: score, still open, Verify button.
+  5. Lab: studies of the four lab sites with expected scores.
+  6. Separately: remove the map's `risk` field (a label with no effect).
+
 ### 2026-11-19 — Serve protected sites with their own certificates
 
 - **Branch:** feat/site-certificates

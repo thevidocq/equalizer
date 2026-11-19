@@ -1,10 +1,11 @@
 import { Button, SelectField, TextField } from "@/shared/ui";
 import type { AuthForm } from "./auth";
+import { ScopeFields } from "./ScopeFields";
 
-type Props = { form: AuthForm; roles: string[]; set: (f: AuthForm) => void };
+type Props = { form: AuthForm; roles: string[]; kind?: string | null; set: (f: AuthForm) => void };
 
 /** Issuer, client, groups → roles: the part of the login that goes in the map. */
-export function AuthFields({ form, roles, set }: Props) {
+export function AuthFields({ form, roles, kind, set }: Props) {
   const rule = (i: number, k: "group" | "role", v: string) =>
     set({ ...form, roles: form.roles.map((r, n) => (n === i ? { ...r, [k]: v } : r)) });
   return (
@@ -34,10 +35,7 @@ export function AuthFields({ form, roles, set }: Props) {
           <Button onClick={() => set({ ...form, roles: [...form.roles, { group: "", role: roles[0] ?? "" }] })}>Add a group</Button>
         </div>
       </fieldset>
-      <label className="flex items-start gap-2 text-sm">
-        <input type="checkbox" className="mt-1" checked={form.required} onChange={(e) => set({ ...form, required: e.target.checked })} />
-        <span><span className="font-semibold">Every page needs the login.</span> Off: visitors keep the anonymous role and log in at <code className="font-mono">/.eq/oidc/login</code>.</span>
-      </label>
+      <ScopeFields form={form} kind={kind} set={set} />
     </div>
   );
 }

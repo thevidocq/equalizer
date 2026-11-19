@@ -6,9 +6,17 @@ export type AuthForm = {
   client_id: string;
   scopes: string;
   groups_claim: string;
-  required: boolean;
+  /** site: every page; paths: only the listed paths; optional: login at /.eq/oidc/login */
+  scope: "site" | "paths" | "optional";
+  paths: string;
   roles: RoleRule[];
 };
+
+const pathRe = /^\/[A-Za-z0-9._~%!$&'()*+,=:@/-]{0,200}$/;
+
+export function pathList(text: string): string[] {
+  return text.split(/[\s,]+/).map((p) => p.trim()).filter(Boolean);
+}
 
 type Doc = Record<string, unknown>;
 type Roles = { anonymous?: string; list?: Record<string, unknown>; auth?: Record<string, unknown> };
@@ -27,7 +35,8 @@ export function readAuth(doc: Doc | undefined): AuthForm {
     client_id: on ? String(a.client_id ?? "") : "",
     scopes: Array.isArray(a.scopes) ? a.scopes.join(" ") : "openid email profile",
     groups_claim: String(a.groups_claim ?? "groups"),
-    required: a.required !== false,
+    scope: Array.isArray(a.paths) && a.paths.length ? "paths" : a.required === false ? "optional" : "site",
+    paths: Array.isArray(a.paths) ? a.paths.join("\n") : "",
     roles: Array.isArray(a.roles) && a.roles.length ? (a.roles as RoleRule[]) : [{ group: "", role: rolesOf(doc)[0] ?? "" }],
   };
 }
@@ -40,7 +49,14 @@ export function problems(f: AuthForm, doc: Doc | undefined): string[] {
   if (!f.client_id.trim()) out.push("The client ID is required.");
   const rules = f.roles.filter((r) => r.group.trim());
   if (!rules.length) out.push("Add at least one group and its role.");
-  if (!f.required && !(doc?.roles as Roles | undefined)?.anonymous) out.push("Login not required needs an anonymous role in the map.");
+  if (f.scope !== "site" && !(doc?.roles as Roles | undefined)?.anonymous) out.push("Login on some paths or optional needs an anonymous role in the map.");
+  if (f.scope === "paths") {
+    const list = pathList(f.paths);
+    if (!list.length) out.push("List at least one path, e.g. /wp-admin/.");
+    if (list.length > 50) out.push("At most 50 paths.");
+    const bad = list.filter((p) => !pathRe.test(p));
+    if (bad.length) out.push(`Paths start with / and have no spaces: ${bad.join(", ")}.`);
+  }
   return out;
 }
 
@@ -59,7 +75,7 @@ export function applyAuth(doc: Doc, f: AuthForm): Doc {
       scopes: f.scopes.split(/\s+/).filter(Boolean),
       groups_claim: f.groups_claim.trim() || "groups",
       roles: f.roles.filter((r) => r.group.trim()).map((r) => ({ group: r.group.trim(), role: r.role })),
-      required: f.required,
+      ...(f.scope === "paths" ? { paths: pathList(f.paths) } : { required: f.scope === "site" }),
     };
   }
   return { ...rest, roles };

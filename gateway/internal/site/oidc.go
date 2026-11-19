@@ -29,7 +29,12 @@ func checkOIDC(m *mapmodel.Model) (*oidc.Provider, error) {
 		}
 	}
 	if !a.LoginRequired() && m.Roles.Anonymous == "" {
-		return nil, fmt.Errorf("roles.auth: login not required needs roles.anonymous")
+		return nil, fmt.Errorf("roles.auth: login not required everywhere needs roles.anonymous")
+	}
+	for _, p := range a.Paths {
+		if !strings.HasPrefix(p, "/") {
+			return nil, fmt.Errorf("roles.auth.paths: %q must start with /", p)
+		}
 	}
 	return &oidc.Provider{Issuer: a.Issuer, Client: &http.Client{Timeout: 10 * time.Second,
 		CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }}}, nil

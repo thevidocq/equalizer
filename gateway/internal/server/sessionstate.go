@@ -343,7 +343,10 @@ func (p *Public) prepare(req *http.Request, r *http.Request, st *site.Site, ss *
 	if ua := useragent.Canonical(r.UserAgent()); ua != "" {
 		req.Header.Set("User-Agent", ua) // the kind of browser, never its own string
 	}
-	if v := r.Header.Get("Authorization"); len(v) <= 8192 && authValue.MatchString(v) {
+	// Behind the identity provider, the legacy site's own HTTP login (e.g.
+	// WordPress application passwords) only for those who passed it.
+	viaProvider := !st.Model.OIDC() || (ss.s != nil && ss.s.Identity != nil)
+	if v := r.Header.Get("Authorization"); viaProvider && len(v) <= 8192 && authValue.MatchString(v) {
 		req.Header.Set("Authorization", v) // the legacy site's own HTTP login
 	}
 	if st.Model.Legacy.ClientIP == "none" {

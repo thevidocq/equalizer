@@ -153,6 +153,7 @@ type Auth struct {
 	GroupsClaim string     `json:"groups_claim"`
 	Roles       []AuthRole `json:"roles"` // group → role, first match wins
 	Required    *bool      `json:"required"`
+	Paths       []string   `json:"paths"` // only these prefixes need the login
 }
 
 // AuthRole maps a group of the identity provider to a role of the map.
@@ -165,7 +166,7 @@ type AuthRole struct {
 func (m *Model) OIDC() bool { return m.Roles.Auth != nil && m.Roles.Auth.Provider == "oidc" }
 
 // LoginRequired reports whether every page needs the OIDC login.
-func (a *Auth) LoginRequired() bool { return a.Required == nil || *a.Required }
+func (a *Auth) LoginRequired() bool { return len(a.Paths) == 0 && (a.Required == nil || *a.Required) }
 
 // Defaults holds the map's default values.
 type Defaults struct {

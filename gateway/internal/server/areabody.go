@@ -144,3 +144,21 @@ func rebuildError(err error) (*rebuiltBody, int, string) {
 	}
 	return nil, http.StatusBadRequest, "malformed_body"
 }
+
+// rawDisposition rebuilds the Content-Disposition of a file sent as the
+// whole body: "attachment" and a cleaned file name, nothing else.
+func rawDisposition(r *http.Request) string {
+	mt, _, err := mime.ParseMediaType(r.Header.Get("Content-Type"))
+	if err != nil || !upload.IsRawType(mt) {
+		return ""
+	}
+	_, params, err := mime.ParseMediaType(r.Header.Get("Content-Disposition"))
+	if err != nil {
+		return ""
+	}
+	name := areabody.CleanName(params["filename"])
+	if name == "" {
+		return ""
+	}
+	return mime.FormatMediaType("attachment", map[string]string{"filename": name})
+}

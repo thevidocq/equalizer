@@ -10,6 +10,7 @@ import (
 
 	"github.com/thevidocq/equalizer/gateway/internal/legacyclient"
 	"github.com/thevidocq/equalizer/gateway/internal/mapmodel"
+	"github.com/thevidocq/equalizer/gateway/internal/origin"
 	"github.com/thevidocq/equalizer/gateway/internal/router"
 	"github.com/thevidocq/equalizer/gateway/internal/site"
 	"github.com/thevidocq/equalizer/gateway/internal/telemetry"
@@ -88,9 +89,14 @@ func (p *Public) serveAsset(w http.ResponseWriter, r *http.Request, st *site.Sit
 		// An SVG opened directly must not be able to run scripts.
 		h.Set("Content-Security-Policy", "sandbox; default-src 'none'; style-src 'unsafe-inline'; img-src data:")
 	}
+	body := resp.Body
+	if st.Origin != nil && origin.Text(ct) {
+		body = st.Origin.Bytes(body)
+		h.Del("Content-Length")
+	}
 	w.WriteHeader(http.StatusOK)
 	if r.Method != http.MethodHead {
-		_, _ = w.Write(resp.Body)
+		_, _ = w.Write(body)
 	}
 	p.Events.Emit(p.event(r, st, "request.served", "", http.StatusOK, telemetry.Ptr(m.Entry.ID)))
 }

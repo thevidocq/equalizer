@@ -221,7 +221,7 @@ func TestEventStreamFlushed(t *testing.T) {
 	spy := &flushSpy{httptest.NewRecorder(), make(chan string, 4)}
 	w := &commitWriter{ResponseWriter: spy, ss: &sessionState{}}
 	pr, pw := io.Pipe()
-	go func() { streamCopy(w, pr, "text/event-stream; charset=utf-8"); _ = pr.Close() }()
+	go func() { streamCopy(w, pr, "text/event-stream; charset=utf-8", nil); _ = pr.Close() }()
 	_, _ = io.WriteString(pw, "data: 1\n\n")
 	select {
 	case got := <-spy.flushed:

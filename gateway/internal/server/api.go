@@ -142,7 +142,7 @@ func (p *Public) writeAPI(w http.ResponseWriter, r *http.Request, st *site.Site,
 	apiHeaders(w.Header())
 	w.WriteHeader(resp.Status)
 	if r.Method != http.MethodHead {
-		_, _ = w.Write(out)
+		_, _ = w.Write(st.Origin.Bytes(out))
 	}
 	return resp.Status
 }

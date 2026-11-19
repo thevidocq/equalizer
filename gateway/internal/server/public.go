@@ -133,6 +133,17 @@ func (p *Public) handle(w http.ResponseWriter, r *http.Request) string {
 		return ""
 	}
 
+	// A path that only looks like a precise entry (/{slug}/ against
+	// /wp-login.php) belongs to the area: path parameters are part of the
+	// match. Queries and bodies of a real match are still checked.
+	if a := active.Model.AreaFor(r.URL.Path); a != nil && !pathFits(active, m) {
+		if !p.checkLimits(w, r, active, a.ID, false) {
+			return a.ID
+		}
+		p.serveArea(w, r, active, a)
+		return a.ID
+	}
+
 	// Assets: only behaviour blocks, never the page rate limits.
 	if !p.checkLimits(w, r, active, m.Entry.ID, m.Entry.Kind != router.KindAsset) {
 		return m.Entry.ID

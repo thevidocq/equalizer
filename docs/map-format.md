@@ -97,6 +97,18 @@ Faithful rendering rewrites every internal URL found in a page (`href`,
    counts as an unmapped URL.
 
 The legacy host never appears in the page. External URLs stay unchanged.
+Text the pipeline does not parse as links (inline scripts and styles, JSON,
+JavaScript, CSS, XML feeds) gets the same treatment for absolute addresses:
+the legacy origin, in either scheme and also with JSON's escaped slashes
+(`http:\/\/host`), becomes `https://` + `meta.public_domain`. A legacy site
+that only knows itself as `http://…` therefore loads no insecure scripts or
+fonts in the browser, and an internal address is never shown.
+
+A route's `path` parameters are match constraints: `/{slug}/` with
+`slug` of a type that refuses dots does not match `/wp-config.php`, which
+goes to the area (or 404 when there is none). URLs in pages are rewritten
+to a route only when the captured values fit its types; a trailing `/` in
+the route's path is kept.
 Assets are served only if the legacy `Content-Type` is among the prefix's
 `types`; raster images are also checked against their real content. The
 asset query string is never sent to the legacy application.
@@ -514,7 +526,9 @@ redirects to other sites passed on. Equalizer still sits in between:
   are accepted too: their first bytes must match the declared type (a
   picture is a picture, a PDF a PDF; the real type is sent on), and pages,
   scripts and programs are refused whatever they claim (415); SVG is not a
-  picture here, it is a document with scripts
+  picture here, it is a document with scripts;
+  the request reaches the legacy site with `Content-Disposition:
+  attachment` and a cleaned file name
 - live updates (`text/event-stream`) are passed event by event, up to 10
   minutes per connection (browsers reconnect by themselves); WebSocket is
   not supported yet (501);

@@ -242,8 +242,10 @@ func isFilePart(p *multipart.Part) bool {
 	return err == nil && has
 }
 
-// cleanName keeps the base name of an uploaded file, without paths or
+// CleanName keeps the base name of an uploaded file, without paths or
 // control characters.
+func CleanName(name string) string { return cleanName(name) }
+
 func cleanName(name string) string {
 	if name == "" {
 		return "" // no file chosen: the legacy application must see it so

@@ -19,3 +19,6 @@ __pycache__/
 
 # backups made by deploy/compose/backup.sh (they hold the secrets)
 deploy/compose/backups/
+
+# local end-to-end lab (lab/e2e/up.sh)
+lab/e2e/.run/

@@ -77,3 +77,27 @@ func TestRejectsBadLinks(t *testing.T) {
 		t.Fatal("link with an unknown placeholder accepted")
 	}
 }
+
+func TestTypesAndTrailingSlash(t *testing.T) {
+	base, _ := url.Parse("http://legacy.example")
+	m := &mapmodel.Model{
+		Areas: []mapmodel.Area{{ID: "site", Prefix: "/"}},
+		Routes: []mapmodel.Route{{ID: "page", Path: "/{slug}/", Method: "GET",
+			Params:        map[string]mapmodel.FieldSpec{"slug": {Type: "string"}},
+			LegacyRequest: mapmodel.LegacyRequest{Method: "GET", Path: "/{{params.slug}}/"}}},
+	}
+	r, err := New(base, m)
+	if err != nil {
+		t.Fatal(err)
+	}
+	r.Fits = func(_ *mapmodel.Route, p map[string]string) bool { return p["slug"] != "wp-admin" }
+	for in, want := range map[string]string{
+		"http://legacy.example/about/":    "/about/",
+		"http://legacy.example/wp-admin/": "/wp-admin/", // not a page: the area, as it is
+	} {
+		u, _ := url.Parse(in)
+		if got, ok := r.Public(u); !ok || got != want {
+			t.Errorf("%s: %q %v", in, got, ok)
+		}
+	}
+}

@@ -6,6 +6,7 @@ package site
 import (
 	"fmt"
 	"net/http"
+	"net/url"
 	"slices"
 	"strings"
 	"sync/atomic"
@@ -18,6 +19,7 @@ import (
 	"github.com/thevidocq/equalizer/gateway/internal/limits"
 	"github.com/thevidocq/equalizer/gateway/internal/mapmodel"
 	"github.com/thevidocq/equalizer/gateway/internal/oidc"
+	"github.com/thevidocq/equalizer/gateway/internal/origin"
 	"github.com/thevidocq/equalizer/gateway/internal/pipeline"
 	"github.com/thevidocq/equalizer/gateway/internal/pipeline/clean"
 	"github.com/thevidocq/equalizer/gateway/internal/pipeline/forms"
@@ -51,6 +53,7 @@ type Site struct {
 	Legacy    *legacyclient.Client
 	Budget    *budget.Limiter
 	URLs      *legacyurl.Rewriter
+	Origin    *origin.Rewriter // legacy origin → public one in text bodies; nil: nothing to do
 	Forms     *formmap.Map
 	Pipeline  *pipeline.Pipeline
 	Limits    *limits.Set
@@ -162,6 +165,14 @@ func BuildWith(m *mapmodel.Model, opts Options) (*Site, error) {
 	if err != nil {
 		return nil, fmt.Errorf("links: %w", err)
 	}
+	urls.Fits = func(route *mapmodel.Route, params map[string]string) bool {
+		vals := url.Values{}
+		for k, val := range params {
+			vals.Set(k, val)
+		}
+		_, err := v.Fields(route.Params, vals)
+		return err == nil
+	}
 
 	store := opts.Limits
 	if store == nil {
@@ -188,6 +199,7 @@ func BuildWith(m *mapmodel.Model, opts Options) (*Site, error) {
 		Legacy:    lc,
 		Budget:    budget.New(m.Defaults.LegacyBudget.MaxConcurrency, budgetWait),
 		URLs:      urls,
+		Origin:    origin.New(lc.Base(), m.Meta.PublicDomain),
 		Forms:     formmap.New(lc.Base(), m),
 		Pipeline:  pipeline.New(DefaultSteps()...),
 

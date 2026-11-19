@@ -38,7 +38,7 @@
  "types": {
   "slug": {
    "base": "string",
-   "pattern": "^[^/<>{}\"'\\\\\\x00-\\x1f\\x7f]{1,200}$",
+   "pattern": "^[^/.<>{}\"'\\\\\\x00-\\x1f\\x7f]{1,200}$",
    "deny": [
     "admin",
     "administrator",
@@ -300,18 +300,16 @@
     },
     "author": {
      "type": "string",
-     "max_length": 100
+     "max_length": 100,
+     "required": false
     },
     "email": {
-     "type": "email"
+     "type": "email",
+     "required": false
     },
-    "post_id": {
-     "type": "id"
-    },
-    "parent_id": {
-     "type": "int",
-     "min": 0,
-     "max": 999999999,
+    "url": {
+     "type": "string",
+     "max_length": 200,
      "required": false
     }
    },
@@ -322,8 +320,10 @@
      "comment": "{{fields.comment}}",
      "author": "{{fields.author}}",
      "email": "{{fields.email}}",
-     "comment_post_ID": "{{fields.post_id}}",
-     "comment_parent": "{{fields.parent_id}}"
+     "url": "{{fields.url}}",
+     "comment_post_ID": "{{hidden.comment_post_ID}}",
+     "comment_parent": "{{hidden.comment_parent}}",
+     "_wp_unfiltered_html_comment": "{{hidden._wp_unfiltered_html_comment}}"
     }
    },
    "rate_limit": {

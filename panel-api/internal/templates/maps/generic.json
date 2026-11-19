@@ -38,7 +38,7 @@
  "types": {
   "slug": {
    "base": "string",
-   "pattern": "^[^/<>{}\"'\\\\\\x00-\\x1f\\x7f]{1,200}$",
+   "pattern": "^[^/.<>{}\"'\\\\\\x00-\\x1f\\x7f]{1,200}$",
    "deny": [
     "admin",
     "administrator",

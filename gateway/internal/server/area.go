@@ -12,6 +12,7 @@ import (
 
 	"github.com/thevidocq/equalizer/gateway/internal/legacyclient"
 	"github.com/thevidocq/equalizer/gateway/internal/mapmodel"
+	"github.com/thevidocq/equalizer/gateway/internal/origin"
 	"github.com/thevidocq/equalizer/gateway/internal/pipeline"
 	areabody "github.com/thevidocq/equalizer/gateway/internal/rebuild"
 	"github.com/thevidocq/equalizer/gateway/internal/site"
@@ -146,6 +147,9 @@ func areaHeaders(r *http.Request, st *site.Site) http.Header {
 		h.Set(k, vs[0]) // the application's own: X-WP-Nonce, X-CSRF-Token, X-XSRF-TOKEN, …
 		n++
 	}
+	if d := rawDisposition(r); d != "" {
+		h.Set("Content-Disposition", d) // the name of a file sent as the whole body
+	}
 	if v := r.Header.Get("Range"); rangeValue.MatchString(v) {
 		h.Set("Range", v)
 	}
@@ -234,9 +238,13 @@ func (p *Public) writeArea(w http.ResponseWriter, r *http.Request, st *site.Site
 		if eventStream(resp.Header.Get("Content-Type")) {
 			h.Set("X-Accel-Buffering", "no") // proxies in front must not buffer
 		}
+		if st.Origin != nil && origin.Text(resp.Header.Get("Content-Type")) {
+			h.Del("Content-Length") // the legacy origin may be rewritten
+			h.Del("ETag")
+		}
 		w.WriteHeader(resp.Status)
 		if r.Method != http.MethodHead {
-			streamCopy(w, resp.Body, resp.Header.Get("Content-Type"))
+			streamCopy(w, resp.Body, resp.Header.Get("Content-Type"), st.Origin)
 		}
 		return resp.Status
 	}
@@ -264,15 +272,22 @@ func (p *Public) writeArea(w http.ResponseWriter, r *http.Request, st *site.Site
 	forms.setCookie(w)
 	w.WriteHeader(resp.Status)
 	if r.Method != http.MethodHead {
-		_, _ = w.Write(out)
+		_, _ = w.Write(st.Origin.Bytes(out))
 	}
 	return resp.Status
 }
 
 // streamCopy copies a legacy body to the browser. Live updates
 // (text/event-stream) are flushed event by event instead of buffered.
-func streamCopy(w http.ResponseWriter, body io.Reader, ctype string) {
+// Text bodies have the legacy origin replaced by the public one.
+func streamCopy(w http.ResponseWriter, body io.Reader, ctype string, o *origin.Rewriter) {
 	if !eventStream(ctype) {
+		if o != nil && origin.Text(ctype) {
+			ow := o.Writer(w)
+			_, _ = io.Copy(ow, body)
+			_ = ow.Close()
+			return
+		}
 		_, _ = io.Copy(w, body)
 		return
 	}

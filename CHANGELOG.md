@@ -38,6 +38,38 @@ prototype.
 
 ## Entries
 
+### 2026-11-20 — Prove the six other web application profiles in the lab
+
+- **Branch:** feat/lab-six-webapps
+- **What:** `lab/e2e/webapps.sh` installs OpenCart 4.0, PrestaShop 8.2,
+  phpBB 3.3, MediaWiki 1.43, TYPO3 13.4 and Magento 2.4.7 from GitHub only,
+  with their test accounts (`prestashop-setup.php`, `magento-setup.php`,
+  `typo3-setup.php`, `typo3-content.sql`, `phpbb-install.yml`); `up.sh`
+  starts MariaDB (127.0.0.1:33061) and the six sites (ports 18101–18106),
+  `down.sh` stops and cleans them; `tests/lab.py` publishes them and lets
+  the connector reach them; `test_06_study.py` checks each database before
+  and after the study, with the right test account per site. Agent fixes the
+  lab found: the login form is chosen over a sign-up form, reopened in the
+  account's own session (OpenCart's token in the action), sent with its
+  button and after a short pause (phpBB), with the hidden values of that
+  form only (MediaWiki); a login in script that keeps the session cookie is
+  recognised by its JSON redirect (OpenCart); paths a map cannot hold
+  (Magento's base64 referers) stay in the site area with a reason. Profiles
+  say what the lab proved; `docs/compatibility.md` regenerated; lab README
+  and `docs/agent.md` updated.
+- **Why:** the six profiles were written but not tested.
+- **Status:** lab tests 01 and 06 pass on the ten sites (last run: 25 passed,
+  the one failure was the test's own expectation for TYPO3, fixed). Databases
+  unchanged everywhere. Pages identical through the draft: PrestaShop
+  220/220, phpBB 197/197, MediaWiki 38/38, TYPO3 3/3, OpenCart 163/165 after
+  the agent's correction. Magento: only 7/39 with its first draft, 35/39
+  after the correction sent most entries back to the site area; its
+  `/static` `.html` templates are refused (`asset_type_not_allowed`).
+  Administrations of the six stay closed to the agent.
+- **Next steps:** 1. Magento: find why its precise entries differ and allow
+  its knockout templates as assets. 2. Prove the six administrations
+  read-only where possible. 3. Remove the map `risk` field.
+
 ### 2026-11-20 — Verify behind the logins and correct the draft
 
 - **Branch:** feat/agent-correct-and-login

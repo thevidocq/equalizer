@@ -2,7 +2,9 @@
 account if there is one. Admin areas, sensitive files and links that change
 something are recorded, never opened."""
 
+import json
 import re
+import time
 import urllib.parse
 from collections import deque
 from dataclasses import dataclass, field
@@ -114,6 +116,7 @@ class Crawler:
         another's cookies."""
         self.f.cookies = {}
         self._tried_known = False
+        self.after_login = []
         self.label = label
         ok = self._login(account)
         self.r.logins[label] = self.r.login
@@ -124,7 +127,8 @@ class Crawler:
             admin = list(prof.admin_home) if prof.admin_read_only else []
             if prof.admin_login and admin:
                 self._admin_login(account)
-            self._crawl(["/"] + admin + [p for p in list(self.r.pages)[:50]], logged_in=True)
+            seeds = getattr(self, "after_login", []) + ["/"] + admin
+            self._crawl(seeds + [p for p in list(self.r.pages)[:50]], logged_in=True)
             self._browse(logged_in=True)
         self.f.cookies = {}
         return self.r
@@ -165,7 +169,7 @@ class Crawler:
             if form.method != "POST" or not pw or not user or not self.f.same_site(form.action):
                 continue
             data = {i.name: "" for i in form.inputs if i.type not in ("submit", "button", "image", "reset")}
-            data.update(_hidden_values(html, [h.name for h in form.hidden()]))
+            data.update({h.name: h.value for h in form.hidden()})
             data[user[0].name], data[pw[0].name] = account.get("username", ""), account.get("password", "")
             before = dict(self.f.cookies)
             try:
@@ -291,24 +295,41 @@ class Crawler:
                     self._enqueue(queue, u)
 
     def _login(self, account: dict) -> bool:
-        """Posts the first form with a password field, as a browser would."""
-        for form in self.r.forms:
+        """Posts the site's login form, as a browser would: of the forms with
+        a password field, a login page's first and one with a single
+        password before a sign-up form (OpenCart's register form has one)."""
+        for form in sorted(self.r.forms, key=_login_rank):
             pw = [i for i in form.inputs if i.type == "password"]
             user = [i for i in form.visible() if i.type in ("text", "email")]
             if not pw or not user or form.method != "POST":
                 continue
+            user.sort(key=lambda i: 0 if i.type == "email" or USER_NAME.search(i.name or "") else 1)
             data = {i.name: "" for i in form.inputs if i.type not in ("submit", "button", "image", "reset")}
-            # hidden values (tokens) come from a fresh copy of the page
+            # A fresh copy of the page that shows the form, in this session:
+            # its hidden values and the tokens some sites put in the action
+            # (OpenCart's login_token) belong to the session that saw them.
             page_pq = path_query(form.action)
+            shown = path_query(form.page) if form.page else page_pq
             try:
-                fresh = self.f.get(page_pq)
-                for f2 in extract.parse(fresh.body.decode("utf-8", "replace"), fresh.url).forms:
-                    if path_query(f2.action) == page_pq:
-                        data.update(_hidden_values(fresh.body.decode("utf-8", "replace"), [h.name for h in f2.hidden()]))
+                fresh = self.f.get(shown)
+                html = fresh.body.decode("utf-8", "replace")
+                for f2 in extract.parse(html, fresh.url).forms:
+                    if path_query(f2.action).split("?")[0] == page_pq.split("?")[0] and \
+                            any(i.type == "password" for i in f2.inputs):
+                        page_pq = path_query(f2.action)
+                        data.update({h.name: h.value for h in f2.hidden()})
+                        break
             except (ReachError, OSError, ValueError):
                 pass
             data[user[0].name] = account.get("username", "")
             data[pw[0].name] = account.get("password", "")
+            # A person takes a moment: phpBB refuses a form sent within the
+            # second it was shown.
+            time.sleep(LOGIN_PAUSE)
+            # the button a person clicks is sent too (phpBB checks for it)
+            button = next((i for i in form.inputs if i.type in ("submit", "image") and i.name), None)
+            if button is not None and button.name not in data:
+                data[button.name] = button.value
             before = dict(self.f.cookies)
             try:
                 resp = self.f.request("POST", page_pq, data, login=True)
@@ -316,6 +337,10 @@ class Crawler:
                 self.r.login = "failed"
                 return False
             ok = _logged_in(resp, before, self.f.cookies)
+            if not ok and self.f.cookies == before and resp.status == 200:
+                # The same session, now logged in: a login made in script
+                # answers where to go next (OpenCart), others stop asking.
+                ok = self._json_redirect(resp) if resp.body[:1] in (b"{", "{") else self._form_gone(shown)
             self.r.login = "ok" if ok else "failed"
             self.log.info("test account login", outcome=self.r.login, form=page_pq.split("?")[0])
             return ok
@@ -333,15 +358,45 @@ class Crawler:
         self.r.login = "no_login_form"
         return False
 
+    def _json_redirect(self, resp) -> bool:
+        """A script login's answer such as {"redirect": "…account…"}: it
+        worked when it sends to a page of the site that is not the login,
+        which the logged-in pass then opens first."""
+        try:
+            got = json.loads(resp.body)
+        except ValueError:
+            return False
+        to = next((got[k] for k in ("redirect", "location", "url") if isinstance(got, dict) and
+                   isinstance(got.get(k), str)), "")
+        if not to or not self.f.same_site(urllib.parse.urljoin(resp.url, to)) or "login" in to.lower():
+            return False
+        self.after_login = [path_query(urllib.parse.urljoin(resp.url, to))]
+        return True
 
-def _hidden_values(html: str, names: list) -> dict:
-    out = {}
-    for n in names:
-        m = re.search(r"""<input[^>]+name=["']%s["'][^>]*value=["']([^"']*)["']""" % re.escape(n), html, re.I) or \
-            re.search(r"""<input[^>]+value=["']([^"']*)["'][^>]*name=["']%s["']""" % re.escape(n), html, re.I)
-        if m:
-            out[n] = m.group(1)
-    return out
+    def _form_gone(self, shown: str) -> bool:
+        """Some sites keep their session cookie when someone logs in: the
+        page that showed the login form, opened again, tells. Logged in, it
+        sends elsewhere or no longer asks for a password."""
+        try:
+            resp = self.f.get(shown)
+        except (ReachError, OSError, ValueError):
+            return False
+        if resp.status in (301, 302, 303, 307, 308):
+            return "login" not in (resp.location or "").lower()
+        body = resp.body.decode("utf-8", "replace") if isinstance(resp.body, bytes) else str(resp.body)
+        return resp.status == 200 and not re.search(r"""<input[^>]+type=["']?password""", body, re.I)
+
+
+LOGIN_PAUSE = 1.2  # seconds between showing a login form and sending it
+LOGIN_WORDS = re.compile(r"log_?in|sign_?in|logon|authentication|userlogin|ucp\.php\?mode=login", re.I)
+USER_NAME = re.compile(r"user|login|e-?mail|^log$|^name$|account|identifier", re.I)
+
+
+def _login_rank(form) -> tuple:
+    where = (form.page or "") + " " + form.action
+    pw = sum(1 for i in form.inputs if i.type == "password")
+    return (0 if LOGIN_WORDS.search(where) else 1, 0 if pw == 1 else 1, len(form.visible()))
+
 
 
 def _logged_in(resp, before: dict, after: dict) -> bool:

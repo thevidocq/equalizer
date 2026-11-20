@@ -1,0 +1,34 @@
+# phpBB's installer answers for the lab forum (webapps.sh fills @DB@, @PASS@).
+installer:
+    admin:
+        name: editor
+        password: "@PASS@"
+        email: editor@acme.test
+    board:
+        lang: en
+        name: Acme Forum
+        description: The Acme forum
+    database:
+        dbms: sqlite3
+        dbhost: "@DB@"
+        dbport: ~
+        dbuser: ~
+        dbpasswd: ~
+        dbname: ~
+        table_prefix: phpbb_
+    email:
+        enabled: false
+        smtp_delivery: false
+        smtp_host: ~
+        smtp_port: ~
+        smtp_auth: ~
+        smtp_user: ~
+        smtp_pass: ~
+    server:
+        cookie_secure: false
+        server_protocol: http://
+        force_server_vars: false
+        server_name: forum.acme.test
+        server_port: 80
+        script_path: /
+    extensions: []

@@ -111,6 +111,15 @@ Deterministic, no AI needed:
   deciding who sees what (a project decision). The accounts only let the
   agent reach and study the pages behind a login; the report says which
   account reached what.
+- **How it logs in**: like a person, with the site's own login form. Of the
+  forms with a password field it takes a login page's first (and one with a
+  single password before a sign-up form), reopens the page that shows it
+  in the account's own session (tokens in the form or in its address, such
+  as OpenCart's, belong to that session), and posts it once. The login
+  worked when the site starts a new session and stops asking for the
+  password; a site that keeps its session cookie (OpenCart) is asked the
+  login page again, which it no longer shows. Where the site's visitors
+  have no login (TYPO3 out of the box), the report says `no_login_form`.
 
 ### 3. Write the map
 
@@ -243,9 +252,12 @@ The agent never changes the legacy site. Three layers:
    everything else is dry-run and never forwarded.
 
 **Proven in the lab** (`lab/e2e/tests/test_06_study.py`): the agent
-studies the four lab sites with an administrator account and its browser and the content
-of each site's database (pages, articles, comments, users, extensions,
-configuration) is the same before and after. Drupal's and Joomla's
+studies the ten lab sites (WordPress, Joomla, Drupal, a custom intranet,
+OpenCart, PrestaShop, phpBB, MediaWiki, TYPO3, Magento) with a test account
+(a customer on the shops) and its browser, and the content of each site's
+database (pages, articles, products, posts, users, extensions,
+configuration) is the same before and after. What each profile proves is in
+[`compatibility.md`](compatibility.md). Drupal's and Joomla's
 administrations are studied this way (Joomla's with its own login).
 
 **WordPress's administration stays closed to the agent**, even with an

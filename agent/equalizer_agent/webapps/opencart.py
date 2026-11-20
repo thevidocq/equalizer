@@ -12,6 +12,7 @@ PROFILE = Profile(
     admin=(r"^/admin(/|$)", r"^/install(/|$)", r"^/system(/|$)", r"^/storage(/|$)"),
     never=(r"[?&]route=(account/logout|checkout/cart\.(add|remove|edit)|checkout/|account/wishlist\.(add|remove))",
            r"^/install(/|$)"),
+    tested="Lab (MariaDB, demo products): catalogue, search, customer login (in script, the session cookie kept); studied with a customer account, database unchanged; 163 of 165 pages identical through the corrected draft.",
     note="Administration closed until the lab proves that viewing it changes nothing. Cart and checkout links "
          "are never opened.",
 )

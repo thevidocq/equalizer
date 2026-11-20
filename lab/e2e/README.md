@@ -14,7 +14,7 @@ What only exists on a VPS is replaced by small stand-ins:
 | DNS | a line in `/etc/hosts` marked `# equalizer-lab` |
 | Docker networks | everything listens on 127.0.0.1 only |
 
-Names: `panel.lab.test`, `relay.lab.test`, `idp.lab.test`, and four
+Names: `panel.lab.test`, `relay.lab.test`, `idp.lab.test`, and ten
 protected sites, each a real application served by PHP's own server:
 
 | Site | Application | Legacy address |
@@ -23,6 +23,12 @@ protected sites, each a real application served by PHP's own server:
 | `news.acme.test` | Joomla 5.4 on PostgreSQL | 127.0.0.1:18091 |
 | `docs.acme.test` | Drupal 11.4 on SQLite | 127.0.0.1:18092 |
 | `intranet.acme.test` | Acme Intranet, an old-style PHP app in `apps/intranet` (sessions, ISO-8859-1 pages, attachments), published in plain http with no certificate | 127.0.0.1:18093 |
+| `cart.acme.test` | OpenCart 4.0 on MariaDB, with its demo products | 127.0.0.1:18101 |
+| `shop.acme.test` | PrestaShop 8.2 on MariaDB, with its demo products | 127.0.0.1:18102 |
+| `forum.acme.test` | phpBB 3.3 on SQLite | 127.0.0.1:18103 |
+| `wiki.acme.test` | MediaWiki 1.43 on SQLite | 127.0.0.1:18104 |
+| `site.acme.test` | TYPO3 13.4 on MariaDB, three pages | 127.0.0.1:18105 |
+| `store.acme.test` | Magento 2.4.7 on MariaDB, without its search modules (no OpenSearch here) and without products | 127.0.0.1:18106 |
 
 Joomla and Drupal come from GitHub only: their dependencies are installed
 from each project's `composer.lock` (`cms.sh`). The first `up.sh` builds
@@ -30,10 +36,21 @@ them in `.run/src` (a few minutes); later runs reuse the build. In the lab
 Joomla has no update checks or guided tour (no Internet), and Drupal is
 installed from its recipes one by one.
 
+The six sites after it prove the agent's other profiles (test 6 below) and
+are prepared by `webapps.sh`, from GitHub too: release archives (OpenCart,
+PrestaShop) or clones with dependencies from their lock files (phpBB,
+MediaWiki, TYPO3, Magento; Magento without Composer plugins, one of them
+asks Packagist). The first run takes about 20 minutes more, Magento most of
+it. MariaDB keeps its data in `/var/tmp/equalizer-lab-mysql` and listens on
+127.0.0.1:33061. Their test accounts: a customer `editor@acme.test` on the
+three shops, `editor` on the forum and the wiki (all with the password
+below); TYPO3 has no visitors' login.
+
 ## Requirements
 
-Go 1.24, Node 20, PHP 8.3 with `pdo_sqlite`, `pdo_pgsql`, `gd`, `intl` and
-`zip`, Composer, PostgreSQL 16, Redis, git,
+Go 1.24, Node 20, PHP 8.3 with `pdo_sqlite`, `pdo_pgsql`, `mysqli`, `gd`,
+`intl`, `zip`, `bcmath` and `soap`, Composer, PostgreSQL 16, MariaDB 10.11,
+Redis, git,
 Python 3 with `pytest`, `requests`, `playwright` and `aiosmtpd`, Google
 Chrome (`/usr/bin/google-chrome`), and root (ports 80/443 and
 `/etc/hosts`).
@@ -82,9 +99,10 @@ The tests run in order and build on each other:
 5. **operations**: password reset by email, alert when the connector
    stops and when it comes back;
 6. **study**: the discovery agent (started by `up.sh`, through the relay
-   and the connector) studies each of the four sites with the editor as a
-   test administrator; each site's content in its database is the same
-   before and after, and Drupal's and Joomla's administrations become
+   and the connector) studies each of the ten sites with its test account
+   (the customer on the shops); each site's content in its database is the
+   same before and after, every draft is verified on the gateway, TYPO3's
+   study says it found no visitors' login, and Drupal's and Joomla's administrations become
    precise entries of the draft (WordPress's stays closed: it writes when
    its screens are only viewed).
 

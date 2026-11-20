@@ -18,6 +18,7 @@ class Input:
     min: str = ""
     max: str = ""
     step: str = ""
+    value: str = ""  # a hidden field's or a button's own value
 
 
 @dataclass
@@ -25,6 +26,7 @@ class Form:
     action: str  # absolute URL
     method: str
     inputs: list = field(default_factory=list)
+    page: str = ""  # the page that shows it (absolute URL)
 
     def visible(self):
         return [i for i in self.inputs if i.type not in ("hidden", "submit", "button", "image", "reset")]
@@ -94,7 +96,8 @@ class _Parser(HTMLParser):
                 return
             ml = a.get("maxlength", "")
             inp = Input(a["name"], t, "required" in a, int(ml) if ml.isdigit() else 0,
-                        pattern=a.get("pattern", "")[:300], min=a.get("min", ""), max=a.get("max", ""), step=a.get("step", ""))
+                        pattern=a.get("pattern", "")[:300], min=a.get("min", ""), max=a.get("max", ""), step=a.get("step", ""),
+                        value=a.get("value", "") if t in ("submit", "image", "hidden") else "")
             self.form.inputs.append(inp)
             if tag == "select":
                 self.select = inp
@@ -125,6 +128,8 @@ def parse(html: str, base: str) -> Page:
         p.close()
     except Exception:  # broken markup: keep what was read
         pass
+    for f in p.page.forms:
+        f.page = base
     return p.page
 
 

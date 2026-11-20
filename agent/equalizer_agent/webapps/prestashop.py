@@ -14,5 +14,6 @@ PROFILE = Profile(
     admin=(r"^/admin[a-z0-9_]*(/|$)", r"^/api(/|$)", r"^/install(/|$)", r"^/install-dev(/|$)"),
     never=(r"[?&]controller=cart\b.*[?&](add|delete|update)=", r"[?&]mylogout", r"^/install(/|$)",
            r"[?&]controller=(order|order-confirmation|password)\b"),
+    tested="Lab (MariaDB, demo products, plain URLs): catalogue, customer login; studied with a customer account, database unchanged; 220 of 220 pages identical through the draft.",
     note="Administration closed: its folder is renamed at installation. Cart and order links are never opened.",
 )

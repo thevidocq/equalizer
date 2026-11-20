@@ -44,6 +44,7 @@ type Server struct {
 	MFAThrottle    *auth.Throttle
 	Mail           mail.Sender // invitations
 	PanelURL       string      // base of the links in emails, e.g. https://panel.example.com
+	RelayURL       string      // public address connectors dial, for their install command; empty: unknown
 	MailAvailable  bool        // the platform sends email (alerts can work)
 	Version        string      // release of the platform; older connectors are outdated
 	// Destinations a map may reach in direct mode (EQ_DIRECT_DESTINATIONS);

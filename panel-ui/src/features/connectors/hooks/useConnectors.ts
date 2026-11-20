@@ -11,9 +11,9 @@ export function useConnectors(tenant: string) {
   return useQuery({ ...listQuery(tenant), select: (d) => d.items });
 }
 
-/** The platform's release, to tell outdated connectors. */
-export function usePlatformVersion(tenant: string) {
-  return useQuery({ ...listQuery(tenant), select: (d) => d.platform_version ?? "" });
+/** What the install command needs: the platform's release and the relay's public address. */
+export function useConnectorSetup(tenant: string) {
+  return useQuery({ ...listQuery(tenant), select: (d) => ({ version: d.platform_version ?? "", relayUrl: d.relay_url ?? "" }) });
 }
 
 export function useConnectorActions(tenant: string) {

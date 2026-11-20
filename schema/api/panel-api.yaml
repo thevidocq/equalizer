@@ -216,7 +216,9 @@ paths:
                   next_cursor: { type: [string, "null"] }
     post:
       tags: [tenants]
-      summary: Create a tenant and email an invitation to its first administrator (platform administrators)
+      summary: >-
+        Create a tenant and email an invitation to its first administrator (platform administrators). 409 when the
+        id exists or the email already has an account or a pending invitation
       requestBody:
         required: true
         content:
@@ -268,7 +270,9 @@ paths:
                   next_cursor: { type: [string, "null"] }
     post:
       tags: [users]
-      summary: Invite a person by email; they choose their own password (tenant administrators)
+      summary: >-
+        Invite a person by email; they choose their own password (tenant administrators). 409 when the email already
+        has an account or a pending invitation
       parameters: [{ $ref: "#/components/parameters/tenant" }]
       requestBody:
         required: true
@@ -345,7 +349,8 @@ paths:
       tags: [tenants]
       summary: >-
         Invite the first administrator again (lost or unsent email, wrong address). Pending invitations
-        are revoked. 409 once anyone has joined the tenant (platform administrators)
+        are revoked. 409 once anyone has joined the tenant, or when the email already has an account or a pending
+        invitation elsewhere (platform administrators)
       parameters: [{ $ref: "#/components/parameters/tenant" }]
       requestBody:
         required: true
@@ -1104,6 +1109,7 @@ paths:
                   items: { type: array, items: { $ref: "#/components/schemas/Connector" } }
                   next_cursor: { type: [string, "null"] }
                   platform_version: { type: string, description: "Release of the platform; connectors older than it are outdated" }
+                  relay_url: { type: string, description: "Public address connectors dial (EQ_RELAY_URL in their command); empty when not configured" }
     post:
       tags: [connectors]
       summary: Register a connector; the token is returned only in this answer (tenant administrators)
@@ -1613,6 +1619,9 @@ components:
         role: { enum: [admin, editor, approver, auditor] }
         expires_at: { type: string, format: date-time }
         sent: { type: boolean, description: "False when the email could not be sent: revoke and invite again" }
+        send_problem:
+          description: "Why the email was not sent (only when sent is false): the mail server could not be reached, refused the TLS connection, refused the account or password, refused the sender or the recipient, or refused the message"
+          enum: [not_configured, unreachable, tls, auth_rejected, sender_rejected, recipient_rejected, rejected]
     InvitationView:
       type: object
       required: [tenant_name, email, name, role, expires_at]
@@ -1630,6 +1639,13 @@ components:
         name: { type: string }
         created_at: { type: string, format: date-time }
         joined: { type: boolean, description: "Someone accepted an invitation; before that the platform may invite the first administrator again" }
+        pending_admin:
+          type: object
+          description: "Until someone joins: the name and email the last invitation went to, to invite them again"
+          required: [name, email]
+          properties:
+            name: { type: string }
+            email: { type: string }
         site_count: { type: integer }
         sites:
           type: array

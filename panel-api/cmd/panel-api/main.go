@@ -117,7 +117,7 @@ func run() error {
 	}
 	srv := &api.Server{
 		DirectDestinations: direct, Exposure: checker, ExposureThrottle: auth.NewThrottle(1, time.Minute),
-		Mail: sender, PanelURL: cfg.PanelURL, Version: version,
+		Mail: sender, PanelURL: cfg.PanelURL, RelayURL: cfg.RelayURL, Version: version,
 		MFA: box, MFARequired: cfg.MFARequired, MFAThrottle: auth.NewThrottle(5, 15*time.Minute),
 		Store: st, Sessions: sessions, Throttle: auth.NewThrottle(5, 15*time.Minute),
 		Log: log.With(slog.String("module", "api")), SigningKey: cfg.SigningKey, KeyID: cfg.SigningKeyID,

@@ -15,7 +15,7 @@ export function Sidebar() {
   const tenant = me?.tenant ?? "";
 
   return (
-    <aside className="sticky top-0 flex h-screen w-64 shrink-0 flex-col gap-6 overflow-y-auto bg-ink px-3 py-5 text-paper">
+    <aside className="flex h-full flex-col gap-6 overflow-y-auto bg-ink px-3 py-5 text-paper">
       <div className="px-3"><Logo inverted /></div>
       {tenant ? (
         <nav aria-label="Protected sites" className="flex flex-col gap-1">

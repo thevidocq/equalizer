@@ -26,7 +26,7 @@ export function TenantsPage() {
         actions={add} />
       {tenants.isError ? <Notice tone="error">{describeError(tenants.error)}</Notice> : null}
       {tenants.data?.length === 0 ? (
-        <EmptyState title="No customers yet" action={add}>Add a customer: its first administrator gets an email to join.</EmptyState>
+        <EmptyState title="No customers yet">Add a customer: its first administrator gets an email to join.</EmptyState>
       ) : null}
       {tenants.data && tenants.data.length > 0 ? (
         <Table<Row> caption="Tenants" rows={tenants.data} rowKey={(t) => t.id} columns={[
@@ -43,7 +43,7 @@ export function TenantsPage() {
         ]} />
       ) : null}
       <CreateTenantDialog open={adding} onOpenChange={setAdding} />
-      <ReinviteDialog tenant={reinviting} onClose={() => setReinviting(null)} />
+      <ReinviteDialog key={reinviting?.id ?? ""} tenant={reinviting} onClose={() => setReinviting(null)} />
     </div>
   );
 }

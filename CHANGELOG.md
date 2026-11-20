@@ -39,6 +39,57 @@ merge of #39).
 
 ## Entries
 
+### 2026-11-20 — Fix what the first installation showed
+
+- **Branch:** fix/first-install-feedback
+- **What:** the problems found on the first VPS installation:
+  - Platform status: a gateway with no site published was shown "Down,
+    0 of 2 replicas ready". `health.Probe.Replicas` now tells running
+    (`/healthz`) from ready (`/readyz`); `health.ReplicaCheck` shows
+    "running, no site loaded yet" as OK.
+  - Email: `EQ_MAIL_FROM` with a display name (`Equalizer <noreply@…>`)
+    went whole into `MAIL FROM` and servers answered 501. The envelope now
+    carries the bare address, the header the name; the address is checked
+    at startup. Each failure has a reason (`mail.Problem`: unreachable,
+    tls, auth_rejected, sender_rejected, recipient_rejected, rejected,
+    not_configured), returned as `Invitation.send_problem` and shown in the
+    toasts instead of "check the mail settings".
+  - Invitations: refused with 409 when the email already has an account or
+    a pending invitation (`Store.EmailUse`), for a new tenant, a tenant
+    invitation and the first administrator's new invitation; before, the
+    link failed only when opened. "Invite again" opens with the name and
+    email of the last invitation (`TenantOverview.pending_admin`).
+  - Panel on phones: the sidebar becomes a menu under a top bar below the
+    `lg` breakpoint (`app/Shell.tsx`), tables scroll sideways, the form
+    grids get fewer columns; before, pages were squeezed into a narrow
+    column and the sidebar was cut in landscape.
+  - Logo: the tagline was SVG `textLength`, which Safari draws with the
+    spaces collapsed; now plain words spread over the name's width.
+  - Duplicate buttons on empty Tenants, People and Sites pages (header and
+    empty state).
+  - Isolation page: the old-IP form appeared twice after saving: it and the
+    aliases form had the same React key when both were empty.
+  - Address on the server (template and first discovery): empty with an
+    example, not a prefilled `127.0.0.1:8443` that looked like a value.
+  - Connector command: the relay address is filled in
+    (`EQ_RELAY_PUBLIC_URL`, set by Compose from `EQ_RELAY_DOMAIN`, returned
+    as `relay_url` with the connector list).
+  - Gateway: http to https of an https site is now 302/307, not 301/308,
+    since browsers keep a 301 after the site is switched to http; no HSTS
+    on the plain port. A legacy redirect to the same page in the other
+    scheme (WordPress with an https address served in http) is stopped with
+    a page and a `legacy.error` event `scheme_mismatch` that the panel
+    explains, instead of a redirect loop.
+  - Agent: route handlers removed before the browser closes, so no
+    `CancelledError` tracebacks outside the JSON logs.
+- **Why:** first installation on a real VPS (WordPress through a connector,
+  phone only).
+- **Status:** unit and API tests pass (Go, vitest, agent). Not yet seen on
+  a phone: checked at phone width in the lab with Playwright.
+- **Next steps:** simpler approval and roles, tenant deletion, AI model
+  list, alert choices, automatic certificates, "never public" isolation,
+  direct mode (same branch).
+
 ### 2026-11-20 — Prepare release 0.2.0
 
 - **Branch:** chore/release-0.2.0

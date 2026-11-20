@@ -494,7 +494,7 @@ export interface paths {
             };
         };
         put?: never;
-        /** Create a tenant and email an invitation to its first administrator (platform administrators) */
+        /** Create a tenant and email an invitation to its first administrator (platform administrators). 409 when the id exists or the email already has an account or a pending invitation */
         post: {
             parameters: {
                 query?: never;
@@ -604,7 +604,7 @@ export interface paths {
             };
         };
         put?: never;
-        /** Invite a person by email; they choose their own password (tenant administrators) */
+        /** Invite a person by email; they choose their own password (tenant administrators). 409 when the email already has an account or a pending invitation */
         post: {
             parameters: {
                 query?: never;
@@ -808,7 +808,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Invite the first administrator again (lost or unsent email, wrong address). Pending invitations are revoked. 409 once anyone has joined the tenant (platform administrators) */
+        /** Invite the first administrator again (lost or unsent email, wrong address). Pending invitations are revoked. 409 once anyone has joined the tenant, or when the email already has an account or a pending invitation elsewhere (platform administrators) */
         post: {
             parameters: {
                 query?: never;
@@ -2556,6 +2556,8 @@ export interface paths {
                             next_cursor?: string | null;
                             /** @description Release of the platform; connectors older than it are outdated */
                             platform_version?: string;
+                            /** @description Public address connectors dial (EQ_RELAY_URL in their command); empty when not configured */
+                            relay_url?: string;
                         };
                     };
                 };
@@ -3674,6 +3676,11 @@ export interface components {
             expires_at: string;
             /** @description False when the email could not be sent: revoke and invite again */
             sent?: boolean;
+            /**
+             * @description Why the email was not sent (only when sent is false): the mail server could not be reached, refused the TLS connection, refused the account or password, refused the sender or the recipient, or refused the message
+             * @enum {unknown}
+             */
+            send_problem?: "not_configured" | "unreachable" | "tls" | "auth_rejected" | "sender_rejected" | "recipient_rejected" | "rejected";
         };
         InvitationView: {
             tenant_name: string;
@@ -3691,6 +3698,11 @@ export interface components {
             created_at: string;
             /** @description Someone accepted an invitation; before that the platform may invite the first administrator again */
             joined: boolean;
+            /** @description Until someone joins: the name and email the last invitation went to, to invite them again */
+            pending_admin?: {
+                name: string;
+                email: string;
+            };
             site_count: number;
             sites: {
                 name: string;

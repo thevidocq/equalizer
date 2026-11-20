@@ -4,7 +4,7 @@ import { Button, Dialog, EmptyState, Notice, PageHeader, Table, formatDate, useT
 import { describeError } from "@/shared/api/errors";
 import type { Connector, ConnectorCreated } from "@/shared/api/client";
 import { canManage, useMe } from "@/features/auth";
-import { useConnectorActions, useConnectors, usePlatformVersion } from "../hooks/useConnectors";
+import { useConnectorActions, useConnectors, useConnectorSetup } from "../hooks/useConnectors";
 import { ConnectorState } from "../components/ConnectorState";
 import { UpdateNotice } from "../components/UpdateNotice";
 import { AddConnectorDialog } from "../components/AddConnectorDialog";
@@ -13,7 +13,8 @@ import { TokenReveal } from "../components/TokenReveal";
 export function ConnectorsPage() {
   const tenant = useParams().tenant ?? "";
   const list = useConnectors(tenant);
-  const platform = usePlatformVersion(tenant).data ?? "";
+  const platform = useConnectorSetup(tenant).data?.version ?? "";
+  const relayUrl = useConnectorSetup(tenant).data?.relayUrl;
   const { rotate, remove } = useConnectorActions(tenant);
   const me = useMe();
   const toast = useToast();
@@ -50,7 +51,7 @@ export function ConnectorsPage() {
       ) : null}
       <AddConnectorDialog tenant={tenant} open={adding} onOpenChange={setAdding} />
       <Dialog open={!!rotated} onOpenChange={(o) => !o && setRotated(null)} title={`New token for ${rotated?.id ?? ""}`}>
-        {rotated ? <TokenReveal connectorId={rotated.id} token={rotated.token} version={platform} /> : null}
+        {rotated ? <TokenReveal connectorId={rotated.id} token={rotated.token} version={platform} relayUrl={relayUrl} /> : null}
       </Dialog>
       <Dialog open={!!removing} onOpenChange={(o) => !o && setRemoving(null)} title={`Remove ${removing ?? ""}?`}
         description="Its tunnels close and the site stops answering through it.">

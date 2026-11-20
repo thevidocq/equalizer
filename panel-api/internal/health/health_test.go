@@ -53,7 +53,7 @@ func TestProbe(t *testing.T) {
 	if !ok || tunnels["cn-1"] != 2 || tunnels["cn-2"] != 1 {
 		t.Fatalf("tunnels: %v %v", tunnels, ok)
 	}
-	if up, total := p.Replicas(context.Background(), p.RelayAdmin); total != 2 || up < 1 {
+	if up, _, total := p.Replicas(context.Background(), p.RelayAdmin); total != 2 || up < 1 {
 		t.Errorf("replicas: %d/%d", up, total)
 	}
 	if _, ok := (&Probe{}).Tunnels(context.Background()); ok {
@@ -73,5 +73,27 @@ func TestConnectorRelease(t *testing.T) {
 	in.Versions = []string{"0.2.0"}
 	if c := Evaluate(in).Checks[1]; c.State != OK {
 		t.Errorf("current connector: %+v", c)
+	}
+}
+
+func TestReplicaCheck(t *testing.T) {
+	cases := []struct {
+		ready, running, total int
+		want                  string
+	}{
+		{0, 2, 2, OK}, // fresh installation: running, no site loaded yet
+		{2, 2, 2, OK},
+		{1, 2, 2, Degraded},
+		{0, 1, 2, Degraded},
+		{0, 0, 2, Down},
+		{0, 0, 0, Down},
+	}
+	for _, c := range cases {
+		if got := ReplicaCheck("Gateway", c.ready, c.running, c.total); got.State != c.want {
+			t.Errorf("%d/%d/%d: %s (%s), want %s", c.ready, c.running, c.total, got.State, got.Detail, c.want)
+		}
+	}
+	if d := ReplicaCheck("Gateway", 0, 2, 2).Detail; !strings.Contains(d, "no site loaded yet") {
+		t.Errorf("detail: %q", d)
 	}
 }

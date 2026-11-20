@@ -14,7 +14,7 @@ export function StartForm({ tenant, app, firstTime, aiState, isAdmin }: Props) {
   const toast = useToast();
   const [useAI, setUseAI] = useState(true);
   const [accounts, setAccounts] = useState<TestAccount[]>([]);
-  const [reach, setReach] = useState({ connector_id: "", address: "127.0.0.1:8443", scheme: "https" as "https" | "http" });
+  const [reach, setReach] = useState({ connector_id: "", address: "", scheme: "https" as "https" | "http" });
   const [maxPages, setMaxPages] = useState("500");
   const connector = reach.connector_id || connectors.data?.[0]?.id || "";
 
@@ -44,11 +44,12 @@ export function StartForm({ tenant, app, firstTime, aiState, isAdmin }: Props) {
           {isAdmin ? <> Set one in <a className="font-semibold text-signal hover:underline" href={`/t/${tenant}/settings`}>Settings</a>.</> : " Ask an administrator."}</Notice>
       ) : null}
       {firstTime ? (
-        <div className="grid gap-4 sm:grid-cols-3">
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           <SelectField label="Connector" value={connector} onChange={(e) => setReach({ ...reach, connector_id: e.target.value })}>
             {connectors.data?.map((c) => <option key={c.id} value={c.id}>{c.id}</option>)}
           </SelectField>
-          <TextField label="Address on the server" value={reach.address} onChange={(e) => setReach({ ...reach, address: e.target.value })} />
+          <TextField label="Address on the server" required placeholder="127.0.0.1:8080" value={reach.address}
+            onChange={(e) => setReach({ ...reach, address: e.target.value })} hint="host:port, as in the connector's EQ_ALLOW" />
           <SelectField label="Protocol" value={reach.scheme} onChange={(e) => setReach({ ...reach, scheme: e.target.value as "https" | "http" })}>
             <option value="https">HTTPS</option><option value="http">HTTP</option>
           </SelectField>

@@ -18,7 +18,7 @@ export function LegacyIpForm({ app, current }: { app: string; current: string | 
     <form onSubmit={submit} className="flex flex-col gap-3">
       {setIp.isError ? <Notice tone="error">{describeError(setIp.error)}</Notice> : null}
       <div className="flex flex-wrap items-end gap-3">
-        <div className="w-72">
+        <div className="w-full sm:w-72">
           <TextField label="Old public IP of the site" value={ip} onChange={(e) => setValue(e.target.value)}
             placeholder="203.0.113.10" hint="The address its DNS record pointed to. Empty: no checks." />
         </div>

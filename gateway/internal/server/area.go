@@ -235,6 +235,9 @@ func (p *Public) writeArea(w http.ResponseWriter, r *http.Request, st *site.Site
 			}
 			(&issuer{URLMapper: st.URLs, st: st, ss: sessionOf(r)}).note(target)
 		}
+		if p.schemeLoop(w, r, st, a.ID, loc, target) {
+			return http.StatusBadGateway
+		}
 		securityHeaders(h)
 		h.Set("Location", target)
 		w.WriteHeader(resp.Status)

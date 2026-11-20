@@ -142,6 +142,8 @@ services:
       EQ_LOKI_URL: http://loki:3100
       # Status page: every replica of relay and gateway, found through DNS
       EQ_RELAY_ADMIN: tunnel-relay:9091
+      # shown in the command that installs a connector
+      EQ_RELAY_PUBLIC_URL: https://${EQ_RELAY_DOMAIN}
       EQ_GATEWAY_ADMIN: gateway:9090
     volumes:
       - ./secrets/mfa.key:/secrets/mfa.key:ro

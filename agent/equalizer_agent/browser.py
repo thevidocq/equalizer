@@ -77,6 +77,22 @@ class _Guard:
         route.fulfill(status=resp.status, headers=headers, body=resp.body)
 
 
+def _close(ctx, b) -> None:
+    """Closes the browser without leaving route handlers running: a handler
+    still waiting when the context closes is cancelled, and Playwright prints
+    that as a traceback outside the JSON logs."""
+    if ctx is not None:
+        try:
+            ctx.unroute_all(behavior="ignoreErrors")
+        except (PlaywrightError, TypeError):  # older Playwright: no behaviour argument
+            pass
+        try:
+            ctx.close()
+        except PlaywrightError:
+            pass
+    b.close()
+
+
 def study(fetcher, host: str, pages: list, log, allowed, executable: str = "") -> Seen:
     """Opens each page in the browser and returns what it asked for. host is
     the site's host[:port] as in its base URL; the Fetcher's session (a test
@@ -94,6 +110,7 @@ def study(fetcher, host: str, pages: list, log, allowed, executable: str = "") -
             if executable:
                 opts["executable_path"] = executable
             b = pw.chromium.launch(**opts)
+            ctx = None
             try:
                 ctx = b.new_context(service_workers="block", accept_downloads=False, ignore_https_errors=True)
                 ctx.route("**/*", guard)
@@ -107,7 +124,7 @@ def study(fetcher, host: str, pages: list, log, allowed, executable: str = "") -
                     except PlaywrightError:
                         seen.errors += 1
             finally:
-                b.close()
+                _close(ctx, b)
     except PlaywrightError as e:
         log.warn("browser unavailable", error=str(e)[:200])
     return seen

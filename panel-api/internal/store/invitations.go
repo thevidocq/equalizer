@@ -17,6 +17,8 @@ type Invitation struct {
 	Role       string    `json:"role"`
 	ExpiresAt  time.Time `json:"expires_at"`
 	Sent       bool      `json:"sent"`
+	// SendProblem says why the email was not sent (mail.Problem*); never stored.
+	SendProblem string `json:"send_problem,omitempty"`
 }
 
 // CreateInvitation stores an invitation.
@@ -105,6 +107,15 @@ type TenantOverview struct {
 	Joined    bool          `json:"joined"` // someone accepted an invitation
 	SiteCount int           `json:"site_count"`
 	Sites     []SiteSummary `json:"sites"`
+	// PendingAdmin is whom the last invitation went to, until someone joins:
+	// the platform invited that person and may invite them again.
+	PendingAdmin *Person `json:"pending_admin,omitempty"`
+}
+
+// Person is a name and an email address.
+type Person struct {
+	Name  string `json:"name"`
+	Email string `json:"email"`
 }
 
 // SiteSummary is a site as the platform sees it.
@@ -118,8 +129,10 @@ func (s *Store) Overview(ctx context.Context) ([]TenantOverview, error) {
 	rows, err := s.DB.QueryContext(ctx, `
 		SELECT t.id, t.name, t.created_at, EXISTS (SELECT 1 FROM users u WHERE u.tenant_id = t.id), a.name,
 			EXISTS (SELECT 1 FROM map_versions m WHERE m.app_id = a.id AND m.status = 'published'),
-			a.exposure_status = 'exposed'
+			a.exposure_status = 'exposed', inv.name, inv.email
 		FROM tenants t LEFT JOIN apps a ON a.tenant_id = t.id
+		LEFT JOIN LATERAL (SELECT i.name, i.email FROM invitations i WHERE i.tenant_id = t.id
+			ORDER BY i.id DESC LIMIT 1) inv ON true
 		ORDER BY t.name, t.id, a.name`)
 	if err != nil {
 		return nil, err
@@ -130,8 +143,12 @@ func (s *Store) Overview(ctx context.Context) ([]TenantOverview, error) {
 		var t TenantOverview
 		var site *string
 		var published, exposed *bool
-		if err := rows.Scan(&t.ID, &t.Name, &t.CreatedAt, &t.Joined, &site, &published, &exposed); err != nil {
+		var invName, invEmail *string
+		if err := rows.Scan(&t.ID, &t.Name, &t.CreatedAt, &t.Joined, &site, &published, &exposed, &invName, &invEmail); err != nil {
 			return nil, err
+		}
+		if !t.Joined && invName != nil && invEmail != nil {
+			t.PendingAdmin = &Person{Name: *invName, Email: *invEmail}
 		}
 		if len(out) == 0 || out[len(out)-1].ID != t.ID {
 			t.Sites = []SiteSummary{}
@@ -178,4 +195,15 @@ func (s *Store) RestartTenant(ctx context.Context, tenant string) (Tenant, error
 		return Tenant{}, err
 	}
 	return t, tx.Commit()
+}
+
+// EmailUse says whether an email address already has an account or a
+// pending invitation: an invitation to it would fail when accepted. Pending
+// invitations of exceptTenant are ignored (they are about to be replaced).
+func (s *Store) EmailUse(ctx context.Context, email, exceptTenant string) (account, invited bool, err error) {
+	err = s.DB.QueryRowContext(ctx, `
+		SELECT EXISTS (SELECT 1 FROM users WHERE lower(email) = lower($1)),
+			EXISTS (SELECT 1 FROM invitations WHERE lower(email) = lower($1)
+				AND accepted_at IS NULL AND NOT revoked AND expires_at > now() AND tenant_id <> $2)`, email, exceptTenant).Scan(&account, &invited)
+	return account, invited, err
 }

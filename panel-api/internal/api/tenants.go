@@ -60,6 +60,9 @@ func (s *Server) createTenant(w http.ResponseWriter, r *http.Request, u *auth.Us
 		fail(w, http.StatusUnprocessableEntity, "invalid", "id (lower case letters, digits, -), name, administrator's name and email are required")
 		return
 	}
+	if !s.emailFree(w, r, in.AdminEmail, "") {
+		return
+	}
 	t, err := s.Store.CreateTenant(r.Context(), in.ID, in.Name)
 	if err != nil {
 		s.storeError(w, r, err)
@@ -95,6 +98,9 @@ func (s *Server) reinviteFirstAdmin(w http.ResponseWriter, r *http.Request, u *a
 	in.Email, in.Name = strings.TrimSpace(in.Email), strings.TrimSpace(in.Name)
 	if !validEmail(in.Email) || in.Name == "" || len(in.Name) > 200 {
 		fail(w, http.StatusUnprocessableEntity, "invalid", "administrator's name and email are required")
+		return
+	}
+	if !s.emailFree(w, r, in.Email, r.PathValue("tenant")) {
 		return
 	}
 	t, err := s.Store.RestartTenant(r.Context(), r.PathValue("tenant"))

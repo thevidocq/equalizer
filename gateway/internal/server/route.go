@@ -5,6 +5,7 @@ import (
 	"log/slog"
 	"net/http"
 	"net/url"
+	"strings"
 
 	"github.com/thevidocq/equalizer/gateway/internal/legacyclient"
 	"github.com/thevidocq/equalizer/gateway/internal/limits"
@@ -181,11 +182,37 @@ func (p *Public) redirect(w http.ResponseWriter, r *http.Request, st *site.Site,
 		p.Log.InfoContext(r.Context(), "legacy redirect to an unmapped path",
 			slog.Group("detail", slog.String("route", routeID), slog.String("legacy_path", loc.Path)))
 	}
+	if p.schemeLoop(w, r, st, routeID, loc, target) {
+		return http.StatusBadGateway
+	}
 	(&issuer{URLMapper: st.URLs, st: st, ss: sessionOf(r)}).note(target)
 	securityHeaders(w.Header())
 	w.Header().Set("Location", target)
 	w.WriteHeader(resp.Status)
 	return resp.Status
+}
+
+// schemeLoop: the legacy application sends the visitor to this very page in
+// the other scheme (a WordPress whose address is https while the site is
+// served in http). Rewritten to the public scheme, that redirect points back
+// here and the browser loops until it gives up.
+// It answers with a page instead, and an event that says what to fix.
+func (p *Public) schemeLoop(w http.ResponseWriter, r *http.Request, st *site.Site, routeID string, loc *url.URL, target string) bool {
+	if loc.Scheme == "" || loc.Scheme == st.Model.Meta.Scheme() {
+		return false
+	}
+	t, err := url.Parse(target)
+	if err != nil || (t.Host != "" && !strings.EqualFold(t.Host, r.Host)) ||
+		t.EscapedPath() != r.URL.EscapedPath() || t.RawQuery != r.URL.RawQuery {
+		return false
+	}
+	ev := p.event(r, st, "legacy.error", "scheme_mismatch", http.StatusBadGateway, telemetry.Ptr(routeID))
+	ev.Detail = map[string]any{"legacy_scheme": loc.Scheme, "public_scheme": st.Model.Meta.Scheme()}
+	p.Events.Emit(ev)
+	p.Log.WarnContext(r.Context(), "the legacy application expects the site in "+loc.Scheme+", the site is served in "+
+		st.Model.Meta.Scheme()+": its redirect would loop", slog.Group("detail", slog.String("route", routeID)))
+	writePage(w, http.StatusBadGateway, pageSchemeMismatch)
+	return true
 }
 
 func (p *Public) reject(w http.ResponseWriter, r *http.Request, st *site.Site, routeID string, err error) {

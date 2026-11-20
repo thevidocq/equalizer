@@ -5,6 +5,7 @@ import (
 	"crypto/ed25519"
 	"encoding/base64"
 	"fmt"
+	netmail "net/mail"
 	"net/netip"
 	"net/url"
 	"os"
@@ -42,6 +43,7 @@ type Config struct {
 	// TrustedProxies may set X-Forwarded-For (EQ_TRUSTED_PROXIES, CIDRs):
 	// the proxies in front of the panel. Empty: the peer is the client.
 	TrustedProxies  []netip.Prefix
+	RelayURL        string // public address of the tunnel relay, shown in the connector command (EQ_RELAY_PUBLIC_URL)
 	RelayAdmin      string // relays' admin endpoint for the status page (EQ_RELAY_ADMIN, e.g. tunnel-relay:9091)
 	GatewayAdmin    string // gateways' admin endpoint (EQ_GATEWAY_ADMIN, e.g. gateway:9090)
 	ShutdownTimeout time.Duration
@@ -60,6 +62,7 @@ func FromEnv() (Config, error) {
 		UIDir:           os.Getenv("EQ_UI_DIR"),
 		LokiURL:         strings.TrimRight(os.Getenv("EQ_LOKI_URL"), "/"),
 		RelayAdmin:      os.Getenv("EQ_RELAY_ADMIN"),
+		RelayURL:        os.Getenv("EQ_RELAY_PUBLIC_URL"),
 		GatewayAdmin:    os.Getenv("EQ_GATEWAY_ADMIN"),
 		ShutdownTimeout: 10 * time.Second,
 	}
@@ -134,6 +137,9 @@ func FromEnv() (Config, error) {
 	}
 	if cfg.MailMode == "smtp" && cfg.SMTPAddr == "" {
 		return Config{}, fmt.Errorf("EQ_MAIL_MODE=smtp needs EQ_SMTP_ADDR (host:587)")
+	}
+	if _, err := netmail.ParseAddress(cfg.MailFrom); cfg.MailMode == "smtp" && err != nil {
+		return Config{}, fmt.Errorf("EQ_MAIL_FROM: an address such as noreply@example.com or \"Equalizer <noreply@example.com>\"")
 	}
 	return cfg, nil
 }

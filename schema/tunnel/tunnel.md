@@ -29,7 +29,7 @@ Connection: Upgrade
 Upgrade: equalizer-tunnel/1
 Authorization: Bearer <connector token>
 X-Eq-Connector: cn-example-city-01
-X-Eq-Connector-Version: 0.1.0
+X-Eq-Connector-Version: 0.2.0
 X-Eq-Allow: 10.20.0.15:8080,10.20.0.16:443
 ```
 

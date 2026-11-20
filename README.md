@@ -8,9 +8,11 @@ request by a gateway: the signed map says what exists (by default the whole
 site, admin included), and nothing reaches the legacy application as the
 client wrote it.
 
-> **Status:** first stable prototype, 0.1.0 (release notes in
-> [`docs/releases/0.1.0.md`](docs/releases/0.1.0.md)), in lab testing before
-> the tag. See [`CHANGELOG.md`](CHANGELOG.md) for what is implemented.
+> **Status:** prototype 0.2.0, ready for the first installations (release
+> notes in [`docs/releases/0.2.0.md`](docs/releases/0.2.0.md); the previous
+> one, [`0.1.0`](docs/releases/0.1.0.md)). Tested in the local lab against
+> ten real web applications. See [`CHANGELOG.md`](CHANGELOG.md) for what is
+> implemented.
 
 ## How it works, in short
 

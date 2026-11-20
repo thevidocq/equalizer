@@ -13,7 +13,7 @@ ROOT="$(cd ../.. && pwd)"
 RUN="$LAB/.run"
 BIN="$RUN/bin"
 LOGS="$RUN/logs"
-VERSION="${EQ_LAB_VERSION:-0.1.0}"
+VERSION="${EQ_LAB_VERSION:-$(cat "$ROOT/VERSION")}"
 # Lab names never go through an HTTP proxy set in the environment.
 export NO_PROXY="${NO_PROXY:+$NO_PROXY,}127.0.0.1,localhost,.lab.test,.acme.test,acme.test"
 export no_proxy="$NO_PROXY"

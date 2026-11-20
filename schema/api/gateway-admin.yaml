@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: Equalizer gateway admin endpoint
-  version: 0.1.0
+  version: 0.2.0
   description: |
     The gateway's administration endpoint (`EQ_ADMIN_ADDR`, Compose `gateway:9090`). It listens on the
     internal network only and is never published. Caddy uses the TLS endpoints, panel-api the map check, the

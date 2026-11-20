@@ -1457,7 +1457,7 @@ export interface paths {
             };
         };
         put?: never;
-        /** Verify this version (editors, approvers, administrators): the agent compares every studied page with and without Equalizer using this version, and tries the attack set on every parameter and field, on the gateway only. Nothing is written to the legacy site */
+        /** Verify this version (editors, approvers, administrators): the agent compares every studied page with and without Equalizer using this version, and tries the attack set on every parameter and field, on the gateway only. Nothing is written to the legacy site. With test accounts, the pages behind their login are verified too (kept encrypted, erased when the verification ends); without, only public pages */
         post: {
             parameters: {
                 query?: never;
@@ -1468,7 +1468,18 @@ export interface paths {
                 };
                 cookie?: never;
             };
-            requestBody?: never;
+            requestBody?: {
+                content: {
+                    "application/json": {
+                        accounts?: components["schemas"]["TestAccount"][];
+                        /**
+                         * @description Let the agent correct the version into a new draft
+                         * @default false
+                         */
+                        correct?: boolean;
+                    };
+                };
+            };
             responses: {
                 /** @description Queued */
                 202: {
@@ -2289,6 +2300,55 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/internal/verifications/{id}/try-map": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Sign a corrected version of a running verification for tries on the gateway. Same site, same legacy reach, same checks as any draft */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: components["parameters"]["id"];
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": {
+                        document: {
+                            [key: string]: unknown;
+                        };
+                    };
+                };
+            };
+            responses: {
+                /** @description The document signed for tries */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            [key: string]: unknown;
+                        };
+                    };
+                };
+                422: components["responses"]["Error"];
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/internal/verifications/{id}/result": {
         parameters: {
             query?: never;
@@ -2315,6 +2375,12 @@ export interface paths {
                         broken?: components["schemas"]["BrokenPage"][];
                         open?: components["schemas"]["StillOpen"][];
                         error?: string;
+                        /** @description The corrected version, when the agent changed it; saved as a new draft verified with score */
+                        document?: {
+                            [key: string]: unknown;
+                        } | null;
+                        corrections?: components["schemas"]["Correction"][];
+                        before?: components["schemas"]["StudyScore"];
                     };
                 };
             };
@@ -4028,6 +4094,10 @@ export interface components {
             skipped_actions?: string[];
             /** @description HTML pages studied anonymously (path and query): what a verification compares */
             pages?: string[];
+            /** @description HTML pages studied with each test account and not anonymously */
+            pages_by_account?: {
+                [key: string]: string[];
+            };
         } & {
             [key: string]: unknown;
         };
@@ -4044,6 +4114,23 @@ export interface components {
             broken?: components["schemas"]["BrokenPage"][];
             open?: components["schemas"]["StillOpen"][];
             error?: string | null;
+            /** @description The draft the agent made from this version, when it corrected it */
+            corrected_version?: number | null;
+            corrections?: components["schemas"]["Correction"][];
+            /** @description Score of this version before the agent's corrections */
+            before?: components["schemas"]["StudyScore"] | null;
+            /** @description Test accounts the pages behind a login were verified with */
+            accounts?: string[];
+        };
+        Correction: {
+            /** @description Map entry, or entry.field */
+            entry: string;
+            /** @enum {unknown} */
+            change: "widened" | "narrowed" | "removed" | "restored";
+            /** @description From what to what, e.g. int → enum csv, xlsx */
+            detail?: string;
+            /** @description Why, e.g. the export page was refused */
+            reason: string;
         };
         VerificationJob: {
             id: number;
@@ -4064,6 +4151,19 @@ export interface components {
             try_map: {
                 [key: string]: unknown;
             };
+            kind?: components["schemas"]["SiteKind"];
+            /** @description Correct the version (widen what breaks, narrow what the observed values allow) and verify again */
+            correct?: boolean;
+            /** @description Pages behind each test account's login studied by the latest discovery */
+            pages_by_account?: {
+                [key: string]: string[];
+            };
+            /** @description Test accounts to verify the pages behind their login with (erased when the verification ends) */
+            accounts?: {
+                label?: string;
+                username?: string;
+                password?: string;
+            }[];
         };
         DiscoveryJob: {
             id: number;

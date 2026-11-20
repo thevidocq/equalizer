@@ -652,8 +652,18 @@ paths:
       summary: >-
         Verify this version (editors, approvers, administrators): the agent compares every studied page with
         and without Equalizer using this version, and tries the attack set on every parameter and field, on the
-        gateway only. Nothing is written to the legacy site
+        gateway only. Nothing is written to the legacy site. With test accounts, the pages behind their login are
+        verified too (kept encrypted, erased when the verification ends); without, only public pages
       parameters: [{ $ref: "#/components/parameters/app" }, { $ref: "#/components/parameters/version" }]
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                accounts: { type: array, maxItems: 3, items: { $ref: "#/components/schemas/TestAccount" } }
+                correct: { type: boolean, default: false, description: "Let the agent correct the version into a new draft" }
       responses:
         "202":
           description: Queued
@@ -973,6 +983,30 @@ paths:
             application/json:
               schema: { $ref: "#/components/schemas/VerificationJob" }
         "204": { description: Nothing queued }
+  /internal/verifications/{id}/try-map:
+    post:
+      tags: [internal]
+      summary: >-
+        Sign a corrected version of a running verification for tries on the gateway. Same site, same legacy
+        reach, same checks as any draft
+      security: [{ serviceToken: [] }]
+      parameters: [{ $ref: "#/components/parameters/id" }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [document]
+              properties:
+                document: { type: object, additionalProperties: true }
+      responses:
+        "200":
+          description: The document signed for tries
+          content:
+            application/json:
+              schema: { type: object, additionalProperties: true }
+        "422": { $ref: "#/components/responses/Error" }
   /internal/verifications/{id}/result:
     post:
       tags: [internal]
@@ -990,6 +1024,12 @@ paths:
                 broken: { type: array, maxItems: 500, items: { $ref: "#/components/schemas/BrokenPage" } }
                 open: { type: array, maxItems: 1000, items: { $ref: "#/components/schemas/StillOpen" } }
                 error: { type: string, maxLength: 500 }
+                document:
+                  type: [object, "null"]
+                  additionalProperties: true
+                  description: The corrected version, when the agent changed it; saved as a new draft verified with score
+                corrections: { type: array, maxItems: 500, items: { $ref: "#/components/schemas/Correction" } }
+                before: { $ref: "#/components/schemas/StudyScore" }
       responses:
         "204": { description: Saved }
   /internal/reviews/claim:
@@ -1994,6 +2034,10 @@ components:
         accounts: { type: array, items: { type: object, properties: { label: { type: string }, login: { enum: [ok, failed, no_login_form] } } } }
         skipped_actions: { type: array, items: { type: string }, description: "Links never opened because they change something" }
         pages: { type: array, maxItems: 300, items: { type: string }, description: "HTML pages studied anonymously (path and query): what a verification compares" }
+        pages_by_account:
+          type: object
+          additionalProperties: { type: array, maxItems: 150, items: { type: string } }
+          description: HTML pages studied with each test account and not anonymously
     Verification:
       type: object
       required: [version, status]
@@ -2007,6 +2051,18 @@ components:
         broken: { type: array, items: { $ref: "#/components/schemas/BrokenPage" } }
         open: { type: array, items: { $ref: "#/components/schemas/StillOpen" } }
         error: { type: [string, "null"] }
+        corrected_version: { type: [integer, "null"], description: "The draft the agent made from this version, when it corrected it" }
+        corrections: { type: array, items: { $ref: "#/components/schemas/Correction" } }
+        before: { anyOf: [{ $ref: "#/components/schemas/StudyScore" }, { type: "null" }], description: "Score of this version before the agent's corrections" }
+        accounts: { type: array, items: { type: string }, description: "Test accounts the pages behind a login were verified with" }
+    Correction:
+      type: object
+      required: [entry, change, reason]
+      properties:
+        entry: { type: string, description: "Map entry, or entry.field" }
+        change: { enum: [widened, narrowed, removed, restored] }
+        detail: { type: string, description: "From what to what, e.g. int → enum csv, xlsx" }
+        reason: { type: string, description: "Why, e.g. the export page was refused" }
     VerificationJob:
       type: object
       required: [id, tenant, app, version, document, reach, base_url, pages, try_map]
@@ -2029,6 +2085,16 @@ components:
           type: object
           additionalProperties: true
           description: "The version signed for tries on the gateway (TryRequest.map in gateway-admin.yaml), valid one hour"
+        kind: { $ref: "#/components/schemas/SiteKind" }
+        correct: { type: boolean, description: "Correct the version (widen what breaks, narrow what the observed values allow) and verify again" }
+        pages_by_account:
+          type: object
+          additionalProperties: { type: array, items: { type: string } }
+          description: Pages behind each test account's login studied by the latest discovery
+        accounts:
+          type: array
+          items: { type: object, properties: { label: { type: string }, username: { type: string }, password: { type: string } } }
+          description: Test accounts to verify the pages behind their login with (erased when the verification ends)
     DiscoveryJob:
       type: object
       required: [id, tenant, app, domain, base_url, reach, max_pages]

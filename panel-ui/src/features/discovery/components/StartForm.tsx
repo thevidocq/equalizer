@@ -3,7 +3,7 @@ import { Button, Notice, SelectField, TextField, useToast } from "@/shared/ui";
 import { describeError } from "@/shared/api/errors";
 import { useConnectors } from "@/features/connectors";
 import { useStartDiscovery } from "../hooks/useDiscovery";
-import { TestAccounts, type TestAccount } from "./TestAccounts";
+import { TestAccounts, type TestAccount } from "@/features/maps";
 
 type Props = { tenant: string; app: string; firstTime: boolean; aiState: "on" | "off" | "unknown"; isAdmin: boolean };
 

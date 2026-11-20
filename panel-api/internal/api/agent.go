@@ -161,13 +161,19 @@ func (s *Server) discoveryResult(w http.ResponseWriter, r *http.Request) {
 	if failure != "" {
 		fp = &failure
 	}
+	// the draft arrives measured and corrected: the agent verifies it next,
+	// behind the test accounts' logins too (docs/agent.md); the accounts
+	// pass to the verification before the discovery erases its own
+	opts := store.VerifyOptions{Correct: true, Author: requester}
+	if c, err := s.Store.DiscoverySecrets(r.Context(), id); draft != nil && err == nil {
+		opts.AccountsSecret, opts.Accounts = s.sealAccounts(a.ID, s.jobAccounts(c))
+	}
 	if err := s.Store.FinishDiscovery(r.Context(), id, in.Report, draft, fp); err != nil {
 		s.storeError(w, r, err)
 		return
 	}
 	if draft != nil {
-		// the draft arrives measured: the agent verifies it next (docs/agent.md)
-		_, _ = s.Store.QueueVerification(r.Context(), a.ID, *draft, nil)
+		_, _ = s.Store.QueueVerification(r.Context(), a.ID, *draft, nil, opts)
 	}
 	detail := map[string]any{"id": id, "draft_version": draft}
 	if fp != nil {
@@ -178,9 +184,29 @@ func (s *Server) discoveryResult(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) proposeDraft(ctx context.Context, a store.App, id int64, requester *int64, doc json.RawMessage) (*int, string) {
+	doc, failure := s.checkProposal(ctx, a, doc, fmt.Sprintf("agent:discovery-%d", id))
+	if failure != "" {
+		return nil, failure
+	}
+	if v, err := s.Store.Published(ctx, a.ID); err == nil && sameMap(v.Document, doc) {
+		return nil, "" // nothing changed: no draft
+	}
+	if requester == nil {
+		return nil, "nobody to author the draft (the person who started it was removed)"
+	}
+	version, err := s.Store.CreateDraft(ctx, a.ID, doc, fmt.Sprintf("Proposed by discovery #%d", id), *requester)
+	if err != nil {
+		return nil, "the draft could not be saved"
+	}
+	return &version, ""
+}
+
+// checkProposal gives a map the agent proposes the panel's identity fields
+// and every check a draft gets; a message says why it is refused.
+func (s *Server) checkProposal(ctx context.Context, a store.App, doc json.RawMessage, createdBy string) (json.RawMessage, string) {
 	doc, err := store.SetMeta(doc, map[string]any{
 		"schema": "gateway-map/1.0", "tenant": a.Tenant, "app": a.ID, "version": 1, "status": "draft",
-		"created_by": fmt.Sprintf("agent:discovery-%d", id), "public_domain": a.PublicDomain,
+		"created_by": createdBy, "public_domain": a.PublicDomain,
 	})
 	if err != nil {
 		return nil, "the proposed map is not a JSON object"
@@ -198,17 +224,7 @@ func (s *Server) proposeDraft(ctx context.Context, a store.App, id int64, reques
 	if err := s.mapChecked(ctx, doc, false); err != nil {
 		return nil, truncate("the proposed map: "+err.Error(), 500)
 	}
-	if v, err := s.Store.Published(ctx, a.ID); err == nil && sameMap(v.Document, doc) {
-		return nil, "" // nothing changed: no draft
-	}
-	if requester == nil {
-		return nil, "nobody to author the draft (the person who started it was removed)"
-	}
-	version, err := s.Store.CreateDraft(ctx, a.ID, doc, fmt.Sprintf("Proposed by discovery #%d", id), *requester)
-	if err != nil {
-		return nil, "the draft could not be saved"
-	}
-	return &version, ""
+	return doc, ""
 }
 
 // sameMap compares two maps without their meta.

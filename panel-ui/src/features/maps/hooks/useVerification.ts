@@ -14,10 +14,13 @@ export function useVerification(app: string, version: number) {
   });
 }
 
+export type VerifyRequest = { accounts?: { label: string; username: string; password: string }[]; correct?: boolean };
+
 export function useVerify(app: string, version: number) {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: () => unwrap(api.POST("/apps/{app}/maps/{version}/verify", { params: { path: { app, version } } })),
+    mutationFn: (body: VerifyRequest = {}) =>
+      unwrap(api.POST("/apps/{app}/maps/{version}/verify", { params: { path: { app, version } }, body })),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["verification", app, version] }),
   });
 }

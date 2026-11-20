@@ -145,6 +145,8 @@ func TestDiscovery(t *testing.T) {
 		Pages    []string
 		TryMap   signing.TryMap `json:"try_map"`
 		Document json.RawMessage
+		Accounts []map[string]string
+		Correct  bool
 	}
 	if code := internalPost(t, e, "/v1/internal/verifications/claim", nil, &vjob); code != 200 {
 		t.Fatalf("verification claim: %d", code)
@@ -155,29 +157,67 @@ func TestDiscovery(t *testing.T) {
 	pub := e.server.SigningKey.Public().(ed25519.PublicKey)
 	if vjob.Version != 1 || vjob.BaseURL != "https://blog.acme.test" || len(vjob.Pages) == 0 || vjob.Pages[0] != "/" ||
 		vjob.TryMap.Purpose != "try" || !ed25519.Verify(pub, signing.TryMessage(exp, payload), sig) ||
-		time.Until(exp) > 2*time.Hour {
+		time.Until(exp) > 2*time.Hour || !vjob.Correct ||
+		len(vjob.Accounts) != 2 || vjob.Accounts[1]["label"] != "administrator" || vjob.Accounts[1]["password"] != "adm1n!" {
 		t.Fatalf("verification job: %+v", vjob)
+	}
+	// The agent's corrected draft is signed for its tries with the same checks as any draft.
+	var corrected map[string]any
+	_ = json.Unmarshal(vjob.Document, &corrected)
+	corrected["routes"] = corrected["routes"].([]any)[:1]
+	var tm signing.TryMap
+	if code := internalPost(t, e, "/v1/internal/verifications/"+itoa(vjob.ID)+"/try-map", map[string]any{"document": corrected}, &tm); code != 200 || tm.Purpose != "try" {
+		t.Fatalf("try map of a corrected draft: %d %+v", code, tm)
+	}
+	bad := map[string]any{"meta": corrected["meta"], "legacy": corrected["legacy"]}
+	if code := internalPost(t, e, "/v1/internal/verifications/"+itoa(vjob.ID)+"/try-map", map[string]any{"document": bad}, nil); code != 422 {
+		t.Fatalf("try map of an invalid draft: %d", code)
 	}
 	if code := internalPost(t, e, "/v1/internal/verifications/claim", nil, nil); code != 204 {
 		t.Fatalf("second verification claim: %d", code)
 	}
 	score := map[string]any{"functions_total": 10, "functions_identical": 9, "inputs_total": 20, "inputs_protected": 18, "area_percent": 5}
+	before := map[string]any{"functions_total": 10, "functions_identical": 8, "inputs_total": 20, "inputs_protected": 12, "area_percent": 5}
 	if code := internalPost(t, e, "/v1/internal/verifications/"+itoa(vjob.ID)+"/result", map[string]any{"score": score,
-		"broken": []map[string]any{{"path": "/x", "difference": "text"}},
-		"open":   []map[string]any{{"kind": "input", "target": "home.s", "reason": "accepts_sql"}}}, nil); code != 204 {
+		"broken":   []map[string]any{{"path": "/x", "difference": "text"}},
+		"open":     []map[string]any{{"kind": "input", "target": "home.s", "reason": "accepts_sql"}},
+		"document": corrected, "before": before,
+		"corrections": []map[string]any{{"entry": "home.p", "change": "narrowed", "detail": "string → int", "reason": "every value seen is a number"}}}, nil); code != 204 {
 		t.Fatalf("verification result: %d", code)
 	}
-	var withVer struct {
+	// The corrected map is a new draft by the discovery's requester, verified;
+	// the version it came from keeps its own measure and says what changed.
+	var v1, v2 struct {
+		Author       string
+		Note         string
 		Verification struct {
-			Status string
-			Score  map[string]float64
-			Broken []map[string]any
+			Status           string
+			Score            map[string]float64
+			Broken           []map[string]any
+			CorrectedVersion *int `json:"corrected_version"`
+			Corrections      []map[string]any
+			Accounts         []string
 		}
 	}
-	boss.must(200, "GET", "/v1/apps/blog/maps/1", nil, &withVer)
-	if withVer.Verification.Status != "done" || withVer.Verification.Score["functions_identical"] != 9 || len(withVer.Verification.Broken) != 1 {
-		t.Fatalf("verification on the version: %+v", withVer)
+	boss.must(200, "GET", "/v1/apps/blog/maps/1", nil, &v1)
+	boss.must(200, "GET", "/v1/apps/blog/maps/2", nil, &v2)
+	if v1.Verification.Status != "done" || v1.Verification.Score["functions_identical"] != 8 || v1.Verification.CorrectedVersion == nil ||
+		*v1.Verification.CorrectedVersion != 2 || len(v1.Verification.Corrections) != 1 {
+		t.Fatalf("verification of the version corrected: %+v", v1)
 	}
+	if v2.Author != "boss@acme.test" || !strings.Contains(v2.Note, "Corrected by the agent from version 1") ||
+		v2.Verification.Status != "done" || v2.Verification.Score["functions_identical"] != 9 || len(v2.Verification.Broken) != 1 ||
+		len(v2.Verification.Accounts) != 2 {
+		t.Fatalf("corrected draft: %+v", v2)
+	}
+	var kept int
+	_ = e.st.DB.QueryRowContext(context.Background(), `SELECT count(*) FROM map_verifications WHERE accounts_secret IS NOT NULL`).Scan(&kept)
+	if kept != 0 {
+		t.Fatal("test accounts kept after the verification")
+	}
+	// Verify by hand with accounts: they are kept for that verification only.
+	boss.must(422, "POST", "/v1/apps/blog/maps/2/verify", map[string]any{"accounts": []map[string]string{{"label": "a", "username": "u"}, {"label": "a", "username": "v"}}}, nil)
+	boss.must(202, "POST", "/v1/apps/blog/maps/2/verify", map[string]any{"accounts": []map[string]string{{"label": "editor", "username": "ed", "password": "pw"}}}, nil)
 
 	// Continuous discovery needs a published map.
 	boss.must(200, "PATCH", "/v1/apps/blog", map[string]any{"discovery_schedule": "daily"}, nil)

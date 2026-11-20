@@ -41,7 +41,7 @@ export function Report({ d }: { d: Discovery }) {
         <Notice tone="info">A draft was proposed: <Link className="font-semibold text-signal hover:underline" to={`../maps/${d.draft_version}`}>
           version {d.draft_version}</Link>. Review it and send it for approval.</Notice>
       ) : <Notice tone="info">The map already covers what was found: no draft needed.</Notice>}
-      {d.draft_version ? <VerificationPanel app={app} version={d.draft_version} canVerify={false} /> : null}
+      {d.draft_version ? <VerificationPanel app={app} version={d.draft_version} canVerify={false} versionLink={(v) => `../maps/${v}`} /> : null}
       <div className="grid gap-3 sm:grid-cols-4">
         <Stat label="Built with" value={r.cms ? `${r.cms}${r.version ? " " + r.version : ""}` : "Not recognised"} />
         <Stat label="Coverage" value={`${r.coverage ?? 0}%`} />

@@ -38,6 +38,43 @@ prototype.
 
 ## Entries
 
+### 2026-11-20 — Verify behind the logins and correct the draft
+
+- **Branch:** feat/agent-correct-and-login
+- **What:**
+  - panel-api: a discovery hands its test accounts, still sealed, to the
+    verification of its draft (migration 0016), which erases them when it
+    ends; `POST .../verify` takes `accounts` and `correct`; the job carries
+    the accounts, the site kind, the pages studied per account; new
+    internal `POST /verifications/{id}/try-map` signs a corrected version
+    after the same checks as any draft; a result with a corrected
+    `document` becomes a new draft ("Corrected by the agent from version
+    N", by the discovery's requester or the person who asked), recorded
+    with its last measure, while the original keeps its own with the
+    corrections and the new version's number.
+  - agent: `verify.py` logs each test account in, opens a try session on
+    the gateway with its legacy cookies and checks the pages it studied;
+    comparison fixes found in the lab (relative links resolved against the
+    page, the site's own address equal as legacy or public host, text
+    differences name a few words); `correct.py` (widen what broke, narrow
+    from values seen, up to three rounds, keep only what does not break a
+    page; every change with its reason); `crawler.login_only`; the report
+    lists pages per account.
+  - panel-ui: Verify takes test accounts and "let the agent correct",
+    shows corrections, the corrected version and the accounts verified;
+    `TestAccounts` moved to the maps feature.
+  - Docs: tenant manual, agent.md (step 4 complete); screenshot.
+- **Why:** pages behind a login were never verified, and the agent only
+  measured; now a draft arrives verified behind the logins and corrected.
+- **Status:** unit tests (agent correct/compare, panel-api accounts kept
+  and erased, corrected draft and measures); lab 01 + 06: pages identical
+  12/12, 155/155, 154/154, 4/4 with the administrator's pages; nothing to
+  correct on the lab sites (corrections proven by unit tests).
+- **Next steps:**
+  1. Lab: Moodle, PrestaShop and the other new profiles.
+  2. SIEM / S3 log forwarding from the panel.
+  3. Remove the map's `risk` field.
+
 ### 2026-11-20 — One profile per web application, ten applications
 
 - **Branch:** feat/agent-webapps (on top of feat/panel-verification)

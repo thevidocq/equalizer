@@ -51,9 +51,17 @@ class Panel:
         status, job = self._post("/v1/internal/verifications/claim")
         return job if status == 200 else None
 
-    def verification_result(self, job_id: int, score=None, broken=None, still_open=None, error=None):
+    def try_map(self, job_id: int, document: dict):
+        """The panel signs a corrected version for tries; None when it refuses it."""
+        status, signed = self._post(f"/v1/internal/verifications/{job_id}/try-map", {"document": document})
+        return signed if status == 200 else None
+
+    def verification_result(self, job_id: int, score=None, broken=None, still_open=None, error=None,
+                            document=None, corrections=None, before=None):
         body = {"score": score, "broken": (broken or [])[:500], "open": (still_open or [])[:1000]}
         if error:
             body["error"] = error[:500]
+        if document is not None:
+            body.update(document=document, corrections=(corrections or [])[:500], before=before)
         status, _ = self._post(f"/v1/internal/verifications/{job_id}/result", body)
         return status == 204

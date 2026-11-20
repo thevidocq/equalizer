@@ -5,50 +5,80 @@ import (
 	"database/sql"
 	"encoding/json"
 	"time"
+
+	"github.com/lib/pq"
 )
 
 // Verification is the agent's check of a map version (schema Verification).
 type Verification struct {
-	ID          int64           `json:"-"`
-	App         string          `json:"-"`
-	Version     int             `json:"version"`
-	Status      string          `json:"status"`
-	RequestedBy *string         `json:"requested_by"`
-	CreatedAt   time.Time       `json:"created_at"`
-	FinishedAt  *time.Time      `json:"finished_at"`
-	Score       json.RawMessage `json:"score"`
-	Broken      json.RawMessage `json:"broken"`
-	Open        json.RawMessage `json:"open"`
-	Error       *string         `json:"error"`
+	ID               int64           `json:"-"`
+	App              string          `json:"-"`
+	Version          int             `json:"version"`
+	Status           string          `json:"status"`
+	RequestedBy      *string         `json:"requested_by"`
+	CreatedAt        time.Time       `json:"created_at"`
+	FinishedAt       *time.Time      `json:"finished_at"`
+	Score            json.RawMessage `json:"score"`
+	Broken           json.RawMessage `json:"broken"`
+	Open             json.RawMessage `json:"open"`
+	Error            *string         `json:"error"`
+	CorrectedVersion *int            `json:"corrected_version"`
+	Corrections      json.RawMessage `json:"corrections"`
+	Before           json.RawMessage `json:"before"`
+	Accounts         []string        `json:"accounts"`
+
+	AccountsSecret []byte `json:"-"` // only when claimed
+	Correct        bool   `json:"-"`
+	AuthorID       *int64 `json:"-"` // who authors a corrected draft
+}
+
+// VerifyOptions are what a verification is asked to do besides measuring.
+type VerifyOptions struct {
+	AccountsSecret []byte   // sealed test accounts, erased when it ends
+	Accounts       []string // their labels
+	Correct        bool     // correct the version into a new draft
+	Author         *int64   // the corrected draft's author
 }
 
 const verificationColumns = `v.id, v.app_id, v.version, v.status, u.email, v.created_at, v.finished_at,
-	v.score, v.broken, v.open, v.error`
+	v.score, v.broken, v.open, v.error, v.corrected_version, v.corrections, v.before, v.accounts, v.correct, v.author_id`
 
 func scanVerification(row interface{ Scan(...any) error }) (Verification, error) {
 	var v Verification
-	var score []byte
+	var score, before []byte
 	err := row.Scan(&v.ID, &v.App, &v.Version, &v.Status, &v.RequestedBy, &v.CreatedAt, &v.FinishedAt,
-		&score, &v.Broken, &v.Open, &v.Error)
-	if score != nil {
-		v.Score = score
-	} else {
-		v.Score = json.RawMessage("null")
+		&score, &v.Broken, &v.Open, &v.Error, &v.CorrectedVersion, &v.Corrections, &before, pq.Array(&v.Accounts),
+		&v.Correct, &v.AuthorID)
+	v.Score, v.Before = orNull(score), orNull(before)
+	if v.Accounts == nil {
+		v.Accounts = []string{}
 	}
 	return v, translate(err)
 }
 
+func orNull(b []byte) json.RawMessage {
+	if b == nil {
+		return json.RawMessage("null")
+	}
+	return b
+}
+
 // QueueVerification asks the agent to verify a version, unless one is
 // already waiting or running for it (that one is returned).
-func (s *Store) QueueVerification(ctx context.Context, app string, version int, by *int64) (Verification, error) {
+func (s *Store) QueueVerification(ctx context.Context, app string, version int, by *int64, o VerifyOptions) (Verification, error) {
 	var id int64
 	err := s.DB.QueryRowContext(ctx, `
 		SELECT id FROM map_verifications WHERE app_id = $1 AND version = $2 AND status IN ('queued', 'running')
 		ORDER BY id DESC LIMIT 1`, app, version).Scan(&id)
 	if err == sql.ErrNoRows {
+		accounts := o.Accounts
+		if accounts == nil {
+			accounts = []string{}
+		}
 		err = s.DB.QueryRowContext(ctx, `
-			INSERT INTO map_verifications (app_id, version, requested_by) VALUES ($1, $2, $3) RETURNING id`,
-			app, version, by).Scan(&id)
+			INSERT INTO map_verifications (app_id, version, requested_by, accounts_secret, accounts, correct, author_id)
+			VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING id`,
+			app, version, by, o.AccountsSecret, pq.Array(accounts), o.Correct, o.Author).Scan(&id)
 	}
 	if err != nil {
 		return Verification{}, translate(err)
@@ -68,53 +98,104 @@ func (s *Store) LatestVerification(ctx context.Context, app string, version int)
 		WHERE v.app_id = $1 AND v.version = $2 ORDER BY v.id DESC LIMIT 1`, app, version))
 }
 
-// ClaimVerification hands the oldest queued verification to the agent;
-// one running for more than an hour is given up.
+// RunningVerification returns a running verification.
+func (s *Store) RunningVerification(ctx context.Context, id int64) (Verification, error) {
+	v, err := s.verification(ctx, id)
+	if err == nil && v.Status != "running" {
+		return Verification{}, ErrNotFound
+	}
+	return v, err
+}
+
+// ClaimVerification hands the oldest queued verification to the agent,
+// with its sealed accounts; one running for more than an hour is given up.
 func (s *Store) ClaimVerification(ctx context.Context) (Verification, error) {
 	if _, err := s.DB.ExecContext(ctx, `
-		UPDATE map_verifications SET status = 'failed', error = 'the agent stopped answering', finished_at = now()
+		UPDATE map_verifications SET status = 'failed', error = 'the agent stopped answering', finished_at = now(),
+			accounts_secret = NULL
 		WHERE status = 'running' AND started_at < now() - interval '1 hour'`); err != nil {
 		return Verification{}, err
 	}
 	var id int64
+	var secret []byte
 	err := s.DB.QueryRowContext(ctx, `
 		UPDATE map_verifications SET status = 'running', started_at = now()
 		WHERE id = (SELECT id FROM map_verifications WHERE status = 'queued' ORDER BY id FOR UPDATE SKIP LOCKED LIMIT 1)
-		RETURNING id`).Scan(&id)
+		RETURNING id, accounts_secret`).Scan(&id, &secret)
 	if err != nil {
 		return Verification{}, translate(err)
 	}
-	return s.verification(ctx, id)
+	v, err := s.verification(ctx, id)
+	v.AccountsSecret = secret
+	return v, err
 }
 
-// FinishVerification stores the agent's result of a running verification.
-func (s *Store) FinishVerification(ctx context.Context, id int64, score, broken, open json.RawMessage, failure *string) error {
+// VerificationResult is what the agent reports.
+type VerificationResult struct {
+	Score, Broken, Open json.RawMessage
+	Corrections, Before json.RawMessage
+	CorrectedVersion    *int
+	Failure             *string
+}
+
+// FinishVerification stores the agent's result and erases the accounts.
+func (s *Store) FinishVerification(ctx context.Context, id int64, r VerificationResult) error {
 	status := "done"
-	if failure != nil {
+	if r.Failure != nil {
 		status = "failed"
 	}
 	res, err := s.DB.ExecContext(ctx, `
-		UPDATE map_verifications SET status = $2, score = $3, broken = $4, open = $5, error = $6, finished_at = now()
-		WHERE id = $1 AND status = 'running'`, id, status, nullJSON(score), orEmpty(broken), orEmpty(open), failure)
+		UPDATE map_verifications SET status = $2, score = $3, broken = $4, open = $5, error = $6, finished_at = now(),
+			corrected_version = $7, corrections = $8, before = $9, accounts_secret = NULL
+		WHERE id = $1 AND status = 'running'`, id, status, nullJSON(r.Score), orEmpty(r.Broken), orEmpty(r.Open),
+		r.Failure, r.CorrectedVersion, orEmpty(r.Corrections), nullJSON(r.Before))
 	return affected(res, err)
 }
 
+// RecordVerification stores a verification already done (a corrected
+// draft arrives with the agent's last measure of it).
+func (s *Store) RecordVerification(ctx context.Context, app string, version int, accounts []string, r VerificationResult) error {
+	if accounts == nil {
+		accounts = []string{}
+	}
+	_, err := s.DB.ExecContext(ctx, `
+		INSERT INTO map_verifications (app_id, version, status, started_at, finished_at, score, broken, open, accounts)
+		VALUES ($1, $2, 'done', now(), now(), $3, $4, $5, $6)`,
+		app, version, nullJSON(r.Score), orEmpty(r.Broken), orEmpty(r.Open), pq.Array(accounts))
+	return err
+}
+
 // StudiedPages are the pages the latest finished discovery of a site
-// studied anonymously (its report's pages).
-func (s *Store) StudiedPages(ctx context.Context, app string) ([]string, error) {
-	var raw []byte
+// studied anonymously, and those it studied with each test account.
+func (s *Store) StudiedPages(ctx context.Context, app string) ([]string, map[string][]string, error) {
+	var raw, byAccount []byte
 	err := s.DB.QueryRowContext(ctx, `
-		SELECT report->'pages' FROM discoveries WHERE app_id = $1 AND status = 'done' AND report ? 'pages'
-		ORDER BY id DESC LIMIT 1`, app).Scan(&raw)
+		SELECT report->'pages', report->'pages_by_account' FROM discoveries
+		WHERE app_id = $1 AND status = 'done' AND report ? 'pages'
+		ORDER BY id DESC LIMIT 1`, app).Scan(&raw, &byAccount)
 	if err == sql.ErrNoRows {
-		return nil, nil
+		return nil, nil, nil
 	}
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	var pages []string
 	_ = json.Unmarshal(raw, &pages)
-	return pages, nil
+	accounts := map[string][]string{}
+	if byAccount != nil {
+		_ = json.Unmarshal(byAccount, &accounts)
+	}
+	return pages, accounts, nil
+}
+
+// DiscoverySecrets reads a running discovery's sealed test accounts, so a
+// verification can keep them after the discovery erases its own.
+func (s *Store) DiscoverySecrets(ctx context.Context, id int64) (Claim, error) {
+	var c Claim
+	err := s.DB.QueryRowContext(ctx, `
+		SELECT app_id, account_user, account_secret, accounts_secret FROM discoveries WHERE id = $1`, id).
+		Scan(&c.App.ID, &c.AccountUser, &c.AccountSecret, &c.AccountsSecret)
+	return c, translate(err)
 }
 
 func nullJSON(j json.RawMessage) any {

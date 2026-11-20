@@ -90,7 +90,8 @@ proposes a draft only when something changed. Every proposal goes through
 the usual approval.
 
 The agent is being extended into a **study** of the site
-([agent.md](agent.md)): a real browser read-only (administration included,
+([agent.md](agent.md), [compatibility.md](compatibility.md)): one profile
+per kind of web application, a real browser read-only (administration included,
 with test accounts), a precise entry for every function it understands, and
 two checks before the draft is handed over: every page compared with and
 without Equalizer, and every parameter and field tried with an attack set on

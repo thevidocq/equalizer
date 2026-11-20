@@ -1617,8 +1617,8 @@ components:
         kind: { $ref: "#/components/schemas/SiteKind" }
     SiteKind:
       type: [string, "null"]
-      enum: [wordpress, joomla, drupal, moodle, generic, null]
-      description: What the site is built with; selects the template offered for its first map
+      enum: [wordpress, joomla, drupal, magento, prestashop, opencart, typo3, moodle, mediawiki, phpbb, generic, null]
+      description: What the site is built with (docs/compatibility.md); selects the template offered for its first map and the agent's profile
     MapTemplate:
       type: object
       required: [id, name, description]

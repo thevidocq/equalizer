@@ -7,8 +7,13 @@ export const loginPresets: Record<string, string[]> = {
   joomla: ["/administrator/"],
   drupal: ["/user/login", "/user/password", "/admin/"],
   moodle: ["/login/", "/admin/"],
+  magento: ["/customer/account/login/", "/admin/"],
+  opencart: ["/admin/"],
+  typo3: ["/typo3/"],
+  phpbb: ["/ucp.php", "/adm/"],
 };
 
 export const presetNames: Record<string, string> = {
-  wordpress: "WordPress", joomla: "Joomla", drupal: "Drupal", moodle: "Moodle",
+  wordpress: "WordPress", joomla: "Joomla", drupal: "Drupal", moodle: "Moodle", magento: "Magento", opencart: "OpenCart",
+  typo3: "TYPO3", phpbb: "phpBB",
 };

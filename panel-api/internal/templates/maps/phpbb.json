@@ -1,0 +1,255 @@
+{
+ "meta": {
+  "schema": "gateway-map/1.0",
+  "tenant": "x",
+  "app": "x",
+  "version": 1,
+  "status": "draft"
+ },
+ "legacy": {
+  "base_url": "__BASE_URL__",
+  "reach": {
+   "mode": "connector",
+   "connector_id": "__CONNECTOR__",
+   "address": "__ADDRESS__",
+   "allow": [
+    "__ADDRESS__"
+   ]
+  },
+  "timeout_ms": 10000
+ },
+ "roles": {
+  "anonymous": "guest",
+  "list": {
+   "guest": {}
+  }
+ },
+ "defaults": {
+  "rate_limit": {
+   "per_ip": "120/min"
+  },
+  "legacy_budget": {
+   "max_concurrency": 10
+  },
+  "string": {
+   "max_length": 1000
+  }
+ },
+ "types": {
+  "slug": {
+   "base": "string",
+   "pattern": "^[^/.<>{}\"'\\\\\\x00-\\x1f\\x7f]{1,200}$",
+   "deny": [
+    "adm",
+    "admin",
+    "administrator",
+    "api",
+    "assets",
+    "backup",
+    "backups",
+    "cgi-bin",
+    "config",
+    "console",
+    "cpanel",
+    "ext",
+    "images",
+    "install",
+    "jsonapi",
+    "manager",
+    "mcp.php",
+    "phpmyadmin",
+    "plesk",
+    "pma",
+    "posting.php",
+    "private",
+    "server-info",
+    "server-status",
+    "setup",
+    "styles",
+    "test",
+    "tmp",
+    "ucp.php",
+    "vendor",
+    "viewforum.php",
+    "viewtopic.php",
+    "webmail",
+    "wp-admin",
+    "wp-login",
+    "xmlrpc"
+   ]
+  },
+  "id": {
+   "base": "int",
+   "min": 1,
+   "max": 999999999
+  },
+  "search": {
+   "base": "string",
+   "max_length": 200,
+   "pattern": "^[^<>{}\\x00-\\x1f]{1,200}$"
+  }
+ },
+ "routes": [
+  {
+   "id": "home",
+   "path": "/",
+   "method": "GET",
+   "roles": [
+    "guest"
+   ],
+   "legacy_request": {
+    "method": "GET",
+    "path": "/"
+   },
+   "render": "faithful",
+   "origin": "human",
+   "risk": "low"
+  },
+  {
+   "id": "page",
+   "path": "/{slug}",
+   "method": "GET",
+   "roles": [
+    "guest"
+   ],
+   "legacy_request": {
+    "method": "GET",
+    "path": "/{{params.slug}}"
+   },
+   "render": "faithful",
+   "origin": "human",
+   "risk": "low",
+   "params": {
+    "slug": {
+     "type": "slug"
+    }
+   }
+  },
+  {
+   "id": "sub_page",
+   "path": "/{section}/{slug}",
+   "method": "GET",
+   "roles": [
+    "guest"
+   ],
+   "legacy_request": {
+    "method": "GET",
+    "path": "/{{params.section}}/{{params.slug}}"
+   },
+   "render": "faithful",
+   "origin": "human",
+   "risk": "low",
+   "params": {
+    "section": {
+     "type": "slug"
+    },
+    "slug": {
+     "type": "slug"
+    }
+   }
+  }
+ ],
+ "areas": [
+  {
+   "id": "site",
+   "prefix": "/",
+   "methods": [
+    "GET",
+    "HEAD",
+    "POST",
+    "PUT",
+    "PATCH",
+    "DELETE",
+    "OPTIONS"
+   ],
+   "origin": "human",
+   "risk": "medium",
+   "max_body_kb": 51200
+  }
+ ],
+ "assets": [
+  {
+   "prefix": "/css/",
+   "types": [
+    "text/css",
+    "application/javascript",
+    "text/javascript",
+    "image/png",
+    "image/jpeg",
+    "image/gif",
+    "image/svg+xml",
+    "image/webp",
+    "image/x-icon",
+    "image/vnd.microsoft.icon",
+    "font/woff",
+    "font/woff2",
+    "font/ttf",
+    "application/font-woff"
+   ]
+  },
+  {
+   "prefix": "/js/",
+   "types": [
+    "text/css",
+    "application/javascript",
+    "text/javascript",
+    "image/png",
+    "image/jpeg",
+    "image/gif",
+    "image/svg+xml",
+    "image/webp",
+    "image/x-icon",
+    "image/vnd.microsoft.icon",
+    "font/woff",
+    "font/woff2",
+    "font/ttf",
+    "application/font-woff"
+   ]
+  },
+  {
+   "prefix": "/fonts/",
+   "types": [
+    "text/css",
+    "application/javascript",
+    "text/javascript",
+    "image/png",
+    "image/jpeg",
+    "image/gif",
+    "image/svg+xml",
+    "image/webp",
+    "image/x-icon",
+    "image/vnd.microsoft.icon",
+    "font/woff",
+    "font/woff2",
+    "font/ttf",
+    "application/font-woff"
+   ]
+  },
+  {
+   "prefix": "/images/",
+   "types": [
+    "image/png",
+    "image/jpeg",
+    "image/gif",
+    "image/webp",
+    "image/svg+xml",
+    "application/pdf"
+   ]
+  },
+  {
+   "prefix": "/img/",
+   "types": [
+    "image/png",
+    "image/jpeg",
+    "image/gif",
+    "image/webp",
+    "image/svg+xml",
+    "application/pdf"
+   ]
+  }
+ ],
+ "_template": {
+  "name": "phpBB",
+  "description": "A start for a phpBB forum: pages one and two levels deep and the styles, assets and images folders. Posting, moderation and the user control panel stay with the site area; a discovery adds precise entries. The whole site is served as it is, admin included (area /)."
+ }
+}

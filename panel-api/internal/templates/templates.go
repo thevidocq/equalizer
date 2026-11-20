@@ -44,7 +44,7 @@ func List() []Template {
 		if (out[i].ID == "generic") != (out[j].ID == "generic") {
 			return out[j].ID == "generic"
 		}
-		return out[i].Name < out[j].Name
+		return strings.ToLower(out[i].Name) < strings.ToLower(out[j].Name)
 	})
 	return out
 }

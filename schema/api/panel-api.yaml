@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: Equalizer panel-api
-  version: 0.1.0
+  version: 0.2.0
   description: |
     Control-plane API. Used by panel-ui (people: panel session cookie) and
     by internal services (service tokens on /internal). Implemented so

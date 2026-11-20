@@ -6,7 +6,7 @@ import requests
 
 import pytest
 
-from lab import CA, HTTP_SITES, SITE, SITES, Connector, Panel, mail_link, site_certificate, totp
+from lab import CA, HTTP_SITES, LAB, SITE, SITES, Connector, Panel, mail_link, site_certificate, totp
 import state
 
 
@@ -53,7 +53,7 @@ def test_connector_online():
         if items and items[0].get("online"):
             break
         time.sleep(0.5)
-    assert items[0]["online"] and items[0]["versions"] == ["0.1.0"] and not items[0]["outdated"], items
+    assert items[0]["online"] and items[0]["versions"] == [(LAB / ".." / ".." / "VERSION").read_text().strip()] and not items[0]["outdated"], items
 
 
 def test_site_from_template_published():

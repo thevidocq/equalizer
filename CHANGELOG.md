@@ -19,8 +19,9 @@ Add a section at the top of "Entries" for every commit:
 
 ## Current project status
 
-Latest release: **0.1.0** (`docs/releases/0.1.0.md`), the first stable
-prototype.
+Latest release: **0.2.0** (`docs/releases/0.2.0.md`), for the first
+installations; before it, 0.1.0 (`docs/releases/0.1.0.md`, tag on the
+merge of #39).
 
 | Area | Status |
 | --- | --- |
@@ -32,11 +33,30 @@ prototype.
 | orchestrator | Not implemented yet |
 | panel-api | Discovery jobs and continuous discovery, tenant AI settings, map templates per CMS, auth with mandatory TOTP, tenants, email invitations, tenant connectors, map reach checks, exposure check, Logs page backend (Loki), status page, platform/tenant privacy, users, sites, connectors, maps with approval and signing, audit, internal endpoints |
 | panel-ui | Logo (sidebar, login), discovery tab and tenant AI settings, login, joining by invitation, platform tenant overview, sites with isolation and certificate, tenant connectors, people with invitations, maps with editor, approval, import and export, activity, logs, status |
-| agent | Discovery: read-only crawl through the connector, whole-site area, IDOR proposals, CMS fingerprint, deterministic routes and types, optional AI review with the tenant's model, proposed drafts |
+| agent | Study: read-only crawl and real browser through the connector, test accounts, typed form fields, administrations read-only where proven, profiles for ten web applications, verification of every draft on the gateway with self-correction, IDOR proposals, optional AI review with the tenant's model |
 | deploy/compose | Caddy (protected sites use the certificate uploaded in the panel, Let's Encrypt only for relay and panel), SMTP settings, gateway (2 replicas), Redis, PostgreSQL, panel-api, panel-ui, tunnel-relay, Vector, Loki, Grafana; statically validated |
 | tools (eqtool) | Map signing keys, form key, relay token, connector registration, map signing |
 
 ## Entries
+
+### 2026-11-20 — Prepare release 0.2.0
+
+- **Branch:** chore/release-0.2.0
+- **What:** release notes `docs/releases/0.2.0.md`; version 0.2.0 in
+  `VERSION`, `.env.example`, `INSTALL.md` (checkout and connector image),
+  the OpenAPI contracts, the tunnel example, the agent and the panel UI
+  packages; README status; the lab reads its version from `VERSION`
+  (`up.sh`, test 01) instead of a fixed 0.1.0; project status above.
+- **Why:** there was no tag at all, so `INSTALL.md` (`git checkout v0.1.0`,
+  connector `:0.1.0`) could not be followed; 0.1.0 predates the agent's
+  study.
+- **Status:** contracts valid. Tags are created by the owner (this session
+  cannot push them): `v0.1.0` on 604100e (merge of #39, the last change the
+  0.1.0 notes describe), `v0.2.0` on the merge of this PR; the publish
+  workflow then builds the images `0.1.0` and `0.2.0`.
+- **Next steps:** first installation on the VPS with a remote connector;
+  measure again there (`lab/e2e/perf.py` adapted); external penetration
+  test.
 
 ### 2026-11-20 — Measure what Equalizer adds to a visit
 

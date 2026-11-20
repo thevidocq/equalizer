@@ -14,7 +14,7 @@ PROFILE = Profile(
     admin=(r"^/(index\.php/)?admin(_[a-z0-9]+)?(/|$)", r"^/(rest|soap)(/|$)", r"^/setup(/|$)", r"^/downloader(/|$)"),
     never=(r"^/checkout/cart/(add|delete|updatePost)", r"^/wishlist/index/(add|remove)", r"^/customer/account/logout",
            r"^/catalog/product_compare/(add|remove|clear)", r"^/sendfriend/", r"^/newsletter/subscriber/"),
-    fragments=(r"^/static/.+\.html$",),  # knockout templates (Magento_Ui/templates/…)
+    fragments=(r"^/(pub/)?static/.+\.html$",),  # knockout templates (Magento_Ui/templates/…)
     tested="Lab (MariaDB, no search engine, no products): home, CMS pages, customer login; studied with a "
            "customer account, database unchanged; 32 of 32 pages identical through the draft, its knockout "
            "templates served as sandboxed assets.",

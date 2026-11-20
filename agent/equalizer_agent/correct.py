@@ -115,7 +115,9 @@ def loop(job, doc, first, run, panel, log):
         if widened:
             tm = panel.try_map(job["id"], candidate)
             m2 = run.measure(candidate, tm) if tm else None
-            if m2 is not None and m2.identical > measure.identical:  # it must mend a page
+            # it must mend a page, or a form a valid submission could not pass
+            if m2 is not None and (m2.identical > measure.identical or
+                                   (m2.identical >= measure.identical and len(m2.broken) < len(measure.broken))):
                 current, measure, changed = candidate, m2, True
                 corrections += widened
             else:

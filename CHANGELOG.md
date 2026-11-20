@@ -38,6 +38,39 @@ prototype.
 
 ## Entries
 
+### 2026-11-20 — Fix what a review of the latest work found
+
+- **Branch:** fix/review-latest
+- **What:**
+  - gateway: an HTML or SVG asset whose type comes in capitals
+    (`Text/HTML`) was served without the sandbox policy; now the parsed
+    media type decides (`asset.go`, test). A form whose action carries a
+    per-session value in its query (phpBB's `ucp.php?mode=login&sid=…`) is
+    now recognised: `legacy_request.query` accepts `{{hidden.x}}`, kept
+    server-side and sent back on submission (`formmap`, tests); before,
+    the form was not bound and its submissions were refused
+    (`form_token_missing`).
+  - agent: the login moved to `login.py` (the crawler stays small); it
+    uses this session's copy of the form (names and values); a login made
+    in script that answers in JSON is judged by that answer, not by the
+    cookies (a refusal that sets a cookie was taken for a success); a form
+    action's per-session query values become `{{hidden.x}}`; the
+    verification tries the page's form that posts to the entry (final
+    slash ignored), not another one with the same fields; the correction
+    keeps a widening that mends a refused form even when no page view
+    changes; Magento's fragments also under `/pub/static/`.
+  - lab: `down.sh` stops Magento's server too; `webapps.sh` no longer
+    redefines the shell's `hash`; README lists zip and unzip.
+  - docs: map format (`{{hidden.x}}` in a form's query), agent (JSON
+    logins), agent README.
+- **Why:** bugfix round on the latest implementations.
+- **Status:** unit tests pass; lab tests 01 and 06: 26 passed, every
+  draft verified with no broken page or form (phpBB's login form, refused
+  before, now passes; PrestaShop's wishlist form is sent back to the area by
+  the correction). Magento's verification re-run after the final-slash
+  fix: 20 of 20 pages, 14 inputs tried.
+- **Next steps:** prove the six newer administrations read-only where
+  possible; SIEM/S3 log forwarding.
 ### 2026-11-20 — Remove the maps' risk field
 
 - **Branch:** chore/remove-risk

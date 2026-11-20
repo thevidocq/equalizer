@@ -268,8 +268,10 @@ class SessionKeptLoginTest(unittest.TestCase):
                 ok = self.path == f"/login.do?token=t{sid}" and "email=a%40acme.test" in body and "password=pw" in body
                 if ok:
                     logged.add(sid)
+                # a refusal sets a cookie of its own: the answer decides, not the cookies
                 return self._send(200, '{"redirect": "/account/orders"}' if ok else '{"error": "no"}',
-                                  {"Set-Cookie": f"sid={sid}; Path=/"}, "application/json")
+                                  {"Set-Cookie": f"sid={sid}; Path=/" if ok else "flash=error; Path=/"},
+                                  "application/json")
 
         self.server = ThreadingHTTPServer(("127.0.0.1", 0), H)
         threading.Thread(target=self.server.serve_forever, daemon=True).start()
@@ -330,3 +332,16 @@ class FragmentsTest(unittest.TestCase):
         g = crawler.Crawler(c.f, "wordpress", 10, Logger("t", "warn", io.StringIO()))
         g._asset("http://store.test/static/page.html")
         self.assertNotIn("/static/page.html", g.r.assets)
+
+
+class FormQueryTest(unittest.TestCase):
+    def test_a_session_value_in_the_action_is_kept_server_side(self):
+        """phpBB's login posts to ucp.php?mode=login&sid=…: the mode stays a
+        fixed value, the session id is taken from each page, like a hidden
+        input, so the form is recognised in every session."""
+        from equalizer_agent import mapbuild
+        form = extract.parse('<form method="post" action="/ucp.php?mode=login&amp;sid=92fb00cb054461322fd0914ca501fb49">'
+                             '<input name="username"><input type="password" name="password"></form>', "http://x.test/").forms[0]
+        e, why = mapbuild._form_entry(form, "guest", set(), [])
+        self.assertEqual(why, "")
+        self.assertEqual(e["legacy_request"]["query"], {"mode": "login", "sid": "{{hidden.sid}}"})

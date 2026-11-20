@@ -1,4 +1,5 @@
 """The comparison of a page with and without Equalizer (docs/agent.md, step 4)."""
+import io
 import os
 import sys
 import unittest
@@ -7,6 +8,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
 from equalizer_agent import attacks, verify  # noqa: E402
 from equalizer_agent.fetch import Response  # noqa: E402
+from equalizer_agent.log import Logger  # noqa: E402
 
 PAGE = b'<html><body><h1>Caf\xe9 news</h1><a href="http://legacy:8080/about/">About</a><form method=post><input name=q></form></body></html>'
 
@@ -97,6 +99,26 @@ class CorrectTest(unittest.TestCase):
         self.assertEqual([(c["entry"], c["change"]) for c in got], [("export.format", "widened"), ("weird", "removed")])
         self.assertEqual(d["routes"][0]["query"]["format"]["type"], "string")
         self.assertNotIn("weird", [r["id"] for r in d["routes"]])
+
+    def test_a_refused_form_alone_is_mended_too(self):
+        """A form whose valid submission the gateway refuses breaks no page
+        view: removing it mends fewer broken entries, not more pages."""
+        from equalizer_agent import correct
+        doc = dict(self.doc(), forms=[{"id": "login_form", "route": "/login", "fields": {}}])
+        first = verify.Measure(broken=[{"path": "/", "entry": "login_form", "difference": "refused",
+                                        "detail": "a valid submission is refused: form_token_missing"}], identical=5)
+
+        class Run:
+            def measure(self, d, tm):
+                return verify.Measure(identical=5)
+
+        class Panel:
+            def try_map(self, job_id, d):
+                return {"signed": True}
+
+        out, m, corr = correct.loop({"id": 1, "pages": []}, doc, first, Run(), Panel(), Logger("t", "warn", io.StringIO()))
+        self.assertEqual([(c["entry"], c["change"]) for c in corr], [("login_form", "removed")])
+        self.assertEqual(out["forms"], [])
 
     def test_narrow_only_from_values_seen(self):
         from equalizer_agent import correct

@@ -22,7 +22,8 @@ rest of the agent uses the standard library only.
    every same-site link, GET form and URL found in scripts. At most
    `max_pages`, 20 URLs per shape (calendars, searches), `EQ_RATE` requests
    per second. With test accounts (up to three), one more pass per account,
-   each with a new session.
+   each with a new session, after a login with the site's own form
+   (`login.py`, docs/agent.md "How it logs in").
 2. **Never opened** (`rules.py`, fixed): admin areas of each CMS, tooling
    (`phpmyadmin`, `server-status`…), backups and dot files, links that change
    something (logout, delete…). They are listed in the report.

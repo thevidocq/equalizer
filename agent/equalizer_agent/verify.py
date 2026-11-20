@@ -289,8 +289,11 @@ class Run:
     def _forms(self, gw, doc, m, rendered):
         for fm in doc.get("forms", []):
             fields = fm.get("fields") or {}
+            # the page's form that posts to this entry (another form with the
+            # same field names, such as a search, carries another token)
             found = next(((pq, form, cookies) for pq, (page, cookies) in rendered.items() for form in page.forms
                           if form["method"] == "POST" and "multipart" not in form["enctype"]
+                          and _action_path(pq, form["action"]).rstrip("/") == (fm.get("route") or "/").rstrip("/")
                           and set(fields) <= set(form["inputs"])), None)
             if found is None:
                 continue
@@ -318,6 +321,10 @@ class Run:
                 continue
             for name in fields:
                 self._tried(m, fm["id"] + "." + name, lambda v, name=name, good=good: send(dict(good, **{name: v})))
+
+
+def _action_path(page_pq: str, action: str) -> str:
+    return urllib.parse.urlsplit(urllib.parse.urljoin(page_pq, action or page_pq)).path or "/"
 
 
 def _public(m: Measure) -> dict:

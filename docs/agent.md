@@ -117,8 +117,11 @@ Deterministic, no AI needed:
   in the account's own session (tokens in the form or in its address, such
   as OpenCart's, belong to that session), and posts it once. The login
   worked when the site starts a new session and stops asking for the
-  password; a site that keeps its session cookie (OpenCart) is asked the
-  login page again, which it no longer shows. Where the site's visitors
+  password; a site that keeps its session cookie is asked the login page
+  again, which it no longer shows. A login made in script that answers in
+  JSON (OpenCart) is judged by that answer: a redirect to a page of the site
+  other than the login is a success, anything else a failure, whatever
+  cookies came with it. Where the site's visitors
   have no login (TYPO3 out of the box), the report says `no_login_form`.
 
 ### 3. Write the map

@@ -96,6 +96,17 @@ def _route_entry(r: cluster.Route, anon: str, taken: set) -> dict:
     return e
 
 
+# A value of the action's query that belongs to one session or one page
+# (phpBB's sid, OpenCart's login_token): kept server-side like a hidden
+# input, so the form is recognised in every session.
+SESSION_KEY = re.compile(r"(^|_)(sid|sess|session|sessionid|token|nonce|hash|key|csrf)$", re.I)
+SESSION_VALUE = re.compile(r"^([0-9a-f]{16,}|[A-Za-z0-9_\-]{24,})$")
+
+
+def _per_session(key: str, value: str) -> bool:
+    return bool(re.match(r"^[A-Za-z_][A-Za-z0-9_]*$", key)) and bool(SESSION_KEY.search(key) or SESSION_VALUE.match(value))
+
+
 def _form_entry(form, anon: str, taken: set, still_open: list):
     """None and a reason when the form cannot be mapped. Fields that must
     still accept characters an attack needs go to still_open."""
@@ -123,7 +134,8 @@ def _form_entry(form, anon: str, taken: set, still_open: list):
          "fields": fields, "legacy_request": {"method": "POST", "path": u.path or "/", "form": legacy},
          "rate_limit": {"per_ip": "10/min"}}
     if u.query:
-        e["legacy_request"]["query"] = dict(urllib.parse.parse_qsl(u.query))
+        e["legacy_request"]["query"] = {k: "{{hidden.%s}}" % k if _per_session(k, v) else v
+                                        for k, v in urllib.parse.parse_qsl(u.query)}
     still_open.extend({"kind": "input", "target": e["id"] + "." + n, "reason": why} for n, why in opened)
     return e, ""
 

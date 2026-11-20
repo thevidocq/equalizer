@@ -50,7 +50,7 @@ below); TYPO3 has no visitors' login.
 
 Go 1.24, Node 20, PHP 8.3 with `pdo_sqlite`, `pdo_pgsql`, `mysqli`, `gd`,
 `intl`, `zip`, `bcmath` and `soap`, Composer, PostgreSQL 16, MariaDB 10.11,
-Redis, git,
+Redis, git, zip and unzip,
 Python 3 with `pytest`, `requests`, `playwright` and `aiosmtpd`, Google
 Chrome (`/usr/bin/google-chrome`), and root (ports 80/443 and
 `/etc/hosts`).

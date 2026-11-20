@@ -235,6 +235,9 @@ func TestAssets(t *testing.T) {
 		case "/tpl/modal.html": // a template a page's scripts load, served as it is
 			w.Header().Set("Content-Type", "text/html")
 			_, _ = w.Write([]byte(`<div class="modal"><%- data.title %></div>`))
+		case "/tpl/upper.html": // the same type in capitals: sandboxed all the same
+			w.Header().Set("Content-Type", "Text/HTML; charset=UTF-8")
+			_, _ = w.Write([]byte(`<script>alert(1)</script>`))
 		case "/css/fake.css":
 			w.Header().Set("Content-Type", "application/x-httpd-php")
 			_, _ = w.Write([]byte("<?php ?>"))
@@ -252,6 +255,10 @@ func TestAssets(t *testing.T) {
 	if rec.Code != 200 || !strings.Contains(rec.Body.String(), "<%- data.title %>") ||
 		!strings.HasPrefix(rec.Header().Get("Content-Security-Policy"), "sandbox") {
 		t.Errorf("html template: %d %q, CSP %q", rec.Code, rec.Body.String(), rec.Header().Get("Content-Security-Policy"))
+	}
+	if rec := get(h, "GET", "/tpl/upper.html", nil); rec.Code != 200 ||
+		!strings.HasPrefix(rec.Header().Get("Content-Security-Policy"), "sandbox") {
+		t.Errorf("Text/HTML: %d, CSP %q", rec.Code, rec.Header().Get("Content-Security-Policy"))
 	}
 	for _, target := range []string{"/img/shell.png", "/css/fake.css", "/css/../WEB-INF/web.xml", "/css/a//b.css", "/css/%7B%7Bx%7D%7D.css"} {
 		if rec := get(h, "GET", target, nil); rec.Code != http.StatusNotFound {

@@ -159,6 +159,29 @@ proposed: review it and send it for approval. **Continuous discovery**
 (every day or week) explores again and proposes a draft only when something
 changed.
 
+### Verification
+
+Every draft a discovery proposes is **verified** by the agent on the
+gateway, and **Verify** on a version (editors, approvers, administrators)
+does it again, for example after changing a draft by hand. Nothing is sent
+to the site that could change it:
+
+- every page the discovery studied is opened directly and through
+  Equalizer with this version, and the two are compared (the answer, where
+  a redirect goes, the visible text, the links, the forms);
+- every parameter and form field gets a set of attacks (SQL, HTML and
+  script, template code, paths, shell, out-of-type values); the gateway
+  only says whether it would let each one through.
+
+The panel shows how many pages stay identical, how many inputs refuse
+every attack, and how much of the site only the generic area serves; then
+the pages this version breaks and what is still open, each with its
+reason. An input "still open" usually means that a value falling out of
+its precise entry is served by the site area. Pages behind a login are not
+verified yet.
+
+![Verification](/help-img/verification.png)
+
 ### Review and approval
 
 Each version shows what it changes against the published map and the risks

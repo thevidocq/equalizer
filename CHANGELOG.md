@@ -38,6 +38,30 @@ prototype.
 
 ## Entries
 
+### 2026-11-20 — Show verifications in the panel
+
+- **Branch:** feat/panel-verification (on top of feat/agent-checks)
+- **What:**
+  - panel-ui: `VerificationPanel` on every version (score: pages
+    identical, inputs refusing every attack, share served only by the
+    area; pages broken by the version; still open with reasons; **Verify**
+    for editors, approvers and administrators; polls while it runs) and in
+    the discovery report for the proposed draft; still-open reasons shared
+    (`maps/components/stillOpen.ts`).
+  - agent: a still-open input's detail names, in words, the other attack
+    groups it lets through.
+  - Docs: tenant manual "Verification" with a screenshot; agent.md step 5
+    done.
+- **Why:** step 5 of docs/agent.md: the person who approves sees the
+  measured result.
+- **Status:** typecheck, boundaries, vitest, build, API types; agent tests.
+- **Next steps:**
+  1. Agent: one profile per web application in `agent/equalizer_agent/webapps/`
+     (WordPress, Joomla, Drupal, Magento, PrestaShop, OpenCart, TYPO3,
+     Moodle, MediaWiki, phpBB, generic), map templates and site kinds for
+     the new ones, a compatibility matrix generated from the profiles.
+  2. Agent: correct its own draft; verify pages behind a login.
+
 ### 2026-11-20 — Verify every draft on the gateway
 
 - **Branch:** feat/agent-checks

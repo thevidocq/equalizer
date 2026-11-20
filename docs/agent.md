@@ -291,7 +291,7 @@ Each step is its own pull request, tested in the lab before the next.
 | 3b | Agent: administration read-only (Drupal, Joomla; not WordPress), single read-only guard, a lab study of the four sites proving nothing changes | Done |
 | 3c | Agent: browser (Playwright) behind the read-only guard, script requests; Chromium in the agent image | Done |
 | 4 | Agent: the two checks and the score; panel-api verification queue (every draft a discovery proposes is verified) | Done: measures; the agent does not yet correct its own draft |
-| 5 | Panel: score and "still open" on the Discovery tab, Verify button on drafts | Planned |
+| 5 | Panel: score, broken pages and "still open" on the version and in the discovery report, Verify button | Done |
 | 6 | Lab: studies of WordPress, Joomla, Drupal and the intranet with the expected scores | Planned |
 
 ## Mockups

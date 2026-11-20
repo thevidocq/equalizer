@@ -27,6 +27,7 @@ type Admin struct {
 	Maps    AdminMaps
 	Version string
 	Certs   Certificates // nil: no site certificate
+	Try     http.Handler // POST /maps/try for the agent; nil: 404
 }
 
 // Handler returns the handler of the administration endpoints.
@@ -64,6 +65,13 @@ func (a *Admin) Handler() http.Handler {
 			return
 		}
 		writeJSON(w, http.StatusOK, map[string]any{"ok": true})
+	})
+	mux.HandleFunc("POST /maps/try", func(w http.ResponseWriter, r *http.Request) {
+		if a.Try == nil {
+			http.NotFound(w, r)
+			return
+		}
+		a.Try.ServeHTTP(w, r)
 	})
 	// Caddy asks here, at each TLS handshake, for the certificate of a
 	// protected site: the legacy site's own, uploaded in the panel. 204: none

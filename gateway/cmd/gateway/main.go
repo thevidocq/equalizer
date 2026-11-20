@@ -71,7 +71,7 @@ func run() error {
 		formKey = formtoken.RandomKey()
 		log.Warn("EQ_FORM_KEY not set: random form key, forms work only with a single replica")
 	}
-	sessions, counters, closeStore, err := stores(context.Background(), cfg, formKey, log)
+	sessions, frozen, counters, closeStore, err := stores(context.Background(), cfg, formKey, log)
 	if err != nil {
 		return err
 	}
@@ -136,7 +136,11 @@ func run() error {
 		Log:         telemetry.Logger(os.Stdout, cfg.Instance, level).With(slog.String("module", "server.public")),
 		Events:      events,
 	}
-	admin := &server.Admin{Maps: store, Version: version}
+	admin := &server.Admin{Maps: store, Version: version, Try: &server.Try{
+		Token: cfg.MapToken, Pub: pub, KeyID: cfg.MapPublicKeyID, Relay: relay,
+		Sessions: sessions, Frozen: frozen, Forms: sealer,
+		Log: telemetry.Logger(os.Stdout, cfg.Instance, level).With(slog.String("module", "server.try")),
+	}}
 	if certificates != nil {
 		admin.Certs = certificates
 	}
@@ -182,18 +186,18 @@ func run() error {
 
 // stores builds the session and limits stores: Redis when configured
 // (shared by the replicas), otherwise in process. Sessions use a key derived
-// from the gateway secret (EQ_FORM_KEY).
-func stores(ctx context.Context, cfg config.Config, key []byte, log *slog.Logger) (*session.Manager, limits.Store, func(), error) {
+// from the gateway secret (EQ_FORM_KEY). frozen reads the same sessions and
+// never changes them (the agent's dry-run tries).
+func stores(ctx context.Context, cfg config.Config, key []byte, log *slog.Logger) (m, frozen *session.Manager, counters limits.Store, closeStore func(), err error) {
 	var store session.Store
-	var counters limits.Store
-	closeStore := func() {}
+	closeStore = func() {}
 	if cfg.RedisURL == "" {
 		log.Warn("EQ_REDIS_URL not set: sessions and rate limits in memory, single replica only")
 		store, counters = session.NewMemory(), limits.NewMemory()
 	} else {
 		r, err := session.NewRedis(cfg.RedisURL)
 		if err != nil {
-			return nil, nil, nil, fmt.Errorf("EQ_REDIS_URL: %w", err)
+			return nil, nil, nil, nil, fmt.Errorf("EQ_REDIS_URL: %w", err)
 		}
 		pingCtx, cancel := context.WithTimeout(ctx, 3*time.Second)
 		defer cancel()
@@ -203,8 +207,11 @@ func stores(ctx context.Context, cfg config.Config, key []byte, log *slog.Logger
 		}
 		store, counters, closeStore = r, limits.NewRedis(r.Client()), func() { _ = r.Close() }
 	}
-	m, err := session.NewManager(store, key)
-	return m, counters, closeStore, err
+	if m, err = session.NewManager(store, key); err != nil {
+		return nil, nil, nil, nil, err
+	}
+	frozen, err = session.NewManager(session.ReadOnly(store), key)
+	return m, frozen, counters, closeStore, err
 }
 
 func logReload(log *slog.Logger, rep mapstore.Report, err error) {

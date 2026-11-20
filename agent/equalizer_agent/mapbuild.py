@@ -6,7 +6,7 @@ import copy
 import re
 import urllib.parse
 
-from . import cluster, idor, rules
+from . import cluster, fields as fieldspec, idor, rules
 
 COMMON_DENY = ["admin", "administrator", "wp-admin", "wp-login", "phpmyadmin", "pma", "cpanel", "plesk", "webmail",
                "server-status", "server-info", "cgi-bin", "install", "setup", "backup", "backups", "config",
@@ -33,8 +33,40 @@ def matches(pattern: str, path: str) -> bool:
     return len(a) == len(b) and all(x.startswith("{") or x == y for x, y in zip(a, b))
 
 
+def _shape(path: str) -> str:
+    return re.sub(r"\{[^}]*\}", "{}", path)
+
+
+def fits(doc: dict, route: dict, path: str) -> bool:
+    """Whether the gateway would serve path with route: the segments match
+    and each value fits its parameter's type (the deny list of a slug keeps
+    /administrator/index.php out of /{section}/{slug})."""
+    if not matches(route.get("path", ""), path):
+        return False
+    types = doc.get("types", {})
+    for pat, val in zip(_segs(route.get("path", "")), _segs(path)):
+        if not pat.startswith("{"):
+            continue
+        spec = (route.get("params") or {}).get(pat.strip("{}"), {})
+        t = types.get(spec.get("type", ""), {})
+        base = t.get("base", spec.get("type", ""))
+        if base in ("int", "id") and not val.isdigit():
+            return False
+        deny = {d.lower() for d in (t.get("deny") or []) + (spec.get("deny") or [])}
+        if val.lower() in deny:
+            return False
+        rx = spec.get("pattern") or t.get("pattern")
+        if rx:
+            try:
+                if not re.search(rx, val):
+                    return False
+            except re.error:
+                return False
+    return True
+
+
 def covered(doc: dict, path: str) -> bool:
-    if any(matches(r.get("path", ""), path) for r in doc.get("routes", [])):
+    if any(fits(doc, r, path) for r in doc.get("routes", [])):
         return True
     return any(path.startswith(a.get("prefix", "\0")) for a in doc.get("assets", []))
 
@@ -60,31 +92,23 @@ def _route_entry(r: cluster.Route, anon: str, taken: set) -> dict:
     return e
 
 
-FIELD = {"email": {"type": "email"}, "number": {"type": "int", "min": -999999999, "max": 999999999},
-         "password": {"type": "password", "max_length": 128, "rules": ["no_template_meta"]},
-         "textarea": {"type": "text", "max_length": 5000, "rules": ["no_html", "no_template_meta"]},
-         "date": {"type": "date"}}
-
-
-def _form_entry(form, anon: str, taken: set):
-    """None and a reason when the form cannot be mapped."""
+def _form_entry(form, anon: str, taken: set, still_open: list):
+    """None and a reason when the form cannot be mapped. Fields that must
+    still accept characters an attack needs go to still_open."""
     u = urllib.parse.urlsplit(form.action)
     if any(i.type == "file" for i in form.inputs):
         return None, "file_upload"
-    fields, legacy, names = {}, {}, set()
+    fields, legacy, names, opened = {}, {}, set(), []
     for i in form.visible():
         if i.name in legacy:
             continue
         name = cluster.ident(i.name, names)
-        if i.type == "select":
-            opts = [o for o in i.options if o and len(o) <= 100][:50]
-            spec = {"type": "enum", "values": sorted(set(opts))} if opts else {"type": "string", "max_length": 100}
-        elif i.type in FIELD:
-            spec = dict(FIELD[i.type])
-        else:
-            spec = {"type": "string", "max_length": min(i.maxlength or 200, 1000)}
-        spec["required"] = bool(i.required)
+        spec, why = fieldspec.spec(i)
+        # a checkbox left unticked is not sent at all
+        spec["required"] = bool(i.required) and i.type != "checkbox"
         fields[name], legacy[i.name] = spec, "{{fields.%s}}" % name
+        if why:
+            opened.append((name, why))
     if not fields:
         return None, "no_fields"
     for h in form.hidden():
@@ -96,6 +120,7 @@ def _form_entry(form, anon: str, taken: set):
          "rate_limit": {"per_ip": "10/min"}}
     if u.query:
         e["legacy_request"]["query"] = dict(urllib.parse.parse_qsl(u.query))
+    still_open.extend({"kind": "input", "target": e["id"] + "." + n, "reason": why} for n, why in opened)
     return e, ""
 
 
@@ -113,14 +138,17 @@ def build(job: dict, crawl, fp) -> tuple:
     before = sum(1 for p in paths if covered(doc, p))
 
     taken = {r["id"] for r in doc.get("routes", [])} | {f["id"] for f in doc.get("forms", [])}
-    added_routes, added_forms, not_supported = [], [], []
+    added_routes, added_forms, not_supported, still_open = [], [], [], []
     for r in cluster.routes(pages, loose_top=bool(fp.cms)):
         if any(covered(doc, p) for p in [r.path.replace("{", "x").replace("}", "")]) and not r.query:
             continue
         sample = [p for p in paths if matches(r.path, p)]
         if sample and all(covered(doc, p) for p in sample) and not r.query:
             continue
-        if any(matches(e.get("path", ""), r.path) for e in doc.get("routes", [])):
+        # one route per shape: the gateway refuses two that differ only by
+        # their parameters' names; the one already there wins
+        if any(_shape(e.get("path", "")) == _shape(r.path) or ("{" not in r.path and fits(doc, e, r.path))
+               for e in doc.get("routes", [])):
             continue
         e = _route_entry(r, anon, taken)
         if r.logged_in_only:
@@ -128,6 +156,9 @@ def build(job: dict, crawl, fp) -> tuple:
         doc.setdefault("routes", []).append(e)
         for k, vs in r.query_samples.items():
             samples[(e["id"], k)] = vs
+        for k, q in r.query.items():
+            if q["type"] == "string":
+                still_open.append({"kind": "input", "target": e["id"] + "." + k, "reason": "accepts_sql"})
         added_routes.append({"id": e["id"], "path": e["path"], "samples": r.samples, "logged_in_only": r.logged_in_only})
     have_forms = {f.get("route") for f in doc.get("forms", [])}
     for form in crawl.forms:
@@ -136,7 +167,7 @@ def build(job: dict, crawl, fp) -> tuple:
         path = urllib.parse.urlsplit(form.action).path or "/"
         if path in have_forms or rules.excluded(path, fp.cms):
             continue
-        e, why = _form_entry(form, anon, taken)
+        e, why = _form_entry(form, anon, taken, still_open)
         have_forms.add(path)
         if e is None:
             not_supported.append({"path": path, "reason": why})
@@ -171,9 +202,35 @@ def build(job: dict, crawl, fp) -> tuple:
         "skipped_actions": len(crawl.skipped_actions), "not_supported": not_supported,
         "visitors_missing": [{"path": u["path"], "clients": u.get("clients", 0)} for u in visitors][:50],
         "not_seen_anymore": stale[:100], "login": crawl.login or None, "errors": crawl.errors,
+        "accounts": [{"label": k, "login": v} for k, v in crawl.logins.items()],
+        "open": _still_open(crawl, still_open, not_supported),
         "base": "published map" if continuous else ("template" if job.get("template") else "empty map"),
     }
     return doc, report, samples
+
+
+def _still_open(crawl, inputs: list, not_supported: list) -> list:
+    """What the precise entries leave to the site area, and the fields that
+    still accept characters an attack needs, each with its reason."""
+    out = []
+    for pq, reason in sorted(crawl.excluded.items()):
+        out.append({"kind": "path", "target": pq.split("?")[0], "reason": "not_reached",
+                    "detail": "never opened: " + ("administration" if reason == "admin" else "sensitive file")})
+    for pq in sorted(crawl.skipped_actions):
+        out.append({"kind": "path", "target": pq.split("?")[0], "reason": "action_not_performed"})
+    for pq, s in sorted(crawl.pages.items()):
+        if s.status >= 500:
+            out.append({"kind": "path", "target": pq.split("?")[0], "reason": "legacy_error", "detail": "HTTP %d" % s.status})
+    for n in not_supported:
+        out.append({"kind": "path", "target": n["path"], "reason": "other", "detail": n["reason"]})
+    out.extend(inputs)
+    seen, dedup = set(), []
+    for o in out:
+        k = (o["kind"], o["target"], o["reason"])
+        if k not in seen:
+            seen.add(k)
+            dedup.append(o)
+    return dedup[:1000]
 
 
 ALL_METHODS = ["GET", "HEAD", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"]

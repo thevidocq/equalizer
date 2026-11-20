@@ -1,0 +1,160 @@
+openapi: 3.1.0
+info:
+  title: Equalizer gateway admin endpoint
+  version: 0.1.0
+  description: |
+    The gateway's administration endpoint (`EQ_ADMIN_ADDR`, Compose `gateway:9090`). It listens on the
+    internal network only and is never published. Caddy uses the TLS endpoints, panel-api the map check, the
+    agent the preview and dry-run of draft maps (docs/agent.md).
+servers:
+  - url: http://gateway:9090
+tags:
+  - name: health
+  - name: maps
+  - name: tls
+  - name: study
+paths:
+  /healthz:
+    get:
+      tags: [health]
+      summary: The process is alive
+      responses:
+        "200":
+          description: Alive
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status: { const: ok }
+                  version: { type: string }
+  /readyz:
+    get:
+      tags: [health]
+      summary: At least one valid map is loaded
+      responses:
+        "200": { description: "Ready, with the sites served" }
+        "503": { description: No valid map loaded }
+  /maps/check:
+    post:
+      tags: [maps]
+      summary: Would this map load? The same checks as a published map
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { type: object, additionalProperties: true, description: "A map (schema/map/gateway-map.schema.json)" }
+      responses:
+        "200": { description: "It would load: {ok: true}" }
+        "422": { description: "It would not: {ok: false, error}" }
+  /tls/certificate:
+    get:
+      tags: [tls]
+      summary: PEM bundle (chain and key) of a protected site, for Caddy at each TLS handshake
+      parameters:
+        - { name: server_name, in: query, required: true, schema: { type: string } }
+      responses:
+        "200":
+          description: Bundle
+          content:
+            application/x-pem-file:
+              schema: { type: string }
+        "204": { description: "No certificate (http site, none uploaded, or not served)" }
+  /tls/allowed:
+    get:
+      tags: [tls]
+      summary: Caddy's on-demand ask; always 404, so Caddy never gets a certificate for a protected site itself
+      responses:
+        "404": { description: Never allowed }
+  /maps/try:
+    post:
+      tags: [study]
+      summary: >-
+        Serve one request with a draft map, for the agent's checks. dry_run (any method): the gateway says whether
+        it would accept the request and why, and forwards nothing. preview (GET and HEAD only): the gateway serves
+        the request with the draft map exactly as it would for a visitor, through the connector, and returns the
+        rebuilt answer
+      description: |
+        The draft must be signed by panel-api for this purpose (`purpose: try`, short expiry), so only a version
+        the panel handed to the agent can be tried, and only towards its own tenant's connector. Requires the
+        service token. Never reachable from the Internet.
+      security: [{ serviceToken: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/TryRequest" }
+      responses:
+        "200":
+          description: Verdict, and the answer in preview mode
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/TryResult" }
+        "400": { description: "Unreadable request, unknown mode, a path that is not a path, a body in preview, or a session role the map does not have" }
+        "401": { description: Missing or wrong service token }
+        "403": { description: "Draft not signed for try, expired, or preview asked for a method other than GET/HEAD" }
+        "422": { description: The draft would not load (same checks as /maps/check) }
+components:
+  securitySchemes:
+    serviceToken:
+      type: http
+      scheme: bearer
+  schemas:
+    TryRequest:
+      type: object
+      required: [map, mode, request]
+      properties:
+        map:
+          type: object
+          description: The draft, signed by panel-api for purpose try
+          required: [payload, signature, key_id, purpose, expires_at]
+          properties:
+            payload: { type: string, description: "Base64 of the compact map JSON" }
+            signature: { type: string }
+            key_id: { type: string }
+            purpose: { const: try }
+            expires_at: { type: string, format: date-time }
+        mode: { enum: [dry_run, preview] }
+        session:
+          type: [object, "null"]
+          description: >-
+            Opens a try session for a test account. The agent logs in to the legacy site itself (its one allowed
+            POST) and hands the legacy cookies here; the gateway keeps them in a session like a visitor's, with the
+            given role, and returns its cookie in cookies. Later tries send it in request.headers.Cookie
+          properties:
+            role: { type: string, description: "Map role of the account" }
+            legacy_cookies: { type: object, additionalProperties: { type: string } }
+        request:
+          type: object
+          required: [method, path]
+          properties:
+            method: { type: string }
+            path: { type: string, description: "Path and query, as a visitor would send them" }
+            headers: { type: object, additionalProperties: { type: string } }
+            body: { type: string, description: "Base64; dry_run only" }
+    TryResult:
+      type: object
+      required: [accepted]
+      properties:
+        accepted: { type: boolean, description: "dry_run: the gateway would forward the request; preview: it was served without a refusal" }
+        entry: { type: [string, "null"], description: "Map entry that matched (route, form, api, asset or area id)" }
+        area: { type: boolean, description: "Served only by the generic area" }
+        refusal:
+          type: [object, "null"]
+          properties:
+            status: { type: integer }
+            reason: { type: string, description: "Same reasons as the gateway's security events" }
+            field: { type: [string, "null"], description: "Parameter or field refused (never its value)" }
+        cookies:
+          type: array
+          items: { type: string }
+          description: >-
+            Set-Cookie values to keep for the next tries: the try session opened with session, and in preview the
+            gateway's own cookies (session, form binding). A dry-run changes no session and sets none
+        response:
+          type: [object, "null"]
+          description: Preview only
+          properties:
+            status: { type: integer }
+            headers: { type: object, additionalProperties: { type: string } }
+            body: { type: string, description: "Base64, bounded like the agent's own fetches" }

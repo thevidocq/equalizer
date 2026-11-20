@@ -635,6 +635,32 @@ paths:
       responses:
         "202": { description: Queued }
         "409": { $ref: "#/components/responses/Error" }
+  /apps/{app}/maps/{version}/verify:
+    get:
+      tags: [maps]
+      summary: Latest verification of this version (docs/agent.md, steps 4 and 5)
+      parameters: [{ $ref: "#/components/parameters/app" }, { $ref: "#/components/parameters/version" }]
+      responses:
+        "200":
+          description: Verification
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Verification" }
+        "404": { $ref: "#/components/responses/Error" }
+    post:
+      tags: [maps]
+      summary: >-
+        Verify this version (editors, approvers, administrators): the agent compares every studied page with
+        and without Equalizer using this version, and tries the attack set on every parameter and field, on the
+        gateway only. Nothing is written to the legacy site
+      parameters: [{ $ref: "#/components/parameters/app" }, { $ref: "#/components/parameters/version" }]
+      responses:
+        "202":
+          description: Queued
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Verification" }
+        "409": { $ref: "#/components/responses/Error" }
   /apps/{app}/maps/{version}/{action}:
     post:
       tags: [maps]
@@ -932,6 +958,37 @@ paths:
               properties:
                 report: { type: object, additionalProperties: true }
                 document: { type: object, additionalProperties: true }
+                error: { type: string, maxLength: 500 }
+      responses:
+        "204": { description: Saved }
+  /internal/verifications/claim:
+    post:
+      tags: [internal]
+      summary: The agent takes the next queued verification, with the version, the pages to compare and the reach
+      security: [{ serviceToken: [] }]
+      responses:
+        "200":
+          description: Job
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/VerificationJob" }
+        "204": { description: Nothing queued }
+  /internal/verifications/{id}/result:
+    post:
+      tags: [internal]
+      summary: Score and findings of a finished verification
+      security: [{ serviceToken: [] }]
+      parameters: [{ $ref: "#/components/parameters/id" }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                score: { $ref: "#/components/schemas/StudyScore" }
+                broken: { type: array, maxItems: 500, items: { $ref: "#/components/schemas/BrokenPage" } }
+                open: { type: array, maxItems: 1000, items: { $ref: "#/components/schemas/StillOpen" } }
                 error: { type: string, maxLength: 500 }
       responses:
         "204": { description: Saved }
@@ -1662,6 +1719,9 @@ components:
         decided_at: { type: [string, "null"], format: date-time }
         published_at: { type: [string, "null"], format: date-time }
         document: { type: object, additionalProperties: true, description: "Only when reading one version" }
+        verification:
+          anyOf: [{ $ref: "#/components/schemas/Verification" }, { type: "null" }]
+          description: Latest verification of this version, when there is one
     LogEvent:
       type: object
       description: A security event, with the fields the panel shows (never field values)
@@ -1814,6 +1874,14 @@ components:
           properties:
             username: { type: string, maxLength: 200 }
             password: { type: string, writeOnly: true, maxLength: 200 }
+        accounts:
+          type: array
+          maxItems: 3
+          description: >-
+            Test accounts (for example customer and administrator). Each is explored in its own pass, to reach the
+            pages behind its login; the map does not restrict pages by account (the legacy site decides access).
+            Kept encrypted, deleted when the discovery ends. account counts as the first one
+          items: { $ref: "#/components/schemas/TestAccount" }
         connector_id: { type: string, description: "Needed while the site has no published map" }
         address: { type: string, description: "host:port the connector reaches" }
         scheme: { enum: [https, http] }
@@ -1832,7 +1900,8 @@ components:
         started_at: { type: [string, "null"], format: date-time }
         finished_at: { type: [string, "null"], format: date-time }
         progress: { type: object, additionalProperties: true }
-        report: { type: [object, "null"], additionalProperties: true, description: "CMS, coverage, routes found and excluded, components with known issues, notes" }
+        report:
+          anyOf: [{ $ref: "#/components/schemas/StudyReport" }, { type: "null" }]
         draft_version: { type: [integer, "null"], description: "The draft proposed, if the map changes" }
         error: { type: [string, "null"] }
     MapReview:
@@ -1869,6 +1938,87 @@ components:
             summary: { type: [string, "null"] }
             questions: { type: array, items: { type: string } }
             error: { type: [string, "null"] }
+    TestAccount:
+      type: object
+      required: [label, username, password]
+      properties:
+        label: { type: string, maxLength: 60, description: "How the report names it, e.g. customer, administrator" }
+        username: { type: string, maxLength: 200 }
+        password: { type: string, writeOnly: true, maxLength: 200 }
+    StudyScore:
+      type: object
+      description: Measured by the agent's two checks (docs/agent.md)
+      required: [functions_total, functions_identical, inputs_total, inputs_protected, area_percent]
+      properties:
+        functions_total: { type: integer, minimum: 0 }
+        functions_identical: { type: integer, minimum: 0, description: "Pages and script requests that look and answer the same with and without Equalizer" }
+        inputs_total: { type: integer, minimum: 0, description: "Parameters and form fields of the map" }
+        inputs_protected: { type: integer, minimum: 0, description: "Those the gateway refuses every value of the attack set for" }
+        area_percent: { type: number, minimum: 0, maximum: 100, description: "Share of the studied requests that only the generic area serves" }
+    StudyFunction:
+      type: object
+      required: [name, entries]
+      properties:
+        name: { type: string, description: "What the pages do, e.g. Article search" }
+        entries: { type: array, items: { type: string }, description: "Map entries (route, form, API ids)" }
+        paths: { type: array, items: { type: string } }
+        accounts: { type: array, items: { type: string }, description: "Test accounts that reached it (information: the map does not restrict by account)" }
+        rule: { type: string, description: "The rule written for it, in words" }
+    StillOpen:
+      type: object
+      required: [kind, target, reason]
+      properties:
+        kind: { enum: [path, input] }
+        target: { type: string, description: "A path left to the area, or entry.field" }
+        reason:
+          enum: [not_reached, legacy_error, action_not_performed, cannot_narrow, accepts_markup, accepts_sql, accepts_template, accepts_path, accepts_shell, other]
+        detail: { type: string }
+    BrokenPage:
+      type: object
+      required: [path, difference]
+      properties:
+        path: { type: string }
+        entry: { type: [string, "null"] }
+        difference: { enum: [status, text, links, forms, picture, refused] }
+        detail: { type: string }
+    StudyReport:
+      type: object
+      additionalProperties: true
+      description: >-
+        Report of a discovery. Reports written before the study have only the older keys (cms, coverage, routes
+        found and excluded, components with known issues, notes)
+      properties:
+        score: { $ref: "#/components/schemas/StudyScore" }
+        functions: { type: array, items: { $ref: "#/components/schemas/StudyFunction" } }
+        open: { type: array, items: { $ref: "#/components/schemas/StillOpen" } }
+        accounts: { type: array, items: { type: object, properties: { label: { type: string }, login: { enum: [ok, failed, no_login_form] } } } }
+        skipped_actions: { type: array, items: { type: string }, description: "Links never opened because they change something" }
+    Verification:
+      type: object
+      required: [version, status]
+      properties:
+        version: { type: integer }
+        status: { enum: [queued, running, done, failed] }
+        requested_by: { type: [string, "null"] }
+        created_at: { type: string, format: date-time }
+        finished_at: { type: [string, "null"], format: date-time }
+        score: { anyOf: [{ $ref: "#/components/schemas/StudyScore" }, { type: "null" }] }
+        broken: { type: array, items: { $ref: "#/components/schemas/BrokenPage" } }
+        open: { type: array, items: { $ref: "#/components/schemas/StillOpen" } }
+        error: { type: [string, "null"] }
+    VerificationJob:
+      type: object
+      required: [id, tenant, app, version, document, reach, base_url, pages]
+      properties:
+        id: { type: integer }
+        tenant: { type: string }
+        app: { type: string }
+        version: { type: integer }
+        document: { type: object, additionalProperties: true, description: "The version to verify" }
+        base_url: { type: string }
+        reach: { type: object, additionalProperties: true }
+        pages: { type: array, items: { type: string }, description: "Paths studied by the latest discovery, to compare" }
+        accounts: { type: array, items: { type: object, additionalProperties: true } }
     DiscoveryJob:
       type: object
       required: [id, tenant, app, domain, base_url, reach, max_pages]
@@ -1883,6 +2033,15 @@ components:
         current_map: { type: [object, "null"], additionalProperties: true, description: "The published map, to propose only differences" }
         template: { type: [object, "null"], additionalProperties: true }
         account: { type: [object, "null"], additionalProperties: true }
+        accounts:
+          type: array
+          items:
+            type: object
+            required: [label, username, password]
+            properties:
+              label: { type: string }
+              username: { type: string }
+              password: { type: string }
         llm: { type: [object, "null"], additionalProperties: true, description: "provider, model, endpoint, api_key; null without AI" }
         max_pages: { type: integer }
         unmapped: { type: array, items: { type: object, additionalProperties: true } }

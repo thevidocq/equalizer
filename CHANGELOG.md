@@ -38,6 +38,140 @@ prototype.
 
 ## Entries
 
+### 2026-11-20 — Study administrations read-only, proven in the lab
+
+- **Branch:** feat/agent-admin-readonly (on top of feat/agent-accounts-forms)
+- **What:**
+  - agent: one read-only guard in `fetch.py` (GET and HEAD only, plus the
+    test accounts' login POST); test accounts' passes now open the
+    administration (Drupal from `/admin`, Joomla after its own
+    administrator login), never what `rules.NEVER` lists (scheduled jobs,
+    installers, updates, exports, "add new" screens) and never action
+    links (verbs as whole words, `task=`, `layout=edit`, one-time tokens).
+    WordPress's administration stays closed (`rules.WRITES_ON_VIEW`).
+    A base route covers a path only when the values fit its types (deny
+    lists included), and one route per shape (the gateway refuses two that
+    differ only by parameter names).
+  - lab: the agent runs in the lab (`up.sh`, `down.sh`); new
+    `test_06_study.py` studies the four sites with an administrator account
+    and checks that each site's content (WordPress, Joomla on PostgreSQL,
+    Drupal, intranet) is the same before and after, and that Drupal's and
+    Joomla's administrations became precise entries.
+  - Docs: agent.md (read-only proof, WordPress finding, rollout 3b done),
+    tenant manual.
+- **Why:** step 3b of docs/agent.md. The lab found that WordPress writes
+  to its database when its administration is only viewed (Quick Draft,
+  global styles, privacy texts); the rule now keeps it closed.
+- **Status:** agent unit tests and lab tests 01 + 06 pass (four studies,
+  databases unchanged). Full lab run: see the PR.
+- **Next steps:**
+  1. 3c: browser (Playwright) behind the same guard, script requests,
+     declared APIs.
+  2. Step 4: the two checks and the score.
+
+### 2026-11-20 — Study test accounts and form fields
+
+- **Branch:** feat/agent-accounts-forms (on top of feat/maps-try)
+- **What:**
+  - panel-api: up to three test accounts per discovery (`accounts`, with a
+    label; `account` counts as the first), sealed together in the new
+    `discoveries.accounts_secret` (migration 0013), erased at the end like
+    before; the job hands them to the agent (and the first as `account` for
+    older agents).
+  - agent: one pass per account, each with a new session; the report says
+    how each logged in (`accounts`). `fields.py` types each form field from
+    its HTML: choices (select, radio, checkbox), number ranges, email, date,
+    phone, URL, colour, time, HTML patterns kept only when RE2 reads them the
+    same (no lookaround, repeats ≤ 1000). Free text refuses HTML and
+    template code; names and codes also refuse SQL delimiters. Query strings
+    seen in links get `no_html` and `no_template_meta`. A new `open` list in
+    the report says what is still open and why (not opened, action links,
+    legacy errors, fields that must accept SQL characters).
+  - panel-ui: up to three test accounts on the Discovery form; report shows
+    the accounts and the still-open list.
+  - Design correction (docs/agent.md, contract): accounts do not become map
+    roles. Equalizer never decides access; the legacy site does (project
+    decision). The accounts only let the agent reach pages behind a login.
+  - Docs: tenant manual, agent README, agent.md rollout (3a done, 3b next).
+- **Why:** step 3 of docs/agent.md, first half.
+- **Status:** agent, panel-api and panel-ui tests pass; a generated map
+  loads in the gateway (checked by hand with the gateway's own Build). The
+  administration is still never opened: that needs step 3b's lab study
+  showing nothing changes on the four lab sites.
+- **Next steps:**
+  1. 3b: browser and read-only proxy, administration read-only, declared
+     APIs, discovery run in the lab against the four sites (database
+     unchanged before and after).
+  2. Step 4: the two checks and the score.
+
+### 2026-11-19 — Let the agent try a draft map on the gateway
+
+- **Branch:** feat/maps-try (on top of docs/agent-study)
+- **What:**
+  - gateway: `POST /maps/try` on the admin endpoint (`server/try.go`,
+    `server/trysite.go`), behind the panel's service token (`EQ_MAP_TOKEN`;
+    without it tries answer 404). The draft must be signed for tries
+    (`mapstore/try.go`: purpose `try`, expiry signed, at most two hours;
+    the signed message has its own prefix, so it never verifies as a
+    published map). `dry_run` runs the visitor's code path with a transport
+    that reads the rebuilt request and answers 204: nothing is forwarded;
+    the verdict says the entry, whether only the area serves it, and the
+    refusal (status, reason, field, never the value). `preview` serves
+    GET/HEAD through the connector and returns the rebuilt answer. Tries
+    use `limits.None` (no counters), keep their events out of the logs,
+    and dry-runs read sessions through `session.ReadOnly`. A test account's
+    legacy cookies open a try session with its role. Compiled drafts are
+    cached by payload (16).
+  - `site.Options.Transport` replaces the way to the legacy site.
+  - panel-api: `signing.SignTry` (same message as the gateway, checked by
+    a shared test vector).
+  - Contract: `gateway-admin.yaml` gets 400, `cookies` and the session
+    semantics. Docs: agent.md (step 2 done), gateway README.
+- **Why:** step 2 of docs/agent.md: the agent's two checks need to ask the
+  gateway what it would do with a draft, without touching the legacy site.
+- **Status:** unit tests (refused callers and maps, attacks refused with
+  no legacy hit, rebuilt preview, seeded session). Not used by the agent
+  yet; panel-api does not hand out try maps yet.
+- **Next steps:**
+  1. Agent: browser and read-only proxy, accounts, forms, declared APIs,
+     roles and ownership, tighter map.
+  2. Agent: the two checks and the score; panel-api verification queue
+     (hands the agent a try map with `SignTry`).
+  3. Panel: score, still open, Verify button.
+  4. Lab: studies of the four lab sites.
+
+### 2026-11-19 — Design the agent's study of legacy sites
+
+- **Branch:** docs/agent-study (on top of feat/site-certificates)
+- **What:**
+  - `docs/agent.md`: the agent as Equalizer's strong point. A study with a
+    real browser, read-only (administration included, test accounts with
+    few permissions per CMS), a precise map entry for every function
+    understood, and two checks of its own map: pages compared with and
+    without Equalizer, attack set tried on every parameter and field on the
+    gateway only. Measured score, "still open" list, Verify button, rollout
+    in six steps. AI unchanged (structure only); page contents for the AI
+    planned but not decided.
+  - Contracts: `panel-api.yaml` gets test `accounts` (up to three),
+    `StudyReport`, `Verification`, `GET/POST /apps/{app}/maps/{version}/verify`,
+    `MapVersion.verification`, internal verification queue;
+    new `schema/api/gateway-admin.yaml` documents the gateway's admin
+    endpoint and adds `POST /maps/try` (dry-run and preview of a draft
+    signed for that purpose, service token).
+  - UI types regenerated; architecture and agent README point to the design.
+- **Why:** a map is only as good as it is tight and correct; writing one by
+  hand does not scale. The agent must write it and prove it.
+- **Status:** design and contracts only; nothing implemented yet. The new
+  endpoints are not served yet.
+- **Next steps:**
+  1. Gateway: `POST /maps/try`; panel-api: signing for purpose try.
+  2. Agent: browser and read-only proxy, accounts, forms, declared APIs,
+     roles and ownership, tighter map.
+  3. Agent: the two checks and the score; panel-api verification queue.
+  4. Panel: score, still open, Verify button.
+  5. Lab: studies of the four lab sites with expected scores.
+  6. Separately: remove the map's `risk` field (a label with no effect).
+
 ### 2026-11-19 — Serve protected sites with their own certificates
 
 - **Branch:** feat/site-certificates

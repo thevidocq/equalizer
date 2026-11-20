@@ -18,10 +18,21 @@ type discoveryStart struct {
 		Username string `json:"username"`
 		Password string `json:"password"`
 	} `json:"account"`
-	ConnectorID string `json:"connector_id"`
-	Address     string `json:"address"`
-	Scheme      string `json:"scheme"`
+	Accounts    []testAccount `json:"accounts"`
+	ConnectorID string        `json:"connector_id"`
+	Address     string        `json:"address"`
+	Scheme      string        `json:"scheme"`
 }
+
+// testAccount is one of the test accounts of a discovery.
+type testAccount struct {
+	Label    string `json:"label"`
+	Username string `json:"username"`
+	Password string `json:"password"`
+}
+
+// maxTestAccounts bounds the logged-in passes of one discovery.
+const maxTestAccounts = 3
 
 // runReach is how the agent reaches the site: the published map's, or the
 // one given with the first discovery.
@@ -57,14 +68,15 @@ func (s *Server) startDiscovery(w http.ResponseWriter, r *http.Request, u *auth.
 	}
 	n := store.NewDiscovery{App: a.ID, Trigger: "manual", MaxPages: in.MaxPages, Reach: reach, RequestedBy: &u.ID,
 		UseAI: (in.UseAI == nil || *in.UseAI) && s.hasLLM(r, a.Tenant)}
-	if in.Account != nil && in.Account.Username != "" {
-		if len(in.Account.Username) > 200 || len(in.Account.Password) > 200 {
-			fail(w, http.StatusUnprocessableEntity, "invalid", "account: at most 200 characters")
-			return
-		}
-		user := strings.TrimSpace(in.Account.Username)
-		n.AccountUser = &user
-		n.AccountSecret = s.MFA.SealFor("discovery:"+a.ID, []byte(in.Account.Password))
+	accounts, msg := testAccounts(in)
+	if msg != "" {
+		fail(w, http.StatusUnprocessableEntity, "invalid", msg)
+		return
+	}
+	if len(accounts) > 0 {
+		blob, _ := json.Marshal(accounts)
+		n.AccountUser = &accounts[0].Username
+		n.AccountsSecret = s.MFA.SealFor("discovery:"+a.ID, blob)
 	}
 	d, err := s.Store.StartDiscovery(r.Context(), n)
 	if errors.Is(err, store.ErrConflict) {
@@ -78,6 +90,40 @@ func (s *Server) startDiscovery(w http.ResponseWriter, r *http.Request, u *auth.
 	_ = s.Store.Record(r.Context(), &u.ID, &a.Tenant, "discovery.start", a.ID,
 		map[string]any{"id": d.ID, "use_ai": d.UseAI, "with_account": d.WithAccount})
 	writeJSON(w, http.StatusCreated, d)
+}
+
+// testAccounts gathers account and accounts into one checked list; a
+// message when they are not acceptable.
+func testAccounts(in discoveryStart) ([]testAccount, string) {
+	list := in.Accounts
+	if in.Account != nil && in.Account.Username != "" {
+		list = append([]testAccount{{Label: "account", Username: in.Account.Username, Password: in.Account.Password}}, list...)
+	}
+	out := []testAccount{}
+	labels := map[string]bool{}
+	for i, a := range list {
+		a.Username, a.Label = strings.TrimSpace(a.Username), strings.TrimSpace(a.Label)
+		if a.Username == "" {
+			continue
+		}
+		if a.Label == "" {
+			a.Label = "account " + strconv.Itoa(i+1)
+		}
+		switch {
+		case len(a.Username) > 200 || len(a.Password) > 200:
+			return nil, "account: at most 200 characters"
+		case len(a.Label) > 60:
+			return nil, "accounts: a label has at most 60 characters"
+		case labels[a.Label]:
+			return nil, "accounts: two accounts have the same label"
+		}
+		labels[a.Label] = true
+		out = append(out, a)
+	}
+	if len(out) > maxTestAccounts {
+		return nil, "accounts: at most 3"
+	}
+	return out, ""
 }
 
 func (s *Server) hasLLM(r *http.Request, tenant string) bool {

@@ -128,17 +128,32 @@ for review**.
 ### Discovery
 
 **Site → Discovery → Start discovery**. The agent explores the site through
-the connector, never from the Internet, does not open admin pages and
-follows no link that changes something. With a test account it also
-explores as a logged-in user (the password is encrypted and deleted at the
-end).
+the connector, never from the Internet, and follows no link that changes
+something. With test accounts (up to three,
+for example a customer and an administrator) it also explores as each of
+them, in a separate pass, to reach the pages behind their login. With an
+administrator account it also studies the administration, read-only
+(Drupal, Joomla): it opens no link or screen that changes something.
+WordPress's administration stays closed to it, because WordPress writes to
+its database when its screens are only viewed. Give
+accounts with the fewest permissions that still see those pages; the
+passwords are encrypted and deleted at the end. The map does not restrict
+pages by account: the site itself still decides who sees what.
+
+The agent reads each form's fields as the page declares them (type,
+length, limits, pattern, choices) and gives each the narrowest check that
+allows: a list of values, a number with its range, an email, a phone, a
+pattern. Free-text fields refuse HTML and template code; fields holding a
+name or a code also refuse SQL delimiters.
 
 ![Discovery](/help-img/discovery.png)
 
 The whole site always stays in the map through the `/` area. The report
-shows what was found, which pages got precise entries, what the agent did
-not open (still served by the area), what visitors asked for that the map
-lacks, and the protection against IDOR it proposes for JSON APIs (a list
+shows what was found, which pages got precise entries, how each test
+account logged in, what is **still open** with its reason (pages not
+opened and still served by the area, links that change something, fields
+that must still accept SQL characters such as a search or a message), what
+visitors asked for that the map lacks, and the protection against IDOR it proposes for JSON APIs (a list
 and a detail with the same id). If the map should change, a draft is
 proposed: review it and send it for approval. **Continuous discovery**
 (every day or week) explores again and proposes a draft only when something

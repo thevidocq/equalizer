@@ -89,6 +89,15 @@ also sees what real visitors miss. Continuous discovery (daily or weekly)
 proposes a draft only when something changed. Every proposal goes through
 the usual approval.
 
+The agent is being extended into a **study** of the site
+([agent.md](agent.md)): a real browser read-only (administration included,
+with test accounts), a precise entry for every function it understands, and
+two checks before the draft is handed over: every page compared with and
+without Equalizer, and every parameter and field tried with an attack set on
+the gateway only (`POST /maps/try`, `schema/api/gateway-admin.yaml`). The
+draft comes with a measured score; the **Verify** button runs the checks
+again on a version changed by hand.
+
 ## Platform and tenants
 
 Two kinds of people use the panel, and they never share a view.

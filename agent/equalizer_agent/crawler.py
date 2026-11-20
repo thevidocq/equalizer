@@ -24,6 +24,7 @@ class Seen:
     ctype: str
     title: str = ""
     logged_in: bool = False
+    seen_by: set = field(default_factory=set)  # "anonymous" and test account labels
 
 
 @dataclass
@@ -35,7 +36,8 @@ class CrawlResult:
     skipped_actions: set = field(default_factory=set)
     generator: str = ""
     urls: list = field(default_factory=list)  # every same-site URL seen, for fingerprinting
-    login: str = ""  # outcome of the test account login
+    login: str = ""  # outcome of the first test account's login
+    logins: dict = field(default_factory=dict)  # account label -> ok, failed, no_login_form
     errors: int = 0
 
 
@@ -58,16 +60,58 @@ class Crawler:
         self.r = CrawlResult()
         self.shapes: dict = {}
         self.scripts = 0
+        self.label = "anonymous"
 
     def anonymous(self, seeds: list) -> CrawlResult:
+        self.label = "anonymous"
         self._crawl(seeds, logged_in=False)
         return self.r
 
-    def logged_in(self, account: dict) -> CrawlResult:
-        """Second pass with the test account (call after the CMS is known)."""
-        if self._login(account):
-            self._crawl(["/"] + [p for p in list(self.r.pages)[:50]], logged_in=True)
+    def logged_in(self, account: dict, label: str = "account") -> CrawlResult:
+        """One pass per test account (call after the CMS is known). Each
+        starts from a new session: what one account sees never comes from
+        another's cookies."""
+        self.f.cookies = {}
+        self._tried_known = False
+        self.label = label
+        ok = self._login(account)
+        self.r.logins[label] = self.r.login
+        if len(self.r.logins) > 1:
+            self.r.login = next(iter(self.r.logins.values()))
+        if ok:
+            admin = [] if self.cms in rules.WRITES_ON_VIEW else rules.ADMIN_HOME.get(self.cms or "", [])
+            if self.cms in rules.ADMIN_LOGIN and admin:
+                self._admin_login(account)
+            self._crawl(["/"] + admin + [p for p in list(self.r.pages)[:50]], logged_in=True)
+        self.f.cookies = {}
         return self.r
+
+    def _admin_login(self, account: dict) -> bool:
+        """An administration with its own login (Joomla): its form, posted
+        once like the site's. Its outcome does not change the report's."""
+        page = rules.ADMIN_LOGIN[self.cms]
+        try:
+            resp = self.f.get(page)
+        except (ReachError, OSError, ValueError):
+            return False
+        html = resp.body.decode("utf-8", "replace")
+        for form in extract.parse(html, resp.url).forms:
+            pw = [i for i in form.inputs if i.type == "password"]
+            user = [i for i in form.visible() if i.type in ("text", "email")]
+            if form.method != "POST" or not pw or not user or not self.f.same_site(form.action):
+                continue
+            data = {i.name: "" for i in form.inputs if i.type not in ("submit", "button", "image", "reset")}
+            data.update(_hidden_values(html, [h.name for h in form.hidden()]))
+            data[user[0].name], data[pw[0].name] = account.get("username", ""), account.get("password", "")
+            before = dict(self.f.cookies)
+            try:
+                r = self.f.request("POST", path_query(form.action), data, login=True)
+            except (ReachError, OSError, ValueError):
+                return False
+            ok = _logged_in(r, before, self.f.cookies)
+            self.log.info("test account administration login", outcome="ok" if ok else "failed", form=page)
+            return ok
+        return False
 
     def _crawl(self, seeds, logged_in):
         queue = deque(dict.fromkeys(seeds))
@@ -97,6 +141,7 @@ class Crawler:
             first = pq not in self.r.pages
             if first or logged_in:
                 self.r.pages.setdefault(pq, Seen(resp.status, resp.content_type, logged_in=logged_in))
+            self.r.pages[pq].seen_by.add(self.label)
             if resp.status in (301, 302, 303, 307, 308) and resp.location:
                 self._enqueue(queue, urllib.parse.urljoin(resp.url, resp.location))
                 continue
@@ -134,7 +179,7 @@ class Crawler:
                 self.progress({"pages": len(self.r.pages), "forms": len(self.r.forms), "logged_in": logged_in})
 
     def _allowed(self, pq: str) -> bool:
-        reason = rules.excluded(pq, self.cms)
+        reason = rules.excluded(pq, self.cms, logged_in=getattr(self, "logged_pass", False))
         if reason:
             self.r.excluded[pq] = reason
             return False
@@ -202,7 +247,7 @@ class Crawler:
             data[pw[0].name] = account.get("password", "")
             before = dict(self.f.cookies)
             try:
-                resp = self.f.request("POST", page_pq, data)
+                resp = self.f.request("POST", page_pq, data, login=True)
             except (ReachError, OSError, ValueError):
                 self.r.login = "failed"
                 return False

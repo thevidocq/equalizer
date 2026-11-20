@@ -59,7 +59,9 @@ prototype.
     when it is stale.
   - panel-api: map templates for magento, prestashop, opencart, typo3,
     mediawiki and phpbb (generic pages and folders, each application's
-    names kept out of slugs); site kinds extended (contract `SiteKind`).
+    names kept out of slugs); site kinds extended (contract `SiteKind`,
+    migration 0015 widens the database check); templates listed in
+    alphabetical order whatever the case.
   - panel-ui: the new kinds when protecting a site; SSO path presets for
     Magento, OpenCart, TYPO3 and phpBB.
   - Docs: agent.md (profiles), architecture, README, tenant manual (the

@@ -99,7 +99,7 @@ func TestTemplates(t *testing.T) {
 	root.must(200, "POST", "/v1/auth/login", map[string]string{"email": "root@example.com", "password": "platform-admin-password"}, nil)
 	root.must(201, "POST", "/v1/tenants", map[string]string{"id": "acme", "name": "Acme", "admin_email": "boss@acme.test", "admin_name": "Boss"}, nil)
 	boss := e.join("boss@acme.test")
-	boss.must(422, "POST", "/v1/tenants/acme/apps", map[string]any{"id": "blog", "name": "Blog", "public_domain": "blog.acme.test", "kind": "typo3"}, nil)
+	boss.must(422, "POST", "/v1/tenants/acme/apps", map[string]any{"id": "blog", "name": "Blog", "public_domain": "blog.acme.test", "kind": "sharepoint"}, nil)
 	var app struct{ Kind *string }
 	boss.must(201, "POST", "/v1/tenants/acme/apps", map[string]any{"id": "blog", "name": "Blog", "public_domain": "blog.acme.test", "kind": "wordpress"}, &app)
 	if app.Kind == nil || *app.Kind != "wordpress" {
@@ -107,7 +107,7 @@ func TestTemplates(t *testing.T) {
 	}
 	var tl struct{ Items []struct{ ID string } }
 	boss.must(200, "GET", "/v1/map-templates", nil, &tl)
-	if len(tl.Items) != 5 {
+	if len(tl.Items) != 11 {
 		t.Fatalf("templates: %+v", tl)
 	}
 	boss.must(201, "POST", "/v1/tenants/acme/connectors", map[string]string{"id": "cn-web01"}, nil)

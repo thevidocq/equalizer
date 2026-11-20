@@ -1,5 +1,6 @@
 """The agent studies the four lab sites with a test administrator, through
-the connector and with its real browser, and changes nothing on them: the content of every site's
+the connector and with its real browser, verifies the drafts it proposes
+on the gateway, and changes nothing on them: the content of every site's
 database is the same before and after (docs/agent.md, "Read-only,
 guaranteed")."""
 import sqlite3
@@ -79,11 +80,23 @@ def study(app):
     raise AssertionError(f"{app}: the study did not finish")
 
 
+def verification(app, version):
+    """The agent verifies every draft a study proposes (docs/agent.md, steps 4 and 5)."""
+    deadline = time.time() + 900
+    while time.time() < deadline:
+        got = state.boss.call("GET", f"/apps/{app}/maps/{version}/verify", None, 200)
+        if got["status"] in ("done", "failed"):
+            return got
+        time.sleep(3)
+    raise AssertionError(f"{app}: the verification did not finish")
+
+
 @pytest.mark.parametrize("app", ["blog", "news", "docs", "intranet"])
 def test_study_changes_nothing(app):
     before = DIGESTS[app]()
     got = study(app)
     assert got["status"] == "done", got.get("error")
+    ver = verification(app, got["draft_version"]) if got.get("draft_version") else None
     after = DIGESTS[app]()
     assert not changes(before, after), f"{app}: the study changed the site's content: {changes(before, after)}"
     rep = got["report"]
@@ -92,6 +105,11 @@ def test_study_changes_nothing(app):
     assert rep["browser"]["pages"] > 0, rep["browser"]
     reasons = {o["reason"] for o in rep.get("open", [])}
     assert reasons <= {"not_reached", "action_not_performed", "legacy_error", "cannot_narrow", "accepts_sql", "other"}
+    if ver is not None:
+        assert ver["status"] == "done", ver.get("error")
+        sc = ver["score"]
+        assert sc["functions_total"] > 0 and sc["inputs_total"] > 0, sc
+        print(app, "verification:", sc, "broken:", [(b["path"], b["difference"], b.get("detail", "")[:80]) for b in ver["broken"]][:8])
     print(app, "browser:", rep["browser"]["pages"], "pages,", len(rep["browser"]["script_requests"]), "script requests,",
           [k["method"] + " " + k["path"] for k in rep["browser"]["kept_in"]][:10], "kept in")
 

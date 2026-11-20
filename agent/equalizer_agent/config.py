@@ -29,6 +29,7 @@ class Config:
     instance: str = ""
     browser: str = "off"  # from EQ_BROWSER: auto (when Playwright is installed, the default), on, off
     browser_path: str = ""  # a Chromium to use instead of Playwright's own
+    gateway_url: str = "http://gateway:9090"  # the gateway's admin endpoint, for verifications
 
 
 def from_env() -> Config:
@@ -45,6 +46,7 @@ def from_env() -> Config:
         instance=os.environ.get("HOSTNAME", "agent"),
         browser=os.environ.get("EQ_BROWSER", "auto").strip().lower(),
         browser_path=os.environ.get("EQ_BROWSER_PATH", "").strip(),
+        gateway_url=os.environ.get("EQ_GATEWAY_ADMIN_URL", Config.gateway_url).rstrip("/"),
     )
     if len(c.panel_token) < 32:
         raise SystemExit("agent: EQ_INTERNAL_TOKEN or EQ_INTERNAL_TOKEN_FILE is required")

@@ -153,6 +153,32 @@ A person reviews it, may change it in the editor, presses **Verify** to run
 steps 4 and 5 again on their version, and approves. Nothing is ever applied
 without approval.
 
+### What a verification measures today
+
+- **Pages**: the pages the latest discovery studied anonymously (the
+  version's own literal routes when there is none). Pages behind a login
+  are not verified yet: test accounts are erased when a discovery ends.
+  A page is identical when the status (or, for a redirect, where it goes),
+  the visible text (97% of the words, as dates and counters change between
+  two loads; decoded in each answer's own charset), the internal links and
+  the number of forms are the same.
+- **Inputs**: every query parameter and path parameter of a route that a
+  studied page shows how to reach, and every field of a form found on a
+  studied page (a valid submission first; if the version refuses it, the
+  form is broken). Each gets 20 values in six groups (SQL, HTML and script,
+  template and server code, paths, shell, out of type). A value that falls
+  out of a route goes to the site area: if the area serves it, the input
+  is not protected, which is how the score shows what the area lets
+  through.
+- **Correcting the draft** (widen where a page broke, narrow where an
+  attack passed, verify again) is the next step: today the agent measures
+  and reports, and a person changes the draft.
+
+The first verification in the lab found a real bug: on a site served in
+plain http, the gateway checked a form's token against the https binding
+cookie, so every mapped form submission was refused. Fixed with a
+regression test.
+
 ## Read-only, guaranteed
 
 The agent never changes the legacy site. Three layers:
@@ -264,7 +290,7 @@ Each step is its own pull request, tested in the lab before the next.
 | 3a | Agent: several accounts, form fields typed from their HTML, text rules, "still open" in the report; panel: accounts | Done |
 | 3b | Agent: administration read-only (Drupal, Joomla; not WordPress), single read-only guard, a lab study of the four sites proving nothing changes | Done |
 | 3c | Agent: browser (Playwright) behind the read-only guard, script requests; Chromium in the agent image | Done |
-| 4 | Agent: the two checks and the score; panel-api verification queue | Planned |
+| 4 | Agent: the two checks and the score; panel-api verification queue (every draft a discovery proposes is verified) | Done: measures; the agent does not yet correct its own draft |
 | 5 | Panel: score and "still open" on the Discovery tab, Verify button on drafts | Planned |
 | 6 | Lab: studies of WordPress, Joomla, Drupal and the intranet with the expected scores | Planned |
 

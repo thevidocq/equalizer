@@ -9,6 +9,8 @@ import (
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
+	"regexp"
 	"strings"
 	"sync/atomic"
 	"testing"
@@ -163,5 +165,62 @@ func TestTryOff(t *testing.T) {
 		if rec.Code != 404 {
 			t.Errorf("tries off: %d", rec.Code)
 		}
+	}
+}
+
+// An http site's forms: the token is checked against the plain binding
+// cookie (found by the agent's verification of the lab intranet).
+func TestTryFormOnHTTPSite(t *testing.T) {
+	legacy := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "text/html; charset=utf-8")
+		_, _ = io.WriteString(w, `<html><body><form method="post" action="/login"><input name="user"><button>Go</button></form></body></html>`)
+	}))
+	defer legacy.Close()
+	addr := strings.TrimPrefix(legacy.URL, "http://")
+	doc := `{"meta":{"schema":"gateway-map/1.0","tenant":"acme","app":"intranet","version":2,"status":"draft",
+	  "public_domain":"intranet.acme.example","public_scheme":"http"},
+	 "legacy":{"base_url":"` + legacy.URL + `","reach":{"mode":"direct","allow":["` + addr + `"]}},
+	 "roles":{"anonymous":"guest","list":{"guest":{}}},
+	 "routes":[{"id":"login_page","path":"/login","method":"GET","roles":["guest"],"legacy_request":{"method":"GET","path":"/login"}}],
+	 "forms":[{"id":"login","route":"/login","roles":["guest"],"fields":{"user":{"type":"string","max_length":20}},
+	   "legacy_request":{"method":"POST","path":"/login","form":{"user":"{{fields.user}}"}}}]}`
+	pub, key, _ := ed25519.GenerateKey(rand.Reader)
+	sealer, _ := formtoken.New(formtoken.RandomKey())
+	store := session.NewMemory()
+	sk := formtoken.RandomKey()
+	mgr, _ := session.NewManager(store, sk)
+	frozen, _ := session.NewManager(session.ReadOnly(store), sk)
+	now := time.Now()
+	h := (&Admin{Try: &Try{Token: tryToken, Pub: pub, KeyID: "k1", Sessions: mgr, Frozen: frozen, Forms: sealer,
+		Log: slog.New(slog.NewJSONHandler(io.Discard, nil)), now: func() time.Time { return now }}}).Handler()
+	m := signTry(t, key, doc, "try", now.Add(10*time.Minute))
+	call := func(body map[string]any) tryResult {
+		b, _ := json.Marshal(body)
+		req := httptest.NewRequest(http.MethodPost, "/maps/try", strings.NewReader(string(b)))
+		req.Header.Set("Authorization", "Bearer "+tryToken)
+		rec := httptest.NewRecorder()
+		h.ServeHTTP(rec, req)
+		var res tryResult
+		_ = json.Unmarshal(rec.Body.Bytes(), &res)
+		if rec.Code != 200 {
+			t.Fatalf("try: %d %s", rec.Code, rec.Body.String())
+		}
+		return res
+	}
+	page := call(map[string]any{"map": m, "mode": "preview", "request": map[string]any{"method": "GET", "path": "/login"}})
+	body, _ := base64.StdEncoding.DecodeString(page.Response.Body)
+	tok := regexp.MustCompile(`name="_eq_token" value="([^"]+)"`).FindSubmatch(body)
+	if tok == nil {
+		t.Fatalf("no form token in %s", body)
+	}
+	var cookies []string
+	for _, c := range page.Cookies {
+		cookies = append(cookies, strings.SplitN(c, ";", 2)[0])
+	}
+	post := call(map[string]any{"map": m, "mode": "dry_run", "request": map[string]any{"method": "POST", "path": "/login",
+		"headers": map[string]string{"Cookie": strings.Join(cookies, "; "), "Content-Type": "application/x-www-form-urlencoded"},
+		"body":    base64.StdEncoding.EncodeToString([]byte("user=bob&_eq_token=" + url.QueryEscape(string(tok[1]))))}})
+	if !post.Accepted {
+		t.Fatalf("a valid submission on an http site is refused: %+v (cookies %v)", post.Refusal, cookies)
 	}
 }

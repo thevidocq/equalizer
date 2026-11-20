@@ -165,6 +165,10 @@ func (s *Server) discoveryResult(w http.ResponseWriter, r *http.Request) {
 		s.storeError(w, r, err)
 		return
 	}
+	if draft != nil {
+		// the draft arrives measured: the agent verifies it next (docs/agent.md)
+		_, _ = s.Store.QueueVerification(r.Context(), a.ID, *draft, nil)
+	}
 	detail := map[string]any{"id": id, "draft_version": draft}
 	if fp != nil {
 		detail["error"] = failure

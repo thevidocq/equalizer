@@ -4026,6 +4026,8 @@ export interface components {
             }[];
             /** @description Links never opened because they change something */
             skipped_actions?: string[];
+            /** @description HTML pages studied anonymously (path and query): what a verification compares */
+            pages?: string[];
         } & {
             [key: string]: unknown;
         };
@@ -4056,11 +4058,12 @@ export interface components {
             reach: {
                 [key: string]: unknown;
             };
-            /** @description Paths studied by the latest discovery, to compare */
+            /** @description Pages studied anonymously by the latest discovery (path and query), to compare; the version's own literal routes when there is none. Pages behind a login are not verified (test accounts are erased when a discovery ends) */
             pages: string[];
-            accounts?: {
+            /** @description The version signed for tries on the gateway (TryRequest.map in gateway-admin.yaml), valid one hour */
+            try_map: {
                 [key: string]: unknown;
-            }[];
+            };
         };
         DiscoveryJob: {
             id: number;

@@ -41,7 +41,14 @@ func (s *Server) getMap(w http.ResponseWriter, r *http.Request, u *auth.User) {
 		s.storeError(w, r, err)
 		return
 	}
-	writeJSON(w, http.StatusOK, v)
+	out := struct {
+		store.MapVersion
+		Verification *store.Verification `json:"verification"`
+	}{MapVersion: v}
+	if ver, err := s.Store.LatestVerification(r.Context(), a.ID, version); err == nil {
+		out.Verification = &ver
+	}
+	writeJSON(w, http.StatusOK, out)
 }
 
 type mapCreate struct {

@@ -38,6 +38,44 @@ prototype.
 
 ## Entries
 
+### 2026-11-20 — Verify every draft on the gateway
+
+- **Branch:** feat/agent-checks
+- **What:**
+  - panel-api: `map_verifications` (migration 0014); `GET/POST
+    /apps/{app}/maps/{version}/verify` (editors, approvers, administrators;
+    one waiting verification per version); the internal queue hands the
+    agent the version signed for tries (`signing.SignTry`, one hour), its
+    legacy site and the pages the latest discovery studied; every draft a
+    discovery proposes is queued for verification; a version read alone
+    carries its latest verification.
+  - agent: `verify.py` (step 4: each page directly and through the gateway
+    in preview, compared by status or redirect target, visible text in each
+    answer's charset, links and forms; step 5: every route parameter and
+    form field gets the attack set in dry-run, after a valid submission),
+    `attacks.py`, `gateway.py`; the discovery report lists the pages it
+    studied; `EQ_GATEWAY_ADMIN_URL`.
+  - gateway fix found by the first verification: an http site's form token
+    was checked against the https binding cookie, so mapped form
+    submissions were refused (`openToken` now uses the site's scheme;
+    regression test).
+  - compose: agent reaches `gateway:9090`; lab: `EQ_GATEWAY_ADMIN_URL`;
+    test_06 waits for each draft's verification and checks the databases
+    are still unchanged after it.
+  - Docs: agent.md (what a verification measures; step 4 done, correction
+    loop next).
+- **Why:** steps 4 and 5 of docs/agent.md: a draft arrives measured.
+- **Status:** unit tests (agent compare and attacks, panel-api queue and
+  signature, gateway regression) and lab 01 + 06 pass. Lab scores: pages
+  identical 12/12, 5/5, 4/4, 4/4; inputs refusing every attack 5/13,
+  26/38, 1/19, 1/3: most of what passes falls out of a route into the site
+  area.
+- **Next steps:**
+  1. Panel: score, broken pages, still open, Verify button.
+  2. Agent: correct its own draft (narrow, widen, verify again).
+  3. Verify pages behind a login (keep test accounts until the
+     verification ends).
+
 ### 2026-11-20 — Study pages in a real browser behind the read-only guard
 
 - **Branch:** feat/agent-browser (on top of chore/land-agent-study)

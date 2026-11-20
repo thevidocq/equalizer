@@ -2,10 +2,15 @@ package api_test
 
 import (
 	"context"
+	"crypto/ed25519"
+	"encoding/base64"
 	"encoding/json"
 	"net/http"
 	"strings"
 	"testing"
+	"time"
+
+	"github.com/thevidocq/equalizer/panel-api/internal/signing"
 )
 
 func internalPost(t *testing.T, e *env, path string, body any, out any) int {
@@ -119,6 +124,59 @@ func TestDiscovery(t *testing.T) {
 	_ = e.st.DB.QueryRowContext(context.Background(), `SELECT count(*) FROM discoveries WHERE account_secret IS NOT NULL OR accounts_secret IS NOT NULL`).Scan(&sealed)
 	if sealed != 0 {
 		t.Fatal("the test account password was kept after the discovery")
+	}
+
+	// The draft arrives measured: a verification is queued for it, and the
+	// Verify button does not queue a second one while it waits.
+	var ver1 struct {
+		Status  string
+		Version int
+	}
+	boss.must(200, "GET", "/v1/apps/blog/maps/1/verify", nil, &ver1)
+	if ver1.Status != "queued" || ver1.Version != 1 {
+		t.Fatalf("verification: %+v", ver1)
+	}
+	boss.must(202, "POST", "/v1/apps/blog/maps/1/verify", nil, nil)
+	boss.must(404, "POST", "/v1/apps/blog/maps/9/verify", nil, nil)
+	var vjob struct {
+		ID       int64
+		Version  int
+		BaseURL  string `json:"base_url"`
+		Pages    []string
+		TryMap   signing.TryMap `json:"try_map"`
+		Document json.RawMessage
+	}
+	if code := internalPost(t, e, "/v1/internal/verifications/claim", nil, &vjob); code != 200 {
+		t.Fatalf("verification claim: %d", code)
+	}
+	payload, _ := base64.StdEncoding.DecodeString(vjob.TryMap.Payload)
+	sig, _ := base64.StdEncoding.DecodeString(vjob.TryMap.Signature)
+	exp, _ := time.Parse(time.RFC3339, vjob.TryMap.ExpiresAt)
+	pub := e.server.SigningKey.Public().(ed25519.PublicKey)
+	if vjob.Version != 1 || vjob.BaseURL != "https://blog.acme.test" || len(vjob.Pages) == 0 || vjob.Pages[0] != "/" ||
+		vjob.TryMap.Purpose != "try" || !ed25519.Verify(pub, signing.TryMessage(exp, payload), sig) ||
+		time.Until(exp) > 2*time.Hour {
+		t.Fatalf("verification job: %+v", vjob)
+	}
+	if code := internalPost(t, e, "/v1/internal/verifications/claim", nil, nil); code != 204 {
+		t.Fatalf("second verification claim: %d", code)
+	}
+	score := map[string]any{"functions_total": 10, "functions_identical": 9, "inputs_total": 20, "inputs_protected": 18, "area_percent": 5}
+	if code := internalPost(t, e, "/v1/internal/verifications/"+itoa(vjob.ID)+"/result", map[string]any{"score": score,
+		"broken": []map[string]any{{"path": "/x", "difference": "text"}},
+		"open":   []map[string]any{{"kind": "input", "target": "home.s", "reason": "accepts_sql"}}}, nil); code != 204 {
+		t.Fatalf("verification result: %d", code)
+	}
+	var withVer struct {
+		Verification struct {
+			Status string
+			Score  map[string]float64
+			Broken []map[string]any
+		}
+	}
+	boss.must(200, "GET", "/v1/apps/blog/maps/1", nil, &withVer)
+	if withVer.Verification.Status != "done" || withVer.Verification.Score["functions_identical"] != 9 || len(withVer.Verification.Broken) != 1 {
+		t.Fatalf("verification on the version: %+v", withVer)
 	}
 
 	// Continuous discovery needs a published map.

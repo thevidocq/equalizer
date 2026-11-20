@@ -38,6 +38,21 @@ prototype.
 
 ## Entries
 
+### 2026-11-20 — Measure what Equalizer adds to a visit
+
+- **Branch:** docs/performance
+- **What:** `lab/e2e/perf.py` opens the same pages of the ten lab sites
+  directly and through Equalizer (HTML timing, whole page in Chrome, 10
+  clients at once; each simulated visitor has its own 127.0.0.x address so
+  the per-address limit does not slow the measure); results in
+  `docs/performance.md`; lab README.
+- **Why:** to know whether the gateway slows browsing, and by how much.
+- **Status:** one page: 3.6 ms added (median, 47 pages), about 11%; whole
+  page in a browser: +10 to +60 ms, part of it TLS; under load on 2 shared
+  CPUs: 15–18% fewer pages per second, no errors. Measured on one machine:
+  the network to the customer's server is not included.
+- **Next steps:** measure again on the VPS with a remote connector.
+
 ### 2026-11-20 — Fix what a review of the latest work found
 
 - **Branch:** fix/review-latest

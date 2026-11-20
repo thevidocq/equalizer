@@ -87,8 +87,7 @@
     "path": "/"
    },
    "render": "faithful",
-   "origin": "human",
-   "risk": "low"
+   "origin": "human"
   },
   {
    "id": "course",
@@ -107,7 +106,6 @@
    },
    "render": "faithful",
    "origin": "human",
-   "risk": "low",
    "query": {
     "id": {
      "type": "id"
@@ -136,7 +134,6 @@
    },
    "render": "faithful",
    "origin": "human",
-   "risk": "low",
    "query": {
     "categoryid": {
      "type": "id",
@@ -160,7 +157,6 @@
    },
    "render": "faithful",
    "origin": "human",
-   "risk": "low",
    "params": {
     "module": {
      "type": "enum",
@@ -198,8 +194,7 @@
     "path": "/login/index.php"
    },
    "render": "faithful",
-   "origin": "human",
-   "risk": "low"
+   "origin": "human"
   },
   {
    "id": "logout",
@@ -217,7 +212,6 @@
    },
    "render": "faithful",
    "origin": "human",
-   "risk": "low",
    "query": {
     "sesskey": {
      "type": "string",
@@ -239,8 +233,7 @@
     "path": "/my/"
    },
    "render": "faithful",
-   "origin": "human",
-   "risk": "low"
+   "origin": "human"
   }
  ],
  "forms": [
@@ -251,7 +244,6 @@
     "guest"
    ],
    "origin": "human",
-   "risk": "high",
    "fields": {
     "username": {
      "type": "string",
@@ -294,7 +286,6 @@
     "OPTIONS"
    ],
    "origin": "human",
-   "risk": "medium",
    "max_body_kb": 51200
   }
  ],

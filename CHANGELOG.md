@@ -38,6 +38,23 @@ prototype.
 
 ## Entries
 
+### 2026-11-20 — Remove the maps' risk field
+
+- **Branch:** chore/remove-risk
+- **What:** the `risk` label (low, medium, high) is gone from the map
+  contract (`schema/map`, the panel's copy), the example, the CMS templates,
+  the agent (drafts and the AI's answer), the map editor's sample and field
+  order, and `docs/map-format.md`. Migration `0017_drop_map_risk.sql`
+  removes it from stored documents (signed payloads untouched: the gateway
+  ignores the field); the panel drops it from any document it receives (an
+  old export still imports). A field or parameter named `risk` holds an
+  object and stays. Tests: `store/retired_test.go`, `db_test.go`
+  (migration), the agent's AI test.
+- **Why:** nothing enforced it: decorative.
+- **Status:** unit tests of every module pass; contracts valid.
+- **Next steps:** bugfix round on the latest work (agent login, fragments,
+  lab scripts).
+
 ### 2026-11-20 — Study Magento's pages and templates faithfully
 
 - **Branch:** fix/magento-study

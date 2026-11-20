@@ -169,7 +169,29 @@ func setMeta(doc json.RawMessage, fields map[string]any) (json.RawMessage, error
 		meta[k] = v
 	}
 	m["meta"] = meta
+	dropRetired(m)
 	return json.Marshal(m)
+}
+
+// retiredRisk is the value of the "risk" field maps had until it was
+// removed: a document written before (an export, a template copy) still
+// loads. A field or parameter named "risk" holds an object and stays.
+var retiredRisk = map[string]bool{"low": true, "medium": true, "high": true}
+
+func dropRetired(v any) {
+	switch t := v.(type) {
+	case map[string]any:
+		if s, ok := t["risk"].(string); ok && retiredRisk[s] {
+			delete(t, "risk")
+		}
+		for _, c := range t {
+			dropRetired(c)
+		}
+	case []any:
+		for _, c := range t {
+			dropRetired(c)
+		}
+	}
 }
 
 // SetMeta is setMeta for the callers that prepare a document.

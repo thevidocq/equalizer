@@ -61,7 +61,6 @@ routes:
     cache: { mode: public, ttl_s: 60 }
     origin: agent
     confidence: 0.98
-    risk: low
 
   - id: permits_list
     path: /permits
@@ -79,7 +78,6 @@ routes:
       - { legacy: "/permits/detail.jsp?id={id}", route: permit_detail }
     origin: agent
     confidence: 0.94
-    risk: low
 
   - id: logout
     path: /logout
@@ -90,7 +88,6 @@ routes:
     session: { end: true }
     origin: agent
     confidence: 0.97
-    risk: low
 
   - id: permit_detail
     path: /permits/{id}
@@ -108,7 +105,6 @@ routes:
     forms: [permit_supplement]
     origin: agent
     confidence: 0.91
-    risk: medium
 
 forms:
   - id: login
@@ -127,7 +123,6 @@ forms:
     rate_limit: { per_ip: 10/min }
     origin: agent
     confidence: 0.96
-    risk: high
 
   - id: permit_supplement
     route: /permits/{id}/supplement
@@ -139,7 +134,6 @@ forms:
         type: text
         max_length: 1000
         charset: "[\\p{L}\\p{N}\\s.,;:!?()'-]"
-        risk: high
         rules: [no_sql_meta, no_html]
       attachment:
         type: file

@@ -135,6 +135,7 @@ class DiscoveryTest(unittest.TestCase):
         self.assertNotIn("evil", ids)
         front = next(r for r in doc["routes"] if r["id"] == "front_page")
         self.assertEqual(front["query"]["p"]["type"], "int")  # "string" would widen: refused
+        self.assertNotIn("risk", front)  # maps have no risk field: an AI sending one changes nothing
         self.assertTrue(rep["ai"]["used"])
         self.assertNotIn("/wp-admin/", {r["path"] for r in doc["routes"]})
         self.assertNotIn("tester", llm.seen)  # no account, no values in clear

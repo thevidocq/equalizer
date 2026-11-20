@@ -73,13 +73,11 @@
       "pattern": "^[0-9]+/(s|sec|min|hour|day)$"
     },
     "origin": { "enum": ["agent", "human"] },
-    "risk": { "enum": ["low", "medium", "high"] },
     "provenance": {
       "type": "object",
       "properties": {
         "origin": { "$ref": "#/$defs/origin" },
         "confidence": { "type": "number", "minimum": 0, "maximum": 1 },
-        "risk": { "$ref": "#/$defs/risk" },
         "approved_by": { "type": "string" }
       }
     },
@@ -398,7 +396,6 @@
         "pattern": { "type": "string" },
         "charset": { "type": "string" },
         "max_length": { "type": "integer", "minimum": 1 },
-        "risk": { "$ref": "#/$defs/risk" },
         "rules": { "type": "array", "items": { "type": "string" } },
         "mime": { "type": "array", "items": { "type": "string" } },
         "max_size_kb": { "type": "integer", "minimum": 1 },
@@ -468,7 +465,7 @@
     "route": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["id", "path", "method", "roles", "legacy_request", "render", "origin", "risk"],
+      "required": ["id", "path", "method", "roles", "legacy_request", "render", "origin"],
       "properties": {
         "id": { "$ref": "#/$defs/identifier" },
         "path": { "$ref": "#/$defs/publicPath" },
@@ -518,7 +515,6 @@
         "rate_limit": { "$ref": "#/$defs/rateLimit" },
         "origin": { "$ref": "#/$defs/origin" },
         "confidence": { "type": "number", "minimum": 0, "maximum": 1 },
-        "risk": { "$ref": "#/$defs/risk" },
         "approved_by": { "type": "string" }
       },
       "if": { "properties": { "render": { "const": "template" } } },
@@ -546,7 +542,6 @@
         "rate_limit": { "$ref": "#/$defs/rateLimit" },
         "origin": { "$ref": "#/$defs/origin" },
         "confidence": { "type": "number", "minimum": 0, "maximum": 1 },
-        "risk": { "$ref": "#/$defs/risk" },
         "approved_by": { "type": "string" }
       }
     },
@@ -598,8 +593,7 @@
           }
         },
         "rate_limit": { "$ref": "#/$defs/rateLimit" },
-        "origin": { "$ref": "#/$defs/origin" },
-        "risk": { "$ref": "#/$defs/risk" }
+        "origin": { "$ref": "#/$defs/origin" }
       }
     },
     "compat": {
@@ -649,8 +643,7 @@
         },
         "max_body_kb": { "type": "integer", "minimum": 1, "maximum": 1048576, "description": "Largest request body (default 51200, files included)" },
         "charset": { "type": "string", "description": "Legacy charset of form values (default utf-8)" },
-        "origin": { "$ref": "#/$defs/origin" },
-        "risk": { "$ref": "#/$defs/risk" }
+        "origin": { "$ref": "#/$defs/origin" }
       }
     },
     "asset": {

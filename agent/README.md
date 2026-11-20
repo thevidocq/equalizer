@@ -39,7 +39,7 @@ rest of the agent uses the standard library only.
    (continuous discovery: only additions, nothing removed) or the CMS
    template.
 5. **AI** (`llm/`, optional): the tenant's own model reviews the structure
-   (never values or page text; samples masked). It may rename, set the risk,
+   (never values or page text; samples masked). It may rename,
    exclude, and narrow a type when every observed value fits; anything else
    in its answer is ignored.
 

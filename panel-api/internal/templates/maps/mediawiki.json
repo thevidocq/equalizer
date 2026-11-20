@@ -101,8 +101,7 @@
     "path": "/"
    },
    "render": "faithful",
-   "origin": "human",
-   "risk": "low"
+   "origin": "human"
   },
   {
    "id": "page",
@@ -117,7 +116,6 @@
    },
    "render": "faithful",
    "origin": "human",
-   "risk": "low",
    "params": {
     "slug": {
      "type": "slug"
@@ -137,7 +135,6 @@
    },
    "render": "faithful",
    "origin": "human",
-   "risk": "low",
    "params": {
     "section": {
      "type": "slug"
@@ -162,7 +159,6 @@
     "OPTIONS"
    ],
    "origin": "human",
-   "risk": "medium",
    "max_body_kb": 51200
   }
  ],

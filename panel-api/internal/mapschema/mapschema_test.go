@@ -11,7 +11,7 @@ const valid = `{"meta":{"schema":"gateway-map/1.0","tenant":"t","app":"a","versi
  "legacy":{"base_url":"http://10.0.0.1:8080","reach":{"mode":"direct","allow":["10.0.0.1:8080"]}},
  "roles":{"anonymous":"guest","list":{"guest":{}}},
  "routes":[{"id":"home","path":"/","method":"GET","roles":["guest"],"legacy_request":{"method":"GET","path":"/"},
-   "render":"faithful","origin":"human","risk":"low"}]}`
+   "render":"faithful","origin":"human"}]}`
 
 func TestValidate(t *testing.T) {
 	if err := Validate([]byte(valid)); err != nil {

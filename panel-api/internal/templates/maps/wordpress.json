@@ -107,7 +107,6 @@
    },
    "render": "faithful",
    "origin": "human",
-   "risk": "low",
    "query": {
     "p": {
      "type": "id",
@@ -144,7 +143,6 @@
    },
    "render": "faithful",
    "origin": "human",
-   "risk": "low",
    "params": {
     "slug": {
      "type": "slug"
@@ -164,7 +162,6 @@
    },
    "render": "faithful",
    "origin": "human",
-   "risk": "low",
    "params": {
     "parent": {
      "type": "slug"
@@ -187,7 +184,6 @@
    },
    "render": "faithful",
    "origin": "human",
-   "risk": "low",
    "params": {
     "year": {
      "type": "int",
@@ -217,7 +213,6 @@
    },
    "render": "faithful",
    "origin": "human",
-   "risk": "low",
    "params": {
     "slug": {
      "type": "slug"
@@ -237,7 +232,6 @@
    },
    "render": "faithful",
    "origin": "human",
-   "risk": "low",
    "params": {
     "slug": {
      "type": "slug"
@@ -257,7 +251,6 @@
    },
    "render": "faithful",
    "origin": "human",
-   "risk": "low",
    "params": {
     "n": {
      "type": "id"
@@ -276,8 +269,7 @@
     "path": "/feed/"
    },
    "render": "faithful",
-   "origin": "human",
-   "risk": "low"
+   "origin": "human"
   }
  ],
  "forms": [
@@ -288,7 +280,6 @@
     "guest"
    ],
    "origin": "human",
-   "risk": "medium",
    "fields": {
     "comment": {
      "type": "text",
@@ -345,7 +336,6 @@
     "OPTIONS"
    ],
    "origin": "human",
-   "risk": "medium",
    "max_body_kb": 51200
   }
  ],

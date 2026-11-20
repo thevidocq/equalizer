@@ -28,9 +28,9 @@ describe("map YAML", () => {
 
 describe("editor order", () => {
   it("puts keys in the order of the format", () => {
-    const text = toEditorYaml({ routes: [{ risk: "low", id: "home", path: "/" }], legacy: { reach: {}, base_url: "x" } });
+    const text = toEditorYaml({ routes: [{ origin: "human", id: "home", path: "/" }], legacy: { reach: {}, base_url: "x" } });
     expect(text.indexOf("legacy:")).toBeLessThan(text.indexOf("routes:"));
-    expect(text.indexOf("id: home")).toBeLessThan(text.indexOf("risk: low"));
+    expect(text.indexOf("id: home")).toBeLessThan(text.indexOf("origin: human"));
     expect(text.indexOf("base_url")).toBeLessThan(text.indexOf("reach"));
   });
 });

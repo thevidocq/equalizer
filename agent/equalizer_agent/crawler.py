@@ -129,6 +129,27 @@ class Crawler:
         self.f.cookies = {}
         return self.r
 
+    def login_only(self, account: dict, pages: list) -> bool:
+        """Logs a test account in without studying anything (a verification):
+        the login forms come from the first pages, or the profile's login page."""
+        self.f.cookies = {}
+        self._tried_known = False
+        for pq in (["/"] + [p for p in pages if "login" in p.lower()] + pages)[:8]:
+            try:
+                resp = self.f.get(pq)
+            except (ReachError, OSError, ValueError):
+                continue
+            if resp.status == 200 and resp.content_type == "text/html":
+                self.r.forms.extend(f for f in extract.parse(resp.body.decode("utf-8", "replace"), resp.url).forms
+                                    if self.f.same_site(f.action))
+            if any(i.type == "password" for f in self.r.forms for i in f.inputs):
+                break
+        ok = self._login(account)
+        prof = webapps.get(self.cms)
+        if ok and prof.admin_read_only and prof.admin_login:
+            self._admin_login(account)
+        return ok
+
     def _admin_login(self, account: dict) -> bool:
         """An administration with its own login (Joomla): its form, posted
         once like the site's. Its outcome does not change the report's."""

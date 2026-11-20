@@ -109,7 +109,15 @@ def test_study_changes_nothing(app):
         assert ver["status"] == "done", ver.get("error")
         sc = ver["score"]
         assert sc["functions_total"] > 0 and sc["inputs_total"] > 0, sc
-        print(app, "verification:", sc, "broken:", [(b["path"], b["difference"], b.get("detail", "")[:80]) for b in ver["broken"]][:8])
+        # the test account's pages behind the login are verified too
+        assert ver["accounts"] == ["administrator"], ver["accounts"]
+        print(app, "verification:", sc, "before corrections:", ver.get("before"), "corrected as version",
+              ver.get("corrected_version"), [(c["entry"], c["change"], c.get("detail")) for c in ver.get("corrections", [])][:8],
+              "broken:", [(b["path"], b["difference"], b.get("detail", "")[:100]) for b in ver["broken"]][:6])
+        if ver.get("corrected_version"):
+            fixed = state.boss.call("GET", f"/apps/{app}/maps/{ver['corrected_version']}/verify", None, 200)
+            assert fixed["status"] == "done" and fixed["score"]["functions_identical"] >= sc["functions_identical"], fixed
+            print(app, "corrected draft:", fixed["score"], [(b["path"], b["difference"], b.get("detail", "")[:100]) for b in fixed["broken"]][:6])
     print(app, "browser:", rep["browser"]["pages"], "pages,", len(rep["browser"]["script_requests"]), "script requests,",
           [k["method"] + " " + k["path"] for k in rep["browser"]["kept_in"]][:10], "kept in")
 

@@ -176,12 +176,19 @@ without approval.
 ### What a verification measures today
 
 - **Pages**: the pages the latest discovery studied anonymously (the
-  version's own literal routes when there is none). Pages behind a login
-  are not verified yet: test accounts are erased when a discovery ends.
-  A page is identical when the status (or, for a redirect, where it goes),
-  the visible text (97% of the words, as dates and counters change between
-  two loads; decoded in each answer's own charset), the internal links and
-  the number of forms are the same.
+  version's own literal routes when there is none), and those it studied
+  with each test account, behind their login: a discovery hands its
+  accounts, still sealed, to the verification of its draft, which erases
+  them when it ends; Verify by hand takes accounts again. The agent logs
+  each account in directly, opens a try session on the gateway with the
+  account's legacy cookies, and compares each page both ways with that
+  session. A page is identical when the status (or, for a redirect, where
+  it goes), the visible text (97% of the words, as dates and counters
+  change between two loads; decoded in each answer's own charset; the
+  site's own address counts the same whether written as the legacy host or
+  the public one), the internal links (relative ones resolved against the
+  page) and the number of forms are the same. A text difference names a
+  few of the words that differ.
 - **Inputs**: every query parameter and path parameter of a route that a
   studied page shows how to reach, and every field of a form found on a
   studied page (a valid submission first; if the version refuses it, the
@@ -190,9 +197,23 @@ without approval.
   out of a route goes to the site area: if the area serves it, the input
   is not protected, which is how the score shows what the area lets
   through.
-- **Correcting the draft** (widen where a page broke, narrow where an
-  attack passed, verify again) is the next step: today the agent measures
-  and reports, and a person changes the draft.
+- **Correcting the draft** (`correct.py`), for drafts a discovery proposes
+  and when asked on Verify: up to three rounds. Widen: a field the gateway
+  refused on a studied page becomes plain text (no HTML, no template code);
+  an entry that breaks a page for another reason goes back to the site
+  area; kept only if more pages work. Narrow: a query parameter an attack
+  got through becomes a number when every value seen (at least three) is
+  one, or letters, digits and `. , _ -` when they all are; kept only if no
+  page breaks and more inputs refuse every attack. The panel signs each
+  corrected version for tries (`/internal/verifications/{id}/try-map`, the
+  same checks as any draft); the result is a new draft with the changes
+  and their reasons.
+
+In the lab, with the editor as test administrator: pages identical
+12/12 (WordPress), 155/155 (Joomla, administration included), 154/154
+(Drupal, administration included), 4/4 (intranet). Verifying behind the
+logins first showed hundreds of differences; they were the comparison's
+own (relative links, the site's address in the text), fixed above.
 
 The first verification in the lab found a real bug: on a site served in
 plain http, the gateway checked a form's token against the https binding
@@ -310,7 +331,7 @@ Each step is its own pull request, tested in the lab before the next.
 | 3a | Agent: several accounts, form fields typed from their HTML, text rules, "still open" in the report; panel: accounts | Done |
 | 3b | Agent: administration read-only (Drupal, Joomla; not WordPress), single read-only guard, a lab study of the four sites proving nothing changes | Done |
 | 3c | Agent: browser (Playwright) behind the read-only guard, script requests; Chromium in the agent image | Done |
-| 4 | Agent: the two checks and the score; panel-api verification queue (every draft a discovery proposes is verified) | Done: measures; the agent does not yet correct its own draft |
+| 4 | Agent: the two checks and the score; panel-api verification queue (every draft a discovery proposes is verified), pages behind test accounts' logins, corrections into a new draft | Done |
 | 5 | Panel: score, broken pages and "still open" on the version and in the discovery report, Verify button | Done |
 | 6 | Lab: studies of WordPress, Joomla, Drupal and the intranet with the expected scores | Planned |
 

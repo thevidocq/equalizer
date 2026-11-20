@@ -135,6 +135,7 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("POST /v1/internal/discoveries/claim", s.internal(s.claimDiscovery))
 	mux.HandleFunc("POST /v1/internal/verifications/claim", s.internal(s.claimVerification))
 	mux.HandleFunc("POST /v1/internal/verifications/{id}/result", s.internal(s.verificationResult))
+	mux.HandleFunc("POST /v1/internal/verifications/{id}/try-map", s.internal(s.verificationTryMap))
 	mux.HandleFunc("POST /v1/internal/discoveries/{id}/progress", s.internal(s.discoveryProgress))
 	mux.HandleFunc("POST /v1/internal/discoveries/{id}/result", s.internal(s.discoveryResult))
 	mux.HandleFunc("POST /v1/internal/unmapped", s.internal(s.internalUnmapped))

@@ -166,9 +166,21 @@ changed.
 ### Verification
 
 Every draft a discovery proposes is **verified** by the agent on the
-gateway, and **Verify** on a version (editors, approvers, administrators)
-does it again, for example after changing a draft by hand. Nothing is sent
-to the site that could change it:
+gateway, with the discovery's test accounts for the pages behind their
+login (their passwords are kept encrypted until the verification ends),
+and **corrected**: where this version breaks a page the agent widens what
+was refused (or gives the page back to the site area), where an attack
+gets through it narrows what the values it saw allow, and it verifies
+again; it keeps a change only if no page that worked breaks. The result is
+a new draft, "Corrected by the agent from version N", with the list of
+changes and why; the version it came from keeps its own measure. Approving
+stays a person's decision.
+
+**Verify** on a version (editors, approvers, administrators) does it again,
+for example after changing a draft by hand: give test accounts to verify
+the pages behind their login too (otherwise only public pages), and tick
+the box to let the agent correct it. Nothing is sent to the site that
+could change it:
 
 - every page the discovery studied is opened directly and through
   Equalizer with this version, and the two are compared (the answer, where
@@ -181,8 +193,7 @@ The panel shows how many pages stay identical, how many inputs refuse
 every attack, and how much of the site only the generic area serves; then
 the pages this version breaks and what is still open, each with its
 reason. An input "still open" usually means that a value falling out of
-its precise entry is served by the site area. Pages behind a login are not
-verified yet.
+its precise entry is served by the site area.
 
 ![Verification](/help-img/verification.png)
 

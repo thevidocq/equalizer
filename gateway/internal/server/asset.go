@@ -85,7 +85,8 @@ func (p *Public) serveAsset(w http.ResponseWriter, r *http.Request, st *site.Sit
 		}
 	}
 	securityHeaders(h)
-	if strings.HasPrefix(ct, "image/svg") || strings.HasPrefix(ct, "text/html") {
+	// The media type as checkAsset read it: "Text/HTML" is HTML too.
+	if mt, _, _ := mime.ParseMediaType(ct); mt == "image/svg+xml" || mt == "text/html" {
 		// An SVG, or an HTML fragment a page's scripts load as a template
 		// (Magento's /static/…/*.html), opened directly must not be able to
 		// run scripts.

@@ -80,8 +80,11 @@ func compile(f *mapmodel.Form) (compiled, bool) {
 		c.segments = append(c.segments, p)
 	}
 	for k, v := range f.LegacyRequest.Query {
+		// params: part of the record the form acts on; hidden: a value the
+		// page put in the action (phpBB's sid), kept server-side like a
+		// hidden input and sent back as it was.
 		p, ok := toPart(v)
-		if !ok || (p.ns != "" && p.ns != "params") {
+		if !ok || (p.ns != "" && p.ns != "params" && p.ns != "hidden") {
 			return compiled{}, false
 		}
 		c.query[k] = p
@@ -136,10 +139,14 @@ func (c compiled) match(segs []string, query url.Values, hidden map[string]strin
 		if !ok || len(vals) != 1 {
 			return Match{}, false
 		}
-		if p.ns == "" {
+		switch p.ns {
+		case "":
 			if vals[0] != p.literal {
 				return Match{}, false
 			}
+			continue
+		case "hidden":
+			out.Hidden[p.name] = vals[0]
 			continue
 		}
 		out.Params[p.name] = vals[0]

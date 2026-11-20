@@ -39,7 +39,7 @@ copy() { # from, to, excluded paths...
   (cd "$from" && tar "${ex[@]}" -cf - .) | tar -xf - -C "$to"
 }
 fresh_db() { "${DB[@]}" -e "drop database if exists $1; create database $1 character set utf8mb4"; }
-hash() { php -r 'echo password_hash($argv[1], PASSWORD_DEFAULT);' "$1"; }
+pwhash() { php -r 'echo password_hash($argv[1], PASSWORD_DEFAULT);' "$1"; }
 
 # --- OpenCart -------------------------------------------------------------
 O="$SRC/opencart-$OPENCART_TAG"
@@ -59,7 +59,7 @@ if [ ! -f "$RUN/cart/config.php" ] || ! "${DB[@]}" -e "use opencart" 2>/dev/null
   "${DB[@]}" opencart -e "update oc_setting set value='Acme Cart' where \`key\` in ('config_name', 'config_meta_title');
     insert into oc_customer (customer_group_id, store_id, language_id, firstname, lastname, email, telephone, password,
       custom_field, newsletter, ip, status, safe, token, code, date_added)
-    values (1, 0, 1, 'Lab', 'Editor', 'editor@acme.test', '', '$(hash "$PASS")', '', 0, '', 1, 0, '', '', now());"
+    values (1, 0, 1, 'Lab', 'Editor', 'editor@acme.test', '', '$(pwhash "$PASS")', '', 0, '', 1, 0, '', '', now());"
 fi
 
 # --- PrestaShop -----------------------------------------------------------

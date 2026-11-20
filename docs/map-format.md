@@ -161,6 +161,10 @@ When the page is rendered:
 - **every** hidden input of a POST form is removed from the page; the values
   the map uses (`{{params.x}}`, `{{hidden.x}}`) are sealed, with the page's
   charset, into a single `_eq_token` field (AES-256-GCM, valid two hours);
+- the action's query is matched against `legacy_request.query`: fixed values
+  must be equal, `{{params.x}}` reads a parameter, and `{{hidden.x}}` keeps
+  a value the page put in the action (phpBB's `sid`, OpenCart's
+  `login_token`) server-side like a hidden input, sent back on submission;
 - the action becomes the public route, inputs take the public field names;
 - the token is bound to a browser cookie (`__Host-eq_form`): a token taken
   from another browser is rejected (CSRF).

@@ -18,6 +18,10 @@ func testMap(t *testing.T) *Map {
 		{ID: "contact", Route: "/contact",
 			LegacyRequest: mapmodel.LegacyRequest{Method: "POST", Path: "/contact.do", Query: map[string]string{"a": "send"},
 				Form: map[string]string{"email": "{{fields.email}}"}}},
+		{ID: "login", Route: "/ucp.php",
+			LegacyRequest: mapmodel.LegacyRequest{Method: "POST", Path: "/ucp.php",
+				Query: map[string]string{"mode": "login", "sid": "{{hidden.sid}}"},
+				Form:  map[string]string{"username": "{{fields.username}}"}}},
 	}})
 }
 
@@ -41,6 +45,21 @@ func TestMatch(t *testing.T) {
 	u, _ = url.Parse("http://10.20.0.15:8080/app/contact.do?a=send")
 	if got, ok := m.Match(u, nil); !ok || got.Action != "/contact" {
 		t.Errorf("contact: %+v %v", got, ok)
+	}
+}
+
+// A value the page put in the action (phpBB's session id) is kept like a
+// hidden input: sealed in the token, sent back to the legacy site as it was.
+func TestQueryKeptServerSide(t *testing.T) {
+	m := testMap(t)
+	u, _ := url.Parse("http://10.20.0.15:8080/app/ucp.php?mode=login&sid=0123abcd")
+	got, ok := m.Match(u, nil)
+	if !ok || got.FormID != "login" || got.Action != "/ucp.php" || got.Hidden["sid"] != "0123abcd" || len(got.Params) != 0 {
+		t.Fatalf("login: %+v %v", got, ok)
+	}
+	u, _ = url.Parse("http://10.20.0.15:8080/app/ucp.php?mode=register&sid=0123abcd")
+	if _, ok := m.Match(u, nil); ok {
+		t.Error("another fixed value must not match")
 	}
 }
 

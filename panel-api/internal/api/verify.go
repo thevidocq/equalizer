@@ -47,7 +47,7 @@ func (s *Server) postVerification(w http.ResponseWriter, r *http.Request, u *aut
 	if !ok {
 		return
 	}
-	if !u.HasTenantRole(a.Tenant, "admin", "editor", "approver") {
+	if !u.HasTenantRole(a.Tenant, "admin") {
 		forbidden(w)
 		return
 	}

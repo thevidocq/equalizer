@@ -112,6 +112,19 @@ func (s *Store) SetLegacyIP(ctx context.Context, app string, ip *string) error {
 	return affected(res, err)
 }
 
+// SetNeverPublic records that the site never had a public address (true),
+// or forgets it (false): no old IP, nothing to probe.
+func (s *Store) SetNeverPublic(ctx context.Context, app string, never bool) error {
+	status := "not_configured"
+	if never {
+		status = "never_public"
+	}
+	res, err := s.DB.ExecContext(ctx, `
+		UPDATE apps SET legacy_ip = NULL, exposure_status = $2, exposure_reason = NULL, exposure_checked_at = NULL
+		WHERE id = $1`, app, status)
+	return affected(res, err)
+}
+
 // ExposureTarget is what the exposure checker probes.
 type ExposureTarget struct {
 	App, Tenant, Domain, IP, Status string

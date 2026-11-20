@@ -202,7 +202,7 @@ func TestPanelFlow(t *testing.T) {
 	root.must(404, "GET", "/v1/apps/portal", nil, nil)
 	root.must(404, "GET", "/v1/apps/portal/maps", nil, nil)
 	root.must(403, "GET", "/v1/tenants/acme/connectors", nil, nil)
-	for _, inv := range []struct{ email, role string }{{"ed@acme.test", "editor"}, {"ap@acme.test", "approver"}} {
+	for _, inv := range []struct{ email, role string }{{"ed@acme.test", "admin"}, {"ap@acme.test", "viewer"}} {
 		admin.must(201, "POST", "/v1/tenants/acme/invitations", map[string]string{"email": inv.email, "name": inv.role, "role": inv.role}, nil)
 	}
 	var pending struct{ Items []map[string]any }
@@ -218,7 +218,7 @@ func TestPanelFlow(t *testing.T) {
 		t.Fatalf("connector token: %+v", conn)
 	}
 	var conns struct{ Items []map[string]any }
-	ed.must(403, "GET", "/v1/tenants/acme/connectors", nil, nil)
+	ap.must(403, "GET", "/v1/tenants/acme/connectors", nil, nil) // viewers read the sites, not the connectors
 	admin.must(200, "GET", "/v1/tenants/acme/connectors", nil, &conns)
 	if len(conns.Items) != 1 || conns.Items[0]["token"] != nil || conns.Items[0]["token_sha256"] != nil {
 		t.Fatalf("connector list leaks the token: %v", conns.Items)
@@ -240,23 +240,20 @@ func TestPanelFlow(t *testing.T) {
 	if code != 422 || bad["details"] == nil {
 		t.Fatalf("invalid map: %d %v", code, bad)
 	}
-	ap.must(403, "POST", "/v1/apps/portal/maps", map[string]any{"document": json.RawMessage(mapDoc)}, nil)
+	ap.must(403, "POST", "/v1/apps/portal/maps", map[string]any{"document": json.RawMessage(mapDoc)}, nil) // viewer
 	ed.must(201, "POST", "/v1/apps/portal/maps", map[string]any{"document": json.RawMessage(mapDoc), "note": "first"}, nil)
-	ed.must(200, "POST", "/v1/apps/portal/maps/1/submit", nil, nil)
-	ed.must(403, "POST", "/v1/apps/portal/maps/1/approve", nil, nil)
-	ap.must(409, "POST", "/v1/apps/portal/maps/1/publish", nil, nil) // not approved yet
-	root.must(404, "POST", "/v1/apps/portal/maps/1/approve", nil, nil)
-	ap.must(200, "POST", "/v1/apps/portal/maps/1/approve", nil, nil)
-	ap.must(200, "POST", "/v1/apps/portal/maps/1/publish", nil, nil)
+	ap.must(403, "POST", "/v1/apps/portal/maps/1/publish", nil, nil)
+	root.must(404, "POST", "/v1/apps/portal/maps/1/publish", nil, nil)
+	// One administrator is enough: the author publishes straight from draft.
+	ed.must(200, "POST", "/v1/apps/portal/maps/1/publish", nil, nil)
 
-	// The author never decides on their own version.
+	// The optional review steps still work, for the author too.
 	admin.must(201, "POST", "/v1/apps/portal/maps", map[string]any{"document": json.RawMessage(mapDoc)}, nil)
 	admin.must(200, "POST", "/v1/apps/portal/maps/2/submit", nil, nil)
-	admin.must(403, "POST", "/v1/apps/portal/maps/2/approve", nil, nil)
 
 	// CSRF header.
 	req, _ := http.NewRequest("POST", e.srv.URL+"/v1/apps/portal/maps/2/reject", nil)
-	if resp, err := ap.c.Do(req); err != nil || resp.StatusCode != http.StatusForbidden {
+	if resp, err := ed.c.Do(req); err != nil || resp.StatusCode != http.StatusForbidden {
 		t.Fatalf("missing CSRF header: %v %v", resp, err)
 	}
 
@@ -287,7 +284,7 @@ func TestPanelFlow(t *testing.T) {
 	}
 	_ = json.Unmarshal(payload, &doc)
 	if doc.Meta["tenant"] != "acme" || doc.Meta["app"] != "portal" || doc.Meta["status"] != "published" ||
-		doc.Meta["version"] != float64(1) || doc.Meta["approved_by"] != "user:ap@acme.test" ||
+		doc.Meta["version"] != float64(1) || doc.Meta["approved_by"] != "user:ed@acme.test" ||
 		doc.Meta["public_domain"] != "portal.acme.test" {
 		t.Fatalf("published meta: %v", doc.Meta)
 	}
@@ -313,7 +310,7 @@ func TestPanelFlow(t *testing.T) {
 			t.Errorf("audit of another tenant: %+v", a)
 		}
 	}
-	for _, want := range []string{"map.draft", "map.submit", "map.approve", "map.publish", "connector.create", "app.create", "user.invite", "user.join"} {
+	for _, want := range []string{"map.draft", "map.submit", "map.publish", "connector.create", "app.create", "user.invite", "user.join"} {
 		if !actions[want] {
 			t.Errorf("audit misses %s", want)
 		}
@@ -324,7 +321,6 @@ func TestPanelFlow(t *testing.T) {
 			t.Errorf("platform sees a tenant action: %+v", a)
 		}
 	}
-	ed.must(403, "GET", "/v1/audit", nil, nil)
 
 	ed.must(204, "POST", "/v1/auth/logout", nil, nil)
 	ed.must(401, "GET", "/v1/auth/me", nil, nil)

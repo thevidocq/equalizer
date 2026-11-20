@@ -5,7 +5,7 @@ import { describeError } from "@/shared/api/errors";
 import { useAcceptInvitation, useInvitation } from "../hooks/useInvitation";
 import { AuthFrame } from "./AuthFrame";
 
-const roleName = { admin: "an administrator", editor: "an editor", approver: "an approver", auditor: "an auditor" } as const;
+const roleName = { admin: "an administrator", viewer: "a viewer" } as const;
 
 export function InvitePage() {
   const token = useParams().token ?? "";

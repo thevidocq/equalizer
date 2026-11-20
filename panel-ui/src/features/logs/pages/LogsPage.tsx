@@ -72,7 +72,7 @@ export function LogsPage() {
             </div>
           </section>
           {current ? (
-            <EventDetail event={current} apps={apps} tenant={tenant} canEditMap={hasRole(me, tenant, "admin", "editor")}
+            <EventDetail event={current} apps={apps} tenant={tenant} canEditMap={hasRole(me, tenant, "admin")}
               onOnlyIP={(ip) => change({ ...filter, q: ip })} />
           ) : null}
         </div>

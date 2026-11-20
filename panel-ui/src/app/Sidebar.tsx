@@ -33,7 +33,7 @@ export function Sidebar() {
         {tenant && canManage(me, tenant) ? <NavLink to={`/t/${tenant}/connectors`} className={link}>Connectors</NavLink> : null}
         {tenant ? <NavLink to={`/t/${tenant}/people`} className={link}>People</NavLink> : null}
         {tenant ? <NavLink to={`/t/${tenant}/activity`} className={link}>Activity</NavLink> : null}
-        {tenant && hasRole(me, tenant, "admin", "approver", "auditor") ? <NavLink to={`/t/${tenant}/logs`} className={link}>Logs</NavLink> : null}
+        {tenant && hasRole(me, tenant, "admin", "viewer") ? <NavLink to={`/t/${tenant}/logs`} className={link}>Logs</NavLink> : null}
         {tenant && canManage(me, tenant) ? <NavLink to={`/t/${tenant}/settings`} className={link}>Settings</NavLink> : null}
         {me?.platform_role ? <NavLink to="/tenants" className={link}>Tenants</NavLink> : null}
         {me?.platform_role ? <NavLink to="/status" className={link}>Platform status</NavLink> : null}

@@ -111,6 +111,8 @@ func Evaluate(in Input) Site {
 		s.Checks = append(s.Checks, Check{"Isolation", Unknown, "the last check failed"})
 	case "pending":
 		s.Checks = append(s.Checks, Check{"Isolation", Unknown, "first check pending"})
+	case "never_public":
+		s.Checks = append(s.Checks, Check{"Isolation", OK, "never had a public address: reachable only through Equalizer"})
 	default:
 		s.Checks = append(s.Checks, Check{"Isolation", Unknown, "old IP not set (Site → Isolation)"})
 	}

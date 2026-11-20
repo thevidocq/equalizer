@@ -28,7 +28,7 @@ export function DiscoveryPage() {
 
   return (
     <div className="flex flex-col gap-6">
-      {hasRole(me, tenant, "admin", "editor") ? (
+      {hasRole(me, tenant, "admin") ? (
         <StartForm tenant={tenant} app={app} firstTime={site.published_version == null} aiState={aiState} isAdmin={isAdmin} />
       ) : null}
       {isAdmin ? (

@@ -1,9 +1,14 @@
 package api
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
+	"net"
 	"net/http"
+	"net/url"
+	"slices"
+	"time"
 
 	"github.com/thevidocq/equalizer/panel-api/internal/auth"
 	"github.com/thevidocq/equalizer/panel-api/internal/exposure"
@@ -24,11 +29,12 @@ func (s *Server) patchApp(w http.ResponseWriter, r *http.Request, u *auth.User) 
 		LegacyIP json.RawMessage `json:"legacy_ip"`
 		Schedule *string         `json:"discovery_schedule"`
 		Scheme   *string         `json:"public_scheme"`
+		Never    *bool           `json:"never_public"`
 	}
 	if !decode(w, r, &in) {
 		return
 	}
-	if in.LegacyIP == nil && in.Schedule == nil && in.Scheme == nil {
+	if in.LegacyIP == nil && in.Schedule == nil && in.Scheme == nil && in.Never == nil {
 		fail(w, http.StatusUnprocessableEntity, "invalid", "nothing to change")
 		return
 	}
@@ -44,7 +50,7 @@ func (s *Server) patchApp(w http.ResponseWriter, r *http.Request, u *auth.User) 
 			return
 		}
 		_ = s.Store.Record(r.Context(), &u.ID, &a.Tenant, "app.public_scheme", a.ID, map[string]any{"scheme": *in.Scheme})
-		if in.LegacyIP == nil && in.Schedule == nil {
+		if in.LegacyIP == nil && in.Schedule == nil && in.Never == nil {
 			s.writeApp(w, r, a.ID)
 			return
 		}
@@ -59,10 +65,19 @@ func (s *Server) patchApp(w http.ResponseWriter, r *http.Request, u *auth.User) 
 			return
 		}
 		_ = s.Store.Record(r.Context(), &u.ID, &a.Tenant, "discovery.schedule", a.ID, map[string]any{"schedule": *in.Schedule})
-		if in.LegacyIP == nil {
+		if in.LegacyIP == nil && in.Never == nil {
 			s.writeApp(w, r, a.ID)
 			return
 		}
+	}
+	if in.Never != nil && in.LegacyIP == nil {
+		if err := s.Store.SetNeverPublic(r.Context(), a.ID, *in.Never); err != nil {
+			s.storeError(w, r, err)
+			return
+		}
+		_ = s.Store.Record(r.Context(), &u.ID, &a.Tenant, "app.never_public", a.ID, map[string]any{"never_public": *in.Never})
+		s.writeApp(w, r, a.ID)
+		return
 	}
 	var ip *string
 	if string(in.LegacyIP) != "null" {
@@ -70,7 +85,12 @@ func (s *Server) patchApp(w http.ResponseWriter, r *http.Request, u *auth.User) 
 		addr, valid := netipFromJSON(in.LegacyIP, &raw)
 		if !valid {
 			fail(w, http.StatusUnprocessableEntity, "invalid",
-				"legacy_ip: a public IPv4 or IPv6 address (private, loopback and reserved addresses are refused)")
+				"the old IP must be a public address, such as 203.0.113.10: private, local and reserved addresses cannot be checked from outside")
+			return
+		}
+		if s.ownAddress(r.Context(), addr) {
+			fail(w, http.StatusUnprocessableEntity, "own_address",
+				"this is Equalizer's own address: the check would reach Equalizer, not the old site. Leave it empty if the site never had a public address of its own")
 			return
 		}
 		ip = &addr
@@ -81,6 +101,29 @@ func (s *Server) patchApp(w http.ResponseWriter, r *http.Request, u *auth.User) 
 	}
 	_ = s.Store.Record(r.Context(), &u.ID, &a.Tenant, "app.legacy_ip", a.ID, map[string]any{"set": ip != nil})
 	s.writeApp(w, r, a.ID)
+}
+
+// ownAddress: ip is one of the platform's public addresses (the panel's or
+// the relay's domain resolves to it). Probing it would reach Equalizer itself
+// and report the site as exposed.
+func (s *Server) ownAddress(ctx context.Context, ip string) bool {
+	lookup := s.LookupHost
+	if lookup == nil {
+		lookup = net.DefaultResolver.LookupHost
+	}
+	for _, raw := range []string{s.PanelURL, s.RelayURL} {
+		u, err := url.Parse(raw)
+		if err != nil || u.Hostname() == "" {
+			continue
+		}
+		ctx, cancel := context.WithTimeout(ctx, 3*time.Second)
+		addrs, err := lookup(ctx, u.Hostname())
+		cancel()
+		if err == nil && slices.Contains(addrs, ip) {
+			return true
+		}
+	}
+	return false
 }
 
 func netipFromJSON(raw json.RawMessage, into *string) (string, bool) {

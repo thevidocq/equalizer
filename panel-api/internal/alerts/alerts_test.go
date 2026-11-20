@@ -23,8 +23,8 @@ func (f *fake) Tenants(context.Context, *string) ([]store.Tenant, error) {
 	return []store.Tenant{{ID: "acme", Name: "Acme"}}, nil
 }
 func (f *fake) Users(context.Context, string) ([]auth.User, error) {
-	admin, editor := "admin", "editor"
-	return []auth.User{{Email: "alex@acme.example", TenantRole: &admin}, {Email: "sam@acme.example", TenantRole: &editor}}, nil
+	admin, viewer := "admin", "viewer"
+	return []auth.User{{Email: "alex@acme.example", TenantRole: &admin}, {Email: "sam@acme.example", TenantRole: &viewer}}, nil
 }
 func (f *fake) Alerts(context.Context, string) (store.AlertSettings, error) { return f.settings, nil }
 func (f *fake) SiteAlerts(context.Context, string) (map[string]store.SiteAlert, error) {
@@ -65,7 +65,7 @@ func TestAlerts(t *testing.T) {
 		t.Fatal("alert before the grace period")
 	}
 	if n := step(4 * time.Minute); n != 2 {
-		t.Fatalf("problem: %d emails, want 2 (admin and extra address; not the editor)", n)
+		t.Fatalf("problem: %d emails, want 2 (admin and extra address; not the viewer)", n)
 	}
 	m := rec.Messages()[0]
 	if !strings.Contains(m.Subject, "1 site problem") || !strings.Contains(m.Body, "PROBLEM  Company blog") || !strings.Contains(m.Body, "/t/acme/status") {
@@ -90,5 +90,37 @@ func TestAlerts(t *testing.T) {
 	step(time.Minute)
 	if n := step(10 * time.Minute); n != 4 {
 		t.Fatal("alerts sent while off")
+	}
+}
+
+// Each kind of alert is turned on or off on its own; the state is followed
+// all the same, so turning a kind back on does not replay old problems.
+func TestAlertKinds(t *testing.T) {
+	f := &fake{settings: store.AlertSettings{Enabled: true, Kinds: map[string]bool{"connector": false, "recovered": false}},
+		known: map[string]store.SiteAlert{}}
+	conn, legacy := health.OK, health.OK
+	now := time.Date(2026, 11, 19, 10, 0, 0, 0, time.UTC)
+	rec := &mail.Recorder{}
+	r := &Runner{Store: f, Mail: rec, Log: slog.New(slog.NewTextHandler(io.Discard, nil)), Now: func() time.Time { return now },
+		Statuses: func(context.Context, string) ([]health.Site, bool, error) {
+			return []health.Site{{App: "blog", Name: "Blog", Checks: []health.Check{
+				{Name: "Connector", State: conn}, {Name: "Legacy site", State: legacy},
+			}}}, true, nil
+		}}
+	step := func(d time.Duration) int { now = now.Add(d); r.Once(context.Background()); return len(rec.Messages()) }
+	step(0)
+	conn = health.Down
+	step(time.Minute)
+	if n := step(5 * time.Minute); n != 0 {
+		t.Fatalf("muted connector alert sent: %d", n)
+	}
+	legacy = health.Down
+	step(time.Minute)
+	if n := step(5 * time.Minute); n != 1 || !strings.Contains(rec.Messages()[0].Body, "legacy site") || strings.Contains(rec.Messages()[0].Body, "connector") {
+		t.Fatalf("legacy alert: %d %v", n, rec.Messages())
+	}
+	conn, legacy = health.OK, health.OK
+	if n := step(time.Minute); n != 1 {
+		t.Fatalf("muted recovery sent: %d", n)
 	}
 }

@@ -81,7 +81,7 @@ func TestPasswordChangeAndUsers(t *testing.T) {
 	root.must(200, "POST", "/v1/auth/login", map[string]string{"email": "root@example.com", "password": "platform-admin-password"}, nil)
 	root.must(201, "POST", "/v1/tenants", map[string]string{"id": "acme", "name": "Acme", "admin_email": "boss@acme.test", "admin_name": "Boss"}, nil)
 	boss := e.join("boss@acme.test")
-	boss.must(201, "POST", "/v1/tenants/acme/invitations", map[string]string{"email": "ed@acme.test", "name": "Ed", "role": "editor"}, nil)
+	boss.must(201, "POST", "/v1/tenants/acme/invitations", map[string]string{"email": "ed@acme.test", "name": "Ed", "role": "viewer"}, nil)
 	a := e.join("ed@acme.test")
 	var ed auth.User
 	a.must(200, "GET", "/v1/auth/me", nil, &ed)
@@ -97,7 +97,7 @@ func TestPasswordChangeAndUsers(t *testing.T) {
 	}
 
 	path := "/v1/tenants/acme/users/" + itoa(ed.ID)
-	a.must(403, "DELETE", path, nil, nil)    // editors do not manage people
+	a.must(403, "DELETE", path, nil, nil)    // viewers do not manage people
 	root.must(403, "DELETE", path, nil, nil) // nor does the platform
 	boss.must(204, "POST", path+"/reset-mfa", nil, nil)
 	a.must(401, "GET", "/v1/auth/me", nil, nil) // reset ends the sessions

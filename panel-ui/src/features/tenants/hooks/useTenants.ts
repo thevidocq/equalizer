@@ -30,3 +30,13 @@ export function useReinvite(tenant: string) {
     onSuccess: () => qc.invalidateQueries({ queryKey: ["tenants"] }),
   });
 }
+
+/** Deletes a customer and everything it owns; confirm repeats its id. */
+export function useDeleteTenant() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (tenant: string) =>
+      unwrap(api.DELETE("/platform/tenants/{tenant}", { params: { path: { tenant } }, body: { confirm: tenant } })),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["tenants"] }),
+  });
+}

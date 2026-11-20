@@ -12,6 +12,10 @@ export function useExposureActions(app: string) {
     mutationFn: (legacy_ip: string | null) => unwrap(api.PATCH("/apps/{app}", { params: { path: { app } }, body: { legacy_ip } })),
     onSuccess: store,
   });
+  const setNeverPublic = useMutation({
+    mutationFn: (never_public: boolean) => unwrap(api.PATCH("/apps/{app}", { params: { path: { app } }, body: { never_public } })),
+    onSuccess: store,
+  });
   const check = useMutation({
     mutationFn: () => unwrap(api.POST("/apps/{app}/exposure/check", { params: { path: { app } } })),
     onSuccess: store,
@@ -20,7 +24,7 @@ export function useExposureActions(app: string) {
     mutationFn: (aliases: string[]) => unwrap(api.PUT("/apps/{app}/aliases", { params: { path: { app } }, body: { aliases } })),
     onSuccess: store,
   });
-  return { setIp, check, setAliases };
+  return { setIp, setNeverPublic, check, setAliases };
 }
 
 /** The site, shared with the site header (same query key). */

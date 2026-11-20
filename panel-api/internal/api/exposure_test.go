@@ -64,4 +64,37 @@ func TestExposure(t *testing.T) {
 	if app.Exposure.Status != "not_configured" {
 		t.Fatalf("after clearing the IP: %+v", app.Exposure)
 	}
+
+	// Equalizer's own address: the probe would reach Equalizer, not the site.
+	e.server.LookupHost = func(_ context.Context, host string) ([]string, error) {
+		if host == "panel.test" {
+			return []string{"8.8.4.4"}, nil
+		}
+		return nil, &net.DNSError{Err: "no such host", Name: host, IsNotFound: true}
+	}
+	boss.must(422, "PATCH", "/v1/apps/portal", map[string]any{"legacy_ip": "8.8.4.4"}, nil)
+	boss.must(200, "PATCH", "/v1/apps/portal", map[string]any{"legacy_ip": "8.8.8.8:80"}, &app) // the port is dropped
+	if app.Exposure.LegacyIP == nil || *app.Exposure.LegacyIP != "8.8.8.8" {
+		t.Fatalf("with a port: %+v", app.Exposure)
+	}
+	// A site born behind Equalizer: nothing to probe, isolation fine.
+	boss.must(200, "PATCH", "/v1/apps/portal", map[string]any{"never_public": true}, &app)
+	if app.Exposure.Status != "never_public" || app.Exposure.LegacyIP != nil {
+		t.Fatalf("never public: %+v", app.Exposure)
+	}
+	var st struct {
+		Sites []struct {
+			Checks []struct{ Name, State string }
+		}
+	}
+	boss.must(200, "GET", "/v1/tenants/acme/status", nil, &st)
+	for _, c := range st.Sites[0].Checks {
+		if c.Name == "Isolation" && c.State != "ok" {
+			t.Fatalf("isolation of a never public site: %+v", c)
+		}
+	}
+	boss.must(200, "PATCH", "/v1/apps/portal", map[string]any{"never_public": false}, &app)
+	if app.Exposure.Status != "not_configured" {
+		t.Fatalf("back: %+v", app.Exposure)
+	}
 }

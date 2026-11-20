@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api, unwrap } from "@/shared/api/client";
 
-export type Role = "admin" | "editor" | "approver" | "auditor";
+export type Role = "admin" | "viewer";
 
 export function useUsers(tenant: string) {
   return useQuery({

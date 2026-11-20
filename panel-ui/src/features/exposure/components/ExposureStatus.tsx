@@ -5,6 +5,7 @@ type Exposure = NonNullable<App["exposure"]>;
 
 const headline: Record<Exposure["status"], string> = {
   not_configured: "Not checked: enter the old public IP below",
+  never_public: "Never public: reachable only through Equalizer",
   pending: "Waiting for the first check",
   closed: "Not reachable directly",
   exposed: "Still reachable directly, bypassing Equalizer",
@@ -23,7 +24,7 @@ const reasons: Record<string, string> = {
 };
 
 const tone: Record<Exposure["status"], string> = {
-  not_configured: "border-rule", pending: "border-rule", error: "border-state-review",
+  not_configured: "border-rule", pending: "border-rule", never_public: "border-state-published", error: "border-state-review",
   closed: "border-state-published", exposed: "border-state-rejected",
 };
 

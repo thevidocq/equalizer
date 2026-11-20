@@ -16,7 +16,7 @@ export function VersionPage() {
   const me = useMe();
   if (v.isError) return <Notice tone="error">{describeError(v.error)}</Notice>;
   if (!v.data || !me.data) return null;
-  const canEdit = hasRole(me.data, tenant, "admin", "editor");
+  const canEdit = hasRole(me.data, tenant, "admin");
 
   return (
     <div className="grid gap-8 lg:grid-cols-[1fr_18rem]">
@@ -27,10 +27,10 @@ export function VersionPage() {
         </div>
         <LifecycleRail v={v.data} />
         {v.data.status !== "retired" ? (
-          <VerificationPanel app={app} version={v.data.version} canVerify={hasRole(me.data, tenant, "admin", "editor", "approver")} />
+          <VerificationPanel app={app} version={v.data.version} canVerify={hasRole(me.data, tenant, "admin")} />
         ) : null}
         {v.data.status !== "retired" ? (
-          <ReviewPanel app={app} version={v.data.version} canAsk={hasRole(me.data, tenant, "admin", "editor", "approver")} />
+          <ReviewPanel app={app} version={v.data.version} canAsk={hasRole(me.data, tenant, "admin")} />
         ) : null}
         <pre
           tabIndex={0} aria-label="Map document"

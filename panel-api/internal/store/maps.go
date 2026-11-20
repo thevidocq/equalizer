@@ -122,6 +122,7 @@ func (s *Store) Transition(ctx context.Context, app string, version int, from []
 
 // Publish signs off an approved version: the published one is retired and
 // this one becomes published with its signed payload, in one transaction.
+// Older versions still pending are retired too.
 func (s *Store) Publish(ctx context.Context, app string, version int, doc json.RawMessage, payload, signature, keyID string) error {
 	tx, err := s.DB.BeginTx(ctx, &sql.TxOptions{Isolation: sql.LevelSerializable})
 	if err != nil {
@@ -136,6 +137,13 @@ func (s *Store) Publish(ctx context.Context, app string, version int, doc json.R
 		return ErrState
 	}
 	if _, err := tx.ExecContext(ctx, `UPDATE map_versions SET status = 'retired' WHERE app_id = $1 AND status = 'published'`, app); err != nil {
+		return err
+	}
+	// Older versions still waiting (draft, in review, approved) are left
+	// behind by this one: retired, so the list shows nothing pending.
+	if _, err := tx.ExecContext(ctx, `
+		UPDATE map_versions SET status = 'retired'
+		WHERE app_id = $1 AND version < $2 AND status IN ('draft', 'in_review', 'approved')`, app, version); err != nil {
 		return err
 	}
 	if _, err := tx.ExecContext(ctx, `

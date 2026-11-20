@@ -26,8 +26,9 @@ export function IsolationPage() {
       </p>
       {check.isError ? <Notice tone="error">{describeError(check.error)}</Notice> : null}
       <ExposureStatus exposure={exposure} onCheck={manage ? () => check.mutate() : undefined} busy={check.isPending} />
-      {manage ? <LegacyIpForm key={`ip:${exposure.legacy_ip ?? ""}`} app={app} current={exposure.legacy_ip} /> : null}
-      {manage ? <IsolationGuide domain={site.public_domain} /> : null}
+      {manage ? <LegacyIpForm key={`ip:${exposure.legacy_ip ?? ""}:${exposure.status}`} app={app} current={exposure.legacy_ip}
+        neverPublic={exposure.status === "never_public"} /> : null}
+      {manage && exposure.status !== "never_public" ? <IsolationGuide domain={site.public_domain} /> : null}
       {manage ? <AliasesForm key={`aliases:${(site.aliases ?? []).join(",")}`} app={app} domain={site.public_domain} current={site.aliases ?? []} /> : null}
     </div>
   );

@@ -56,7 +56,7 @@ func TestMapReach(t *testing.T) {
 	}
 
 	// Publish both portal (v2, connector) and taxes with an approver.
-	acme.must(201, "POST", "/v1/tenants/acme/invitations", map[string]string{"email": "ap@acme.test", "name": "Ap", "role": "approver"}, nil)
+	acme.must(201, "POST", "/v1/tenants/acme/invitations", map[string]string{"email": "ap@acme.test", "name": "Ap", "role": "admin"}, nil)
 	ap := e.join("ap@acme.test")
 	acme.must(201, "POST", "/v1/apps/portal/maps", map[string]any{"document": json.RawMessage(mapDoc)}, nil)
 	for _, v := range []string{"/v1/apps/portal/maps/2", "/v1/apps/taxes/maps/1"} {

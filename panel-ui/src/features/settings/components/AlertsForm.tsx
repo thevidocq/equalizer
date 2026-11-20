@@ -1,9 +1,19 @@
 import { useState, type FormEvent } from "react";
 import { Button, Notice, useToast } from "@/shared/ui";
 import { describeError } from "@/shared/api/errors";
-import { useSaveAlerts } from "../hooks/useAlerts";
+import { useSaveAlerts, type AlertInput } from "../hooks/useAlerts";
 
-type Current = { enabled: boolean; extra_emails: string[]; mail_available?: boolean };
+type Kinds = NonNullable<AlertInput["kinds"]>;
+type Current = { enabled: boolean; extra_emails: string[]; kinds?: Kinds; mail_available?: boolean };
+
+const kindText: [keyof Kinds, string][] = [
+  ["connector", "Connector offline"],
+  ["legacy_site", "Legacy site failing or not answering"],
+  ["isolation", "Site reachable again on its old IP, bypassing Equalizer"],
+  ["certificate", "Certificate missing or expired"],
+  ["certificate_expiry", "Certificate about to end (30, 14, 7 and 1 days before)"],
+  ["recovered", "The site works again after a problem"],
+];
 
 /** Who gets an email when a site stops working, and when it works again. */
 export function AlertsForm({ tenant, current }: { tenant: string; current: Current }) {
@@ -11,11 +21,12 @@ export function AlertsForm({ tenant, current }: { tenant: string; current: Curre
   const toast = useToast();
   const [enabled, setEnabled] = useState(current.enabled);
   const [extra, setExtra] = useState(current.extra_emails.join("\n"));
+  const [kinds, setKinds] = useState<Kinds>(current.kinds ?? {});
 
   function submit(e: FormEvent) {
     e.preventDefault();
     const extra_emails = extra.split(/[\s,;]+/).map((x) => x.trim()).filter(Boolean);
-    save.mutate({ enabled, extra_emails }, { onSuccess: () => toast("Alerts saved") });
+    save.mutate({ enabled, extra_emails, kinds }, { onSuccess: () => toast("Alerts saved") });
   }
 
   return (
@@ -23,8 +34,7 @@ export function AlertsForm({ tenant, current }: { tenant: string; current: Curre
       <div>
         <h2 className="text-base font-semibold">Alerts</h2>
         <p className="mt-1 text-sm text-ink-soft">
-          An email when a site stops working (connector offline, legacy site failing, site reachable again on its old IP)
-          for more than a few minutes, and when it works again.
+          An email when something stays wrong for more than a few minutes. Choose which.
         </p>
       </div>
       {current.mail_available === false ? (
@@ -35,6 +45,15 @@ export function AlertsForm({ tenant, current }: { tenant: string; current: Curre
         <input type="checkbox" checked={enabled} onChange={(e) => setEnabled(e.target.checked)} />
         Email the administrators of this organisation
       </label>
+      <fieldset className="flex flex-col gap-2 disabled:opacity-60" disabled={!enabled}>
+        <legend className="mb-1 text-sm font-medium">Send an email when</legend>
+        {kindText.map(([k, text]) => (
+          <label key={k} className="flex items-center gap-2 text-sm">
+            <input type="checkbox" checked={kinds[k] !== false} onChange={(e) => setKinds({ ...kinds, [k]: e.target.checked })} />
+            {text}
+          </label>
+        ))}
+      </fieldset>
       <label className="flex flex-col gap-1.5 text-sm font-medium">
         Also send to
         <textarea

@@ -25,3 +25,13 @@ export function useLLMActions(tenant: string) {
   });
   return { save, remove };
 }
+
+export type ModelQuery = { provider: LLMInput["provider"]; endpoint: string | null; api_key?: string };
+
+/** Asks the provider which models the key may use (nothing is sent to a model). */
+export function useLLMModels(tenant: string) {
+  return useMutation({
+    mutationFn: (body: ModelQuery) =>
+      unwrap(api.POST("/tenants/{tenant}/llm/models", { params: { path: { tenant } }, body })).then((d) => d.items),
+  });
+}

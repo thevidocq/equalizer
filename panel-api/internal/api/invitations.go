@@ -20,9 +20,9 @@ import (
 // InvitationTTL is how long an invitation link works.
 const InvitationTTL = 48 * time.Hour
 
-var tenantRoles = map[string]bool{"admin": true, "editor": true, "approver": true, "auditor": true}
+var tenantRoles = map[string]bool{"admin": true, "viewer": true}
 
-var roleNames = map[string]string{"admin": "administrator", "editor": "editor", "approver": "approver", "auditor": "auditor"}
+var roleNames = map[string]string{"admin": "administrator", "viewer": "viewer"}
 
 // emailFree answers 409 when the address already has an account or a pending
 // invitation: the invitation would fail only once accepted.
@@ -111,7 +111,7 @@ func (s *Server) createInvitation(w http.ResponseWriter, r *http.Request, u *aut
 	}
 	in.Email, in.Name = strings.TrimSpace(in.Email), strings.TrimSpace(in.Name)
 	if !validEmail(in.Email) || in.Name == "" || len(in.Name) > 200 || !tenantRoles[in.Role] {
-		fail(w, http.StatusUnprocessableEntity, "invalid", "email, name and role (admin, editor, approver, auditor) are required")
+		fail(w, http.StatusUnprocessableEntity, "invalid", "email, name and role (admin or viewer) are required")
 		return
 	}
 	ts, err := s.Store.Tenants(r.Context(), &tenant)

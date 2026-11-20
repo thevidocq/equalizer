@@ -61,7 +61,7 @@ func (s *Server) createMap(w http.ResponseWriter, r *http.Request, u *auth.User)
 	if !ok {
 		return
 	}
-	if !u.HasTenantRole(a.Tenant, "admin", "editor") {
+	if !u.HasTenantRole(a.Tenant, "admin") {
 		forbidden(w)
 		return
 	}
@@ -123,40 +123,33 @@ func (s *Server) mapAction(w http.ResponseWriter, r *http.Request, u *auth.User)
 		return
 	}
 	action := r.PathValue("action")
+	// Administrators take every step, the author included: no second person
+	// is needed. Every step is recorded in the activity.
+	if !u.HasTenantRole(a.Tenant, "admin") {
+		forbidden(w)
+		return
+	}
 	switch action {
-	case "submit":
-		if !u.HasTenantRole(a.Tenant, "admin", "editor") {
-			forbidden(w)
-			return
-		}
+	case "submit": // optional: a version may be published straight from draft
 		err = s.Store.Transition(r.Context(), a.ID, version, []string{"draft"}, "in_review", nil)
 		if err == nil && s.hasLLM(r, a.Tenant) {
-			_ = s.Store.QueueReview(r.Context(), a.ID, version) // the approver finds the AI review ready
+			_ = s.Store.QueueReview(r.Context(), a.ID, version) // the AI review is ready when someone looks
 		}
 	case "approve", "reject":
-		if !u.HasTenantRole(a.Tenant, "admin", "approver") {
-			forbidden(w)
-			return
-		}
-		if v.AuthorID == u.ID {
-			fail(w, http.StatusForbidden, "author_cannot_decide", "a version is approved or rejected by someone other than its author")
-			return
-		}
 		to := map[string]string{"approve": "approved", "reject": "rejected"}[action]
-		err = s.Store.Transition(r.Context(), a.ID, version, []string{"in_review"}, to, &u.ID)
+		err = s.Store.Transition(r.Context(), a.ID, version, []string{"draft", "in_review"}, to, &u.ID)
 	case "publish":
-		if !u.HasTenantRole(a.Tenant, "admin", "approver") {
-			forbidden(w)
-			return
+		if v.Status == "draft" || v.Status == "in_review" {
+			if err = s.Store.Transition(r.Context(), a.ID, version, []string{v.Status}, "approved", &u.ID); err == nil {
+				v, err = s.Store.Version(r.Context(), a.ID, version)
+			}
 		}
-		err = s.publish(r, a, v)
+		if err == nil {
+			err = s.publish(r, a, v)
+		}
 	case "rollback":
 		// Fast way back when a new version breaks the site: the version was
 		// approved and signed when it was first published.
-		if !u.HasTenantRole(a.Tenant, "admin", "approver") {
-			forbidden(w)
-			return
-		}
 		if err = s.checkReach(r.Context(), a.Tenant, v.Document); err == nil {
 			// lenient: going back must work even when no gateway answers
 			err = s.mapChecked(r.Context(), v.Document, false)
@@ -227,7 +220,7 @@ func (s *Server) listAudit(w http.ResponseWriter, r *http.Request, u *auth.User)
 	var tenant *string
 	switch {
 	case u.Platform():
-	case u.Tenant != nil && u.HasTenantRole(*u.Tenant, "admin", "approver", "auditor"):
+	case u.Tenant != nil && u.HasTenantRole(*u.Tenant, "admin", "viewer"):
 		tenant = u.Tenant
 	default:
 		forbidden(w)

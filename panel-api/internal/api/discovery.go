@@ -46,7 +46,7 @@ func (s *Server) startDiscovery(w http.ResponseWriter, r *http.Request, u *auth.
 	if !ok {
 		return
 	}
-	if !u.HasTenantRole(a.Tenant, "admin", "editor") {
+	if !u.HasTenantRole(a.Tenant, "admin") {
 		forbidden(w)
 		return
 	}

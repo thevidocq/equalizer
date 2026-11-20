@@ -4,7 +4,7 @@ import { useLogout } from "@/features/auth";
 type Props = { name?: string; email?: string; role?: string | null; platform?: boolean };
 
 const roleNames: Record<string, string> = {
-  admin: "Administrator", editor: "Editor", approver: "Approver", auditor: "Auditor", operator: "Operator",
+  admin: "Administrator", viewer: "Viewer", operator: "Operator",
 };
 
 function initials(name?: string, email?: string): string {

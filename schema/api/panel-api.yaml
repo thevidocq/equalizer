@@ -344,6 +344,27 @@ paths:
                 properties:
                   items: { type: array, items: { $ref: "#/components/schemas/TenantOverview" } }
                   next_cursor: { type: [string, "null"] }
+  /platform/tenants/{tenant}:
+    delete:
+      tags: [tenants]
+      summary: >-
+        Delete a customer and everything it owns: sites and their maps (the gateways drop them), connectors (their
+        tunnels close), people, invitations, settings and activity. Traffic logs expire on their own. The body repeats
+        the tenant's id (platform administrators)
+      parameters: [{ $ref: "#/components/parameters/tenant" }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [confirm]
+              properties:
+                confirm: { type: string, description: "The tenant's id, typed again" }
+      responses:
+        "204": { description: Deleted }
+        "404": { $ref: "#/components/responses/Error" }
+        "422": { $ref: "#/components/responses/Error" }
   /platform/tenants/{tenant}/invitation:
     post:
       tags: [tenants]
@@ -431,7 +452,10 @@ paths:
                   description: "https: the site's own certificate (Certificate); http: in clear, as the legacy site was. Applied at once to the published map, which is signed again"
                 legacy_ip:
                   type: [string, "null"]
-                  description: "Public IP the site answered on before Equalizer: the exposure check probes it. A public unicast IPv4 or IPv6 address; null stops the checks"
+                  description: "Public IP the site answered on before Equalizer: the exposure check probes it. A public unicast IPv4 or IPv6 address (a port is ignored), not Equalizer's own; null stops the checks"
+                never_public:
+                  type: boolean
+                  description: "true: the site never had a public address (it was born behind Equalizer), so there is nothing to probe: Isolation is shown as fine. Clears legacy_ip. false: back to not_configured"
       responses:
         "200":
           description: Site
@@ -535,7 +559,7 @@ paths:
       tags: [maps]
       summary: >-
         A first map for the site from a template, filled with its domain, connector and address. Nothing is
-        saved: the document goes into the editor and becomes a draft like any other (editors and administrators)
+        saved: the document goes into the editor and becomes a draft like any other (administrators)
       parameters: [{ $ref: "#/components/parameters/app" }]
       requestBody:
         required: true
@@ -635,7 +659,7 @@ paths:
               schema: { $ref: "#/components/schemas/MapReview" }
     post:
       tags: [maps]
-      summary: Ask the AI model again for this version (editors, approvers, administrators)
+      summary: Ask the AI model again for this version (administrators)
       parameters: [{ $ref: "#/components/parameters/app" }, { $ref: "#/components/parameters/version" }]
       responses:
         "202": { description: Queued }
@@ -655,7 +679,7 @@ paths:
     post:
       tags: [maps]
       summary: >-
-        Verify this version (editors, approvers, administrators): the agent compares every studied page with
+        Verify this version (administrators): the agent compares every studied page with
         and without Equalizer using this version, and tries the attack set on every parameter and field, on the
         gateway only. Nothing is written to the legacy site. With test accounts, the pages behind their login are
         verified too (kept encrypted, erased when the verification ends); without, only public pages
@@ -679,11 +703,11 @@ paths:
   /apps/{app}/maps/{version}/{action}:
     post:
       tags: [maps]
-      summary: "Lifecycle: submit (draft → in_review), approve and reject (never by the author), publish (approved → published, signed; the previous one is retired)"
+      summary: "Lifecycle (administrators, the author included): publish (draft, in_review or approved → published, signed; the previous one and older pending versions are retired); submit, approve and reject are optional steps"
       parameters:
         - { $ref: "#/components/parameters/app" }
         - { $ref: "#/components/parameters/version" }
-        - { name: action, in: path, required: true, schema: { enum: [submit, approve, reject, publish, rollback] }, description: "rollback: publish again a retired version (it was approved before); approvers and administrators" }
+        - { name: action, in: path, required: true, schema: { enum: [submit, approve, reject, publish, rollback] }, description: "rollback: publish again a retired version that was published before" }
       responses:
         "200":
           description: Version after the action
@@ -884,6 +908,43 @@ paths:
       parameters: [{ $ref: "#/components/parameters/tenant" }]
       responses:
         "204": { description: Removed }
+  /tenants/{tenant}/llm/models:
+    post:
+      tags: [llm]
+      summary: >-
+        The models the provider offers for this key, to choose from a list. An empty api_key uses the saved one when
+        the provider is the same. Only the list is read: nothing is sent to the model (tenant administrators)
+      parameters: [{ $ref: "#/components/parameters/tenant" }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [provider]
+              properties:
+                provider: { enum: [anthropic, openai, local] }
+                endpoint: { type: [string, "null"], maxLength: 300, description: "local: https base URL of the OpenAI-compatible server, e.g. https://llm.example.com/v1; never a private address" }
+                api_key: { type: string, writeOnly: true, maxLength: 300 }
+      responses:
+        "200":
+          description: Models, newest first
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items:
+                    type: array
+                    items:
+                      type: object
+                      required: [id, name]
+                      properties:
+                        id: { type: string, description: "What goes in model" }
+                        name: { type: string }
+        "422": { $ref: "#/components/responses/Error" }
+        "502": { $ref: "#/components/responses/Error" }
   /apps/{app}/discoveries:
     get:
       tags: [discovery]
@@ -903,8 +964,8 @@ paths:
       tags: [discovery]
       summary: >-
         Start a discovery: the agent explores the site through its connector, read-only, and proposes a
-        draft map. Without a published map, connector_id and address say how to reach it (editors and
-        administrators). 409 while another one is queued or running
+        draft map. Without a published map, connector_id and address say how to reach it
+        (administrators). 409 while another one is queued or running
       parameters: [{ $ref: "#/components/parameters/app" }]
       requestBody:
         required: true
@@ -1048,7 +1109,7 @@ paths:
   /internal/reviews/{id}/result:
     post:
       tags: [internal]
-      summary: Summary and questions written by the AI for the approver
+      summary: Summary and questions written by the AI for whoever publishes
       security: [{ serviceToken: [] }]
       parameters: [{ $ref: "#/components/parameters/id" }]
       requestBody:
@@ -1415,7 +1476,7 @@ paths:
       tags: [logs]
       summary: >-
         Security events of the tenant's sites, newest first: what the gateway served and refused (tenant
-        administrators, approvers and auditors; platform users see no tenant's events)
+        administrators and viewers; platform users see no tenant's events)
       parameters:
         - { $ref: "#/components/parameters/tenant" }
         - { $ref: "#/components/parameters/logApp" }
@@ -1583,7 +1644,7 @@ components:
         name: { type: string }
         platform_role: { type: [string, "null"], enum: [admin, operator, null] }
         tenant: { type: [string, "null"] }
-        tenant_role: { type: [string, "null"], enum: [admin, editor, approver, auditor, null] }
+        tenant_role: { type: [string, "null"], enum: [admin, viewer, null] }
         mfa_enabled: { type: boolean, description: "An authenticator app is enrolled" }
         mfa_verified: { type: boolean, description: "Only in /auth/me: this session passed the second step. Without it only /auth/* answers" }
     MfaSetup:
@@ -1608,7 +1669,7 @@ components:
       properties:
         email: { type: string, maxLength: 254 }
         name: { type: string, maxLength: 200 }
-        role: { enum: [admin, editor, approver, auditor] }
+        role: { enum: [admin, viewer], description: "admin: everything; viewer: reads sites, status, activity and logs" }
     Invitation:
       type: object
       required: [id, email, name, role, expires_at]
@@ -1616,7 +1677,7 @@ components:
         id: { type: integer }
         email: { type: string }
         name: { type: string }
-        role: { enum: [admin, editor, approver, auditor] }
+        role: { enum: [admin, viewer], description: "admin: everything; viewer: reads sites, status, activity and logs" }
         expires_at: { type: string, format: date-time }
         sent: { type: boolean, description: "False when the email could not be sent: revoke and invite again" }
         send_problem:
@@ -1629,7 +1690,7 @@ components:
         tenant_name: { type: string }
         email: { type: string }
         name: { type: string }
-        role: { enum: [admin, editor, approver, auditor] }
+        role: { enum: [admin, viewer], description: "admin: everything; viewer: reads sites, status, activity and logs" }
         expires_at: { type: string, format: date-time }
     TenantOverview:
       type: object
@@ -1734,8 +1795,8 @@ components:
       properties:
         legacy_ip: { type: [string, "null"] }
         status:
-          enum: [not_configured, pending, closed, exposed, error]
-          description: "not_configured: no legacy_ip; pending: not checked yet; closed: not reachable directly; exposed: reachable directly; error: the check could not run"
+          enum: [not_configured, never_public, pending, closed, exposed, error]
+          description: "not_configured: no legacy_ip; never_public: the site never had a public address; pending: not checked yet; closed: not reachable directly; exposed: reachable directly; error: the check could not run"
         reason:
           type: [string, "null"]
           description: "Why: refused, timeout, forbidden, default_site (the server answers with another site), answers_https, answers_http, probe_failed"
@@ -1902,6 +1963,17 @@ components:
           maxItems: 5
           description: More addresses, e.g. the on-call mailbox
           items: { type: string, format: email, maxLength: 254 }
+        kinds:
+          type: object
+          additionalProperties: false
+          description: "Which kinds of alert are emailed; a kind left out stays as it was saved (all on by default)"
+          properties:
+            connector: { type: boolean, description: "The site's connector went offline" }
+            legacy_site: { type: boolean, description: "The legacy site fails or does not answer" }
+            isolation: { type: boolean, description: "The site answers again on its old IP, bypassing Equalizer" }
+            certificate: { type: boolean, description: "The site's certificate is missing or expired" }
+            certificate_expiry: { type: boolean, description: "Reminders before the certificate ends (30, 14, 7, 1 days)" }
+            recovered: { type: boolean, description: "A problem is over: the site works again" }
         mail_available: { type: boolean, readOnly: true, description: "False when the platform sends no email" }
     LLMConfig:
       type: object

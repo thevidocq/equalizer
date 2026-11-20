@@ -19,7 +19,7 @@ func (s *Server) mapTemplate(w http.ResponseWriter, r *http.Request, u *auth.Use
 	if !ok {
 		return
 	}
-	if !u.HasTenantRole(a.Tenant, "admin", "editor") {
+	if !u.HasTenantRole(a.Tenant, "admin") {
 		forbidden(w)
 		return
 	}

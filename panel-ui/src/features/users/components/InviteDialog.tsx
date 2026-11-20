@@ -7,7 +7,7 @@ import { useInvite } from "../hooks/useInvitations";
 import { roleText } from "./roles";
 
 type Props = { tenant: string; open: boolean; onOpenChange: (o: boolean) => void };
-const empty = { email: "", name: "", role: "editor" as Role };
+const empty = { email: "", name: "", role: "admin" as Role };
 
 export function InviteDialog({ tenant, open, onOpenChange }: Props) {
   const invite = useInvite(tenant);

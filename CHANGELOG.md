@@ -39,6 +39,45 @@ merge of #39).
 
 ## Entries
 
+### 2026-11-20 — One person publishes, two roles, tenant deletion, AI models, alert kinds
+
+- **Branch:** fix/first-install-feedback
+- **What:**
+  - Approval: no second person needed. An administrator publishes a
+    version straight from draft (`publish` from draft, in review or
+    approved), the author included; submit, approve and reject stay as
+    optional steps. Publishing retires older versions still pending. The
+    database rule `approver_id <> author_id` is dropped (migration 0019).
+    Panel: a single "Publish" button (and "Discard"), a two-step rail.
+  - Roles: administrator and viewer only. Editors and approvers become
+    administrators, auditors viewers (migration 0019); viewers read sites,
+    maps, status, activity and logs.
+  - Tenant deletion: `DELETE /v1/platform/tenants/{tenant}` with the id
+    typed again (`Store.DeleteTenant`, one transaction): sites and maps,
+    connectors, people, invitations, settings and activity; recorded in the
+    platform's activity. Traffic logs expire on their own. Panel: Delete on
+    the Tenants page, confirmed by typing the id.
+  - Isolation: "the site never had a public address" (`never_public`,
+    migration 0018) shows Isolation as fine; an old IP that is Equalizer's
+    own address (the panel's or relay's domain resolves to it) is refused,
+    since the check would reach Equalizer and report the site exposed; a
+    port after the IP is dropped; the error is in plain words.
+  - AI settings: `POST /v1/tenants/{tenant}/llm/models` asks the provider
+    which models the key may use (Anthropic, OpenAI, OpenAI-compatible
+    server; package `llmmodels`, never to a private address); the panel
+    shows them in a list, the typed name only when the provider cannot be
+    asked.
+  - Alerts: each kind is turned on or off (`kinds`: connector, legacy_site,
+    isolation, certificate, certificate_expiry, recovered; migration 0020).
+    The state is followed even when a kind is off.
+- **Why:** first installation feedback: one person runs a small customer,
+  four roles were too many, tenants could not be removed, the model had to
+  be typed, alerts were all or nothing.
+- **Status:** Go and vitest tests pass. Manuals not yet updated (next
+  commit); lab end-to-end tests still use the old roles.
+- **Next steps:** automatic certificates for protected sites, direct mode,
+  manuals, lab tests, a run at phone width.
+
 ### 2026-11-20 — Fix what the first installation showed
 
 - **Branch:** fix/first-install-feedback

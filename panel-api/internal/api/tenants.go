@@ -139,3 +139,31 @@ func validEmail(e string) bool {
 	at := strings.LastIndexByte(e, '@')
 	return len(e) <= 254 && at > 0 && at < len(e)-3 && strings.Contains(e[at:], ".") && !strings.ContainsAny(e, " \t\r\n<>\"")
 }
+
+// deleteTenant removes a customer and everything it owns (platform
+// administrators). The request repeats the tenant's id, so a slip of the
+// finger never deletes one.
+func (s *Server) deleteTenant(w http.ResponseWriter, r *http.Request, u *auth.User) {
+	if !u.PlatformAdmin() {
+		forbidden(w)
+		return
+	}
+	var in struct {
+		Confirm string `json:"confirm"`
+	}
+	if !decode(w, r, &in) {
+		return
+	}
+	id := r.PathValue("tenant")
+	if in.Confirm != id {
+		fail(w, http.StatusUnprocessableEntity, "invalid", "confirm must repeat the tenant's id")
+		return
+	}
+	if err := s.Store.DeleteTenant(r.Context(), id); err != nil {
+		s.storeError(w, r, err)
+		return
+	}
+	// A platform action: recorded in the platform's activity.
+	_ = s.Store.Record(r.Context(), &u.ID, nil, "tenant.delete", id, nil)
+	w.WriteHeader(http.StatusNoContent)
+}

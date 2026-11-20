@@ -71,6 +71,19 @@ func (r *Runner) Run(ctx context.Context) {
 	}
 }
 
+// kinds of alert, as the tenant turns them on and off (store.AlertKinds).
+var kinds = map[string]string{
+	"Connector": "connector", "Legacy site": "legacy_site", "Isolation": "isolation",
+	"Certificate": "certificate", expiryCheck: "certificate_expiry",
+}
+
+func kindOf(c change) string {
+	if !c.down {
+		return "recovered"
+	}
+	return kinds[c.check]
+}
+
 // change is one line of an alert email.
 type change struct {
 	site, domain, check, detail string
@@ -113,7 +126,11 @@ func (r *Runner) tenant(ctx context.Context, t store.Tenant) {
 	}
 	var changes []change
 	for _, s := range sites {
-		changes = append(changes, r.site(ctx, s)...)
+		for _, c := range r.site(ctx, s) {
+			if settings.Wants(kindOf(c)) { // the state is followed even when muted
+				changes = append(changes, c)
+			}
+		}
 	}
 	if len(changes) == 0 {
 		return

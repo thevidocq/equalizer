@@ -46,7 +46,7 @@ export function MapEditor({ initial, busy, error, onSave }: Props) {
         </p>
       </div>
       <TextField label="What changed" maxLength={2000} value={note} onChange={(e) => setNote(e.target.value)}
-        hint="Shown to the approver next to the version." />
+        hint="Shown next to the version in its history." />
       <div>
         <Button type="submit" variant="primary" busy={busy} disabled={!parsed.ok}>Save draft</Button>
       </div>

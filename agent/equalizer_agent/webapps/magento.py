@@ -14,6 +14,7 @@ PROFILE = Profile(
     admin=(r"^/(index\.php/)?admin(_[a-z0-9]+)?(/|$)", r"^/(rest|soap)(/|$)", r"^/setup(/|$)", r"^/downloader(/|$)"),
     never=(r"^/checkout/cart/(add|delete|updatePost)", r"^/wishlist/index/(add|remove)", r"^/customer/account/logout",
            r"^/catalog/product_compare/(add|remove|clear)", r"^/sendfriend/", r"^/newsletter/subscriber/"),
+    tested="Lab (MariaDB, no search engine, no products): home, CMS pages, customer login; studied with a customer account, database unchanged. Its precise entries are not reliable yet: the agent's verification sent most of them back to the site area (35 of 39 pages identical after correction; its /static .html templates are refused).",
     note="Administration closed: its address differs per installation. Cart, wishlist and comparison links "
          "are never opened.",
 )

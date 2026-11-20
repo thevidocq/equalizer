@@ -12,6 +12,7 @@ PROFILE = Profile(
     admin=(r"^/adm(/|$)", r"^/install(/|$)", r"^/mcp\.php", r"^/ucp\.php\?.*mode=(register|activate|delete_cookies)"),
     never=(r"[?&]mode=(logout|delete_cookies|delete|bump|bookmark|subscribe|unsubscribe|watch|unwatch)\b",
            r"^/posting\.php", r"^/mcp\.php", r"^/install(/|$)", r"[?&]hash="),
+    tested="Lab (SQLite): board, topics, login; studied with the administrator logged in on the board, database unchanged; 197 of 197 pages identical through the draft.",
     note="Moderation and administration closed until the lab proves that viewing them changes nothing; posting "
          "and moderation links are never opened.",
 )

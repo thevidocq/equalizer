@@ -3,7 +3,8 @@
 # Equalizer services built from this checkout, a real WordPress as the legacy
 # site, and stand-ins for what only exists on a VPS (HTTPS front instead of
 # Caddy, SMTP sink, identity provider). Everything listens on 127.0.0.1.
-# Needs: Go, Node, PHP (pdo_sqlite, pdo_pgsql, gd, intl), Composer, PostgreSQL 16, Redis, Python 3, root
+# Needs: Go, Node, PHP (pdo_sqlite, pdo_pgsql, mysqli, gd, intl, zip, bcmath, soap), Composer, PostgreSQL 16,
+# MariaDB, Redis, Python 3, root
 # (ports 80/443 and /etc/hosts).
 set -euo pipefail
 cd "$(dirname "$0")"
@@ -30,7 +31,7 @@ wait_http() { # url
 }
 
 # A process left from an earlier run would answer in place of the new one.
-for port in 443 18080 18084 19090 18081 18082 19091 18085 19092 18090 18091 18092 18093 18095 2525; do
+for port in 443 18080 18084 19090 18081 18082 19091 18085 19092 18090 18091 18092 18093 18095 18101 18102 18103 18104 18105 18106 33061 2525; do
   if (exec 3<>"/dev/tcp/127.0.0.1/$port") 2>/dev/null; then
     echo "port $port is busy: run ./down.sh first" >&2; exit 1
   fi
@@ -54,7 +55,7 @@ S="$RUN/secrets"
 for t in relay.token panel-internal.token; do [ -f "$S/$t" ] || "$BIN/eqtool" secret -out "$S/$t"; done
 
 echo "Names…"
-hosts="127.0.0.1 panel.lab.test relay.lab.test idp.lab.test www.acme.test acme.test old.acme.test news.acme.test docs.acme.test intranet.acme.test"
+hosts="127.0.0.1 panel.lab.test relay.lab.test idp.lab.test www.acme.test acme.test old.acme.test news.acme.test docs.acme.test intranet.acme.test cart.acme.test shop.acme.test forum.acme.test wiki.acme.test site.acme.test store.acme.test"
 sed -i '/# equalizer-lab/d' /etc/hosts && echo "$hosts # equalizer-lab" >> /etc/hosts
 
 echo "PostgreSQL and Redis…"
@@ -70,6 +71,16 @@ su postgres -c "$PGBIN/pg_ctl -D $PG -l $PG/postgres.log -o '-p 55441 -k /tmp -c
 for _ in $(seq 1 30); do psql -h 127.0.0.1 -p 55441 -U postgres -c 'select 1' >/dev/null 2>&1 && break; sleep 0.5; done
 psql -h 127.0.0.1 -p 55441 -U postgres -tc "select 1 from pg_database where datname='equalizer'" | grep -q 1 ||
   psql -q -h 127.0.0.1 -p 55441 -U postgres -c "create database equalizer"
+# MariaDB for the shops and TYPO3, its data in /var/tmp as PostgreSQL's.
+MY="/var/tmp/equalizer-lab-mysql"
+if [ ! -d "$MY/mysql" ]; then
+  mkdir -p "$MY" && chown mysql "$MY"
+  mariadb-install-db --user=mysql --datadir="$MY" --auth-root-authentication-method=normal > /dev/null
+fi
+chown -R mysql "$MY"
+start mariadb mariadbd --no-defaults --user=mysql --datadir="$MY" --port=33061 --bind-address=127.0.0.1 \
+  --socket=/tmp/eq-lab-mysql.sock --pid-file="$MY/mysqld.pid" --skip-name-resolve --skip-log-bin
+for _ in $(seq 1 60); do mariadb -h 127.0.0.1 -P 33061 -u root -e 'select 1' >/dev/null 2>&1 && break; sleep 0.5; done
 start redis redis-server --port 16379 --bind 127.0.0.1 --save "" --appendonly no
 
 echo "Front, mail, identity provider, WordPress…"
@@ -92,7 +103,13 @@ php "$LAB/wp-setup.php" "$RUN/wordpress" > /dev/null
 start joomla env PHP_CLI_SERVER_WORKERS=4 php -S 127.0.0.1:18091 -t "$RUN/joomla" "$LAB/router.php"
 start drupal env -C "$RUN/drupal" PHP_CLI_SERVER_WORKERS=4 php -S 127.0.0.1:18092 -t "$RUN/drupal" "$RUN/drupal/.ht.router.php" # Drupal expects its root as working directory
 start intranet env PHP_CLI_SERVER_WORKERS=4 INTRANET_DB="$RUN/intranet-db/intranet.sqlite" php -S 127.0.0.1:18093 -t "$RUN/intranet"
-for port in 18091 18092 18093; do wait_http "http://127.0.0.1:$port/"; done
+"$LAB/webapps.sh"
+for app in "cart 18101" "shop 18102" "forum 18103" "wiki 18104"; do
+  set -- $app; start "$1" env PHP_CLI_SERVER_WORKERS=4 php -S "127.0.0.1:$2" -t "$RUN/$1"
+done
+start site env PHP_CLI_SERVER_WORKERS=4 php -S 127.0.0.1:18105 -t "$RUN/site" "$LAB/router.php"
+start store env -C "$RUN/store/pub" PHP_CLI_SERVER_WORKERS=4 php -d memory_limit=2G -S 127.0.0.1:18106 -t . ../phpserver/router.php
+for port in 18091 18092 18093 18101 18102 18103 18104 18105 18106; do wait_http "http://127.0.0.1:$port/"; done
 
 echo "Equalizer…"
 export EQ_LOG_LEVEL=info

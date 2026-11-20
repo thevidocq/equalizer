@@ -210,3 +210,102 @@ class WebappsTest(unittest.TestCase):
                         ("/index.php?title=Main&action=edit", "mediawiki"), ("/posting.php?mode=reply&t=3", "phpbb"),
                         ("/typo3/install.php", "typo3"), ("/admin/index.php", "moodle")):
             self.assertEqual(rules.excluded(pq, cms, logged_in=True), "never", pq)
+
+
+class SessionKeptLoginTest(unittest.TestCase):
+    """A login that keeps the session cookie and answers in JSON, with a
+    token in the form's action that belongs to the session which saw the
+    form, and a sign-up form seen first (OpenCart's): the agent logs in all
+    the same, with the login form."""
+
+    def setUp(self):
+        import itertools
+        import threading
+        from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+        ids, logged = itertools.count(1), set()
+
+        class H(BaseHTTPRequestHandler):
+            def log_message(self, *a):
+                pass
+
+            def _send(self, status, body="", headers=None, ctype="text/html"):
+                self.send_response(status)
+                self.send_header("Content-Type", ctype)
+                for k, v in (headers or {}).items():
+                    self.send_header(k, v)
+                self.end_headers()
+                self.wfile.write(body.encode())
+
+            def _sid(self):
+                c = self.headers.get("Cookie") or ""
+                return c.split("sid=")[1].split(";")[0] if "sid=" in c else ""
+
+            def do_GET(self):
+                sid = self._sid() or str(next(ids))
+                cookie = {"Set-Cookie": f"sid={sid}; Path=/"}
+                p = self.path.split("?")[0]
+                if p == "/":
+                    member = '<a href="/account/orders">Orders</a>' if sid in logged else ""
+                    return self._send(200, f'<html><a href="/register">Sign up</a> <a href="/login">Log in</a>{member}</html>',
+                                      cookie)
+                if p == "/register":  # a sign-up form first: never the one used to log in
+                    return self._send(200, '<html><form method="post" action="/register.do"><input name="firstname">'
+                                           '<input type="email" name="email"><input type="password" name="password">'
+                                           '</form></html>', cookie)
+                if p == "/login":
+                    if sid in logged:
+                        return self._send(302, headers={"Location": "/account/orders", **cookie})
+                    return self._send(200, f'<html><form method="post" action="/login.do?token=t{sid}">'
+                                           '<input type="email" name="email"><input type="password" name="password">'
+                                           '<input type="hidden" name="redirect" value=""></form></html>', cookie)
+                if p == "/account/orders" and sid in logged:
+                    return self._send(200, "<html><title>Orders</title></html>", cookie)
+                return self._send(404, "<html>not found</html>", cookie)
+
+            def do_POST(self):
+                body = self.rfile.read(int(self.headers.get("Content-Length") or 0)).decode()
+                sid = self._sid()
+                ok = self.path == f"/login.do?token=t{sid}" and "email=a%40acme.test" in body and "password=pw" in body
+                if ok:
+                    logged.add(sid)
+                return self._send(200, '{"redirect": "/account/orders"}' if ok else '{"error": "no"}',
+                                  {"Set-Cookie": f"sid={sid}; Path=/"}, "application/json")
+
+        self.server = ThreadingHTTPServer(("127.0.0.1", 0), H)
+        threading.Thread(target=self.server.serve_forever, daemon=True).start()
+        dest = f"127.0.0.1:{self.server.server_address[1]}"
+        self.cfg = config.Config(panel_token="x" * 32, direct={dest}, rate=0)
+        self.job = {"id": 9, "tenant": "acme", "app": "cart", "domain": "cart.acme.test", "kind": None,
+                    "base_url": "http://cart.acme.test", "max_pages": 50,
+                    "reach": {"mode": "direct", "address": dest, "allow": [dest]}, "llm": None, "unmapped": [],
+                    "accounts": [{"label": "customer", "username": "a@acme.test", "password": "pw"},
+                                 {"label": "wrong", "username": "a@acme.test", "password": "nope"}]}
+
+    def tearDown(self):
+        self.server.shutdown()
+
+    def test_logs_in_and_studies_member_pages(self):
+        panel = FakePanel()
+        discovery.run(self.job, self.cfg, panel, Logger("test", "warn", io.StringIO()))
+        res = panel.results[0]
+        self.assertEqual(res["report"]["accounts"], [{"label": "customer", "login": "ok"},
+                                                     {"label": "wrong", "login": "failed"}])
+        self.assertIn("/account/orders", {r["path"] for r in res["document"]["routes"]})
+
+
+class MapPathTest(unittest.TestCase):
+    def test_paths_a_map_cannot_hold_stay_in_the_area(self):
+        """Magento puts a base64 referer in the path (…/referer/aHR0…~/):
+        such a page is not proposed and says why."""
+        from equalizer_agent import crawler, fingerprint, mapbuild
+        crawl = crawler.CrawlResult()
+        odd = "/index.php/customer/account/login/referer/aHR0cDovL3N0b3Jl~/"
+        for pq in ("/", "/about/", odd):
+            crawl.pages[pq] = crawler.Seen(200, "text/html")
+        crawl.forms.append(extract.parse('<form method="post" action="%s"><input name="q"></form>' % odd.replace(
+            "/login/", "/loginPost/"), "http://x.test/").forms[0])
+        job = {"base_url": "http://x.test", "reach": {"mode": "direct", "address": "127.0.0.1:1"}, "unmapped": []}
+        doc, rep, _ = mapbuild.build(job, crawl, fingerprint.Fingerprint())
+        self.assertNotIn(odd, {r["path"] for r in doc["routes"]})
+        self.assertFalse([f for f in doc.get("forms", []) if "~" in f["route"]])
+        self.assertIn(odd, {o["target"] for o in rep["open"] if o["reason"] == "other"})

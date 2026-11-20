@@ -13,6 +13,10 @@ COMMON_DENY = ["admin", "administrator", "wp-admin", "wp-login", "phpmyadmin", "
                "console", "manager", "jsonapi", "xmlrpc"]
 
 
+# What a map path may hold (schema/map/map.schema.json).
+MAP_PATH = re.compile(r"^/[A-Za-z0-9_./{}\-]*$")
+
+
 def skeleton(base_url: str, reach: dict) -> dict:
     return {
         "meta": {"schema": "gateway-map/1.0", "tenant": "x", "app": "x", "version": 1, "status": "draft"},
@@ -140,6 +144,9 @@ def build(job: dict, crawl, fp) -> tuple:
     taken = {r["id"] for r in doc.get("routes", [])} | {f["id"] for f in doc.get("forms", [])}
     added_routes, added_forms, not_supported, still_open = [], [], [], []
     for r in cluster.routes(pages, loose_top=bool(fp.cms)):
+        if not MAP_PATH.match(r.path):  # Magento's base64 referers (…~/): left to the area
+            not_supported.append({"path": r.path, "reason": "characters a map path cannot hold"})
+            continue
         if any(covered(doc, p) for p in [r.path.replace("{", "x").replace("}", "")]) and not r.query:
             continue
         sample = [p for p in paths if matches(r.path, p)]
@@ -166,6 +173,10 @@ def build(job: dict, crawl, fp) -> tuple:
             continue
         path = urllib.parse.urlsplit(form.action).path or "/"
         if path in have_forms or rules.excluded(path, fp.cms):
+            continue
+        if not MAP_PATH.match(path):
+            have_forms.add(path)
+            not_supported.append({"path": path, "reason": "characters a map path cannot hold"})
             continue
         e, why = _form_entry(form, anon, taken, still_open)
         have_forms.add(path)

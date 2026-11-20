@@ -24,7 +24,16 @@ SITES = {
     "joomla": ("news.acme.test", "news", "127.0.0.1:18091", "Acme News"),
     "drupal": ("docs.acme.test", "docs", "127.0.0.1:18092", "Acme Docs"),
     "generic": ("intranet.acme.test", "intranet", "127.0.0.1:18093", "Acme Intranet"),
+    # The web applications that prove the agent's other profiles (webapps.sh).
+    "opencart": ("cart.acme.test", "cart", "127.0.0.1:18101", "Acme Cart"),
+    "prestashop": ("shop.acme.test", "shop", "127.0.0.1:18102", "Acme Shop"),
+    "phpbb": ("forum.acme.test", "forum", "127.0.0.1:18103", "Acme Forum"),
+    "mediawiki": ("wiki.acme.test", "wiki", "127.0.0.1:18104", "Acme Wiki"),
+    "typo3": ("site.acme.test", "site", "127.0.0.1:18105", "Acme Site"),
+    "magento": ("store.acme.test", "store", "127.0.0.1:18106", "Acme Store"),
 }
+# What the connector may reach: WordPress and the other sites.
+ALLOW = ",".join(["127.0.0.1:18090"] + [s[2] for s in SITES.values()])
 # The intranet is served in http, as it was before Equalizer.
 HTTP_SITES = {"intranet.acme.test"}
 
@@ -129,7 +138,7 @@ def mails(to: str, since: float) -> list[email.message.Message]:
 class Connector:
     """The connector process on the legacy server."""
 
-    def __init__(self, cid: str, token: str, allow: str = "127.0.0.1:18090,127.0.0.1:18091,127.0.0.1:18092,127.0.0.1:18093"):
+    def __init__(self, cid: str, token: str, allow: str = ALLOW):
         self.env = dict(os.environ, EQ_RELAY_URL="https://relay.lab.test", EQ_CONNECTOR_ID=cid,
                         EQ_CONNECTOR_TOKEN=token, EQ_ALLOW=allow, EQ_RELAY_CA_FILE=CA)
         self.p = None

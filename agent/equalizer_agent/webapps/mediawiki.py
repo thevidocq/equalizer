@@ -14,5 +14,6 @@ PROFILE = Profile(
     never=(r"[?&]action=(edit|submit|delete|protect|unprotect|purge|rollback|markpatrolled|watch|unwatch|revert|"
            r"move|editredlink)\b", r"Special:(UserLogout|Export|Import|Block|Unblock|DeletePage|MovePage|Userrights|"
            r"Undelete|MergeHistory|RevisionDelete|ChangeContentModel|EmailUser)", r"^/mw-config(/|$)"),
+    tested="Lab (SQLite): pages, special pages, login; studied with the administrator logged in, database unchanged; 38 of 38 pages identical through the draft.",
     note="Special pages closed until the lab proves that viewing them changes nothing; edit links are never opened.",
 )

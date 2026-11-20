@@ -1,4 +1,4 @@
-"""The agent studies the four lab sites with a test administrator, through
+"""The agent studies the lab sites with a test administrator, through
 the connector and with its real browser, verifies the drafts it proposes
 on the gateway, and changes nothing on them: the content of every site's
 database is the same before and after (docs/agent.md, "Read-only,
@@ -12,7 +12,14 @@ import pytest
 import state
 from lab import RUN
 
-ACCOUNT = [{"label": "administrator", "username": "editor", "password": "Lab-editor-pass-1"}]
+PASS = "Lab-editor-pass-1"
+ADMIN = {"label": "administrator", "username": "editor", "password": PASS}
+CUSTOMER = {"label": "customer", "username": "editor@acme.test", "password": PASS}
+# Who the test account is on each site, and how its login must end: TYPO3
+# has no visitors' login, so the agent must say there is no form for it.
+ACCOUNTS = {"blog": ADMIN, "news": ADMIN, "docs": ADMIN, "intranet": ADMIN, "forum": ADMIN, "wiki": ADMIN,
+            "cart": CUSTOMER, "shop": CUSTOMER, "store": CUSTOMER, "site": ADMIN}
+LOGIN = {"site": "no_login_form"}
 
 # What a site's content is: tables and columns that only change when
 # someone changes something. Counters every visit moves (Joomla's hits,
@@ -29,6 +36,36 @@ DRUPAL = ["SELECT * FROM node_field_data ORDER BY nid", "SELECT * FROM node__bod
           "SELECT * FROM user__roles ORDER BY entity_id", "SELECT * FROM path_alias ORDER BY id",
           "SELECT name, data FROM config ORDER BY name"]
 INTRANET = ["SELECT * FROM notices ORDER BY 1", "SELECT * FROM users ORDER BY 1"]
+OPENCART = ["SELECT product_id, model, quantity, price, status FROM oc_product ORDER BY 1",
+            "SELECT product_id, language_id, name, description FROM oc_product_description ORDER BY 1, 2",
+            "SELECT customer_id, email, password, status FROM oc_customer ORDER BY 1",
+            "SELECT * FROM oc_cart ORDER BY 1", "SELECT * FROM oc_customer_wishlist ORDER BY 1, 2",
+            "SELECT order_id FROM oc_order ORDER BY 1", "SELECT * FROM oc_review ORDER BY 1",
+            "SELECT * FROM oc_address ORDER BY 1"]
+PRESTASHOP = ["SELECT id_product, reference, price, active FROM ps_product ORDER BY 1",
+              "SELECT id_product, id_lang, name, description_short FROM ps_product_lang ORDER BY 1, 2",
+              "SELECT id_customer, email, passwd, active, deleted FROM ps_customer ORDER BY 1",
+              "SELECT * FROM ps_cart_product ORDER BY 1, 2", "SELECT id_order FROM ps_orders ORDER BY 1",
+              "SELECT * FROM ps_address ORDER BY 1", "SELECT id_cms, id_lang, meta_title, content FROM ps_cms_lang ORDER BY 1, 2"]
+TYPO3 = ["SELECT uid, pid, title, slug, hidden, deleted FROM pages ORDER BY 1",
+         "SELECT uid, pid, header, bodytext, hidden, deleted FROM tt_content ORDER BY 1",
+         "SELECT uid, username, password, disable, deleted FROM be_users ORDER BY 1",
+         "SELECT uid, config FROM sys_template ORDER BY 1", "SELECT uid, username FROM fe_users ORDER BY 1"]
+PHPBB = ["SELECT post_id, topic_id, forum_id, poster_id, post_subject, post_text, post_visibility FROM phpbb_posts ORDER BY 1",
+         "SELECT topic_id, forum_id, topic_title, topic_visibility, topic_status FROM phpbb_topics ORDER BY 1",
+         "SELECT forum_id, forum_name, forum_status FROM phpbb_forums ORDER BY 1",
+         "SELECT user_id, username, user_password, user_type FROM phpbb_users ORDER BY 1",
+         "SELECT msg_id FROM phpbb_privmsgs ORDER BY 1", "SELECT * FROM phpbb_acl_groups ORDER BY 1, 2, 3, 4"]
+MEDIAWIKI = ["SELECT page_id, page_namespace, page_title, page_latest FROM page ORDER BY 1",
+             "SELECT rev_id, rev_page FROM revision ORDER BY 1",
+             "SELECT user_id, user_name, user_password FROM user ORDER BY 1",
+             "SELECT wl_user, wl_namespace, wl_title FROM watchlist ORDER BY 1, 2, 3",
+             "SELECT * FROM user_properties ORDER BY 1, 2"]
+MAGENTO = ["SELECT entity_id, sku, type_id FROM catalog_product_entity ORDER BY 1",
+           "SELECT entity_id, email, password_hash, is_active FROM customer_entity ORDER BY 1",
+           "SELECT page_id, identifier, title, content, is_active FROM cms_page ORDER BY 1",
+           "SELECT item_id, quote_id, product_id FROM quote_item ORDER BY 1", "SELECT entity_id FROM sales_order ORDER BY 1",
+           "SELECT * FROM wishlist_item ORDER BY 1", "SELECT * FROM customer_address_entity ORDER BY 1"]
 JOOMLA = ["SELECT id, title, introtext, state, catid, checked_out, publish_up FROM jos_content ORDER BY id",
           "SELECT extension_id, enabled FROM jos_extensions ORDER BY extension_id",
           "SELECT id, username, password, block FROM jos_users ORDER BY id",
@@ -51,6 +88,11 @@ def joomla_digest():
                               capture_output=True, text=True, check=True).stdout.splitlines() for q in JOOMLA}
 
 
+def mariadb_digest(db, queries):
+    return {q: subprocess.run(["mariadb", "-h", "127.0.0.1", "-P", "33061", "-u", "root", "-N", "-B", db, "-e", q],
+                              capture_output=True, text=True, check=True).stdout.splitlines() for q in queries}
+
+
 def changes(before, after):
     out = []
     for q in before:
@@ -66,11 +108,17 @@ DIGESTS = {
     "news": joomla_digest,
     "docs": lambda: sqlite_digest(RUN / "drupal" / "sites" / "default" / "files" / ".sqlite", DRUPAL),
     "intranet": lambda: sqlite_digest(RUN / "intranet-db" / "intranet.sqlite", INTRANET),
+    "cart": lambda: mariadb_digest("opencart", OPENCART),
+    "shop": lambda: mariadb_digest("prestashop", PRESTASHOP),
+    "forum": lambda: sqlite_digest(RUN / "forum-db" / "forum.sqlite", PHPBB),
+    "wiki": lambda: sqlite_digest(RUN / "wiki-db" / "wiki.sqlite", MEDIAWIKI),
+    "site": lambda: mariadb_digest("typo3", TYPO3),
+    "store": lambda: mariadb_digest("magento", MAGENTO),
 }
 
 
 def study(app):
-    d = state.boss.call("POST", f"/apps/{app}/discoveries", {"use_ai": False, "max_pages": 300, "accounts": ACCOUNT}, 201)
+    d = state.boss.call("POST", f"/apps/{app}/discoveries", {"use_ai": False, "max_pages": 300, "accounts": [ACCOUNTS[app]]}, 201)
     deadline = time.time() + 900
     while time.time() < deadline:
         got = state.boss.call("GET", f"/apps/{app}/discoveries/{d['id']}", None, 200)
@@ -91,7 +139,7 @@ def verification(app, version):
     raise AssertionError(f"{app}: the verification did not finish")
 
 
-@pytest.mark.parametrize("app", ["blog", "news", "docs", "intranet"])
+@pytest.mark.parametrize("app", list(DIGESTS))
 def test_study_changes_nothing(app):
     before = DIGESTS[app]()
     got = study(app)
@@ -100,7 +148,8 @@ def test_study_changes_nothing(app):
     after = DIGESTS[app]()
     assert not changes(before, after), f"{app}: the study changed the site's content: {changes(before, after)}"
     rep = got["report"]
-    assert rep["accounts"] == [{"label": "administrator", "login": "ok"}], rep["accounts"]
+    want = [{"label": ACCOUNTS[app]["label"], "login": LOGIN.get(app, "ok")}]
+    assert rep["accounts"] == want, rep["accounts"]
     # the real browser opened the pages behind the same guard
     assert rep["browser"]["pages"] > 0, rep["browser"]
     reasons = {o["reason"] for o in rep.get("open", [])}
@@ -110,7 +159,7 @@ def test_study_changes_nothing(app):
         sc = ver["score"]
         assert sc["functions_total"] > 0 and sc["inputs_total"] > 0, sc
         # the test account's pages behind the login are verified too
-        assert ver["accounts"] == ["administrator"], ver["accounts"]
+        assert ver["accounts"] == [ACCOUNTS[app]["label"]], ver["accounts"]
         print(app, "verification:", sc, "before corrections:", ver.get("before"), "corrected as version",
               ver.get("corrected_version"), [(c["entry"], c["change"], c.get("detail")) for c in ver.get("corrections", [])][:8],
               "broken:", [(b["path"], b["difference"], b.get("detail", "")[:100]) for b in ver["broken"]][:6])

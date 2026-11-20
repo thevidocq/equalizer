@@ -39,6 +39,26 @@ merge of #39).
 
 ## Entries
 
+### 2026-11-20 — Lab run: redirect after a form, tagline, Dependabot
+
+- **Branch:** fix/first-install-feedback
+- **What:** the redirect-loop guard ignored the method: a form sent with
+  POST and answered with a redirect to the same page in the other scheme
+  (Joomla's administrator login) was stopped, though the browser follows
+  with GET and nothing loops; now only GET and HEAD are checked (test
+  added). Tagline: a minimum gap between the words. Lab: an https site
+  is sent to https with 302 (`test_01`). CI: the changelog check skips
+  Dependabot's pull requests (`contracts.yml`), which never carry an entry.
+- **Why:** the full lab run (79 tests) failed only on Joomla's admin
+  login; the tagline still touched at phone size; Dependabot's #65 failed
+  the changelog check.
+- **Status:** lab end to end: 78 passed, then onboarding and the other
+  sites again after the fix, all passed. Panel checked at phone width
+  (390 px) with Playwright: menu, sites, status, maps, isolation, new
+  version, settings, people.
+- **Next steps:** merge; tag v0.2.1 (owner); update the VPS; then
+  `@dependabot rebase` on #65.
+
 ### 2026-11-20 — Direct mode for customer sites, manuals
 
 - **Branch:** fix/first-install-feedback

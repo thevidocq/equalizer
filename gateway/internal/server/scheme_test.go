@@ -87,7 +87,7 @@ func TestSchemeMismatchLoop(t *testing.T) {
 		http.Redirect(w, r, "https://blog.example/wp-login.php", http.StatusFound) // another page: fine
 	}))
 	defer legacy.Close()
-	p := areaGateway(t, legacy.URL, "GET")
+	p := areaGateway(t, legacy.URL, "GET", "POST")
 	st := p.Maps.(fixedMaps).s
 	st.Model.Meta.PublicScheme = "http"
 	rebuilt, err := site.Build(st.Model)
@@ -95,12 +95,18 @@ func TestSchemeMismatchLoop(t *testing.T) {
 		t.Fatal(err)
 	}
 	p.Maps = fixedMaps{rebuilt}
-	get := func(path string) *httptest.ResponseRecorder {
-		req := httptest.NewRequest("GET", path, nil)
+	do := func(method, path string) *httptest.ResponseRecorder {
+		req := httptest.NewRequest(method, path, nil)
 		req.Host = "blog.example"
 		rec := httptest.NewRecorder()
 		p.HandlerPlain().ServeHTTP(rec, req)
 		return rec
+	}
+	get := func(path string) *httptest.ResponseRecorder { return do("GET", path) }
+	// A form sent to the page and answered with a redirect to it: the
+	// browser follows with GET, no loop (Joomla's administrator login).
+	if rec := do("POST", "/admin/"); rec.Code != http.StatusFound {
+		t.Errorf("POST then redirect: %d", rec.Code)
 	}
 	if rec := get("/wp-admin/"); rec.Code != http.StatusBadGateway || rec.Header().Get("Location") != "" {
 		t.Errorf("loop: %d %s", rec.Code, rec.Header().Get("Location"))

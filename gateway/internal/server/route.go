@@ -198,7 +198,9 @@ func (p *Public) redirect(w http.ResponseWriter, r *http.Request, st *site.Site,
 // here and the browser loops until it gives up.
 // It answers with a page instead, and an event that says what to fix.
 func (p *Public) schemeLoop(w http.ResponseWriter, r *http.Request, st *site.Site, routeID string, loc *url.URL, target string) bool {
-	if loc.Scheme == "" || loc.Scheme == st.Model.Meta.Scheme() {
+	// After a form (POST, then a redirect to the same page) the browser asks
+	// with GET: no loop. Only a GET sent back to itself goes round.
+	if (r.Method != http.MethodGet && r.Method != http.MethodHead) || loc.Scheme == "" || loc.Scheme == st.Model.Meta.Scheme() {
 		return false
 	}
 	t, err := url.Parse(target)

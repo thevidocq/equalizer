@@ -70,8 +70,8 @@ in `.run/`, which is never committed. Logs are in `.run/logs/`.
 The tests run in order and build on each other:
 
 1. **onboarding**: admin login, tenant, invitation by email, tenant owner
-   and approver, connector online at the platform's release, app with
-   aliases, WordPress template, approval and publication;
+   and a viewer, connector online at the platform's release, app with
+   aliases, WordPress template, published by one administrator;
 2. **wordpress**: links in https, accents, pages and search, comments,
    alias redirects, login (no legacy cookie in the browser), remember me,
    REST with nonce, media upload (raw body and form), no mixed content in

@@ -143,10 +143,11 @@ def test_visitors_see_the_sites_own_certificate():
                 break
             time.sleep(1)
         assert der and hashlib.sha256(der).hexdigest() == want, name
-    # http: an https site is sent to https; the http site is served in clear
+    # http: an https site is sent to https (temporarily: the scheme may
+    # change); the http site is served in clear
     # and has no certificate at all.
     r = requests.get("http://www.acme.test/about/?x=1", timeout=10, allow_redirects=False)
-    assert r.status_code == 301 and r.headers["Location"] == "https://www.acme.test/about/?x=1"
+    assert r.status_code == 302 and r.headers["Location"] == "https://www.acme.test/about/?x=1"
     assert handshake("intranet.acme.test") is None
     r = requests.get("http://intranet.acme.test/", timeout=10)
     assert r.status_code == 200 and "Acme Intranet" in r.text and r.url.startswith("http://")

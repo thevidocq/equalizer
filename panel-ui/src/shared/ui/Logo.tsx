@@ -50,7 +50,7 @@ function Tagline({ lg, inverted }: { lg: boolean; inverted: boolean }) {
   return (
     <div
       aria-label="Protect legacy web apps" role="img"
-      className={`flex w-0 min-w-full justify-between whitespace-nowrap font-medium uppercase leading-none tracking-[0.06em] ${
+      className={`flex w-0 min-w-full justify-between gap-[0.35em] whitespace-nowrap font-medium uppercase leading-none tracking-[0.02em] ${
         lg ? "mt-2.5 text-[10.5px]" : "mt-1.5 text-[6.4px]"} ${inverted ? "text-paper/70" : "text-ink-soft"}`}
     >
       {["Protect", "legacy", "web", "apps"].map((w) => <span key={w} aria-hidden="true">{w}</span>)}

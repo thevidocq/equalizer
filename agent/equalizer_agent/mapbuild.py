@@ -203,6 +203,8 @@ def build(job: dict, crawl, fp) -> tuple:
         "visitors_missing": [{"path": u["path"], "clients": u.get("clients", 0)} for u in visitors][:50],
         "not_seen_anymore": stale[:100], "login": crawl.login or None, "errors": crawl.errors,
         "accounts": [{"label": k, "login": v} for k, v in crawl.logins.items()],
+        "pages": [pq for pq, s in crawl.pages.items()
+                  if "anonymous" in s.seen_by and s.status < 400 and s.ctype == "text/html"][:300],
         "browser": {"pages": crawl.browser_pages, "script_requests": sorted(crawl.script_requests)[:200],
                     "kept_in": [{"method": m, "path": p} for m, p in sorted(crawl.script_refused)][:200]},
         "open": _still_open(crawl, still_open, not_supported),

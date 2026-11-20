@@ -122,6 +122,7 @@ wait_http http://127.0.0.1:19090/healthz
 start agent env -C "$ROOT/agent" EQ_PANEL_URL=http://127.0.0.1:18085 EQ_INTERNAL_TOKEN_FILE="$S/panel-internal.token" \
   EQ_RELAY_URL=http://127.0.0.1:18082 EQ_RELAY_TOKEN_FILE="$S/relay.token" EQ_POLL_SECONDS=2 EQ_RATE=25 \
   EQ_BROWSER=on EQ_BROWSER_PATH="$(command -v google-chrome || command -v chromium || true)" \
+  EQ_GATEWAY_ADMIN_URL=http://127.0.0.1:19090 \
   HOSTNAME=lab-agent python3 -m equalizer_agent
 wait_http https://panel.lab.test/
 echo "Lab up: https://panel.lab.test (mail in $RUN/mail, logs in $LOGS)"

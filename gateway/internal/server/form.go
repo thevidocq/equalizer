@@ -62,7 +62,7 @@ func (p *Public) serveForm(w http.ResponseWriter, r *http.Request, st *site.Site
 		return
 	}
 
-	state, reason := p.openToken(r, body)
+	state, reason := p.openToken(r, body, plainSite(st))
 	if reason != "" {
 		p.block(w, r, st, http.StatusForbidden, reason)
 		return
@@ -195,13 +195,15 @@ func readForm(w http.ResponseWriter, r *http.Request) (url.Values, int, string) 
 	return vals, 0, ""
 }
 
-func (p *Public) openToken(r *http.Request, body url.Values) (formtoken.State, string) {
+// openToken checks the form token against this browser's binding cookie,
+// named for the site's scheme (an http site's has no __Host- prefix).
+func (p *Public) openToken(r *http.Request, body url.Values, plain bool) (formtoken.State, string) {
 	tokens := body[formtoken.Field]
 	if len(tokens) != 1 {
 		return formtoken.State{}, "form_token_missing"
 	}
 	cookie := ""
-	if c, err := r.Cookie(bindingCookie); err == nil {
+	if c, err := r.Cookie(bindingCookieName(plain)); err == nil {
 		cookie = c.Value
 	}
 	if p.Forms == nil {

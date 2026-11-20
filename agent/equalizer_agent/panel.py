@@ -46,3 +46,14 @@ class Panel:
             body["error"] = error[:500]
         status, _ = self._post(f"/v1/internal/discoveries/{job_id}/result", body)
         return status == 204
+
+    def claim_verification(self):
+        status, job = self._post("/v1/internal/verifications/claim")
+        return job if status == 200 else None
+
+    def verification_result(self, job_id: int, score=None, broken=None, still_open=None, error=None):
+        body = {"score": score, "broken": (broken or [])[:500], "open": (still_open or [])[:1000]}
+        if error:
+            body["error"] = error[:500]
+        status, _ = self._post(f"/v1/internal/verifications/{job_id}/result", body)
+        return status == 204

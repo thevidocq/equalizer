@@ -116,6 +116,8 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("GET /v1/apps/{app}/maps/{version}/review", s.authed(s.getReview))
 	mux.HandleFunc("POST /v1/apps/{app}/maps/{version}/review", s.authed(s.askReview))
 	mux.HandleFunc("POST /v1/apps/{app}/maps/{version}/{action}", s.authed(s.mapAction))
+	mux.HandleFunc("GET /v1/apps/{app}/maps/{version}/verify", s.authed(s.getVerification))
+	mux.HandleFunc("POST /v1/apps/{app}/maps/{version}/verify", s.authed(s.postVerification))
 	// Audit
 	mux.HandleFunc("GET /v1/tenants/{tenant}/logs", s.authed(s.listLogs))
 	mux.HandleFunc("GET /v1/tenants/{tenant}/logs/stats", s.authed(s.logStats))
@@ -131,6 +133,8 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("GET /v1/internal/apps/{app}/map", s.internal(s.internalMap))
 	mux.HandleFunc("GET /v1/internal/maps", s.internal(s.internalMaps))
 	mux.HandleFunc("POST /v1/internal/discoveries/claim", s.internal(s.claimDiscovery))
+	mux.HandleFunc("POST /v1/internal/verifications/claim", s.internal(s.claimVerification))
+	mux.HandleFunc("POST /v1/internal/verifications/{id}/result", s.internal(s.verificationResult))
 	mux.HandleFunc("POST /v1/internal/discoveries/{id}/progress", s.internal(s.discoveryProgress))
 	mux.HandleFunc("POST /v1/internal/discoveries/{id}/result", s.internal(s.discoveryResult))
 	mux.HandleFunc("POST /v1/internal/unmapped", s.internal(s.internalUnmapped))

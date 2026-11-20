@@ -1,10 +1,10 @@
-"""python -m equalizer_agent: takes discoveries from the panel and runs
-them one at a time."""
+"""python -m equalizer_agent: takes discoveries, reviews and verifications
+from the panel and runs them one at a time."""
 
 import signal
 import time
 
-from . import config, discovery, review
+from . import config, discovery, review, verify
 from .log import Logger
 from .panel import Panel
 
@@ -33,6 +33,17 @@ def main():
                 except Exception as e:  # never leave a review running
                     log.error("review failed", review=rv["id"], error=type(e).__name__)
                     panel.review_result(rv["id"], error="the agent failed: " + type(e).__name__)
+                continue
+            try:
+                vj = panel.claim_verification()
+            except OSError:
+                vj = None
+            if vj is not None:
+                try:
+                    verify.run(vj, cfg, panel, log)
+                except Exception as e:  # never leave a verification running
+                    log.error("verification failed", verification=vj["id"], error=type(e).__name__)
+                    panel.verification_result(vj["id"], error="the agent failed: " + type(e).__name__)
                 continue
             time.sleep(cfg.poll_seconds)
             continue

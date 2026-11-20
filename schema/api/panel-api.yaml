@@ -1993,6 +1993,7 @@ components:
         open: { type: array, items: { $ref: "#/components/schemas/StillOpen" } }
         accounts: { type: array, items: { type: object, properties: { label: { type: string }, login: { enum: [ok, failed, no_login_form] } } } }
         skipped_actions: { type: array, items: { type: string }, description: "Links never opened because they change something" }
+        pages: { type: array, maxItems: 300, items: { type: string }, description: "HTML pages studied anonymously (path and query): what a verification compares" }
     Verification:
       type: object
       required: [version, status]
@@ -2008,7 +2009,7 @@ components:
         error: { type: [string, "null"] }
     VerificationJob:
       type: object
-      required: [id, tenant, app, version, document, reach, base_url, pages]
+      required: [id, tenant, app, version, document, reach, base_url, pages, try_map]
       properties:
         id: { type: integer }
         tenant: { type: string }
@@ -2017,8 +2018,17 @@ components:
         document: { type: object, additionalProperties: true, description: "The version to verify" }
         base_url: { type: string }
         reach: { type: object, additionalProperties: true }
-        pages: { type: array, items: { type: string }, description: "Paths studied by the latest discovery, to compare" }
-        accounts: { type: array, items: { type: object, additionalProperties: true } }
+        pages:
+          type: array
+          items: { type: string }
+          description: >-
+            Pages studied anonymously by the latest discovery (path and query), to compare; the version's own
+            literal routes when there is none. Pages behind a login are not verified (test accounts are erased
+            when a discovery ends)
+        try_map:
+          type: object
+          additionalProperties: true
+          description: "The version signed for tries on the gateway (TryRequest.map in gateway-admin.yaml), valid one hour"
     DiscoveryJob:
       type: object
       required: [id, tenant, app, domain, base_url, reach, max_pages]

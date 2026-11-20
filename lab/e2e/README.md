@@ -106,6 +106,9 @@ The tests run in order and build on each other:
    precise entries of the draft (WordPress's stays closed: it writes when
    its screens are only viewed).
 
+`python3 perf.py [--browser] [--load SECONDS]` measures what Equalizer adds
+to a visit on a lab after test 1 (results in `docs/performance.md`).
+
 `python3 fidelity.py [host…]` runs the comparison alone (on a lab without
 SSO, such as right after test 2) and writes side-by-side
 images (the site directly on the left, through Equalizer on the right) to

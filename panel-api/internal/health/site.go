@@ -102,16 +102,22 @@ func Evaluate(in Input) Site {
 		s.Checks = append(s.Checks, Check{"Legacy site", Degraded, fmt.Sprintf("%d errors, %d served in the last 15 minutes", in.Errors, in.Served)})
 	}
 
-	switch in.Exposure {
-	case "closed":
+	direct := in.MapVersion > 0 && Connector(in.Map) == ""
+	switch {
+	case direct && in.Exposure != "never_public":
+		// Every check from the platform comes from the address the site
+		// accepts: only a test from another network tells.
+		s.Checks = append(s.Checks, Check{"Isolation", Unknown,
+			"reached directly: test from another network that the site refuses everyone but Equalizer (Site → Isolation)"})
+	case in.Exposure == "closed":
 		s.Checks = append(s.Checks, Check{"Isolation", OK, "not reachable on its old IP"})
-	case "exposed":
+	case in.Exposure == "exposed":
 		s.Checks = append(s.Checks, Check{"Isolation", Down, "still answers on its old IP: it can be reached without Equalizer"})
-	case "error":
+	case in.Exposure == "error":
 		s.Checks = append(s.Checks, Check{"Isolation", Unknown, "the last check failed"})
-	case "pending":
+	case in.Exposure == "pending":
 		s.Checks = append(s.Checks, Check{"Isolation", Unknown, "first check pending"})
-	case "never_public":
+	case in.Exposure == "never_public":
 		s.Checks = append(s.Checks, Check{"Isolation", OK, "never had a public address: reachable only through Equalizer"})
 	default:
 		s.Checks = append(s.Checks, Check{"Isolation", Unknown, "old IP not set (Site → Isolation)"})

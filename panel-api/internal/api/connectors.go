@@ -63,7 +63,8 @@ func (s *Server) listConnectors(w http.ResponseWriter, r *http.Request, u *auth.
 			cs[i].Outdated = cs[i].Outdated || health.Older(v, s.Version)
 		}
 	}
-	writeJSON(w, http.StatusOK, map[string]any{"items": cs, "next_cursor": nil, "platform_version": s.Version, "relay_url": s.RelayURL})
+	writeJSON(w, http.StatusOK, map[string]any{"items": cs, "next_cursor": nil, "platform_version": s.Version, "relay_url": s.RelayURL,
+		"direct_from": s.outboundAddresses(r.Context())})
 }
 
 func (s *Server) createConnector(w http.ResponseWriter, r *http.Request, u *auth.User) {

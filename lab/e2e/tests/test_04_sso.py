@@ -21,9 +21,7 @@ def test_publish_sso_on_admin_paths():
                             "roles": [{"group": "Blog editors", "role": role}],
                             "paths": ["/wp-admin/", "/wp-login.php", "/xmlrpc.php"]}
     v = b.call("POST", "/apps/blog/maps", {"document": doc, "note": "SSO on the admin"}, 201)["version"]
-    b.call("POST", f"/apps/blog/maps/{v}/submit", None, 200)
-    state.ann.call("POST", f"/apps/blog/maps/{v}/approve", None, 200)
-    state.ann.call("POST", f"/apps/blog/maps/{v}/publish", None, 200)
+    b.call("POST", f"/apps/blog/maps/{v}/publish", None, 200)
     for _ in range(60):
         r = requests.get(SITE + "/wp-login.php", verify=CA, timeout=10, allow_redirects=False)
         if r.status_code == 302 and "idp.lab.test" in r.headers.get("Location", ""):

@@ -39,6 +39,43 @@ merge of #39).
 
 ## Entries
 
+### 2026-11-20 — Direct mode for customer sites, manuals
+
+- **Branch:** fix/first-install-feedback
+- **What:**
+  - Direct mode as a deployment option: a site that stays at its public
+    address and accepts only Equalizer's addresses needs no connector.
+    `checkReach` accepts in direct mode a public IP address and port written
+    as such (`publicDest`; never a name, which could later resolve to the
+    platform's network) or `EQ_DIRECT_DESTINATIONS`. Template and first
+    discovery take `mode` (`newReach`). The agent reaches such a site pinned
+    to the address with the site's name in Host and SNI (`_Pinned`), as the
+    gateway does. Equalizer's addresses (`EQ_OUTBOUND_IPS`, or those of the
+    panel's and relay's domains) are returned as `direct_from` and shown in
+    the panel. Isolation of such a site cannot be checked from the
+    platform, whose requests are the accepted ones: Status says so, the
+    hourly check and "Check now" skip it, the Isolation page gives a
+    command to run from another network. `App.reach_mode` tells the panel.
+    UI: "How Equalizer reaches the site" (`ReachFields`) in the template and
+    first discovery forms; neutral wording.
+  - Requirement 2 and the decision table in `CLAUDE.md` and
+    `docs/architecture.md` updated as decisions of the owner: direct mode,
+    one administrator publishes, site certificates always uploaded.
+  - Manuals (tenant, admin), `INSTALL.md`, `docs/map-format.md`: two roles,
+    publish alone, direct mode, never-public sites, alert kinds, AI model
+    list, tenant deletion, email reasons. `INSTALL.md` no longer says Caddy
+    gets a certificate for a protected site (it never does).
+  - Lab end-to-end tests: one administrator publishes, the second person is
+    a viewer who cannot.
+- **Why:** owner's decision after the first installation: a site already
+  behind a perimeter that accepts only Equalizer does not need a connector.
+  Automatic certificates for protected sites were proposed and declined:
+  the certificate stays the one issued for the original site.
+- **Status:** unit, API and agent tests pass; lab end-to-end not run yet in
+  this commit.
+- **Next steps:** run the lab end to end and the panel at phone width; open
+  the PR; release 0.2.1 (tag by the owner) and update the VPS.
+
 ### 2026-11-20 — One person publishes, two roles, tenant deletion, AI models, alert kinds
 
 - **Branch:** fix/first-install-feedback

@@ -1,6 +1,7 @@
 package api
 
 import (
+	"encoding/json"
 	"errors"
 	"net/http"
 
@@ -25,6 +26,7 @@ func (s *Server) mapTemplate(w http.ResponseWriter, r *http.Request, u *auth.Use
 	}
 	var in struct {
 		Template    string `json:"template"`
+		Mode        string `json:"mode"`
 		ConnectorID string `json:"connector_id"`
 		Address     string `json:"address"`
 		Scheme      string `json:"scheme"`
@@ -36,8 +38,14 @@ func (s *Server) mapTemplate(w http.ResponseWriter, r *http.Request, u *auth.Use
 	if in.Scheme == "" {
 		in.Scheme = "https"
 	}
-	if !connectorIDRe.MatchString(in.ConnectorID) || normDest(in.Address) == "" || (in.Scheme != "https" && in.Scheme != "http") {
-		fail(w, http.StatusUnprocessableEntity, "invalid", "connector_id, address (host:port) and scheme (https or http) are required")
+	reach, err := newReach(in.Mode, in.ConnectorID, in.Address)
+	if err != nil || (in.Scheme != "https" && in.Scheme != "http") {
+		fail(w, http.StatusUnprocessableEntity, "invalid", "address (host:port), scheme (https or http) and, through a connector, connector_id are required")
+		return
+	}
+	probe, _ := json.Marshal(map[string]any{"legacy": map[string]any{"reach": reach}})
+	if err := s.checkReach(r.Context(), a.Tenant, probe); err != nil {
+		s.reachFail(w, r, err, http.StatusUnprocessableEntity)
 		return
 	}
 	if in.MaxUploadMB < 0 || in.MaxUploadMB > 1024 {
@@ -46,6 +54,9 @@ func (s *Server) mapTemplate(w http.ResponseWriter, r *http.Request, u *auth.Use
 	}
 	doc, err := templates.Render(in.Template, templates.Fill{BaseURL: in.Scheme + "://" + a.PublicDomain,
 		Connector: in.ConnectorID, Address: normDest(in.Address), MaxUploadMB: in.MaxUploadMB})
+	if err == nil {
+		doc, err = withReach(doc, reach)
+	}
 	if errors.Is(err, templates.ErrUnknown) {
 		fail(w, http.StatusNotFound, "not_found", "unknown template")
 		return
@@ -55,4 +66,19 @@ func (s *Server) mapTemplate(w http.ResponseWriter, r *http.Request, u *auth.Use
 		return
 	}
 	writeJSON(w, http.StatusOK, map[string]any{"document": doc})
+}
+
+// withReach puts the chosen way to the site in a filled template.
+func withReach(doc, reach json.RawMessage) (json.RawMessage, error) {
+	var m map[string]any
+	if err := json.Unmarshal(doc, &m); err != nil {
+		return nil, err
+	}
+	legacy, _ := m["legacy"].(map[string]any)
+	if legacy == nil {
+		legacy = map[string]any{}
+	}
+	legacy["reach"] = reach
+	m["legacy"] = legacy
+	return json.Marshal(m)
 }

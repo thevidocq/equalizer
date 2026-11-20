@@ -1243,7 +1243,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** A first map for the site from a template, filled with its domain, connector and address. Nothing is saved: the document goes into the editor and becomes a draft like any other (administrators) */
+        /** A first map for the site from a template, filled with its domain and the way to reach it. Nothing is saved: the document goes into the editor and becomes a draft like any other (administrators) */
         post: {
             parameters: {
                 query?: never;
@@ -1257,8 +1257,15 @@ export interface paths {
                 content: {
                     "application/json": {
                         template: string;
-                        connector_id: string;
-                        /** @description host:port the connector connects to */
+                        /**
+                         * @description connector: through one of the tenant's connectors; direct: Equalizer reaches the site at its public address, and the site accepts only Equalizer's address
+                         * @default connector
+                         * @enum {unknown}
+                         */
+                        mode?: "connector" | "direct";
+                        /** @description Required with mode connector */
+                        connector_id?: string;
+                        /** @description host:port the connector connects to; direct: the site's public IP address and port */
                         address: string;
                         /**
                          * @default https
@@ -2661,6 +2668,8 @@ export interface paths {
                             platform_version?: string;
                             /** @description Public address connectors dial (EQ_RELAY_URL in their command); empty when not configured */
                             relay_url?: string;
+                            /** @description Addresses Equalizer connects from: a site reached directly accepts these and no other (EQ_OUTBOUND_IPS, or the addresses of the panel's and relay's domains) */
+                            direct_from?: string[];
                         };
                     };
                 };
@@ -3864,6 +3873,11 @@ export interface components {
             /** Format: date-time */
             created_at: string;
             published_version: number | null;
+            /**
+             * @description How the published map reaches the legacy site; null: nothing published
+             * @enum {unknown}
+             */
+            readonly reach_mode?: "connector" | "direct" | null;
             kind?: components["schemas"]["SiteKind"];
             /**
              * @description Continuous discovery: run again and propose what changed
@@ -4116,9 +4130,15 @@ export interface components {
             } | null;
             /** @description Test accounts (for example customer and administrator). Each is explored in its own pass, to reach the pages behind its login; the map does not restrict pages by account (the legacy site decides access). Kept encrypted, deleted when the discovery ends. account counts as the first one */
             accounts?: components["schemas"]["TestAccount"][];
-            /** @description Needed while the site has no published map */
+            /**
+             * @description Needed while the site has no published map: how it is reached
+             * @default connector
+             * @enum {unknown}
+             */
+            mode: "connector" | "direct";
+            /** @description Needed while the site has no published map, with mode connector */
             connector_id?: string;
-            /** @description host:port the connector reaches */
+            /** @description host:port the connector reaches; direct: the site's public IP address and port */
             address?: string;
             /** @enum {unknown} */
             scheme?: "https" | "http";

@@ -5,6 +5,7 @@ import (
 	"crypto/ed25519"
 	"encoding/base64"
 	"fmt"
+	"net"
 	netmail "net/mail"
 	"net/netip"
 	"net/url"
@@ -43,9 +44,10 @@ type Config struct {
 	// TrustedProxies may set X-Forwarded-For (EQ_TRUSTED_PROXIES, CIDRs):
 	// the proxies in front of the panel. Empty: the peer is the client.
 	TrustedProxies  []netip.Prefix
-	RelayURL        string // public address of the tunnel relay, shown in the connector command (EQ_RELAY_PUBLIC_URL)
-	RelayAdmin      string // relays' admin endpoint for the status page (EQ_RELAY_ADMIN, e.g. tunnel-relay:9091)
-	GatewayAdmin    string // gateways' admin endpoint (EQ_GATEWAY_ADMIN, e.g. gateway:9090)
+	OutboundIPs     []string // addresses Equalizer connects from, for sites reached directly (EQ_OUTBOUND_IPS)
+	RelayURL        string   // public address of the tunnel relay, shown in the connector command (EQ_RELAY_PUBLIC_URL)
+	RelayAdmin      string   // relays' admin endpoint for the status page (EQ_RELAY_ADMIN, e.g. tunnel-relay:9091)
+	GatewayAdmin    string   // gateways' admin endpoint (EQ_GATEWAY_ADMIN, e.g. gateway:9090)
 	ShutdownTimeout time.Duration
 }
 
@@ -115,6 +117,15 @@ func FromEnv() (Config, error) {
 	}
 	cfg.MailFrom = env("EQ_MAIL_FROM", "equalizer@localhost")
 	cfg.DirectDestinations = os.Getenv("EQ_DIRECT_DESTINATIONS")
+	for _, ip := range strings.Split(os.Getenv("EQ_OUTBOUND_IPS"), ",") {
+		if ip = strings.TrimSpace(ip); ip == "" {
+			continue
+		}
+		if net.ParseIP(ip) == nil {
+			return Config{}, fmt.Errorf("EQ_OUTBOUND_IPS: %q is not an IP address", ip)
+		}
+		cfg.OutboundIPs = append(cfg.OutboundIPs, ip)
+	}
 	cfg.ExposureInterval = time.Hour
 	if v := os.Getenv("EQ_EXPOSURE_INTERVAL"); v != "" {
 		d, err := time.ParseDuration(v)

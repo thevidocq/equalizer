@@ -558,7 +558,7 @@ paths:
     post:
       tags: [maps]
       summary: >-
-        A first map for the site from a template, filled with its domain, connector and address. Nothing is
+        A first map for the site from a template, filled with its domain and the way to reach it. Nothing is
         saved: the document goes into the editor and becomes a draft like any other (administrators)
       parameters: [{ $ref: "#/components/parameters/app" }]
       requestBody:
@@ -567,11 +567,15 @@ paths:
           application/json:
             schema:
               type: object
-              required: [template, connector_id, address]
+              required: [template, address]
               properties:
                 template: { type: string }
-                connector_id: { type: string, pattern: "^[a-z0-9][a-z0-9_-]{1,62}$" }
-                address: { type: string, pattern: "^[A-Za-z0-9.\\-]+:[0-9]{1,5}$", description: "host:port the connector connects to" }
+                mode:
+                  enum: [connector, direct]
+                  default: connector
+                  description: "connector: through one of the tenant's connectors; direct: Equalizer reaches the site at its public address, and the site accepts only Equalizer's address"
+                connector_id: { type: string, pattern: "^[a-z0-9][a-z0-9_-]{1,62}$", description: "Required with mode connector" }
+                address: { type: string, pattern: "^[A-Za-z0-9.\\-]+:[0-9]{1,5}$", description: "host:port the connector connects to; direct: the site's public IP address and port" }
                 scheme: { enum: [https, http], default: https }
                 max_upload_mb:
                   type: integer
@@ -1171,6 +1175,10 @@ paths:
                   next_cursor: { type: [string, "null"] }
                   platform_version: { type: string, description: "Release of the platform; connectors older than it are outdated" }
                   relay_url: { type: string, description: "Public address connectors dial (EQ_RELAY_URL in their command); empty when not configured" }
+                  direct_from:
+                    type: array
+                    items: { type: string }
+                    description: "Addresses Equalizer connects from: a site reached directly accepts these and no other (EQ_OUTBOUND_IPS, or the addresses of the panel's and relay's domains)"
     post:
       tags: [connectors]
       summary: Register a connector; the token is returned only in this answer (tenant administrators)
@@ -1761,6 +1769,7 @@ components:
         aliases: { type: array, items: { type: string }, description: "Other domains, redirected to the public domain" }
         created_at: { type: string, format: date-time }
         published_version: { type: [integer, "null"] }
+        reach_mode: { enum: [connector, direct, null], readOnly: true, description: "How the published map reaches the legacy site; null: nothing published" }
         kind: { $ref: "#/components/schemas/SiteKind" }
         discovery_schedule: { enum: [off, daily, weekly], description: "Continuous discovery: run again and propose what changed" }
         exposure: { $ref: "#/components/schemas/Exposure" }
@@ -2010,8 +2019,9 @@ components:
             pages behind its login; the map does not restrict pages by account (the legacy site decides access).
             Kept encrypted, deleted when the discovery ends. account counts as the first one
           items: { $ref: "#/components/schemas/TestAccount" }
-        connector_id: { type: string, description: "Needed while the site has no published map" }
-        address: { type: string, description: "host:port the connector reaches" }
+        mode: { enum: [connector, direct], default: connector, description: "Needed while the site has no published map: how it is reached" }
+        connector_id: { type: string, description: "Needed while the site has no published map, with mode connector" }
+        address: { type: string, description: "host:port the connector reaches; direct: the site's public IP address and port" }
         scheme: { enum: [https, http] }
     Discovery:
       type: object

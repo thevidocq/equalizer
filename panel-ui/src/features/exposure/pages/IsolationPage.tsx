@@ -7,6 +7,7 @@ import { ExposureStatus } from "../components/ExposureStatus";
 import { LegacyIpForm } from "../components/LegacyIpForm";
 import { IsolationGuide } from "../components/IsolationGuide";
 import { AliasesForm } from "../components/AliasesForm";
+import { DirectIsolation } from "../components/DirectIsolation";
 
 /** Site → Isolation: is the site still reachable without Equalizer? */
 export function IsolationPage() {
@@ -17,6 +18,7 @@ export function IsolationPage() {
   if (!site) return null;
   const exposure = site.exposure ?? { status: "not_configured" as const };
   const manage = canManage(me.data, tenant);
+  const direct = site.reach_mode === "direct";
 
   return (
     <div className="flex flex-col gap-8">
@@ -25,10 +27,12 @@ export function IsolationPage() {
         of the same server can stay public.
       </p>
       {check.isError ? <Notice tone="error">{describeError(check.error)}</Notice> : null}
-      <ExposureStatus exposure={exposure} onCheck={manage ? () => check.mutate() : undefined} busy={check.isPending} />
-      {manage ? <LegacyIpForm key={`ip:${exposure.legacy_ip ?? ""}:${exposure.status}`} app={app} current={exposure.legacy_ip}
+      {direct ? <DirectIsolation tenant={tenant} domain={site.public_domain} scheme={site.tls?.public_scheme ?? "https"} /> : (
+        <ExposureStatus exposure={exposure} onCheck={manage ? () => check.mutate() : undefined} busy={check.isPending} />
+      )}
+      {manage && !direct ? <LegacyIpForm key={`ip:${exposure.legacy_ip ?? ""}:${exposure.status}`} app={app} current={exposure.legacy_ip}
         neverPublic={exposure.status === "never_public"} /> : null}
-      {manage && exposure.status !== "never_public" ? <IsolationGuide domain={site.public_domain} /> : null}
+      {manage && !direct && exposure.status !== "never_public" ? <IsolationGuide domain={site.public_domain} /> : null}
       {manage ? <AliasesForm key={`aliases:${(site.aliases ?? []).join(",")}`} app={app} domain={site.public_domain} current={site.aliases ?? []} /> : null}
     </div>
   );

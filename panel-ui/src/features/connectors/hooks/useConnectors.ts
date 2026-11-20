@@ -13,7 +13,9 @@ export function useConnectors(tenant: string) {
 
 /** What the install command needs: the platform's release and the relay's public address. */
 export function useConnectorSetup(tenant: string) {
-  return useQuery({ ...listQuery(tenant), select: (d) => ({ version: d.platform_version ?? "", relayUrl: d.relay_url ?? "" }) });
+  return useQuery({ ...listQuery(tenant), select: (d) => ({
+    version: d.platform_version ?? "", relayUrl: d.relay_url ?? "", directFrom: d.direct_from ?? [],
+  }) });
 }
 
 export function useConnectorActions(tenant: string) {

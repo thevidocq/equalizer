@@ -97,3 +97,17 @@ func TestReplicaCheck(t *testing.T) {
 		t.Errorf("detail: %q", d)
 	}
 }
+
+// A site reached directly accepts Equalizer's address: a check from the
+// platform proves nothing, so Isolation is never shown as fine or exposed.
+func TestIsolationDirect(t *testing.T) {
+	doc := []byte(`{"legacy":{"reach":{"mode":"direct","address":"8.8.8.8:443","allow":["8.8.8.8:443"]}}}`)
+	for _, exp := range []string{"closed", "exposed", "not_configured"} {
+		s := Evaluate(Input{MapVersion: 1, Map: doc, Exposure: exp, Traffic: true})
+		for _, c := range s.Checks {
+			if c.Name == "Isolation" && (c.State != Unknown || !strings.Contains(c.Detail, "another network")) {
+				t.Errorf("%s: %+v", exp, c)
+			}
+		}
+	}
+}

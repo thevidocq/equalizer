@@ -12,6 +12,7 @@ import (
 
 	"github.com/thevidocq/equalizer/panel-api/internal/auth"
 	"github.com/thevidocq/equalizer/panel-api/internal/exposure"
+	"github.com/thevidocq/equalizer/panel-api/internal/health"
 	"github.com/thevidocq/equalizer/panel-api/internal/store"
 )
 
@@ -123,7 +124,36 @@ func (s *Server) ownAddress(ctx context.Context, ip string) bool {
 			return true
 		}
 	}
-	return false
+	return slices.Contains(s.OutboundIPs, ip)
+}
+
+// outboundAddresses are the addresses Equalizer's requests come from, for a
+// site reached directly to accept: EQ_OUTBOUND_IPS, or else the addresses of
+// the panel's and relay's domains (one server: the same machine).
+func (s *Server) outboundAddresses(ctx context.Context) []string {
+	if len(s.OutboundIPs) > 0 {
+		return s.OutboundIPs
+	}
+	lookup := s.LookupHost
+	if lookup == nil {
+		lookup = net.DefaultResolver.LookupHost
+	}
+	out := []string{}
+	for _, raw := range []string{s.PanelURL, s.RelayURL} {
+		u, err := url.Parse(raw)
+		if err != nil || u.Hostname() == "" {
+			continue
+		}
+		ctx, cancel := context.WithTimeout(ctx, 3*time.Second)
+		addrs, err := lookup(ctx, u.Hostname())
+		cancel()
+		for _, a := range addrs {
+			if _, ok := exposure.PublicIP(a); ok && err == nil && !slices.Contains(out, a) {
+				out = append(out, a)
+			}
+		}
+	}
+	return out
 }
 
 func netipFromJSON(raw json.RawMessage, into *string) (string, bool) {
@@ -149,6 +179,11 @@ func (s *Server) checkExposure(w http.ResponseWriter, r *http.Request, u *auth.U
 	}
 	if a.Exposure.LegacyIP == nil || s.Exposure == nil {
 		fail(w, http.StatusConflict, "no_legacy_ip", "set the site's old public IP first")
+		return
+	}
+	if v, err := s.Store.Published(r.Context(), a.ID); err == nil && health.Connector(v.Document) == "" {
+		fail(w, http.StatusConflict, "reached_directly",
+			"the site is reached directly: a check from Equalizer comes from the address it accepts; test from another network")
 		return
 	}
 	key := "exposure:" + a.ID

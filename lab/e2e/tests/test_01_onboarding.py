@@ -34,9 +34,9 @@ def test_tenant_and_invitation_email():
     state.root.call("GET", "/tenants/acme/connectors", None, 403)
 
 
-def test_second_person_to_approve():
+def test_viewer_joins():
     since = time.time()
-    state.boss.call("POST", "/tenants/acme/invitations", {"email": "ann@acme.test", "name": "Ann Approver", "role": "approver"}, 201)
+    state.boss.call("POST", "/tenants/acme/invitations", {"email": "ann@acme.test", "name": "Ann Viewer", "role": "viewer"}, 201)
     token = mail_link("ann@acme.test", "/invite/", since).rsplit("/", 1)[1]
     ann = Panel()
     ann.call("POST", f"/invitations/{token}/accept", {"password": "Ann-password-1234"}, 201)
@@ -63,10 +63,8 @@ def test_site_from_template_published():
     doc = b.call("POST", "/apps/blog/map-template", {"template": "wordpress", "connector_id": "cn-web",
                                                       "address": "127.0.0.1:18090", "scheme": "http", "max_upload_mb": 20}, 200)["document"]
     v = b.call("POST", "/apps/blog/maps", {"document": doc, "note": "From the WordPress template"}, 201)["version"]
-    b.call("POST", f"/apps/blog/maps/{v}/submit", None, 200)
-    b.call("POST", f"/apps/blog/maps/{v}/approve", None, 403)  # never one's own version
-    state.ann.call("POST", f"/apps/blog/maps/{v}/approve", None, 200)
-    state.ann.call("POST", f"/apps/blog/maps/{v}/publish", None, 200)
+    state.ann.call("POST", f"/apps/blog/maps/{v}/publish", None, 403)  # a viewer reads only
+    b.call("POST", f"/apps/blog/maps/{v}/publish", None, 200)  # one administrator is enough
     # Published without a certificate: the panel says so, visitors get no
     # HTTPS (no certificate is ever made up for a protected site).
     assert b.call("GET", "/apps/blog", None, 200)["tls"]["status"] == "missing"
@@ -95,9 +93,7 @@ def publish(app, name, domain, kind, address, scheme="https"):
     doc = b.call("POST", f"/apps/{app}/map-template", {"template": kind, "connector_id": "cn-web",
                                                        "address": address, "scheme": "http", "max_upload_mb": 20}, 200)["document"]
     v = b.call("POST", f"/apps/{app}/maps", {"document": doc, "note": f"From the {kind} template"}, 201)["version"]
-    b.call("POST", f"/apps/{app}/maps/{v}/submit", None, 200)
-    state.ann.call("POST", f"/apps/{app}/maps/{v}/approve", None, 200)
-    state.ann.call("POST", f"/apps/{app}/maps/{v}/publish", None, 200)
+    b.call("POST", f"/apps/{app}/maps/{v}/publish", None, 200)
 
 
 @pytest.mark.parametrize("kind", list(SITES))

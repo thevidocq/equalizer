@@ -43,10 +43,13 @@ type Server struct {
 	MFA            *mfa.Box     // encrypts authenticator secrets
 	MFARequired    bool         // every panel user must enrol an authenticator
 	MFAThrottle    *auth.Throttle
-	Mail           mail.Sender      // invitations
-	PanelURL       string           // base of the links in emails, e.g. https://panel.example.com
-	RelayURL       string           // public address connectors dial, for their install command; empty: unknown
-	Models         llmmodels.Lister // asks AI providers for their models; zero value: the public APIs
+	Mail           mail.Sender // invitations
+	PanelURL       string      // base of the links in emails, e.g. https://panel.example.com
+	RelayURL       string      // public address connectors dial, for their install command; empty: unknown
+	// OutboundIPs: the addresses Equalizer connects from (EQ_OUTBOUND_IPS);
+	// empty: those of the panel's and relay's domains.
+	OutboundIPs []string
+	Models      llmmodels.Lister // asks AI providers for their models; zero value: the public APIs
 	// LookupHost resolves the platform's own domains (tests replace it).
 	LookupHost    func(ctx context.Context, host string) ([]string, error)
 	MailAvailable bool   // the platform sends email (alerts can work)

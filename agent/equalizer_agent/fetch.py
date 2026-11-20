@@ -1,8 +1,13 @@
 """Requests towards the legacy site, as the gateway makes them: through the
-relay and the connector (or directly, for lab destinations the platform
+relay and the connector, or directly (a site at a public IP address that
+accepts only Equalizer's address, or a lab destination the platform
 allows). Only destinations in the map's reach are used; redirects are
 returned, never followed; bodies are bounded."""
 
+import http.client
+import ipaddress
+import socket
+import ssl
 import time
 import urllib.error
 import urllib.parse
@@ -40,6 +45,44 @@ class ReachError(Exception):
     pass
 
 
+def _public_ip(host: str) -> bool:
+    """A public IP address written as such: a name could resolve to the
+    platform's own network, an address cannot."""
+    try:
+        return ipaddress.ip_address(host.strip("[]")).is_global
+    except ValueError:
+        return False
+
+
+class _Pinned(urllib.request.HTTPHandler, urllib.request.HTTPSHandler):
+    """Connects every request to one host:port while the URL's host stays in
+    Host and in TLS SNI, and the certificate is checked against it: a
+    virtual host reached at its address, as the gateway does."""
+
+    def __init__(self, dest: str):
+        urllib.request.HTTPHandler.__init__(self)
+        urllib.request.HTTPSHandler.__init__(self, context=ssl.create_default_context())
+        host, _, port = dest.rpartition(":")
+        self.addr = (host.strip("[]"), int(port))
+
+    def http_open(self, req):
+        addr = self.addr
+
+        class Conn(http.client.HTTPConnection):
+            def connect(self):
+                self.sock = socket.create_connection(addr, self.timeout)
+        return self.do_open(Conn, req)
+
+    def https_open(self, req):
+        addr, ctx = self.addr, self._context
+
+        class Conn(http.client.HTTPSConnection):
+            def connect(self):
+                raw = socket.create_connection(addr, self.timeout)
+                self.sock = ctx.wrap_socket(raw, server_hostname=self.host)
+        return self.do_open(Conn, req)
+
+
 def _dest(u: urllib.parse.SplitResult) -> str:
     port = u.port or (443 if u.scheme == "https" else 80)
     return f"{(u.hostname or '').lower()}:{port}"
@@ -69,11 +112,14 @@ class Fetcher:
         if self.dest not in self.allow:
             raise ReachError("the destination is not in legacy.reach.allow")
         mode = self.reach.get("mode")
-        if mode == "direct" and self.dest not in self.direct:
-            raise ReachError("direct mode is limited to EQ_DIRECT_DESTINATIONS")
+        if mode == "direct" and self.dest not in self.direct and not _public_ip(self.dest.rpartition(":")[0]):
+            raise ReachError("direct mode reaches a public IP address, or a destination in EQ_DIRECT_DESTINATIONS")
         if mode not in ("direct", "connector"):
             raise ReachError("unknown legacy.reach.mode")
-        self.opener = urllib.request.build_opener(NoRedirect())
+        if mode == "direct":
+            self.opener = urllib.request.build_opener(NoRedirect(), _Pinned(self.dest))
+        else:
+            self.opener = urllib.request.build_opener(NoRedirect())
 
     def same_site(self, url: str) -> bool:
         u = urllib.parse.urlsplit(url)
@@ -104,9 +150,8 @@ class Fetcher:
                 "X-Eq-Request-Id": "d-" + uuid.uuid4().hex[:16]})
             if self.address:
                 headers["X-Eq-Host"] = self.base.netloc.lower()
-        else:
-            target = f"{self.base.scheme}://{self.dest}{path_query}"
-            headers["Host"] = self.base.netloc
+        else:  # connected to dest by _Pinned; the site's own name in Host and SNI
+            target = f"{self.base.scheme}://{self.base.netloc}{path_query}"
         req = urllib.request.Request(target, data=data, method=method, headers=headers)
         try:
             resp = self.opener.open(req, timeout=TIMEOUT)

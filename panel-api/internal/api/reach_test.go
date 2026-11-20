@@ -40,6 +40,19 @@ func TestMapReach(t *testing.T) {
 	if code, out := draft(acme, "portal", direct); code != 422 || out["error"] != "direct_not_allowed" {
 		t.Fatalf("direct map towards redis: %d %v", code, out)
 	}
+	for _, bad := range []string{"10.0.0.1:443", "www.acme.test:443", "127.0.0.1:8080", "169.254.169.254:80"} {
+		d := strings.Replace(mapDoc, `"mode":"connector","connector_id":"cn-1","allow":["10.0.0.1:8080"]`, `"mode":"direct","allow":["`+bad+`"]`, 1)
+		if code, out := draft(acme, "portal", d); code != 422 || out["error"] != "direct_not_allowed" {
+			t.Fatalf("direct map towards %s: %d %v", bad, code, out)
+		}
+	}
+	// A site on the Internet that accepts only Equalizer's address.
+	public := strings.Replace(mapDoc, `"base_url":"http://10.0.0.1:8080","reach":{"mode":"connector","connector_id":"cn-1","allow":["10.0.0.1:8080"]}`,
+		`"base_url":"https://www.acme.test","reach":{"mode":"direct","address":"8.8.8.8:443","allow":["8.8.8.8:443"]}`, 1)
+	acme.must(201, "POST", "/v1/tenants/acme/apps", map[string]string{"id": "www", "name": "Www", "public_domain": "www.acme.test"}, nil)
+	if code, out := draft(acme, "www", public); code != 201 {
+		t.Fatalf("direct map towards a public address: %d %v", code, out)
+	}
 	labDirect := strings.Replace(mapDoc, `"mode":"connector","connector_id":"cn-1","allow":["10.0.0.1:8080"]`, `"mode":"direct","allow":["vuln-app:80"]`, 1)
 	if code, out := draft(acme, "portal", labDirect); code != 201 {
 		t.Fatalf("direct map towards an allowed destination: %d %v", code, out)

@@ -163,11 +163,13 @@ of the app. Then:
 2. In the tenant: **+ Protect a site**, with its name and public domain.
 3. **Connectors → Add a connector**, one per legacy server: copy the
    `docker run` command it shows (the token appears only once) and run it
-   on that server (step 7). The same connector serves all its sites.
-4. **People → Invite a person** with the *Approver* role: maps are approved by
-   someone other than their author.
+   on that server (step 7). The same connector serves all its sites. A
+   site that stays at its public address and accepts only this server's
+   address needs no connector: choose **Directly** in the next step.
+4. **People → Invite a person**, if more people look after the sites:
+   administrators do everything, viewers read.
 5. **Map → New version**: start from the template of the site's CMS (or
-   import or write the map in YAML), **Save draft**, **Send for review**. The approver opens the version, **Approve**, **Publish**.
+   import or write the map in YAML), **Save draft**, **Publish**.
 
 The same steps are available on the API (`/v1`, see
 `schema/api/panel-api.yaml`); every request that changes something needs
@@ -175,14 +177,15 @@ the header `X-Eq-Panel: 1`.
 
 6. Point the site's DNS record to the VPS. The gateway downloads every
    published map from the panel (checked every 15 seconds), verifies its
-   signature and serves it on the site's domain; Caddy gets the certificate
-   at the first visit, only for domains with a published map.
+   signature and serves it on the site's domain. In https the site uses its
+   own certificate, uploaded in **Site → Certificate**: Equalizer never
+   issues one for a protected site. A site without one can stay in http.
 7. **Site → Isolation**: enter the site's old public IP and apply the
    configuration it shows on the web server, so the site no longer answers
    there. The status turns green when the check cannot reach it.
 
-A version is approved and published by someone other than its author;
-every action is in `GET /v1/audit`.
+An administrator publishes a version alone; every action is in
+`GET /v1/audit`.
 
 For a site reached through the connector, the map says:
 
@@ -221,7 +224,7 @@ Open `http://localhost:3000` (user `admin`, password from `.env`), go to
 {service="gateway", level="error"}                    errors only
 ```
 
-The panel's **Logs** page (tenant administrators, approvers and auditors) reads the security events from Loki (`EQ_LOKI_URL`, already set in Compose); Grafana stays for in-depth analysis.
+The panel's **Logs** page (tenant administrators and viewers) reads the security events from Loki (`EQ_LOKI_URL`, already set in Compose); Grafana stays for in-depth analysis.
 
 ### File uploads *(available)*
 

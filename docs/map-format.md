@@ -93,6 +93,11 @@ Faithful rendering rewrites every internal URL found in a page (`href`,
    same query keys), it becomes that route: often there is no need to declare
    `links`;
 3. if it is under an `assets` prefix, it keeps the same path;
+   an asset is served as the legacy site sends it once its type is allowed
+   for the prefix; `text/html` is allowed only for HTML fragments a page's
+   scripts load as templates (Magento's `/static/…/*.html`), served with
+   `Content-Security-Policy: sandbox` so that, opened directly, it cannot
+   run as a page (as for SVG);
 4. otherwise it becomes a relative path, which the gateway rejects (404) and
    counts as an unmapped URL.
 

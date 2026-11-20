@@ -38,6 +38,28 @@ prototype.
 
 ## Entries
 
+### 2026-11-20 — Study Magento's pages and templates faithfully
+
+- **Branch:** fix/magento-study
+- **What:** gateway `server/asset.go`: an asset of type `text/html` (an
+  HTML fragment a page's scripts load as a template) is served as the
+  legacy site sends it, with `Content-Security-Policy: sandbox` as for SVG
+  (test in `public_test.go`); before, the knockout templates went through
+  page rendering, which escaped their `<%- … %>` and broke them. Agent:
+  profiles name such fragments (`fragments`, Magento's `/static/…/*.html`)
+  and the crawler records them as `text/html` assets; asset prefixes stop
+  before a deployment folder (`/static/version1795173710/` → `/static/`);
+  the verification treats a link or a 301 that only differs by a final
+  slash as the same page (Magento answers `/page/` with a 301 to `/page`).
+  `docs/map-format.md` says when `text/html` is allowed for assets.
+- **Why:** with its first draft Magento had 7 of 39 pages identical, and
+  the agent's correction sent most of the site back to the area.
+- **Status:** lab test 06 on Magento: 32 of 32 pages identical with the
+  first draft, no correction needed, database unchanged. Unit tests for the
+  slash rule, the fragments and the prefixes.
+- **Next steps:** 1. Prove the six administrations read-only where
+  possible. 2. Remove the map `risk` field.
+
 ### 2026-11-20 — Prove the six other web application profiles in the lab
 
 - **Branch:** feat/lab-six-webapps

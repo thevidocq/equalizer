@@ -134,7 +134,10 @@ def asset_prefixes(assets: dict) -> dict:
         parts = path.split("/")[1:-1]
         if not parts:
             continue
-        prefix = "/" + "/".join(parts[:2]) + "/"
+        # a folder named after a deployment (Magento's /static/version1795173710/)
+        # changes with the next one: the prefix stops before it
+        keep = 1 if len(parts) > 1 and re.match(r"^(v|version)?\d{6,}$", parts[1]) else 2
+        prefix = "/" + "/".join(parts[:keep]) + "/"
         if not re.match(r"^/([A-Za-z0-9_.\-]+/)*$", prefix) or "/../" in prefix:
             continue
         out.setdefault(prefix, set()).add(ctype)

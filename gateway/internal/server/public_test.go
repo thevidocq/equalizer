@@ -50,6 +50,7 @@ func testSite(t *testing.T, legacy http.Handler) *site.Site {
 		Assets: []mapmodel.Asset{
 			{Prefix: "/css/", Types: []string{"text/css"}},
 			{Prefix: "/img/", Types: []string{"image/png"}},
+			{Prefix: "/tpl/", Types: []string{"text/html"}},
 		},
 	}
 	st, err := site.Build(m)
@@ -231,6 +232,9 @@ func TestAssets(t *testing.T) {
 		case "/img/shell.png":
 			w.Header().Set("Content-Type", "image/png")
 			_, _ = w.Write([]byte("<?php system($_GET['c']); ?>"))
+		case "/tpl/modal.html": // a template a page's scripts load, served as it is
+			w.Header().Set("Content-Type", "text/html")
+			_, _ = w.Write([]byte(`<div class="modal"><%- data.title %></div>`))
 		case "/css/fake.css":
 			w.Header().Set("Content-Type", "application/x-httpd-php")
 			_, _ = w.Write([]byte("<?php ?>"))
@@ -243,6 +247,11 @@ func TestAssets(t *testing.T) {
 	}
 	if rec := get(h, "GET", "/img/logo.png", nil); rec.Code != 200 {
 		t.Errorf("valid png: %d", rec.Code)
+	}
+	rec := get(h, "GET", "/tpl/modal.html", nil)
+	if rec.Code != 200 || !strings.Contains(rec.Body.String(), "<%- data.title %>") ||
+		!strings.HasPrefix(rec.Header().Get("Content-Security-Policy"), "sandbox") {
+		t.Errorf("html template: %d %q, CSP %q", rec.Code, rec.Body.String(), rec.Header().Get("Content-Security-Policy"))
 	}
 	for _, target := range []string{"/img/shell.png", "/css/fake.css", "/css/../WEB-INF/web.xml", "/css/a//b.css", "/css/%7B%7Bx%7D%7D.css"} {
 		if rec := get(h, "GET", target, nil); rec.Code != http.StatusNotFound {

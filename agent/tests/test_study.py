@@ -309,3 +309,24 @@ class MapPathTest(unittest.TestCase):
         self.assertNotIn(odd, {r["path"] for r in doc["routes"]})
         self.assertFalse([f for f in doc.get("forms", []) if "~" in f["route"]])
         self.assertIn(odd, {o["target"] for o in rep["open"] if o["reason"] == "other"})
+
+
+class FragmentsTest(unittest.TestCase):
+    def test_templates_are_assets_under_a_stable_prefix(self):
+        """Magento's knockout templates are HTML files its scripts load:
+        assets of type text/html, under a prefix that does not name the
+        deployment (/static/version1795173710/ changes with the next one)."""
+        from equalizer_agent import cluster, crawler
+        from equalizer_agent.fetch import Fetcher
+        c = crawler.Crawler(Fetcher("http://store.test", {"mode": "direct", "address": "127.0.0.1:1",
+                                                          "allow": ["127.0.0.1:1"]}, "acme", "", "", {"127.0.0.1:1"}, 0),
+                            "magento", 10, Logger("t", "warn", io.StringIO()))
+        tpl = "/static/version1795173710/frontend/Magento/luma/en_US/Magento_Ui/templates/modal/modal-popup.html"
+        c._asset("http://store.test" + tpl)
+        c._asset("http://store.test/static/version1795173710/frontend/Magento/luma/en_US/css/styles-m.css")
+        self.assertEqual(c.r.assets[tpl], "text/html")
+        self.assertEqual(cluster.asset_prefixes(c.r.assets), {"/static/": ["text/css", "text/html"]})
+        # elsewhere an .html file is a page
+        g = crawler.Crawler(c.f, "wordpress", 10, Logger("t", "warn", io.StringIO()))
+        g._asset("http://store.test/static/page.html")
+        self.assertNotIn("/static/page.html", g.r.assets)

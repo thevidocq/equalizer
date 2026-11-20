@@ -94,12 +94,31 @@ def _same_site(words: list, hosts: tuple) -> list:
     return [rx.sub("", w) or "/" for w in words]
 
 
+def _unslashed(links: set) -> set:
+    """Links the same but for a final slash are the same link: the gateway
+    writes each in the spelling of its route, and the site sends the other
+    spelling there (Magento: /page/ answers 301 to /page)."""
+    return {p.rstrip("/") or "/" for p in links}
+
+
+def _slash_redirect(direct) -> bool:
+    """The site's answer only sends to the same path with or without its
+    final slash."""
+    if not 300 <= direct.status < 400 or not direct.location:
+        return False
+    there = urllib.parse.urlsplit(direct.location).path
+    here = urllib.parse.urlsplit(direct.url).path
+    return there != here and there.rstrip("/") == here.rstrip("/")
+
+
 def compare(direct, via, hosts: tuple = ()) -> tuple:
     """(difference, detail) between the legacy answer and the gateway's, or
     ("", "") when they are the same for a visitor."""
     if via.get("refusal"):
         return "refused", via["refusal"].get("reason", "")
     resp = via.get("response") or {}
+    if _slash_redirect(direct) and resp.get("status") == 200:
+        return "", ""  # the page itself, without the site's detour to its other spelling
     if resp.get("status") != direct.status:
         return "status", "%s directly, %s through Equalizer" % (direct.status, resp.get("status"))
     if 300 <= direct.status < 400:  # the same place, wherever each says it is
@@ -115,7 +134,7 @@ def compare(direct, via, hosts: tuple = ()) -> tuple:
     ratio = difflib.SequenceMatcher(None, a.words, b.words, autojunk=False).ratio() if a.words or b.words else 1
     if ratio < TEXT_SIMILAR:
         return "text", "%d%% of the visible text is the same%s" % (int(ratio * 100), _words_apart(a.words, b.words))
-    lost = sorted(a.links - b.links)
+    lost = sorted(_unslashed(a.links) - _unslashed(b.links))
     if lost:
         return "links", "links missing: " + ", ".join(lost[:5])
     if len(a.forms) != len(b.forms):

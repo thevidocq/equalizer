@@ -26,6 +26,9 @@ class Profile:
     # that viewing it changes nothing (lab/e2e/tests/test_06_study.py).
     admin_read_only: bool = False
     never: tuple = ()  # pages that act when they are only opened
+    # HTML files the pages' scripts load as templates: assets, not pages
+    # (the gateway serves them as they are, unable to run as a page)
+    fragments: tuple = ()
     tested: str = ""  # what the lab proves about this profile, in words ("" = not tested yet)
     note: str = ""  # what to know, in words
 
@@ -55,3 +58,7 @@ TOKENS = re.compile(r"[?&](_wpnonce|nonce|_nonce|token|_token|csrf|csrf_token|fo
 
 def is_action(path_query: str) -> bool:
     return bool(ACTIONS.search(path_query) or ACTION_WORDS.search(path_query) or TOKENS.search(path_query))
+
+
+def is_fragment(profile: Profile, path: str) -> bool:
+    return any(re.search(p, path) for p in profile.fragments)

@@ -89,7 +89,7 @@ class Crawler:
         new = []
         for pq in sorted(seen.requested - set(self.r.pages) - set(pages)):
             last = pq.split("?")[0].rsplit("/", 1)[-1]
-            if "." in last and "." + last.rsplit(".", 1)[-1].lower() in ASSET_EXT:
+            if "." in last and "." + last.rsplit(".", 1)[-1].lower() in ASSET_EXT or self._fragment(pq.split("?")[0]):
                 self._asset(self.f.base_url.rstrip("/") + pq)  # a file the page loads
             else:
                 new.append(pq)
@@ -264,7 +264,7 @@ class Crawler:
         self.r.urls.append(url)
         pq = path_query(url)
         ext = "." + pq.split("?")[0].rsplit(".", 1)[-1].lower() if "." in pq.split("?")[0].rsplit("/", 1)[-1] else ""
-        if ext in ASSET_EXT:
+        if ext in ASSET_EXT or self._fragment(pq.split("?")[0]):
             self._asset(url)
             return
         if getattr(self, "logged_pass", False) and pq not in self.r.pages:
@@ -278,8 +278,12 @@ class Crawler:
         self.r.urls.append(url)
         path = urllib.parse.urlsplit(url).path
         ext = "." + path.rsplit(".", 1)[-1].lower() if "." in path.rsplit("/", 1)[-1] else ""
-        if ext in ASSET_EXT and not rules.excluded(path, self.cms):
-            self.r.assets[path] = ASSET_EXT[ext]
+        kind = "text/html" if self._fragment(path) else ASSET_EXT.get(ext)
+        if kind and not rules.excluded(path, self.cms):
+            self.r.assets[path] = kind
+
+    def _fragment(self, path: str) -> bool:
+        return webapps.is_fragment(webapps.get(self.cms), path)
 
     def _script(self, queue, url):
         if not self.f.same_site(url) or self.scripts >= MAX_SCRIPTS:

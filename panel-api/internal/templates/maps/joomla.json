@@ -101,8 +101,7 @@
     "path": "/"
    },
    "render": "faithful",
-   "origin": "human",
-   "risk": "low"
+   "origin": "human"
   },
   {
    "id": "index",
@@ -127,7 +126,6 @@
    },
    "render": "faithful",
    "origin": "human",
-   "risk": "low",
    "query": {
     "option": {
      "type": "enum",
@@ -194,7 +192,6 @@
    },
    "render": "faithful",
    "origin": "human",
-   "risk": "low",
    "params": {
     "slug": {
      "type": "slug"
@@ -214,7 +211,6 @@
    },
    "render": "faithful",
    "origin": "human",
-   "risk": "low",
    "params": {
     "section": {
      "type": "slug"
@@ -239,7 +235,6 @@
     "OPTIONS"
    ],
    "origin": "human",
-   "risk": "medium",
    "max_body_kb": 51200
   }
  ],

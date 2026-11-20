@@ -24,7 +24,7 @@ func TestReview(t *testing.T) {
 	ap.must(200, "POST", "/v1/apps/portal/maps/1/publish", nil, nil)
 
 	// Version 2 opens a backup path and the home page gets a free-text query.
-	next := strings.Replace(mapDoc, `"routes":[`, `"routes":[{"id":"bk","path":"/backup/{f}","method":"GET","roles":["guest"],"params":{"f":{"type":"string","max_length":50}},"legacy_request":{"method":"GET","path":"/bk/{{params.f}}"},"render":"faithful","origin":"human","risk":"low"},`, 1)
+	next := strings.Replace(mapDoc, `"routes":[`, `"routes":[{"id":"bk","path":"/backup/{f}","method":"GET","roles":["guest"],"params":{"f":{"type":"string","max_length":50}},"legacy_request":{"method":"GET","path":"/bk/{{params.f}}"},"render":"faithful","origin":"human"},`, 1)
 	boss.must(201, "POST", "/v1/apps/portal/maps", map[string]any{"document": json.RawMessage(next)}, nil)
 
 	var rv struct {

@@ -19,7 +19,7 @@ Full example: [`schema/map/examples/permits-portal.yaml`](../schema/map/examples
 - **Strict types**: every input value has a type and constraints. `text` needs
   `rules`; `file` needs `mime` and `max_size_kb`.
 - **Authorisation in the gateway** (`roles`, `authz`, `scope`).
-- **Provenance**: `origin` (agent/human), `confidence`, `risk`.
+- **Provenance**: `origin` (agent/human), `confidence`.
 - **Immutable versions**, signed on publication.
 - **Secrets outside the map**: only `vault://` references.
 
@@ -597,16 +597,16 @@ WordPress, Joomla and Drupal sites and a custom PHP application.
 
 ## Field types
 
-| Type | Constraints | Default risk |
-| --- | --- | --- |
-| `int` | `min`, `max` | low |
-| `enum` | `values` | low |
-| `bool`, `date` | fixed format | low |
-| `string` | `pattern` or `charset`, `max_length` | medium |
-| `email` | format, `max_length` | medium |
-| `text` | `charset`, `max_length`, `rules` (required) | high |
-| `password` | `max_length`, `rules` (required); never logged | high |
-| `file` | `mime`, `max_size_kb` (required), `scan: cdr` | high |
+| Type | Constraints |
+| --- | --- |
+| `int` | `min`, `max` |
+| `enum` | `values` |
+| `bool`, `date` | fixed format |
+| `string` | `pattern` or `charset`, `max_length` |
+| `email` | format, `max_length` |
+| `text` | `charset`, `max_length`, `rules` (required) |
+| `password` | `max_length`, `rules` (required); never logged |
+| `file` | `mime`, `max_size_kb` (required), `scan: cdr` |
 
 
 A type or a field can list refused values in `deny` (compared without

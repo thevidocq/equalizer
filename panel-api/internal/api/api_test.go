@@ -135,7 +135,7 @@ const mapDoc = `{"meta":{"schema":"gateway-map/1.0","tenant":"x","app":"x","vers
  "legacy":{"base_url":"http://10.0.0.1:8080","reach":{"mode":"connector","connector_id":"cn-1","allow":["10.0.0.1:8080"]}},
  "roles":{"anonymous":"guest","list":{"guest":{}}},
  "routes":[{"id":"home","path":"/","method":"GET","roles":["guest"],"legacy_request":{"method":"GET","path":"/"},
-   "render":"faithful","origin":"human","risk":"low"}]}`
+   "render":"faithful","origin":"human"}]}`
 
 // tokenFrom extracts the invitation token from the last email sent to email.
 func (e *env) tokenFrom(email string) string {

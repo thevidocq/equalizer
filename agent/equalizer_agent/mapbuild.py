@@ -86,7 +86,7 @@ def _route_entry(r: cluster.Route, anon: str, taken: set) -> dict:
     rid = cluster.ident("_".join(lits) + ("_item" if r.params else "") if lits else ("home" if r.path == "/" else "page"), taken)
     legacy_path = re.sub(r"\{([a-z0-9_]+)\}", r"{{params.\1}}", r.path)
     e = {"id": rid, "path": r.path, "method": "GET", "roles": [anon], "render": "faithful", "origin": "agent",
-         "confidence": 0.9 if not r.query else 0.8, "risk": "medium" if any(q["type"] == "string" for q in r.query.values()) else "low",
+         "confidence": 0.9 if not r.query else 0.8,
          "legacy_request": {"method": "GET", "path": legacy_path}}
     if r.params:
         e["params"] = r.params
@@ -119,7 +119,7 @@ def _form_entry(form, anon: str, taken: set, still_open: list):
         legacy.setdefault(h.name, "{{hidden.%s}}" % h.name)
     lits = [s for s in _segs(u.path)] or ["root"]
     e = {"id": cluster.ident("_".join(lits) + "_form", taken), "route": u.path or "/", "roles": [anon],
-         "origin": "agent", "risk": "high" if any(f["type"] == "password" for f in fields.values()) else "medium",
+         "origin": "agent",
          "fields": fields, "legacy_request": {"method": "POST", "path": u.path or "/", "form": legacy},
          "rate_limit": {"per_ip": "10/min"}}
     if u.query:
@@ -158,8 +158,6 @@ def build(job: dict, crawl, fp) -> tuple:
                for e in doc.get("routes", [])):
             continue
         e = _route_entry(r, anon, taken)
-        if r.logged_in_only:
-            e["risk"] = "medium"
         doc.setdefault("routes", []).append(e)
         for k, vs in r.query_samples.items():
             samples[(e["id"], k)] = vs
@@ -271,7 +269,7 @@ def ensure_site_area(doc: dict) -> str:
         return "present"
     ids = {a.get("id") for a in doc.get("areas", [])}
     doc.setdefault("areas", []).append({"id": "site" if "site" not in ids else "whole_site", "prefix": "/",
-                                        "methods": ALL_METHODS, "origin": "agent", "risk": "medium"})
+                                        "methods": ALL_METHODS, "origin": "agent"})
     return "added"
 
 

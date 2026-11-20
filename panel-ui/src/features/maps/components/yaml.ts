@@ -25,7 +25,7 @@ const ORDER = [
   "render", "links", "forms", "success", "session", "on_success", "rate_limit",
   "base_url", "reach", "mode", "connector_id", "allow", "anonymous", "auth", "list",
   "type", "required", "min", "max", "values", "pattern", "charset", "max_length", "rules",
-  "origin", "confidence", "risk", "approved_by",
+  "origin", "confidence", "approved_by",
 ];
 const rank = (k: string) => {
   const i = ORDER.indexOf(k);
@@ -66,7 +66,6 @@ areas:
     methods: [GET, HEAD, POST, PUT, PATCH, DELETE, OPTIONS]
     max_body_kb: 51200
     origin: human
-    risk: medium
 
 # Precise entries add typed checks where they match.
 routes:
@@ -77,5 +76,4 @@ routes:
     legacy_request: { method: GET, path: /index.jsp }
     render: faithful
     origin: human
-    risk: low
 `;

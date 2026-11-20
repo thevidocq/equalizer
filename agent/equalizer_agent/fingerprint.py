@@ -5,23 +5,12 @@ import os
 import re
 from dataclasses import dataclass, field
 
-GENERATORS = [
-    ("wordpress", re.compile(r"wordpress\s*([\d.]+)?", re.I)),
-    ("joomla", re.compile(r"joomla!?\s*-?\s*(?:open source content management\s*)?([\d.]+)?", re.I)),
-    ("drupal", re.compile(r"drupal\s*([\d.]+)?", re.I)),
-    ("moodle", re.compile(r"moodle\s*([\d.]+)?", re.I)),
-]
-PATH_HINTS = [
-    ("wordpress", re.compile(r"/wp-(content|includes)/")),
-    ("joomla", re.compile(r"/(media/jui|media/system|components/com_)")),
-    ("drupal", re.compile(r"/(sites/default/files|core/misc|misc/drupal\.js)")),
-    ("moodle", re.compile(r"/(theme/yui_combo\.php|lib/javascript\.php|pluginfile\.php)")),
-]
-COMPONENT = {
-    "wordpress": re.compile(r"/wp-content/(plugins|themes)/([a-z0-9_\-]+)/[^?\s\"']*(?:\?ver=([\d.]+))?", re.I),
-    "joomla": re.compile(r"/(components|modules|plugins)/(com_[a-z0-9_]+|mod_[a-z0-9_]+)", re.I),
-    "drupal": re.compile(r"/(modules|themes)/(?:contrib/)?([a-z0-9_]+)/", re.I),
-}
+from . import webapps
+
+# From the profiles (webapps/): one place per application.
+GENERATORS = [(p.name, p.generator) for p in webapps.ALL if p.generator]
+PATH_HINTS = [(p.name, p.paths) for p in webapps.ALL if p.paths]
+COMPONENT = {p.name: p.components for p in webapps.ALL if p.components}
 LIBS = re.compile(r"/(jquery|bootstrap|angular|vue|react)[.\-]?([\d.]+)?(?:\.min)?\.js", re.I)
 
 
@@ -72,7 +61,7 @@ def detect(fp: Fingerprint, generator: str, urls: list):
         if rx:
             m = rx.search(u)
             if m:
-                kind = m.group(1).rstrip("s").lower()
+                kind = (m.group(1) or "module").rstrip("s").lower()
                 ver = m.group(3) if m.lastindex and m.lastindex >= 3 else None
                 key = f"{kind}:{m.group(2).lower()}"
                 if ver or key not in fp.components:

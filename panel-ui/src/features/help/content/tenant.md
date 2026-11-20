@@ -88,8 +88,12 @@ The original site keeps working as it is during the whole procedure.
 ### Add the site
 
 **+ Protect a site**: name, public domain (e.g. `portal.acme.example`) and
-what it is built with (WordPress, Joomla, Drupal, Moodle or another site).
-The choice lets the first map start from a template.
+what it is built with (WordPress, Joomla, Drupal, Magento, PrestaShop,
+OpenCart, TYPO3, Moodle, MediaWiki, phpBB, or another application or a
+custom site). The choice lets the first map start from a template and tells
+the discovery agent what to expect; what the agent does for each one, and
+what the lab has proven, is in the
+[compatibility matrix](../compatibility.md).
 
 ### Install a connector
 

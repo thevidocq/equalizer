@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { api, unwrap } from "@/shared/api/client";
+import { api, unwrap, type Schemas } from "@/shared/api/client";
 
-export type SiteKind = "wordpress" | "joomla" | "drupal" | "moodle" | "generic" | null;
+export type SiteKind = Schemas["SiteKind"];
 
 export function useApps(tenant: string) {
   return useQuery({

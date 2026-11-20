@@ -3649,10 +3649,10 @@ export interface components {
             kind?: components["schemas"]["SiteKind"];
         };
         /**
-         * @description What the site is built with; selects the template offered for its first map
+         * @description What the site is built with (docs/compatibility.md); selects the template offered for its first map and the agent's profile
          * @enum {string|null}
          */
-        SiteKind: "wordpress" | "joomla" | "drupal" | "moodle" | "generic" | null;
+        SiteKind: "wordpress" | "joomla" | "drupal" | "magento" | "prestashop" | "opencart" | "typo3" | "moodle" | "mediawiki" | "phpbb" | "generic" | null;
         MapTemplate: {
             id: string;
             name: string;

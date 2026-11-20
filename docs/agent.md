@@ -39,6 +39,26 @@ with a score that was measured, not estimated.
 | Result | A draft | A draft with a score and the list of what is still open |
 | AI | Reviews the structure (masked samples): rename, exclude, narrow | Unchanged (see [AI](#ai)) |
 
+## Web application profiles
+
+What the agent knows about a kind of application lives in one file per
+application in `agent/equalizer_agent/webapps/` (WordPress, Joomla,
+Drupal, Magento, PrestaShop, OpenCart, TYPO3, Moodle, MediaWiki, phpBB,
+and `generic.py` for custom sites). A profile says how to recognise the
+application (generator tag, paths, extensions), where a test account logs
+in, where its administration is and whether the agent may open it, and
+which of its pages act when they are only opened. The rules every site
+shares (action links, one-time tokens, sensitive files) are in
+`webapps/base.py`, once. The crawler, the map building and the
+verification never name an application: they ask the profile of the one
+recognised, or the generic one.
+
+A profile opens an administration only when the lab proved that viewing it
+changes nothing; until then it stays closed. The
+[compatibility matrix](compatibility.md) is generated from the profiles
+(`python3 -m equalizer_agent.webapps.matrix`) and the agent's tests fail
+when it is stale, so it never says more than the code does.
+
 ## How a study runs
 
 ### 1. Explore

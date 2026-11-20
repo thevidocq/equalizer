@@ -44,6 +44,8 @@ Screenshots use a fictitious company, Acme.
 | --- | --- |
 | [`docs/architecture.md`](docs/architecture.md) | Architecture, components, design rules |
 | [`docs/map-format.md`](docs/map-format.md) | Map format |
+| [`docs/agent.md`](docs/agent.md) | The discovery agent: study, checks, read-only guarantee |
+| [`docs/compatibility.md`](docs/compatibility.md) | Compatibility matrix: what the agent does per web application |
 | [`INSTALL.md`](INSTALL.md) | Installation (VPS, connector) |
 | [`docs/manual/admin.md`](docs/manual/admin.md) | Platform administrator manual |
 | [`docs/manual/tenant.md`](docs/manual/tenant.md) | Tenant administrator manual |

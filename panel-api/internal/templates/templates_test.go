@@ -12,7 +12,7 @@ import (
 // Every template, once filled, is a valid map.
 func TestTemplatesAreValidMaps(t *testing.T) {
 	list := List()
-	if len(list) != 5 || list[len(list)-1].ID != "generic" {
+	if len(list) != 11 || list[len(list)-1].ID != "generic" {
 		t.Fatalf("templates: %+v", list)
 	}
 	for _, tp := range list {

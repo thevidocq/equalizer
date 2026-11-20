@@ -41,6 +41,18 @@ class CompareTest(unittest.TestCase):
         d = Response(200, {"content-type": "text/html"}, b'<a href="index.php?x=1">A</a>', "http://legacy:8080/administrator/index.php")
         self.assertEqual(verify.compare(d, via(b'<a href="/administrator/index.php?x=1">A</a>')), ("", ""))
 
+    def test_a_final_slash_is_the_same_page(self):
+        """Magento links to /page/ and answers 301 to /page; the gateway
+        writes the link in its route's spelling and serves the page."""
+        d = Response(301, {"content-type": "text/html", "location": "http://legacy:8080/privacy"}, b"",
+                     "http://legacy:8080/privacy/")
+        self.assertEqual(verify.compare(d, via(b"<p>Privacy</p>")), ("", ""))
+        other = Response(301, {"content-type": "text/html", "location": "http://legacy:8080/elsewhere"}, b"",
+                         "http://legacy:8080/privacy/")
+        self.assertEqual(verify.compare(other, via(b"<p>Privacy</p>"))[0], "status")
+        page = Response(200, {"content-type": "text/html"}, b'<a href="/privacy/">P</a>', "http://legacy:8080/")
+        self.assertEqual(verify.compare(page, via(b'<a href="/privacy">P</a>')), ("", ""))
+
     def test_the_sites_own_address_in_the_text(self):
         d = Response(200, {"content-type": "text/html"}, b"<p>Alias: http://legacy:8080/about</p>", "http://legacy:8080/a")
         self.assertEqual(verify.compare(d, via(b"<p>Alias: https://www.acme.test/about</p>"), ("legacy:8080", "www.acme.test")), ("", ""))

@@ -85,8 +85,10 @@ func (p *Public) serveAsset(w http.ResponseWriter, r *http.Request, st *site.Sit
 		}
 	}
 	securityHeaders(h)
-	if strings.HasPrefix(ct, "image/svg") {
-		// An SVG opened directly must not be able to run scripts.
+	if strings.HasPrefix(ct, "image/svg") || strings.HasPrefix(ct, "text/html") {
+		// An SVG, or an HTML fragment a page's scripts load as a template
+		// (Magento's /static/…/*.html), opened directly must not be able to
+		// run scripts.
 		h.Set("Content-Security-Policy", "sandbox; default-src 'none'; style-src 'unsafe-inline'; img-src data:")
 	}
 	body := resp.Body

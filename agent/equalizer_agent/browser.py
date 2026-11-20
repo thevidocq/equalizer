@@ -1,0 +1,113 @@
+"""A real browser for the study, behind the same read-only guard.
+
+Headless Chromium (Playwright) opens the pages the crawler found, so their
+scripts run and the requests they make are seen. The browser reaches
+nothing by itself: every request it makes is intercepted and answered by
+the agent's Fetcher (the relay, the connector, the read-only guard, the
+test account's session) when it is a GET or HEAD for the site itself that
+the crawler's rules allow; everything else is refused and recorded. Its
+network otherwise points at a closed port, so nothing the interception
+does not cover (a WebSocket, say) gets out. The browser never clicks,
+types or submits.
+
+Optional: without Playwright installed (EQ_BROWSER=off, or an image
+without it) the study runs as before, with plain requests."""
+
+import urllib.parse
+from dataclasses import dataclass, field
+
+from .fetch import ReachError
+
+try:  # an optional dependency: the agent works without it
+    from playwright.sync_api import Error as PlaywrightError
+    from playwright.sync_api import sync_playwright
+except ImportError:  # pragma: no cover - depends on the image
+    sync_playwright = None
+    PlaywrightError = Exception
+
+PAGE_TIMEOUT_MS = 15000
+SETTLE_MS = 1500
+CLOSED_PORT = "http://127.0.0.1:9"  # discard: nothing listens
+DROPPED = {"connection", "keep-alive", "transfer-encoding", "set-cookie", "content-length", "content-encoding",
+           "strict-transport-security", "alt-svc"}
+
+
+def available() -> bool:
+    return sync_playwright is not None
+
+
+@dataclass
+class Seen:
+    """What the pages asked for while they loaded."""
+    requested: set = field(default_factory=set)  # GET path?query, served through the guard
+    refused: set = field(default_factory=set)  # (method, path) the guard kept in
+    pages: int = 0
+    errors: int = 0
+
+
+class _Guard:
+    """Answers the browser's requests through the Fetcher, or refuses."""
+
+    def __init__(self, fetcher, host: str, seen: Seen, allowed):
+        self.f, self.host, self.seen, self.allowed = fetcher, host.lower(), seen, allowed
+
+    def target(self, url: str) -> str:
+        u = urllib.parse.urlsplit(url)
+        if u.scheme not in ("http", "https") or u.netloc.lower() != self.host:
+            return ""
+        return (u.path or "/") + ("?" + u.query if u.query else "")
+
+    def __call__(self, route):
+        req = route.request
+        if req.url.startswith(("data:", "blob:")):  # the page's own memory
+            return route.continue_()
+        pq = self.target(req.url)
+        if not pq:  # another site (fonts, analytics): the study stays on this one
+            return route.abort("blockedbyclient")
+        if req.method not in ("GET", "HEAD") or not self.allowed(pq):
+            self.seen.refused.add((req.method, pq.split("?")[0]))
+            return route.abort("blockedbyclient")
+        try:
+            resp = self.f.request(req.method, pq)
+        except (ReachError, OSError, ValueError):
+            self.seen.errors += 1
+            return route.abort("failed")
+        self.seen.requested.add(pq)
+        headers = {k: v for k, v in resp.headers.items() if k.lower() not in DROPPED}
+        route.fulfill(status=resp.status, headers=headers, body=resp.body)
+
+
+def study(fetcher, host: str, pages: list, log, allowed, executable: str = "") -> Seen:
+    """Opens each page in the browser and returns what it asked for. host is
+    the site's host[:port] as in its base URL; the Fetcher's session (a test
+    account's, or none) is the browser's."""
+    seen = Seen()
+    if not available() or not pages:
+        return seen
+    base = urllib.parse.urlsplit(fetcher.base_url)
+    origin = "%s://%s" % (base.scheme, base.netloc)
+    guard = _Guard(fetcher, host, seen, allowed)
+    try:
+        with sync_playwright() as pw:
+            opts = {"headless": True, "proxy": {"server": CLOSED_PORT},
+                    "args": ["--no-sandbox", "--disable-dev-shm-usage", "--proxy-bypass-list=<-loopback>"]}
+            if executable:
+                opts["executable_path"] = executable
+            b = pw.chromium.launch(**opts)
+            try:
+                ctx = b.new_context(service_workers="block", accept_downloads=False, ignore_https_errors=True)
+                ctx.route("**/*", guard)
+                page = ctx.new_page()
+                page.on("dialog", lambda d: d.dismiss())
+                for pq in pages:
+                    try:
+                        page.goto(origin + pq, wait_until="load", timeout=PAGE_TIMEOUT_MS)
+                        page.wait_for_timeout(SETTLE_MS)
+                        seen.pages += 1
+                    except PlaywrightError:
+                        seen.errors += 1
+            finally:
+                b.close()
+    except PlaywrightError as e:
+        log.warn("browser unavailable", error=str(e)[:200])
+    return seen

@@ -46,11 +46,18 @@ with a score that was measured, not estimated.
 - **Seeds**: `/`, `robots.txt`, `sitemap.xml`, the template's pages, the
   paths real visitors asked for (reported by the gateway, as today), the
   APIs the site declares.
-- **Browser**: headless Chrome inside the agent. Every request the browser
-  makes goes through a small proxy inside the agent, and from there through
-  the connector exactly like today's requests. That proxy is the single
-  place where the read-only rules below are enforced: the browser cannot
-  bypass it.
+- **Browser**: headless Chromium (Playwright) inside the agent opens the
+  pages each pass found (up to 40 per pass), so their scripts run. Every
+  request it makes is intercepted and answered by the agent's own fetcher,
+  through the connector like every other request, only when it is a `GET`
+  or `HEAD` for the site itself that the crawler's rules allow; everything
+  else is refused and listed in the report ("kept in"). The browser's
+  network otherwise points at a closed port, so nothing the interception
+  does not cover (a WebSocket) gets out. It never clicks, types or submits.
+  Requests the scripts make become pages to study like any other; a script
+  request answered with JSON stays with the site area and is listed as
+  still open (map APIs need their shapes). Without Playwright
+  (`EQ_BROWSER=off`) the study runs with plain requests.
 - **Passes**: one anonymous, then one per test account. Each pass records
   the pages, the requests the scripts make (with their parameters), the
   forms and their fields, and the links.
@@ -151,7 +158,7 @@ without approval.
 The agent never changes the legacy site. Three layers:
 
 1. **No writes leave the agent.** Every request goes through one place
-   (`fetch.py`, and the proxy in front of the browser once there is one),
+   (`fetch.py`; the browser's requests are answered by it too),
    which refuses every method other than `GET` and `HEAD`, except the login
    of the test accounts (a `POST` to the login form, and to the
    administration's own login where it has one, such as Joomla's). Forms
@@ -169,7 +176,7 @@ The agent never changes the legacy site. Three layers:
    everything else is dry-run and never forwarded.
 
 **Proven in the lab** (`lab/e2e/tests/test_06_study.py`): the agent
-studies the four lab sites with an administrator account and the content
+studies the four lab sites with an administrator account and its browser and the content
 of each site's database (pages, articles, comments, users, extensions,
 configuration) is the same before and after. Drupal's and Joomla's
 administrations are studied this way (Joomla's with its own login).
@@ -256,7 +263,7 @@ Each step is its own pull request, tested in the lab before the next.
 | 2 | Gateway: `POST /maps/try` (preview and dry-run); panel-api: signing for tries | Done |
 | 3a | Agent: several accounts, form fields typed from their HTML, text rules, "still open" in the report; panel: accounts | Done |
 | 3b | Agent: administration read-only (Drupal, Joomla; not WordPress), single read-only guard, a lab study of the four sites proving nothing changes | Done |
-| 3c | Agent: browser (Playwright) behind the read-only guard, script requests, declared APIs | Planned |
+| 3c | Agent: browser (Playwright) behind the read-only guard, script requests; Chromium in the agent image | Done |
 | 4 | Agent: the two checks and the score; panel-api verification queue | Planned |
 | 5 | Panel: score and "still open" on the Discovery tab, Verify button on drafts | Planned |
 | 6 | Lab: studies of WordPress, Joomla, Drupal and the intranet with the expected scores | Planned |

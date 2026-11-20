@@ -38,6 +38,37 @@ prototype.
 
 ## Entries
 
+### 2026-11-20 — Study pages in a real browser behind the read-only guard
+
+- **Branch:** feat/agent-browser (on top of chore/land-agent-study)
+- **What:**
+  - agent: `browser.py` opens each pass's pages (up to 40) in headless
+    Chromium (Playwright). Every request is intercepted and answered by the
+    Fetcher (connector, read-only guard, the pass's session) only for GET
+    or HEAD on the site that the crawler's rules allow; the rest is refused
+    and reported ("kept in"); the browser's network points at a closed
+    port. Script requests become pages to study; JSON answers stay with the
+    area and are listed as still open. Files a page loads count as assets
+    and never as action links. `EQ_BROWSER` (auto, on, off),
+    `EQ_BROWSER_PATH`.
+  - image: Playwright and Chromium's headless shell in the agent image;
+    compose sets `EQ_BROWSER` (`EQ_DISCOVERY_BROWSER`), `HOME` and
+    `shm_size`.
+  - lab: the agent runs with the browser; test_06 checks it opened pages
+    on each site, databases still unchanged.
+  - Docs: agent.md (3c done), agent README, .env.example.
+- **Why:** step 3c of docs/agent.md: requests made by scripts are part of
+  what a site does.
+- **Status:** unit tests (script GET studied, POST and action link never
+  sent, JSON listed as still open) and lab 01 + 06 pass: browser opened
+  10, 14, 38 and 9 pages on the four sites; their classic pages make no
+  extra same-site script requests, so the browser adds little there; it
+  matters for script-heavy applications.
+- **Next steps:**
+  1. Step 4: the two checks (with `/maps/try`) and the score; panel-api
+     verification queue.
+  2. Step 5: panel score, still open, Verify button.
+
 ### 2026-11-20 — Study administrations read-only, proven in the lab
 
 - **Branch:** feat/agent-admin-readonly (on top of feat/agent-accounts-forms)

@@ -27,6 +27,8 @@ class Config:
     allow_private_llm: bool = False  # on-prem installations with a model on the LAN
     log_level: str = "info"
     instance: str = ""
+    browser: str = "off"  # from EQ_BROWSER: auto (when Playwright is installed, the default), on, off
+    browser_path: str = ""  # a Chromium to use instead of Playwright's own
 
 
 def from_env() -> Config:
@@ -41,6 +43,8 @@ def from_env() -> Config:
         allow_private_llm=os.environ.get("EQ_AGENT_ALLOW_PRIVATE_LLM", "") == "true",
         log_level=os.environ.get("EQ_LOG_LEVEL", "info"),
         instance=os.environ.get("HOSTNAME", "agent"),
+        browser=os.environ.get("EQ_BROWSER", "auto").strip().lower(),
+        browser_path=os.environ.get("EQ_BROWSER_PATH", "").strip(),
     )
     if len(c.panel_token) < 32:
         raise SystemExit("agent: EQ_INTERNAL_TOKEN or EQ_INTERNAL_TOKEN_FILE is required")

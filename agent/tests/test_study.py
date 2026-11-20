@@ -142,3 +142,37 @@ class ReadOnlyTest(unittest.TestCase):
                 f.request(m, "/")
         with self.assertRaises(ReadOnlyError):
             f.request("PUT", "/", login=True)
+
+
+CHROME = "/usr/bin/google-chrome" if os.path.exists("/usr/bin/google-chrome") else ""
+
+
+@unittest.skipUnless(__import__("equalizer_agent.browser", fromlist=["x"]).available(), "Playwright is not installed")
+class BrowserTest(unittest.TestCase):
+    def test_scripts_requests_are_studied_behind_the_guard(self):
+        site = Site()
+        try:
+            dest = f"127.0.0.1:{site.port}"
+            cfg = config.Config(panel_token="x" * 32, direct={dest}, rate=0, browser="on", browser_path=CHROME)
+            job = {"id": 10, "tenant": "acme", "app": "news", "domain": "news.acme.test", "kind": None,
+                   "base_url": f"http://{dest}", "max_pages": 100, "llm": None, "unmapped": [],
+                   "reach": {"mode": "direct", "address": dest, "allow": [dest]}}
+            panel = FakePanel()
+            discovery.run(job, cfg, panel, Logger("test", "warn", io.StringIO()))
+            rep, doc = panel.results[0]["report"], panel.results[0]["document"]
+        finally:
+            site.close()
+        self.assertGreater(rep["browser"]["pages"], 0)
+        # the script's GET was studied and mapped
+        self.assertIn("/data/items?page=1", rep["browser"]["script_requests"])
+        # a JSON answer stays with the site area (map APIs need their shapes), said in the report
+        opened = {(o["target"], o["reason"]) for o in rep["open"]}
+        self.assertIn(("/data/items", "other"), opened)
+        # files the pages load are assets, not pages
+        self.assertFalse(any(p.endswith(".css") or ".css?" in p for p in rep["browser"]["script_requests"]))
+        # the POST never reached the site; the action link neither
+        sent = [(m, p) for m, p, *_ in site.requests]
+        self.assertNotIn(("POST", "/api/track"), sent)
+        self.assertNotIn(("GET", "/logout"), sent)
+        self.assertIn({"method": "POST", "path": "/api/track"}, rep["browser"]["kept_in"])
+        self.assertIn(("/api/track", "action_not_performed"), opened)

@@ -6,7 +6,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 HOME = """<html><head><meta name="generator" content="WordPress 5.8"><title>City news</title>
 <link rel="stylesheet" href="/wp-content/themes/twenty/style.css?ver=1.2">
 <script src="/wp-content/plugins/contact-form-7/js/scripts.js?ver=5.4"></script></head><body>
-<a href="/about/">About</a> <a href="/contact/">Contact</a> <a href="/team/">Team</a>
+<a href="/about/">About</a> <a href="/contact/">Contact</a> <a href="/team/">Team</a> <a href="/app/">App</a>
 <a href="/category/a/">A</a> <a href="/category/b/">B</a> <a href="/category/c/">C</a>
 <a href="/?p=12">Post 12</a> <a href="/?p=15">Post 15</a> <a href="/?p=19">Post 19</a>
 <a href="/wp-admin/">Admin</a> <a href="/backup.zip">old backup</a> <a href="/logout">Log out</a>
@@ -60,6 +60,15 @@ class Site:
                                       headers={"Set-Cookie": "PHPSESSID=anon; Path=/"})
                 if p in ("/about/", "/contact/", "/team/", "/category/a/", "/category/b/", "/category/c/", "/events/list"):
                     return self._send(200, "<html><title>%s</title><body>page</body></html>" % p)
+                if p == "/app/":
+                    return self._send(200, """<html><title>App</title><body><div id=out></div><script>
+fetch(['', 'data', 'items'].join('/') + '?page=' + (0 + 1)).then(r => r.json()).then(j => { out.textContent = j.items.length; });
+fetch('/api/track', {method: 'POST', body: 'x'});
+fetch('/logout');
+fetch('https://analytics.example/collect');
+</script></body></html>""")
+                if p == "/data/items":
+                    return self._send(200, '{"items": [1, 2]}', ctype="application/json")
                 if p == "/members/area/profile" and logged:
                     return self._send(200, "<html><title>Members</title></html>")
                 if p == "/editors/desk" and editor:

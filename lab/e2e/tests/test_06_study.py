@@ -1,5 +1,5 @@
 """The agent studies the four lab sites with a test administrator, through
-the connector, and changes nothing on them: the content of every site's
+the connector and with its real browser, and changes nothing on them: the content of every site's
 database is the same before and after (docs/agent.md, "Read-only,
 guaranteed")."""
 import sqlite3
@@ -88,8 +88,12 @@ def test_study_changes_nothing(app):
     assert not changes(before, after), f"{app}: the study changed the site's content: {changes(before, after)}"
     rep = got["report"]
     assert rep["accounts"] == [{"label": "administrator", "login": "ok"}], rep["accounts"]
+    # the real browser opened the pages behind the same guard
+    assert rep["browser"]["pages"] > 0, rep["browser"]
     reasons = {o["reason"] for o in rep.get("open", [])}
     assert reasons <= {"not_reached", "action_not_performed", "legacy_error", "cannot_narrow", "accepts_sql", "other"}
+    print(app, "browser:", rep["browser"]["pages"], "pages,", len(rep["browser"]["script_requests"]), "script requests,",
+          [k["method"] + " " + k["path"] for k in rep["browser"]["kept_in"]][:10], "kept in")
 
 
 def latest_report(app):

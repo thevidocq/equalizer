@@ -203,6 +203,8 @@ def build(job: dict, crawl, fp) -> tuple:
         "visitors_missing": [{"path": u["path"], "clients": u.get("clients", 0)} for u in visitors][:50],
         "not_seen_anymore": stale[:100], "login": crawl.login or None, "errors": crawl.errors,
         "accounts": [{"label": k, "login": v} for k, v in crawl.logins.items()],
+        "browser": {"pages": crawl.browser_pages, "script_requests": sorted(crawl.script_requests)[:200],
+                    "kept_in": [{"method": m, "path": p} for m, p in sorted(crawl.script_refused)][:200]},
         "open": _still_open(crawl, still_open, not_supported),
         "base": "published map" if continuous else ("template" if job.get("template") else "empty map"),
     }
@@ -221,6 +223,14 @@ def _still_open(crawl, inputs: list, not_supported: list) -> list:
     for pq, s in sorted(crawl.pages.items()):
         if s.status >= 500:
             out.append({"kind": "path", "target": pq.split("?")[0], "reason": "legacy_error", "detail": "HTTP %d" % s.status})
+    for pq in sorted(crawl.script_requests):
+        seen = crawl.pages.get(pq)
+        if seen and seen.status < 400 and seen.ctype not in ("text/html", "application/xhtml+xml", ""):
+            out.append({"kind": "path", "target": pq.split("?")[0], "reason": "other",
+                        "detail": "a script's %s request, served by the site area" % (seen.ctype or "data")})
+    for m, p in sorted(crawl.script_refused):
+        out.append({"kind": "path", "target": p, "reason": "action_not_performed",
+                    "detail": "a script's %s, kept in by the read-only guard" % m})
     for n in not_supported:
         out.append({"kind": "path", "target": n["path"], "reason": "other", "detail": n["reason"]})
     out.extend(inputs)

@@ -2,7 +2,7 @@
 
 import urllib.parse
 
-from . import crawler, fingerprint, mapbuild, rules
+from . import browser, crawler, fingerprint, mapbuild, rules
 from .fetch import Fetcher, ReachError
 from .llm import LLMError, provider
 from .llm.refine import refine
@@ -30,6 +30,18 @@ def accounts(job: dict) -> list:
     return out[:3]
 
 
+def use_browser(cfg, log) -> bool:
+    """The real browser, when it is wanted and installed."""
+    want = getattr(cfg, "browser", "off")
+    if want == "off":
+        return False
+    if not browser.available():
+        if want == "on":
+            log.warn("EQ_BROWSER=on but Playwright is not installed: plain requests only")
+        return False
+    return True
+
+
 def run(job: dict, cfg, panel, log) -> None:
     jid = job["id"]
     try:
@@ -39,6 +51,8 @@ def run(job: dict, cfg, panel, log) -> None:
         return
     cms = job.get("kind") if job.get("kind") not in (None, "generic") else None
     c = crawler.Crawler(f, cms, int(job.get("max_pages", 500)), log, progress=lambda p: panel.progress(jid, p))
+    if use_browser(cfg, log):
+        c.browser = {"executable": getattr(cfg, "browser_path", "")}
     fp = fingerprint.Fingerprint(cms=cms)
     try:
         result = c.anonymous(seeds(job, cms))

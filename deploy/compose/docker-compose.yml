@@ -185,6 +185,10 @@ services:
       EQ_DIRECT_DESTINATIONS: ${EQ_DIRECT_DESTINATIONS:-}
       EQ_RATE: ${EQ_DISCOVERY_RATE:-2}
       EQ_LOG_LEVEL: ${EQ_LOG_LEVEL:-info}
+      # The study's real browser (headless Chromium in the image): auto, off
+      EQ_BROWSER: ${EQ_DISCOVERY_BROWSER:-auto}
+      HOME: /tmp
+    shm_size: 256m
     volumes:
       - ./secrets/panel-internal.token:/secrets/panel-internal.token:ro
       - ./secrets/relay.token:/secrets/relay.token:ro

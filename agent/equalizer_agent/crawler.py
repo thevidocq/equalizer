@@ -7,7 +7,7 @@ import urllib.parse
 from collections import deque
 from dataclasses import dataclass, field
 
-from . import extract, rules
+from . import browser, extract, rules
 from .fetch import Fetcher, ReachError
 
 ASSET_EXT = {".css": "text/css", ".js": "application/javascript", ".png": "image/png", ".jpg": "image/jpeg",
@@ -16,6 +16,7 @@ ASSET_EXT = {".css": "text/css", ".js": "application/javascript", ".png": "image
              ".pdf": "application/pdf", ".mp4": "video/mp4"}
 PER_SHAPE = 20  # a calendar or a search must not eat the whole budget
 MAX_SCRIPTS = 30
+BROWSER_PAGES = 40  # pages opened in the browser per pass
 
 
 @dataclass
@@ -39,6 +40,9 @@ class CrawlResult:
     login: str = ""  # outcome of the first test account's login
     logins: dict = field(default_factory=dict)  # account label -> ok, failed, no_login_form
     errors: int = 0
+    script_requests: set = field(default_factory=set)  # GET path?query made by the pages' scripts
+    script_refused: set = field(default_factory=set)  # (method, path) the read-only guard kept in
+    browser_pages: int = 0
 
 
 def path_query(url: str) -> str:
@@ -61,11 +65,48 @@ class Crawler:
         self.shapes: dict = {}
         self.scripts = 0
         self.label = "anonymous"
+        self.browser = None  # {"executable": path} to study pages in a real browser
 
     def anonymous(self, seeds: list) -> CrawlResult:
         self.label = "anonymous"
         self._crawl(seeds, logged_in=False)
+        self._browse(logged_in=False)
         return self.r
+
+    def _browse(self, logged_in: bool):
+        """Opens this pass's pages in the browser (when there is one) and
+        studies what their scripts asked for like any other page."""
+        if not self.browser:
+            return
+        pages = [pq for pq, s in self.r.pages.items()
+                 if self.label in s.seen_by and s.status < 400 and s.ctype == "text/html"][:BROWSER_PAGES]
+        host = urllib.parse.urlsplit(self.f.base_url).netloc
+        seen = browser.study(self.f, host, pages, self.log, self._allowed_quiet, self.browser.get("executable", ""))
+        self.r.browser_pages += seen.pages
+        self.r.script_refused |= seen.refused
+        new = []
+        for pq in sorted(seen.requested - set(self.r.pages) - set(pages)):
+            last = pq.split("?")[0].rsplit("/", 1)[-1]
+            if "." in last and "." + last.rsplit(".", 1)[-1].lower() in ASSET_EXT:
+                self._asset(self.f.base_url.rstrip("/") + pq)  # a file the page loads
+            else:
+                new.append(pq)
+        self.r.script_requests |= set(new)
+        if new:
+            self._crawl(new, logged_in)
+
+    def _allowed_quiet(self, pq: str) -> bool:
+        """The crawler's rules for the browser's requests."""
+        reason = rules.excluded(pq, self.cms, logged_in=getattr(self, "logged_pass", False))
+        if reason:
+            self.r.excluded.setdefault(pq, reason)
+            return False
+        last = pq.split("?")[0].rsplit("/", 1)[-1]
+        static = "." in last and "." + last.rsplit(".", 1)[-1].lower() in ASSET_EXT
+        if not static and rules.is_action(pq):  # a script file named block-library/… acts on nothing
+            self.r.skipped_actions.add(pq)
+            return False
+        return True
 
     def logged_in(self, account: dict, label: str = "account") -> CrawlResult:
         """One pass per test account (call after the CMS is known). Each
@@ -83,6 +124,7 @@ class Crawler:
             if self.cms in rules.ADMIN_LOGIN and admin:
                 self._admin_login(account)
             self._crawl(["/"] + admin + [p for p in list(self.r.pages)[:50]], logged_in=True)
+            self._browse(logged_in=True)
         self.f.cookies = {}
         return self.r
 

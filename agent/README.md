@@ -7,6 +7,9 @@ which panel-api saves as a draft: it still needs someone else's approval.
 
 The agent is being extended into a full study of the site, with a real
 browser and two checks of its own map: see [docs/agent.md](../docs/agent.md).
+The browser is headless Chromium through Playwright (in the image;
+`EQ_BROWSER=auto|on|off`, `EQ_BROWSER_PATH` for another Chromium); the
+rest of the agent uses the standard library only.
 
 ## What a discovery does
 

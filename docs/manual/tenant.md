@@ -88,8 +88,12 @@ The original site keeps working as it is during the whole procedure.
 ### Add the site
 
 **+ Protect a site**: name, public domain (e.g. `portal.acme.example`) and
-what it is built with (WordPress, Joomla, Drupal, Moodle or another site).
-The choice lets the first map start from a template.
+what it is built with (WordPress, Joomla, Drupal, Magento, PrestaShop,
+OpenCart, TYPO3, Moodle, MediaWiki, phpBB, or another application or a
+custom site). The choice lets the first map start from a template and tells
+the discovery agent what to expect; what the agent does for each one, and
+what the lab has proven, is in the
+[compatibility matrix](../compatibility.md).
 
 ### Install a connector
 
@@ -158,6 +162,29 @@ and a detail with the same id). If the map should change, a draft is
 proposed: review it and send it for approval. **Continuous discovery**
 (every day or week) explores again and proposes a draft only when something
 changed.
+
+### Verification
+
+Every draft a discovery proposes is **verified** by the agent on the
+gateway, and **Verify** on a version (editors, approvers, administrators)
+does it again, for example after changing a draft by hand. Nothing is sent
+to the site that could change it:
+
+- every page the discovery studied is opened directly and through
+  Equalizer with this version, and the two are compared (the answer, where
+  a redirect goes, the visible text, the links, the forms);
+- every parameter and form field gets a set of attacks (SQL, HTML and
+  script, template code, paths, shell, out-of-type values); the gateway
+  only says whether it would let each one through.
+
+The panel shows how many pages stay identical, how many inputs refuse
+every attack, and how much of the site only the generic area serves; then
+the pages this version breaks and what is still open, each with its
+reason. An input "still open" usually means that a value falling out of
+its precise entry is served by the site area. Pages behind a login are not
+verified yet.
+
+![Verification](../screenshots/verification.png)
 
 ### Review and approval
 

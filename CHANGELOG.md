@@ -38,6 +38,72 @@ prototype.
 
 ## Entries
 
+### 2026-11-20 — One profile per web application, ten applications
+
+- **Branch:** feat/agent-webapps (on top of feat/panel-verification)
+- **What:**
+  - agent: `equalizer_agent/webapps/`, one profile per application
+    (WordPress, Joomla, Drupal, Magento / Adobe Commerce, PrestaShop,
+    OpenCart, TYPO3, Moodle, MediaWiki, phpBB) and `generic.py` for custom
+    sites; `base.py` holds the profile's shape and the rules every site
+    shares (action links, one-time tokens now also `form_key` and `hash`,
+    sensitive files). `rules.py`, `fingerprint.py` and the crawler only ask
+    the recognised profile. An administration opens to a test account only
+    when its profile is proven read-only in the lab (WordPress closed,
+    Joomla and Drupal open; the others and custom sites closed until
+    tested). A recognised site applies its own administration rules and
+    the usual ones; an unrecognised one all of them; every profile's
+    "never" rules apply to every site.
+  - `docs/compatibility.md`, generated from the profiles
+    (`python3 -m equalizer_agent.webapps.matrix`); an agent test fails
+    when it is stale.
+  - panel-api: map templates for magento, prestashop, opencart, typo3,
+    mediawiki and phpbb (generic pages and folders, each application's
+    names kept out of slugs); site kinds extended (contract `SiteKind`,
+    migration 0015 widens the database check); templates listed in
+    alphabetical order whatever the case.
+  - panel-ui: the new kinds when protecting a site; SSO path presets for
+    Magento, OpenCart, TYPO3 and phpBB.
+  - Docs: agent.md (profiles), architecture, README, tenant manual (the
+    kinds and the matrix), agent README.
+- **Why:** each application's specifics in one place, and coverage of the
+  ten most used self-hosted web applications (Shopify, Wix, Squarespace and
+  Webflow are hosted services: nothing of theirs to protect).
+- **Status:** agent, panel-api and panel-ui tests; lab 01 + 06 give the
+  same studies and verifications as before on WordPress, Joomla and Drupal;
+  on the custom intranet the study now leaves its administration closed
+  (generic profile: 4 pages instead of 5). The six new profiles are written
+  from each application's documentation and behaviour, not proven in the
+  lab yet.
+- **Next steps:**
+  1. Lab: add Moodle and PrestaShop (then the others) and prove their
+     profiles.
+  2. Agent: correct its own draft; verify pages behind a login.
+
+### 2026-11-20 — Show verifications in the panel
+
+- **Branch:** feat/panel-verification (on top of feat/agent-checks)
+- **What:**
+  - panel-ui: `VerificationPanel` on every version (score: pages
+    identical, inputs refusing every attack, share served only by the
+    area; pages broken by the version; still open with reasons; **Verify**
+    for editors, approvers and administrators; polls while it runs) and in
+    the discovery report for the proposed draft; still-open reasons shared
+    (`maps/components/stillOpen.ts`).
+  - agent: a still-open input's detail names, in words, the other attack
+    groups it lets through.
+  - Docs: tenant manual "Verification" with a screenshot; agent.md step 5
+    done.
+- **Why:** step 5 of docs/agent.md: the person who approves sees the
+  measured result.
+- **Status:** typecheck, boundaries, vitest, build, API types; agent tests.
+- **Next steps:**
+  1. Agent: one profile per web application in `agent/equalizer_agent/webapps/`
+     (WordPress, Joomla, Drupal, Magento, PrestaShop, OpenCart, TYPO3,
+     Moodle, MediaWiki, phpBB, generic), map templates and site kinds for
+     the new ones, a compatibility matrix generated from the profiles.
+  2. Agent: correct its own draft; verify pages behind a login.
+
 ### 2026-11-20 — Verify every draft on the gateway
 
 - **Branch:** feat/agent-checks

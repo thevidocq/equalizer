@@ -35,7 +35,8 @@ type appCreate struct {
 	Kind         *string `json:"kind"`
 }
 
-var siteKinds = map[string]bool{"wordpress": true, "joomla": true, "drupal": true, "moodle": true, "generic": true}
+var siteKinds = map[string]bool{"wordpress": true, "joomla": true, "drupal": true, "magento": true, "prestashop": true,
+	"opencart": true, "typo3": true, "moodle": true, "mediawiki": true, "phpbb": true, "generic": true}
 
 func (s *Server) createApp(w http.ResponseWriter, r *http.Request, u *auth.User) {
 	tenant := r.PathValue("tenant")
@@ -53,7 +54,7 @@ func (s *Server) createApp(w http.ResponseWriter, r *http.Request, u *auth.User)
 		return
 	}
 	if in.Kind != nil && !siteKinds[*in.Kind] {
-		fail(w, http.StatusUnprocessableEntity, "invalid", "kind: wordpress, joomla, drupal, moodle or generic")
+		fail(w, http.StatusUnprocessableEntity, "invalid", "kind: one of the site kinds (docs/compatibility.md)")
 		return
 	}
 	if taken, err := s.Store.DomainTaken(r.Context(), in.PublicDomain, in.ID); err != nil || taken {

@@ -176,3 +176,37 @@ class BrowserTest(unittest.TestCase):
         self.assertNotIn(("GET", "/logout"), sent)
         self.assertIn({"method": "POST", "path": "/api/track"}, rep["browser"]["kept_in"])
         self.assertIn(("/api/track", "action_not_performed"), opened)
+
+
+class WebappsTest(unittest.TestCase):
+    def test_compatibility_matrix_is_up_to_date(self):
+        from equalizer_agent.webapps import matrix
+        path = os.path.join(os.path.dirname(__file__), "..", "..", "docs", "compatibility.md")
+        with open(path, encoding="utf-8") as f:
+            self.assertEqual(f.read(), matrix.render(),
+                             "docs/compatibility.md is stale: python3 -m equalizer_agent.webapps.matrix > ../docs/compatibility.md")
+
+    def test_profiles(self):
+        import re
+        from equalizer_agent import fingerprint, rules, webapps
+        names = webapps.names()
+        self.assertEqual(len(names), len(set(names)))
+        for p in webapps.ALL:  # every rule compiles; a profile opens an administration only if tested
+            for rx in p.admin + p.never:
+                re.compile(rx)
+            self.assertFalse(p.admin_read_only and not p.tested, p.name)
+        self.assertIs(webapps.get("nothing"), webapps.GENERIC)
+        # recognition from the generator tag, for the new ones too
+        for gen, cms in (("TYPO3 CMS 12.4", "typo3"), ("MediaWiki 1.39.5", "mediawiki"), ("PrestaShop", "prestashop"),
+                         ("Joomla! - Open Source Content Management", "joomla")):
+            fp = fingerprint.Fingerprint()
+            fingerprint.detect(fp, gen, [])
+            self.assertEqual(fp.cms, cms, gen)
+        fp = fingerprint.Fingerprint()
+        fingerprint.detect(fp, "", ["http://x/static/version1700000000/frontend/Magento/luma/en_US/Magento_Theme/x.js"])
+        self.assertEqual(fp.cms, "magento")
+        # pages that act when opened, from the new profiles
+        for pq, cms in (("/checkout/cart/add/product/5", "magento"), ("/index.php?route=account/logout", "opencart"),
+                        ("/index.php?title=Main&action=edit", "mediawiki"), ("/posting.php?mode=reply&t=3", "phpbb"),
+                        ("/typo3/install.php", "typo3"), ("/admin/index.php", "moodle")):
+            self.assertEqual(rules.excluded(pq, cms, logged_in=True), "never", pq)

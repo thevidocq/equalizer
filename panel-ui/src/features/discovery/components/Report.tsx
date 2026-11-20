@@ -1,5 +1,6 @@
-import { Link } from "react-router";
+import { Link, useParams } from "react-router";
 import { Notice } from "@/shared/ui";
+import { STILL_OPEN, VerificationPanel } from "@/features/maps";
 import type { Discovery } from "../hooks/useDiscovery";
 
 type R = Record<string, any>; // eslint-disable-line @typescript-eslint/no-explicit-any
@@ -27,16 +28,9 @@ function List({ title, items, render }: { title: string; items?: R[]; render: (i
 
 const LOGIN: Record<string, string> = { ok: "logged in", failed: "login failed", no_login_form: "no login form found" };
 
-/** Why something is still open (StillOpen.reason). */
-const OPEN: Record<string, string> = {
-  not_reached: "not opened, served by the site area", legacy_error: "the site answered an error",
-  action_not_performed: "changes something: never opened", cannot_narrow: "values could not be narrowed",
-  accepts_sql: "accepts SQL characters", accepts_markup: "accepts HTML", accepts_template: "accepts template code",
-  accepts_path: "accepts paths", accepts_shell: "accepts shell characters", other: "other",
-};
-
 /** What a finished discovery found and proposes. */
 export function Report({ d }: { d: Discovery }) {
+  const { app = "" } = useParams();
   const r = (d.report ?? {}) as R;
   if (d.status === "failed") return <Notice tone="error">The discovery failed: {d.error}</Notice>;
   if (d.status !== "done") return <p className="text-sm text-ink-soft">Running: {(d.progress as R)?.pages ?? 0} pages so far.</p>;
@@ -47,6 +41,7 @@ export function Report({ d }: { d: Discovery }) {
         <Notice tone="info">A draft was proposed: <Link className="font-semibold text-signal hover:underline" to={`../maps/${d.draft_version}`}>
           version {d.draft_version}</Link>. Review it and send it for approval.</Notice>
       ) : <Notice tone="info">The map already covers what was found: no draft needed.</Notice>}
+      {d.draft_version ? <VerificationPanel app={app} version={d.draft_version} canVerify={false} /> : null}
       <div className="grid gap-3 sm:grid-cols-4">
         <Stat label="Built with" value={r.cms ? `${r.cms}${r.version ? " " + r.version : ""}` : "Not recognised"} />
         <Stat label="Coverage" value={`${r.coverage ?? 0}%`} />
@@ -64,7 +59,7 @@ export function Report({ d }: { d: Discovery }) {
         render={(i) => `${i.list} → ${i.detail}  (${i.field}${i.roles?.length ? `, owned_by_user for ${i.roles.join(", ")}` : ""})`} />
       <List title="Test accounts" items={r.accounts} render={(i) => `${i.label}  ${LOGIN[i.login] ?? i.login}`} />
       {r.open ? (
-        <List title="Still open" items={r.open} render={(i) => `${i.target}  ${OPEN[i.reason] ?? i.reason}${i.detail ? ` (${i.detail})` : ""}`} />
+        <List title="Still open" items={r.open} render={(i) => `${i.target}  ${STILL_OPEN[i.reason] ?? i.reason}${i.detail ? ` (${i.detail})` : ""}`} />
       ) : (
         <List title="Not opened by the agent (still served, by the site area)" items={r.excluded} render={(i) => `${i.path}  ${i.reason}`} />
       )}

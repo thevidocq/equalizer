@@ -5,9 +5,13 @@ import { describeError } from "@/shared/api/errors";
 import { slugify } from "@/features/tenants";
 import { useCreateApp, type SiteKind } from "../hooks/useSites";
 
+// Site kinds (docs/compatibility.md): the template of the first map and the agent's profile.
 const kinds: { value: string; label: string }[] = [
   { value: "wordpress", label: "WordPress" }, { value: "joomla", label: "Joomla" }, { value: "drupal", label: "Drupal" },
-  { value: "moodle", label: "Moodle" }, { value: "generic", label: "Another CMS or a custom site" }, { value: "", label: "I don't know" },
+  { value: "magento", label: "Magento / Adobe Commerce" }, { value: "prestashop", label: "PrestaShop" },
+  { value: "opencart", label: "OpenCart" }, { value: "typo3", label: "TYPO3" }, { value: "moodle", label: "Moodle" },
+  { value: "mediawiki", label: "MediaWiki" }, { value: "phpbb", label: "phpBB" },
+  { value: "generic", label: "Another application or a custom site" }, { value: "", label: "I don't know" },
 ];
 
 type Props = { tenant: string; open: boolean; onOpenChange: (o: boolean) => void };

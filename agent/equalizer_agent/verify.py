@@ -20,6 +20,8 @@ from . import attacks, mapbuild
 from .fetch import Fetcher, ReachError
 from .gateway import Gateway, TryError, cookie_header
 
+WORDS = {"accepts_sql": "SQL", "accepts_markup": "HTML", "accepts_template": "template code", "accepts_path": "paths",
+         "accepts_shell": "shell characters", "other": "out-of-type values"}
 TEXT_SIMILAR = 0.97  # dates, counters and tokens differ between two loads
 
 
@@ -144,8 +146,9 @@ class Run:
         if not let_through:
             self.protected += 1
             return
+        others = [WORDS[r] for r in dict.fromkeys(let_through) if r != let_through[0]]
         self.open.append({"kind": "input", "target": target, "reason": let_through[0],
-                          "detail": "accepts: " + ", ".join(sorted(set(let_through)))})
+                          "detail": "also " + ", ".join(others) if others else ""})
 
     def routes(self):
         for r in self.doc.get("routes", []):

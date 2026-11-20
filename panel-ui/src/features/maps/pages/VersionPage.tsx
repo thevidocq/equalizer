@@ -7,6 +7,7 @@ import { LifecycleRail, StatusLabel } from "../components/LifecycleRail";
 import { VersionActions } from "../components/VersionActions";
 import { toEditorYaml } from "../components/yaml";
 import { ReviewPanel } from "../components/ReviewPanel";
+import { VerificationPanel } from "../components/VerificationPanel";
 import { exportMap } from "../components/mapFile";
 
 export function VersionPage() {
@@ -25,6 +26,9 @@ export function VersionPage() {
           <Link to=".." relative="path" className="text-sm text-signal hover:underline">All versions</Link>
         </div>
         <LifecycleRail v={v.data} />
+        {v.data.status !== "retired" ? (
+          <VerificationPanel app={app} version={v.data.version} canVerify={hasRole(me.data, tenant, "admin", "editor", "approver")} />
+        ) : null}
         {v.data.status !== "retired" ? (
           <ReviewPanel app={app} version={v.data.version} canAsk={hasRole(me.data, tenant, "admin", "editor", "approver")} />
         ) : null}

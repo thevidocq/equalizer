@@ -7,7 +7,7 @@ import urllib.parse
 from collections import deque
 from dataclasses import dataclass, field
 
-from . import browser, extract, rules
+from . import browser, extract, rules, webapps
 from .fetch import Fetcher, ReachError
 
 ASSET_EXT = {".css": "text/css", ".js": "application/javascript", ".png": "image/png", ".jpg": "image/jpeg",
@@ -120,8 +120,9 @@ class Crawler:
         if len(self.r.logins) > 1:
             self.r.login = next(iter(self.r.logins.values()))
         if ok:
-            admin = [] if self.cms in rules.WRITES_ON_VIEW else rules.ADMIN_HOME.get(self.cms or "", [])
-            if self.cms in rules.ADMIN_LOGIN and admin:
+            prof = webapps.get(self.cms)
+            admin = list(prof.admin_home) if prof.admin_read_only else []
+            if prof.admin_login and admin:
                 self._admin_login(account)
             self._crawl(["/"] + admin + [p for p in list(self.r.pages)[:50]], logged_in=True)
             self._browse(logged_in=True)
@@ -131,7 +132,7 @@ class Crawler:
     def _admin_login(self, account: dict) -> bool:
         """An administration with its own login (Joomla): its form, posted
         once like the site's. Its outcome does not change the report's."""
-        page = rules.ADMIN_LOGIN[self.cms]
+        page = webapps.get(self.cms).admin_login
         try:
             resp = self.f.get(page)
         except (ReachError, OSError, ValueError):
@@ -297,7 +298,7 @@ class Crawler:
             self.r.login = "ok" if ok else "failed"
             self.log.info("test account login", outcome=self.r.login, form=page_pq.split("?")[0])
             return ok
-        known = rules.LOGIN.get(self.cms or "")
+        known = webapps.get(self.cms).login
         if known and not getattr(self, "_tried_known", False):
             self._tried_known = True
             try:

@@ -39,6 +39,26 @@ with a score that was measured, not estimated.
 | Result | A draft | A draft with a score and the list of what is still open |
 | AI | Reviews the structure (masked samples): rename, exclude, narrow | Unchanged (see [AI](#ai)) |
 
+## Web application profiles
+
+What the agent knows about a kind of application lives in one file per
+application in `agent/equalizer_agent/webapps/` (WordPress, Joomla,
+Drupal, Magento, PrestaShop, OpenCart, TYPO3, Moodle, MediaWiki, phpBB,
+and `generic.py` for custom sites). A profile says how to recognise the
+application (generator tag, paths, extensions), where a test account logs
+in, where its administration is and whether the agent may open it, and
+which of its pages act when they are only opened. The rules every site
+shares (action links, one-time tokens, sensitive files) are in
+`webapps/base.py`, once. The crawler, the map building and the
+verification never name an application: they ask the profile of the one
+recognised, or the generic one.
+
+A profile opens an administration only when the lab proved that viewing it
+changes nothing; until then it stays closed. The
+[compatibility matrix](compatibility.md) is generated from the profiles
+(`python3 -m equalizer_agent.webapps.matrix`) and the agent's tests fail
+when it is stale, so it never says more than the code does.
+
 ## How a study runs
 
 ### 1. Explore
@@ -291,7 +311,7 @@ Each step is its own pull request, tested in the lab before the next.
 | 3b | Agent: administration read-only (Drupal, Joomla; not WordPress), single read-only guard, a lab study of the four sites proving nothing changes | Done |
 | 3c | Agent: browser (Playwright) behind the read-only guard, script requests; Chromium in the agent image | Done |
 | 4 | Agent: the two checks and the score; panel-api verification queue (every draft a discovery proposes is verified) | Done: measures; the agent does not yet correct its own draft |
-| 5 | Panel: score and "still open" on the Discovery tab, Verify button on drafts | Planned |
+| 5 | Panel: score, broken pages and "still open" on the version and in the discovery report, Verify button | Done |
 | 6 | Lab: studies of WordPress, Joomla, Drupal and the intranet with the expected scores | Planned |
 
 ## Mockups

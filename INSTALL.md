@@ -62,7 +62,7 @@ VPN or an SSH tunnel.
 ```bash
 git clone https://github.com/thevidocq/equalizer.git
 cd equalizer
-git checkout v0.2.1        # a release; main is the development version
+git checkout v0.2.2        # a release; main is the development version
 ```
 
 Releases and what they contain: `docs/releases/`.
@@ -86,7 +86,7 @@ Main values in `.env`:
 
 | Variable | Example | Meaning |
 | --- | --- | --- |
-| `EQ_VERSION` | `0.2.1` | Release being installed (shown by the services; `dev` when unset) |
+| `EQ_VERSION` | `0.2.2` | Release being installed (shown by the services; `dev` when unset) |
 | `EQ_RELAY_DOMAIN` | `relay.example.com` | Public domain of the relay, where connectors open their tunnel |
 | `EQ_PANEL_DOMAIN` | `panel.example.com` | Public domain of the panel (customers, invitation links) |
 | `EQ_ACME_EMAIL` | `admin@example.com` | Email for Let's Encrypt |
@@ -255,7 +255,7 @@ docker run -d --name eq-connector --restart unless-stopped --network host \
 - For an `https` legacy app with a self-signed certificate: mount its CA and
   set `EQ_LEGACY_CA_FILE`, or as a last resort `EQ_LEGACY_INSECURE_TLS=true`.
 - Use the connector of the same release as the platform:
-  `ghcr.io/thevidocq/equalizer-connector:0.2.1` (`latest` follows `main`).
+  `ghcr.io/thevidocq/equalizer-connector:0.2.2` (`latest` follows `main`).
 - The image is published by CI on every merge to `main` and on every
   release tag. GitHub packages
   start private: make `equalizer-connector` public in the repository's
@@ -287,15 +287,40 @@ Move to the new release, set it in `.env`, rebuild:
 
 ```bash
 git fetch --tags
-git checkout v0.2.1            # the release to install
+git checkout v0.2.2            # the release to install
 cd deploy/compose
-sed -i 's/^EQ_VERSION=.*/EQ_VERSION=0.2.1/' .env
+sed -i 's/^EQ_VERSION=.*/EQ_VERSION=0.2.2/' .env
 docker compose pull            # third-party images (Caddy, Postgres, …)
 docker compose up -d --build
 ```
 
 Database migrations run on their own when `panel-api` starts. Update the
-connectors to the same release (section 7).
+connectors to the same release: on each connector's server, recreate it
+with the same settings (token included) and the new image:
+
+```bash
+v=0.2.2
+docker pull ghcr.io/thevidocq/equalizer-connector:$v
+docker inspect eq-connector --format '{{range .Config.Env}}{{println .}}{{end}}' | grep '^EQ_' > ~/eq-connector.env
+chmod 600 ~/eq-connector.env      # it holds the connector token
+docker rm -f eq-connector
+docker run -d --name eq-connector --restart unless-stopped --network host \
+  --env-file ~/eq-connector.env ghcr.io/thevidocq/equalizer-connector:$v
+```
+
+**Always check after an update**, from `deploy/compose`:
+
+```bash
+./check.sh            # or ./check.sh <connector container name>
+```
+
+It shows the services and their state, the release they run (it must be
+`EQ_VERSION`), the migrations applied, errors in the last 10 minutes and the
+connector (release and tunnel), and ends with `OK` or the problems found. A
+"panel unreachable" error in the first seconds after the restart is normal
+(gateway and relay retry while `panel-api` starts) and is not counted. Then,
+in the panel: the release at the bottom of the sidebar and **Connectors**
+online with the same release.
 
 ## 10. Backup and restore
 

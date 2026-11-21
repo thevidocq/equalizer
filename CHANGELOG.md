@@ -19,7 +19,7 @@ Add a section at the top of "Entries" for every commit:
 
 ## Current project status
 
-Latest release: **0.2.0** (`docs/releases/0.2.0.md`), for the first
+Latest release: **0.2.2** (`docs/releases/0.2.2.md`); 0.2.0 was for the first
 installations; before it, 0.1.0 (`docs/releases/0.1.0.md`, tag on the
 merge of #39).
 
@@ -38,6 +38,30 @@ merge of #39).
 | tools (eqtool) | Map signing keys, form key, relay token, connector registration, map signing |
 
 ## Entries
+
+### 2026-11-21 — Post-upgrade check, release 0.2.2 documents
+
+- **Branch:** chore/post-upgrade-check
+- **What:** `deploy/compose/check.sh` checks an installation after an
+  update. It covers:
+  - the services and their state;
+  - the release the services run against `EQ_VERSION`;
+  - the migrations applied;
+  - errors in the last 10 minutes, apart from "panel unreachable" while
+    panel-api restarts;
+  - the connector's release and tunnel.
+
+  It ends with OK or the problems found (exit code 1). The "Update" section
+  of `INSTALL.md` now gives the connector update commands and the check.
+  `VERSION`, `.env.example`, `INSTALL.md` and `README.md` point to 0.2.2,
+  and `docs/releases/0.2.2.md` holds the release notes.
+- **Why:** the owner wants the same check after every upgrade. The 0.2.2 tag
+  was created from #68 without the release documents.
+- **Status:** the script was tried with a stubbed `docker`, and the same
+  checks were run by hand on the VPS after the 0.2.2 update. Not yet run
+  as a script on the VPS.
+- **Next steps:** run `./check.sh` on the VPS. Mention it in every
+  release's notes.
 
 ### 2026-11-21 — Second feedback round: HTTPS at a proxy, time zones, activity
 

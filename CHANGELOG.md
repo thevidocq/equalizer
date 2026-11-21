@@ -39,6 +39,18 @@ merge of #39).
 
 ## Entries
 
+### 2026-11-21 — Release 0.2.1
+
+- **Branch:** chore/release-0.2.1
+- **What:** `VERSION` 0.2.1, `EQ_VERSION` in `.env.example`, `INSTALL.md`
+  (checkout, version, connector image, update example) and `README.md`
+  point to 0.2.1; release notes `docs/releases/0.2.1.md`.
+- **Why:** the fixes and decisions of the first installation (#66) and
+  go-redis 9.7.3 (#65) go to the VPS as a release.
+- **Status:** ready; the owner tags `v0.2.1` on main after the merge, and
+  the publish workflow builds the images.
+- **Next steps:** update the VPS to v0.2.1.
+
 ### 2026-11-20 — Lab run: redirect after a form, tagline, Dependabot
 
 - **Branch:** fix/first-install-feedback

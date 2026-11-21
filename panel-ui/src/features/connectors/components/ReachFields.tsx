@@ -49,9 +49,9 @@ export function ReachFields({ tenant, value, onChange, hideScheme }: Props) {
           </SelectField>
         ) : null}
         <TextField label={direct ? "Public address of the site" : "Address on the server"} required
-          placeholder={direct ? "203.0.113.10:443" : "127.0.0.1:8080"} value={value.address}
+          placeholder={direct ? "203.0.113.10:443 or origin.example.com:443" : "127.0.0.1:8080"} value={value.address}
           onChange={(e) => set({ address: e.target.value })}
-          hint={direct ? "IP address and port, not a name" : "host:port, as in the connector's EQ_ALLOW"} />
+          hint={direct ? "Public IP:port, or a name that resolves to public addresses only (e.g. a CDN origin)" : "host:port, as in the connector's EQ_ALLOW"} />
         {hideScheme ? null : (
           <SelectField label="Protocol" value={value.scheme} onChange={(e) => set({ scheme: e.target.value as Reach["scheme"] })}>
             <option value="https">HTTPS</option><option value="http">HTTP</option>

@@ -35,7 +35,7 @@ export function CreateSiteDialog({ tenant, open, onOpenChange }: Props) {
           setName("");
           setDomain("");
           setKind("");
-          navigate(`/t/${tenant}/sites/${a.id}/maps/new`);
+          navigate(`/t/${tenant}/sites/${a.id}/discovery`);
         },
       },
     );
@@ -51,7 +51,7 @@ export function CreateSiteDialog({ tenant, open, onOpenChange }: Props) {
         <TextField label="Public domain" required placeholder="portal.example.gov" value={domain}
           onChange={(e) => setDomain(e.target.value)} hint="The address visitors type today." />
         <SelectField label="Built with" value={kind} onChange={(e) => setKind(e.target.value)}
-          hint="The first map starts from a template for it: you review and complete it before publishing.">
+          hint="Next, discovery explores the site and proposes a map for you to review. Knowing the software sharpens it.">
           {kinds.map((k) => <option key={k.value} value={k.value}>{k.label}</option>)}
         </SelectField>
         <div className="flex justify-end gap-2">

@@ -180,3 +180,18 @@ func (s *Store) SaveExposure(ctx context.Context, app, ip, status, reason string
 		RETURNING (SELECT exposure_status FROM old)`, app, ip, status, reason).Scan(&before)
 	return before, translate(err)
 }
+
+// DeleteApp removes a site and, by the cascading foreign keys, everything
+// that belongs to it: maps, connectors, discoveries, reviews, verifications,
+// recorded hits, certificate, OIDC and alerts. It reports ErrNotFound when
+// no such site exists.
+func (s *Store) DeleteApp(ctx context.Context, id string) error {
+	res, err := s.DB.ExecContext(ctx, `DELETE FROM apps WHERE id = $1`, id)
+	if err != nil {
+		return translate(err)
+	}
+	if n, _ := res.RowsAffected(); n == 0 {
+		return ErrNotFound
+	}
+	return nil
+}

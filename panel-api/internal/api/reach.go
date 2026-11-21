@@ -8,7 +8,9 @@ import (
 	"net"
 	"net/http"
 	"net/netip"
+	"strconv"
 	"strings"
+	"time"
 
 	"github.com/thevidocq/equalizer/panel-api/internal/exposure"
 	"github.com/thevidocq/equalizer/panel-api/internal/store"
@@ -58,24 +60,56 @@ func (s *Server) checkReach(ctx context.Context, tenant string, doc json.RawMess
 		return err
 	case "direct":
 		for _, a := range rc.Allow {
-			if !s.DirectDestinations[normDest(a)] && !publicDest(a) {
-				return &reachError{"direct_not_allowed",
-					"direct mode reaches a site at a public IP address and port, such as 203.0.113.10:443; use a connector for a site on a private network"}
+			if s.DirectDestinations[normDest(a)] {
+				continue // a destination the platform allows (lab applications)
+			}
+			if err := checkDirectDest(ctx, a); err != nil {
+				return err
 			}
 		}
 	}
 	return nil
 }
 
-// publicDest: a public IP address and port, written as such. A name could
-// later resolve to the platform's own network; an address cannot.
-func publicDest(d string) bool {
-	ap, err := netip.ParseAddrPort(strings.TrimSpace(d))
-	if err != nil || ap.Port() == 0 {
-		return false
+const directHelp = "direct mode reaches a site at a public address and port — an IP such as 203.0.113.10:443, or a name such as origin.example.com:443 that resolves to public addresses only (a site behind a CDN); use a connector for a site on a private network"
+
+// lookupDirect resolves a name to its addresses; tests replace it.
+var lookupDirect = func(ctx context.Context, host string) ([]netip.Addr, error) {
+	return net.DefaultResolver.LookupNetIP(ctx, "ip", host)
+}
+
+// checkDirectDest accepts a direct destination written as host:port. The
+// host may be a public IP literal, or a name that resolves to public
+// addresses only: a name that resolves to any private or reserved address
+// is refused, as it could point the gateway at the platform's own network.
+// The gateway also re-checks at dial time (transport.Direct).
+func checkDirectDest(ctx context.Context, dest string) error {
+	host, port, err := net.SplitHostPort(strings.TrimSpace(dest))
+	if err != nil || host == "" {
+		return &reachError{"direct_not_allowed", directHelp}
 	}
-	_, ok := exposure.PublicIP(ap.Addr().String())
-	return ok
+	if n, perr := strconv.Atoi(port); perr != nil || n < 1 || n > 65535 {
+		return &reachError{"direct_not_allowed", directHelp}
+	}
+	if _, perr := netip.ParseAddr(host); perr == nil {
+		if _, ok := exposure.PublicIP(host); !ok {
+			return &reachError{"direct_not_allowed", directHelp}
+		}
+		return nil
+	}
+	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
+	defer cancel()
+	ips, err := lookupDirect(ctx, host)
+	if err != nil || len(ips) == 0 {
+		return &reachError{"direct_unresolved", fmt.Sprintf("%q does not resolve to any address", host)}
+	}
+	for _, ip := range ips {
+		if _, ok := exposure.PublicIP(ip.Unmap().String()); !ok {
+			return &reachError{"direct_not_public",
+				fmt.Sprintf("%q resolves to a non-public address (%s); use a connector for a site on a private network", host, ip)}
+		}
+	}
+	return nil
 }
 
 func containsDest(list []string, d string) bool {

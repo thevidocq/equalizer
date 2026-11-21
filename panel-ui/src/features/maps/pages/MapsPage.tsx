@@ -19,9 +19,19 @@ export function MapsPage() {
   if (versions.isError) return <Notice tone="error">{describeError(versions.error)}</Notice>;
   if (!versions.data) return null;
   if (versions.data.length === 0) {
+    const emptyAction = canEdit ? (
+      <div className="flex flex-wrap items-center gap-3">
+        <Link to="../discovery" relative="path"
+          className="rounded-[var(--radius-control)] bg-signal px-3.5 py-2 text-sm font-semibold text-white hover:bg-[#183f94]">
+          Run discovery
+        </Link>
+        <Link to="new" className="text-sm font-semibold text-signal hover:underline">or build one by hand</Link>
+      </div>
+    ) : null;
     return (
-      <EmptyState title="No map yet" action={newLink}>
+      <EmptyState title="No map yet" action={emptyAction}>
         The map lists everything the gateway lets through: pages, forms, assets. Nothing else reaches the legacy server.
+        Start with Discovery: the agent explores the site and proposes a draft for you to review.
       </EmptyState>
     );
   }

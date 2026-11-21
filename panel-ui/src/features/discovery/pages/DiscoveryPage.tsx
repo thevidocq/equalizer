@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useParams } from "react-router";
-import { Notice, Spinner, Table, formatDate } from "@/shared/ui";
+import { Notice, Table, formatDate } from "@/shared/ui";
 import { describeError } from "@/shared/api/errors";
 import { canManage, hasRole, useMe } from "@/features/auth";
 import { useApp } from "@/features/sites";
@@ -39,7 +39,7 @@ export function DiscoveryPage() {
             <button type="button" className="font-semibold text-signal hover:underline" onClick={() => setPicked(d.id)}>{formatDate(d.created_at)}</button>) },
           { header: "By", cell: (d) => (d.trigger === "schedule" ? "Schedule" : d.requested_by ?? "") },
           { header: "AI", cell: (d) => (!d.use_ai ? "No" : (d.report as { ai?: { used?: boolean } } | null)?.ai?.used === false ? "Asked, not used" : "Yes") },
-          { header: "Status", cell: (d) => (d.status === "running" || d.status === "queued" ? <Spinner label={statusText[d.status]} /> : statusText[d.status]) },
+          { header: "Status", cell: (d) => statusText[d.status] },
           { header: "Draft", cell: (d) => (d.draft_version ? `Version ${d.draft_version}` : "") },
         ]} />
       ) : null}

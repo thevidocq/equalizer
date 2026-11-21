@@ -27,3 +27,14 @@ export function useCreateApp(tenant: string) {
     onSuccess: () => qc.invalidateQueries({ queryKey: ["apps", tenant] }),
   });
 }
+
+export function useDeleteApp(tenant: string, app: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: () => unwrap(api.DELETE("/apps/{app}", { params: { path: { app } } })),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["apps", tenant] });
+      qc.removeQueries({ queryKey: ["app", app] });
+    },
+  });
+}

@@ -508,6 +508,17 @@ paths:
             application/json:
               schema: { $ref: "#/components/schemas/App" }
         "422": { $ref: "#/components/responses/Error" }
+    delete:
+      tags: [apps]
+      summary: >-
+        Delete a site and everything that belongs to it — maps, connectors, discoveries, reviews, verifications,
+        recorded hits, certificate and alerts. The gateway stops serving it and the connector can no longer
+        reconnect. Cannot be undone (tenant administrators)
+      parameters: [{ $ref: "#/components/parameters/app" }]
+      responses:
+        "204": { description: Deleted }
+        "403": { $ref: "#/components/responses/Error" }
+        "404": { $ref: "#/components/responses/Error" }
   /apps/{app}/aliases:
     put:
       tags: [apps]

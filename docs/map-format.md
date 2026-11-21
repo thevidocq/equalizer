@@ -66,11 +66,16 @@ legacy:
   and the relay refuses it again at every request.
 - `mode: direct` (the gateway connects itself, no connector): for a site
   that stays at its public address and accepts only Equalizer's addresses.
-  `allow` and `address` hold the site's public IP and port written as an
-  address (`203.0.113.10:443`, never a name); `base_url` keeps the site's
-  name, sent in `Host` and SNI, and its certificate is checked against it.
-  Private destinations only when the platform allows them
-  (`EQ_DIRECT_DESTINATIONS`, e.g. lab apps).
+  `allow` and `address` hold the destination as `host:port`, where `host`
+  is a public IP (`203.0.113.10:443`) or a name that resolves to public
+  addresses only (`origin.example.com:443`, e.g. a site behind a CDN). A
+  name is resolved at dial time and the connection goes only to a public
+  address: a name that resolves — now or by later rebinding — to a private
+  or reserved address is refused, so it can never reach the platform's own
+  network. The panel checks the same when the map is saved. `base_url`
+  keeps the site's name, sent in `Host` and SNI, and its certificate is
+  checked against it. Private destinations as literals only when the
+  platform allows them (`EQ_DIRECT_DESTINATIONS`, e.g. lab apps).
 - `client_ip: forwarded` (default) sends the visitor's real address to the
   legacy application in `X-Forwarded-For` and `X-Real-IP`, as a reverse
   proxy would: its own logs, bans and geolocation keep working. The address

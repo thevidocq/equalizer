@@ -28,7 +28,11 @@ organisation.
   being set up, red exposed), and **+ Protect a site**.
 - **Status**, **Connectors**, **People**, **Activity**, **Logs**,
   **Settings**: some pages depend on your role.
-- A site has four tabs: **Map**, **Discovery**, **Isolation**, **Login**.
+- A site has these tabs: **Discovery**, **Map**, **Isolation**,
+  **Certificate**, **Login**. Discovery comes first: it is where a new site
+  starts. An administrator can delete a site from its header
+  (**Delete site**); it asks you to type the site's name to confirm, and
+  removes the map, connectors, discoveries and certificate with it.
 - At the bottom of the sidebar: your name and role (opens your account),
   **Help** (the question mark: this guide), **Log out** (the arrow out
   of the door) and the release of Equalizer, which opens its release notes.
@@ -78,14 +82,19 @@ maps, connectors, people, logs or activity.
 
 The original site keeps working as it is during the whole procedure.
 
-1. Add the site.
-2. Choose how Equalizer reaches it: install a connector on its server, or
-   reach it directly at its public address.
-3. Write the first map (from a template).
-4. Optionally run discovery.
+1. Add the site. It opens on **Discovery**.
+2. On the first discovery, choose how Equalizer reaches the site: install a
+   connector on its server, or reach it directly at its public address.
+3. Run discovery: the agent explores the site and proposes a draft map.
+4. Review the proposed map on the **Map** tab (or write one by hand from a
+   template).
 5. Upload the site's certificate (or choose http, if the site never had one).
 6. Publish the map.
 7. Point the domain to Equalizer and isolate the old server.
+
+Discovery first, then the map: the agent does the exploring and hands you a
+draft to review, instead of starting from an empty map. You can still build
+a map by hand on the **Map** tab if you prefer.
 
 ### Add the site
 
@@ -119,11 +128,15 @@ right release.
 When the site stays on the Internet at its own address and you control who
 may reach it, the connector is not needed: in the template or the first
 discovery choose **Directly, at the site's public address** and enter its
-public IP address and port (for example `203.0.113.10:443`, an address,
-not a name). The panel shows Equalizer's addresses: the site must accept
-those and refuse everyone else, or visitors could skip Equalizer. Use
-HTTPS: the requests cross the Internet. A site on a private network always
-needs a connector.
+address and port. This is a public IP (for example `203.0.113.10:443`) or a
+name that resolves to public addresses only (for example
+`origin.example.com:443`, a site behind a CDN whose IP you should not pin).
+Equalizer connects only to a public address: a name that resolves to a
+private or reserved one is refused, at save time and again at the moment of
+connection, so it can never reach the platform's own network. The panel
+shows Equalizer's addresses: the site must accept those and refuse everyone
+else, or visitors could skip Equalizer. Use HTTPS: the requests cross the
+Internet. A site on a private network always needs a connector.
 
 **Changing it later.** How Equalizer reaches a site — through a connector or
 directly, which connector, which address — is chosen the first time

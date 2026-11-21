@@ -39,6 +39,35 @@ merge of #39).
 
 ## Entries
 
+### 2026-11-21 — Reach from the site page, mobile menu over dialogs
+
+- **Branch:** feat/reach-and-mobile-menu
+- **What:**
+  - **Reach slegata dalla discovery.** How Equalizer reaches a site
+    (connector or direct, which connector, which address) can now be changed
+    from Site → Isolation, without rerunning discovery:
+    - `PUT /v1/apps/{app}/reach` republishes the current map with the new
+      `legacy.reach`, keeping the tuned entries (`store.SetReach`);
+    - the App exposes `reach_connector_id` and `reach_address` so the form
+      is pre-filled;
+    - a `ReachForm` at the top of the Isolation tab; `app.reach` in the
+      activity log.
+
+    The first reach is still chosen when discovery runs the first time (the
+    map does not exist yet); afterwards it is changed in Isolation. The
+    discovery StartForm already only asked for it the first time.
+  - **Menù mobile sopra i dialog.** Opening a dialog (e.g. "Protect a site")
+    from the mobile sidebar closes the menu, and dialogs now sit above the
+    menu (z-50). The dialog was appearing behind the open menu.
+  - Tenant manual and in-app help updated; the Isolation screenshot
+    regenerated with the new section.
+- **Why:** feedback 32 and 33 from the phone. The reach was fixed at the
+  first discovery and could only be changed by rerunning it.
+- **Status:** Go (with PostgreSQL), vitest, `check:api`, `check:help` and
+  boundaries pass.
+- **Next steps:** strict mode (PR B): open/observe/strict per site, routes
+  recognised in the query, coverage indicator.
+
 ### 2026-11-21 — Request rebuilding hardened, fuzz tests
 
 - **Branch:** fix/rebuild-hardening

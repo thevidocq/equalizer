@@ -36,6 +36,7 @@ const actions: Record<string, Say> = {
   "app.certificate": (t) => `uploaded a certificate for ${t}`,
   "app.certificate_removed": (t) => `removed the certificate of ${t}`,
   "app.public_scheme": (t, d) => `set ${t} to ${schemes[String(d.scheme)] ?? String(d.scheme)}`,
+  "app.reach": (t, d) => `changed how Equalizer reaches ${t} (${d.mode === "direct" ? "directly" : "through a connector"})`,
   "app.never_public": (t, d) =>
     d.never_public ? `marked ${t} as never reachable from the internet` : `let ${t} be checked from the internet again`,
   "oidc.secret_set": (t) => `saved the identity provider secret of ${t}`,

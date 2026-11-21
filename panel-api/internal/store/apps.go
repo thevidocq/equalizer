@@ -15,9 +15,11 @@ type App struct {
 	PublicDomain string        `json:"public_domain"`
 	Aliases      []string      `json:"aliases"`
 	CreatedAt    time.Time     `json:"created_at"`
-	Published    *int          `json:"published_version"` // nil: no published map
-	ReachMode    *string       `json:"reach_mode"`        // connector or direct, from the published map; nil: none
-	Kind         *string       `json:"kind"`              // wordpress, joomla, ... or nil
+	Published    *int          `json:"published_version"`  // nil: no published map
+	ReachMode    *string       `json:"reach_mode"`         // connector or direct, from the published map; nil: none
+	ReachConn    *string       `json:"reach_connector_id"` // connector used, from the published map
+	ReachAddr    *string       `json:"reach_address"`      // host:port reached, from the published map
+	Kind         *string       `json:"kind"`               // wordpress, joomla, ... or nil
 	Schedule     string        `json:"discovery_schedule"`
 	DiscoveryAt  DiscoveryTime `json:"discovery_time"`
 	Exposure     Exposure      `json:"exposure"`
@@ -44,6 +46,8 @@ func (s *Store) CreateApp(ctx context.Context, a App) (App, error) {
 const appColumns = `a.id, a.tenant_id, a.name, a.public_domain, a.created_at,
 	(SELECT version FROM map_versions m WHERE m.app_id = a.id AND m.status = 'published'),
 	(SELECT m.document->'legacy'->'reach'->>'mode' FROM map_versions m WHERE m.app_id = a.id AND m.status = 'published'),
+	(SELECT m.document->'legacy'->'reach'->>'connector_id' FROM map_versions m WHERE m.app_id = a.id AND m.status = 'published'),
+	(SELECT m.document->'legacy'->'reach'->>'address' FROM map_versions m WHERE m.app_id = a.id AND m.status = 'published'),
 	a.legacy_ip, a.exposure_status, a.exposure_reason, a.exposure_checked_at, a.kind, a.discovery_schedule,
 	ARRAY(SELECT x.domain FROM app_aliases x WHERE x.app_id = a.id ORDER BY x.domain), a.public_scheme,
 	c.subject, c.issuer, c.domains, c.not_before, c.not_after, c.fingerprint, c.uploaded_at, c.chain_pem,
@@ -64,7 +68,7 @@ func scanApp(row scanner) (App, error) {
 		notBefore, notAfter, uploadedAt     sql.NullTime
 		uploadedBy                          *string
 	)
-	err := row.Scan(&a.ID, &a.Tenant, &a.Name, &a.PublicDomain, &a.CreatedAt, &a.Published, &a.ReachMode,
+	err := row.Scan(&a.ID, &a.Tenant, &a.Name, &a.PublicDomain, &a.CreatedAt, &a.Published, &a.ReachMode, &a.ReachConn, &a.ReachAddr,
 		&a.Exposure.LegacyIP, &a.Exposure.Status, &a.Exposure.Reason, &a.Exposure.CheckedAt, &a.Kind, &a.Schedule,
 		pq.Array(&a.Aliases), &a.TLS.PublicScheme, &subject, &issuer, pq.Array(&domains), &notBefore, &notAfter,
 		&fingerprint, &uploadedAt, &chain, &uploadedBy,

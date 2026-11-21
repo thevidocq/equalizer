@@ -11,14 +11,14 @@ export function useChosenConnector(tenant: string, reach: Reach) {
   return reach.mode === "direct" ? "" : reach.connector_id || connectors.data?.[0]?.id || "";
 }
 
-type Props = { tenant: string; value: Reach; onChange: (r: Reach) => void };
+type Props = { tenant: string; value: Reach; onChange: (r: Reach) => void; hideScheme?: boolean };
 
 /**
  * How Equalizer reaches a site that has no map yet: through a connector
  * installed next to it, or directly at its public address when the site
  * accepts only Equalizer's address.
  */
-export function ReachFields({ tenant, value, onChange }: Props) {
+export function ReachFields({ tenant, value, onChange, hideScheme }: Props) {
   const connectors = useConnectors(tenant);
   const from = useConnectorSetup(tenant).data?.directFrom ?? [];
   const connector = useChosenConnector(tenant, value);
@@ -52,9 +52,11 @@ export function ReachFields({ tenant, value, onChange }: Props) {
           placeholder={direct ? "203.0.113.10:443" : "127.0.0.1:8080"} value={value.address}
           onChange={(e) => set({ address: e.target.value })}
           hint={direct ? "IP address and port, not a name" : "host:port, as in the connector's EQ_ALLOW"} />
-        <SelectField label="Protocol" value={value.scheme} onChange={(e) => set({ scheme: e.target.value as Reach["scheme"] })}>
-          <option value="https">HTTPS</option><option value="http">HTTP</option>
-        </SelectField>
+        {hideScheme ? null : (
+          <SelectField label="Protocol" value={value.scheme} onChange={(e) => set({ scheme: e.target.value as Reach["scheme"] })}>
+            <option value="https">HTTPS</option><option value="http">HTTP</option>
+          </SelectField>
+        )}
       </div>
       {direct && value.scheme === "http" ? (
         <Notice tone="error">In HTTP the requests cross the Internet in clear: use HTTPS when the site has it.</Notice>

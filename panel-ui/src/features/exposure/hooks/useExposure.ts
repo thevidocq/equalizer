@@ -24,7 +24,12 @@ export function useExposureActions(app: string) {
     mutationFn: (aliases: string[]) => unwrap(api.PUT("/apps/{app}/aliases", { params: { path: { app } }, body: { aliases } })),
     onSuccess: store,
   });
-  return { setIp, setNeverPublic, check, setAliases };
+  const setReach = useMutation({
+    mutationFn: (body: { mode: "connector" | "direct"; connector_id?: string; address: string }) =>
+      unwrap(api.PUT("/apps/{app}/reach", { params: { path: { app } }, body })),
+    onSuccess: store,
+  });
+  return { setIp, setNeverPublic, check, setAliases, setReach };
 }
 
 /** The site, shared with the site header (same query key). */

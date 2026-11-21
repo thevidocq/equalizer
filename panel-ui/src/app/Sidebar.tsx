@@ -9,10 +9,11 @@ const link = ({ isActive }: { isActive: boolean }) =>
   `block rounded-[var(--radius-control)] px-3 py-1.5 text-sm ${isActive ? "bg-paper/12 text-paper" : "text-paper/75 hover:text-paper"}`;
 
 /** Platform users see the customer list; tenant people see their own tenant. Never both. */
-export function Sidebar() {
+export function Sidebar({ onAction }: { onAction?: () => void }) {
   const me = useMe().data;
   const [adding, setAdding] = useState(false);
   const tenant = me?.tenant ?? "";
+  const openAdd = () => { onAction?.(); setAdding(true); }; // closes the mobile menu behind the dialog
 
   return (
     <aside className="flex h-full flex-col gap-6 overflow-y-auto bg-ink px-3 py-5 text-paper">
@@ -22,7 +23,7 @@ export function Sidebar() {
           <NavLink to={`/t/${tenant}`} end className={link}>Protected sites</NavLink>
           <div className="ml-2 border-l border-paper/15 pl-1"><SiteList tenant={tenant} /></div>
           {canManage(me, tenant) ? (
-            <button type="button" onClick={() => setAdding(true)} className="px-3 py-1.5 text-left text-sm text-paper/75 hover:text-paper">
+            <button type="button" onClick={openAdd} className="px-3 py-1.5 text-left text-sm text-paper/75 hover:text-paper">
               + Protect a site
             </button>
           ) : null}

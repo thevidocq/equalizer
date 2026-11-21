@@ -13,6 +13,8 @@ import (
 	"path"
 	"strings"
 	"unicode"
+
+	"github.com/thevidocq/equalizer/gateway/internal/jsontext"
 )
 
 const maxDepth = 128
@@ -20,6 +22,9 @@ const maxDepth = 128
 // JSON re-encodes a JSON document token by token: same order, same numbers,
 // nothing but the parsed values.
 func JSON(body []byte) ([]byte, error) {
+	if !jsontext.Valid(body) {
+		return nil, refuse(ReasonCharset)
+	}
 	dec := json.NewDecoder(bytes.NewReader(body))
 	dec.UseNumber()
 	var out bytes.Buffer
@@ -47,6 +52,7 @@ func jsonValue(dec *json.Decoder, out *bytes.Buffer, depth int) error {
 			return errors.New("unexpected delimiter")
 		}
 		out.WriteRune(rune(t))
+		seen := map[string]bool{} // a repeated key is read as the first by some parsers, the last by others
 		for i := 0; dec.More(); i++ {
 			if i > 0 {
 				out.WriteByte(',')
@@ -57,9 +63,10 @@ func jsonValue(dec *json.Decoder, out *bytes.Buffer, depth int) error {
 					return err
 				}
 				k, ok := key.(string)
-				if !ok {
+				if !ok || seen[k] {
 					return errors.New("object key")
 				}
+				seen[k] = true
 				b, _ := json.Marshal(k)
 				out.Write(b)
 				out.WriteByte(':')
@@ -119,10 +126,10 @@ func XML(body []byte) ([]byte, error) {
 		case xml.CharData:
 			_ = xml.EscapeText(&out, t)
 		case xml.ProcInst:
+			// Only the declaration is kept: other instructions (<?php …?>,
+			// <?xml-stylesheet …?>) are not data, and some servers act on them.
 			if t.Target == "xml" {
 				out.WriteString(`<?xml version="1.0" encoding="UTF-8"?>`)
-			} else {
-				out.WriteString("<?" + t.Target + " " + string(bytes.ReplaceAll(t.Inst, []byte("?>"), nil)) + "?>")
 			}
 		case xml.Directive:
 			return nil, refuse(ReasonXMLDoctype)
@@ -201,7 +208,13 @@ func Multipart(dst io.Writer, src io.Reader, boundary, cs string) (string, error
 			if err != nil {
 				return "", refuse(ReasonCharset)
 			}
-			if err := mw.WriteField(key, v); err != nil {
+			h := textproto.MIMEHeader{}
+			h.Set("Content-Disposition", `form-data; name="`+quoteEscaper.Replace(key)+`"`)
+			fw, err := mw.CreatePart(h)
+			if err != nil {
+				return "", err
+			}
+			if _, err := io.WriteString(fw, v); err != nil {
 				return "", err
 			}
 			continue
@@ -250,7 +263,10 @@ func malformed(err error) error {
 	return refuse(ReasonMalformed)
 }
 
-var quoteEscaper = strings.NewReplacer("\\", "\\\\", `"`, "\\\"", "\r", "", "\n", "")
+// quoteEscaper writes names as browsers do (HTML standard): a quote or a
+// line break becomes %22, %0D, %0A. Backslash escapes are read by some
+// servers and not by others, so they are never written.
+var quoteEscaper = strings.NewReplacer(`"`, "%22", "\r", "%0D", "\n", "%0A")
 
 func isFilePart(p *multipart.Part) bool {
 	_, params, err := mime.ParseMediaType(p.Header.Get("Content-Disposition"))

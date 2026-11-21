@@ -39,6 +39,54 @@ merge of #39).
 
 ## Entries
 
+### 2026-11-21 — Request rebuilding hardened, fuzz tests
+
+- **Branch:** fix/rebuild-hardening
+- **What:**
+  - **Fix (security):** areas with roles could be stepped around with paths
+    that legacy servers read as the protected one:
+    - `//admin/` (Apache, nginx);
+    - `/admin;x/` (Tomcat, Jetty);
+    - `/admin./` and `/Admin/` (Windows).
+
+    Entries and areas are now matched on `pathkey.Of(path)`, the path as
+    servers read it. A path that falls in another area without case is
+    refused (`ambiguous_path`, 400). A test reproduces the bypass on the old
+    code.
+  - JSON:
+    - invalid UTF-8 and unpaired surrogate escapes are refused instead of
+      being turned into U+FFFD (new package `jsontext`, used by area
+      rebuilding and API bodies);
+    - a key written twice in an object is refused.
+  - Multipart: field and file names are written as browsers write them
+    (`%22`, `%0D`, `%0A`), never with backslash escapes that some servers read
+    and others do not.
+  - XML: processing instructions other than the declaration (`<?php …?>`)
+    are dropped.
+  - Tests fix the rule "decoded once, never transformed":
+    - `%2527` stays `%2527`;
+    - repetitions and `;` are kept;
+    - full-width or modifier apostrophes are never mapped to `'` (refused for
+      a latin1 legacy app);
+    - `%u0027`, `%00` and bad UTF-8 are refused.
+  - Fuzz tests run for a few minutes each locally with no failure:
+    `FuzzPairs`, `FuzzJSON`, `FuzzXML`, `FuzzMultipart`, `pathkey.FuzzOf` and
+    `jsontext.FuzzValid`. CI runs each for 20 s.
+  - Docs: map format (how paths are matched) and the architecture principle.
+- **Why:** the rebuilding code is the most critical part of the product. A
+  rebuild that interprets ambiguous input, or matches paths differently from
+  the legacy server, can open a hole instead of closing one.
+- **Status:**
+  - Gateway tests pass with `-race`.
+  - Checked and found sound: a non-UTF-8 legacy charset refuses unrepresentable
+    characters (no best-fit); precise fields refuse repeated parameters;
+    precise forms rebuild only mapped fields.
+- **Next steps:**
+  1. Strict mode (POST and APIs only through precise entries), with routes
+     recognised in the query (`rest_route`, `option`/`task`, the `action` of
+     `admin-ajax.php`) and PATH_INFO (`/x.php/anything` runs `x.php`).
+  2. A longer fuzz campaign.
+  3. An external pentest of the gateway before launch.
 ### 2026-11-21 — Post-upgrade check, release 0.2.2 documents
 
 - **Branch:** chore/post-upgrade-check

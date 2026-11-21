@@ -9,6 +9,7 @@ import (
 
 	"github.com/thevidocq/equalizer/gateway/internal/clientip"
 	"github.com/thevidocq/equalizer/gateway/internal/formtoken"
+	"github.com/thevidocq/equalizer/gateway/internal/pathkey"
 	"github.com/thevidocq/equalizer/gateway/internal/router"
 	"github.com/thevidocq/equalizer/gateway/internal/session"
 	"github.com/thevidocq/equalizer/gateway/internal/site"
@@ -117,7 +118,13 @@ func (p *Public) handle(w http.ResponseWriter, r *http.Request) string {
 		return ""
 	}
 
-	m, err := active.Router.Match(r.Method, r.URL.Path)
+	if active.Model.AreaAmbiguous(r.URL.Path) {
+		p.block(w, r, active, http.StatusBadRequest, "ambiguous_path")
+		return ""
+	}
+	// Matched as the legacy server reads the path ("//x", "x;p", "x."),
+	// so that a precise entry or an area with roles cannot be stepped around.
+	m, err := active.Router.Match(r.Method, pathkey.Of(r.URL.Path))
 	if errors.Is(err, router.ErrNotMapped) || errors.Is(err, router.ErrMethodNotAllowed) {
 		if a := active.Model.AreaFor(r.URL.Path); a != nil {
 			// No precise entry: the area serves it as the legacy site would.

@@ -12,6 +12,7 @@ import (
 	"io"
 	"strings"
 
+	"github.com/thevidocq/equalizer/gateway/internal/jsontext"
 	"github.com/thevidocq/equalizer/gateway/internal/mapmodel"
 	"github.com/thevidocq/equalizer/gateway/internal/validate"
 )
@@ -39,6 +40,9 @@ func Body(v *validate.Validator, specs map[string]mapmodel.FieldSpec, r io.Reade
 		return nil, &validate.Error{Field: "(body)", Reason: ReasonTooLarge}
 	}
 	obj := map[string]json.RawMessage{}
+	if !jsontext.Valid(raw) {
+		return nil, &validate.Error{Field: "(body)", Reason: ReasonNotJSON}
+	}
 	if len(bytes.TrimSpace(raw)) > 0 {
 		dec := json.NewDecoder(bytes.NewReader(raw))
 		tok, err := dec.Token()
@@ -48,7 +52,7 @@ func Body(v *validate.Validator, specs map[string]mapmodel.FieldSpec, r io.Reade
 		if d, ok := tok.(json.Delim); !ok || d != '{' {
 			return nil, &validate.Error{Field: "(body)", Reason: ReasonNotObject}
 		}
-		if err := json.Unmarshal(raw, &obj); err != nil {
+		if err := json.Unmarshal(raw, &obj); err != nil || repeatedKey(dec) {
 			return nil, &validate.Error{Field: "(body)", Reason: ReasonNotJSON}
 		}
 	}
@@ -219,4 +223,26 @@ func Values(out []byte, field string) []string {
 		}
 	}
 	return vals
+}
+
+// repeatedKey reads the rest of an object whose "{" was read and reports a
+// key written twice: which one counts differs between parsers.
+func repeatedKey(dec *json.Decoder) bool {
+	seen := map[string]bool{}
+	for dec.More() {
+		tok, err := dec.Token()
+		if err != nil {
+			return true
+		}
+		k, _ := tok.(string)
+		if seen[k] {
+			return true
+		}
+		seen[k] = true
+		var skip json.RawMessage
+		if err := dec.Decode(&skip); err != nil {
+			return true
+		}
+	}
+	return false
 }

@@ -33,6 +33,16 @@ jobs:
       - name: Test
         run: go test -race ./...
 
+      - name: Fuzz the request rebuilding (short run)
+        if: matrix.module == 'gateway'
+        run: |
+          set -e
+          for target in FuzzPairs FuzzJSON FuzzXML FuzzMultipart; do
+            go test ./internal/rebuild -run='^$' -fuzz="^${target}\$" -fuzztime=20s
+          done
+          go test ./internal/pathkey -run='^$' -fuzz='^FuzzOf$' -fuzztime=20s
+          go test ./internal/jsontext -run='^$' -fuzz='^FuzzValid$' -fuzztime=20s
+
   compose:
     runs-on: ubuntu-latest
     steps:

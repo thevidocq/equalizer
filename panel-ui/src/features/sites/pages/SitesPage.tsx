@@ -21,7 +21,7 @@ export function SitesPage() {
       <PageHeader title="Protected sites" actions={add} />
       {apps.isError ? <Notice tone="error">{describeError(apps.error)}</Notice> : null}
       {apps.data?.length === 0 ? (
-        <EmptyState title="No protected sites yet" action={add}>
+        <EmptyState title="No protected sites yet">
           Add a site, install its connector next to the legacy server, then publish its map.
         </EmptyState>
       ) : null}

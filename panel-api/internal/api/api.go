@@ -16,6 +16,7 @@ import (
 	"github.com/thevidocq/equalizer/panel-api/internal/auth"
 	"github.com/thevidocq/equalizer/panel-api/internal/exposure"
 	"github.com/thevidocq/equalizer/panel-api/internal/health"
+	"github.com/thevidocq/equalizer/panel-api/internal/llmmodels"
 	"github.com/thevidocq/equalizer/panel-api/internal/logging"
 	"github.com/thevidocq/equalizer/panel-api/internal/logsearch"
 	"github.com/thevidocq/equalizer/panel-api/internal/mail"
@@ -44,8 +45,15 @@ type Server struct {
 	MFAThrottle    *auth.Throttle
 	Mail           mail.Sender // invitations
 	PanelURL       string      // base of the links in emails, e.g. https://panel.example.com
-	MailAvailable  bool        // the platform sends email (alerts can work)
-	Version        string      // release of the platform; older connectors are outdated
+	RelayURL       string      // public address connectors dial, for their install command; empty: unknown
+	// OutboundIPs: the addresses Equalizer connects from (EQ_OUTBOUND_IPS);
+	// empty: those of the panel's and relay's domains.
+	OutboundIPs []string
+	Models      llmmodels.Lister // asks AI providers for their models; zero value: the public APIs
+	// LookupHost resolves the platform's own domains (tests replace it).
+	LookupHost    func(ctx context.Context, host string) ([]string, error)
+	MailAvailable bool   // the platform sends email (alerts can work)
+	Version       string // release of the platform; older connectors are outdated
 	// Destinations a map may reach in direct mode (EQ_DIRECT_DESTINATIONS);
 	// empty: tenant maps must use a connector.
 	DirectDestinations map[string]bool
@@ -83,6 +91,7 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("POST /v1/invitations/{token}/accept", s.acceptInvitation)
 	mux.HandleFunc("GET /v1/platform/tenants", s.authed(s.platformTenants))
 	mux.HandleFunc("POST /v1/platform/tenants/{tenant}/invitation", s.authed(s.reinviteFirstAdmin))
+	mux.HandleFunc("DELETE /v1/platform/tenants/{tenant}", s.authed(s.deleteTenant))
 	mux.HandleFunc("DELETE /v1/tenants/{tenant}/users/{id}", s.authed(s.deactivateUser))
 	mux.HandleFunc("POST /v1/tenants/{tenant}/users/{id}/reset-mfa", s.authed(s.resetMFA))
 	// Apps and connectors
@@ -106,6 +115,7 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("GET /v1/tenants/{tenant}/llm", s.authed(s.getLLM))
 	mux.HandleFunc("PUT /v1/tenants/{tenant}/llm", s.authed(s.putLLM))
 	mux.HandleFunc("DELETE /v1/tenants/{tenant}/llm", s.authed(s.deleteLLM))
+	mux.HandleFunc("POST /v1/tenants/{tenant}/llm/models", s.authed(s.llmModels))
 	mux.HandleFunc("GET /v1/apps/{app}/discoveries", s.authed(s.listDiscoveries))
 	mux.HandleFunc("POST /v1/apps/{app}/discoveries", s.authed(s.startDiscovery))
 	mux.HandleFunc("GET /v1/apps/{app}/discoveries/{id}", s.authed(s.getDiscovery))

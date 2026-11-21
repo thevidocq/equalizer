@@ -24,8 +24,10 @@ jobs:
       - name: Validate JSON Schema, map examples and OpenAPI
         run: python scripts/validate_schemas.py
 
+      # Dependabot's version bumps carry no changelog entry: they are
+      # recorded in the release notes instead.
       - name: The changelog must change in every PR
-        if: github.event_name == 'pull_request'
+        if: github.event_name == 'pull_request' && github.event.pull_request.user.login != 'dependabot[bot]'
         run: |
           git fetch --depth=1 origin "${{ github.base_ref }}"
           if git diff --quiet "origin/${{ github.base_ref }}" -- CHANGELOG.md; then

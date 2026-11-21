@@ -51,9 +51,21 @@ Type the password (at least 12 characters) and press Enter.
 ### Invitations
 
 Until someone joins, the tenant shows **Waiting for the administrator to
-join** with **Invite again** (email lost or wrong address): the previous
-link stops working. Once anyone has joined, only the tenant's
-administrators invite people.
+join** with **Invite again** (email lost or wrong address): it opens with
+the name and email of the last invitation, the previous link stops
+working. Once anyone has joined, only the tenant's administrators invite
+people. An invitation to an email that already has an account, or a pending
+invitation, is refused at once. When an email cannot be sent, the message
+says why (the mail server cannot be reached, refused the password, the
+sender…); the panel's log has the server's own answer.
+
+### Delete a customer
+
+**Tenants → Delete**, then type the tenant's id to confirm. Its sites stop
+being served at the gateways' next reload, its connectors are disconnected,
+its people can no longer log in; its maps, settings and activity are
+deleted. Traffic logs expire on their own. The deletion is in the
+platform's **Activity**. It cannot be undone.
 
 ### Privacy
 
@@ -78,7 +90,7 @@ tenant data.
 | Service | Down means |
 | --- | --- |
 | Database | The panel cannot work; gateways keep serving the last maps |
-| Gateway | No replica ready: protected sites do not answer |
+| Gateway | No replica answers: protected sites do not answer. "Running, no site loaded yet" is a fresh installation, not a failure |
 | Tunnel relay | Sites reached through connectors do not answer |
 | Log store | The tenants' Logs page and the traffic on their Status page are unavailable |
 

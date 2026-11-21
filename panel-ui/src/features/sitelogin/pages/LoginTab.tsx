@@ -25,7 +25,7 @@ export function LoginTab() {
   const [form, setForm] = useState<AuthForm>(() => readAuth(undefined));
   useEffect(() => { if (doc) setForm(readAuth(doc)); }, [doc]);
   const roles = useMemo(() => rolesOf(doc), [doc]);
-  const canWrite = hasRole(me, tenant, "admin", "editor");
+  const canWrite = hasRole(me, tenant, "admin");
   const isAdmin = hasRole(me, tenant, "admin");
   const issues = problems(form, doc);
   const live = source?.status === "published" && readAuth(doc).on;
@@ -44,7 +44,7 @@ export function LoginTab() {
       <p className="text-sm">
         {live ? "Visitors log in with your identity provider before they reach the site, or the paths you chose."
           : "Off: visitors reach the site with its own login, as today."}{" "}
-        The settings below go in a new version of the map, reviewed and approved like any other; the secret is kept apart.
+        The settings below go in a new version of the map, published like any other; the secret is kept apart.
         Starting from version {source?.version} ({source?.status}).
       </p>
       {create.isError ? <Notice tone="error">{describeError(create.error)}</Notice> : null}

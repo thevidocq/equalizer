@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { api, unwrap } from "@/shared/api/client";
+import { api, unwrap, type Schemas } from "@/shared/api/client";
 
-export type AlertInput = { enabled: boolean; extra_emails: string[] };
+export type AlertInput = { enabled: boolean; extra_emails: string[]; kinds?: Schemas["AlertSettings"]["kinds"] };
 
 /** Email alerts when a site stops working (tenant administrators only). */
 export function useAlerts(tenant: string) {

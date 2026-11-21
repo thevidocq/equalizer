@@ -52,7 +52,11 @@ type Prober struct {
 // PublicIP parses s and accepts only a public unicast address: the probe
 // must never reach the platform's own networks.
 func PublicIP(s string) (netip.Addr, bool) {
-	a, err := netip.ParseAddr(strings.TrimSpace(s))
+	s = strings.TrimSpace(s)
+	if ap, err := netip.ParseAddrPort(s); err == nil { // 203.0.113.10:80: the port is not needed
+		s = ap.Addr().String()
+	}
+	a, err := netip.ParseAddr(s)
 	if err != nil || a.Zone() != "" {
 		return netip.Addr{}, false
 	}

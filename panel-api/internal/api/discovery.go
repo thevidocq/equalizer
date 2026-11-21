@@ -19,6 +19,7 @@ type discoveryStart struct {
 		Password string `json:"password"`
 	} `json:"account"`
 	Accounts    []testAccount `json:"accounts"`
+	Mode        string        `json:"mode"`
 	ConnectorID string        `json:"connector_id"`
 	Address     string        `json:"address"`
 	Scheme      string        `json:"scheme"`
@@ -46,7 +47,7 @@ func (s *Server) startDiscovery(w http.ResponseWriter, r *http.Request, u *auth.
 	if !ok {
 		return
 	}
-	if !u.HasTenantRole(a.Tenant, "admin", "editor") {
+	if !u.HasTenantRole(a.Tenant, "admin") {
 		forbidden(w)
 		return
 	}
@@ -154,11 +155,13 @@ func (s *Server) discoveryReach(r *http.Request, a store.App, in discoveryStart)
 	if in.Scheme == "" {
 		in.Scheme = "https"
 	}
-	addr := normDest(in.Address)
-	if !connectorIDRe.MatchString(in.ConnectorID) || addr == "" || (in.Scheme != "https" && in.Scheme != "http") {
-		return nil, &reachError{"invalid", "no published map yet: connector_id and address (host:port) are required"}
+	if in.Scheme != "https" && in.Scheme != "http" {
+		return nil, &reachError{"invalid", "scheme: https or http"}
 	}
-	reach, _ := json.Marshal(map[string]any{"mode": "connector", "connector_id": in.ConnectorID, "address": addr, "allow": []string{addr}})
+	reach, err := newReach(in.Mode, in.ConnectorID, in.Address)
+	if err != nil {
+		return nil, &reachError{"invalid", "no published map yet: " + err.Error()}
+	}
 	probe, _ := json.Marshal(map[string]any{"legacy": map[string]any{"reach": json.RawMessage(reach)}})
 	if err := s.checkReach(r.Context(), a.Tenant, probe); err != nil {
 		return nil, err

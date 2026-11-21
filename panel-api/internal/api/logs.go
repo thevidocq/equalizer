@@ -21,7 +21,7 @@ const (
 
 func (s *Server) logFilter(w http.ResponseWriter, r *http.Request, u *auth.User) (logsearch.Filter, bool) {
 	tenant := r.PathValue("tenant")
-	if !u.HasTenantRole(tenant, "admin", "approver", "auditor") {
+	if !u.HasTenantRole(tenant, "admin", "viewer") {
 		forbidden(w)
 		return logsearch.Filter{}, false
 	}

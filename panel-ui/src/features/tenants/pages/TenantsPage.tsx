@@ -7,6 +7,7 @@ import { useTenantOverview } from "../hooks/useTenants";
 import { CreateTenantDialog } from "../components/CreateTenantDialog";
 import { SiteDots } from "../components/SiteDots";
 import { ReinviteDialog } from "../components/ReinviteDialog";
+import { DeleteTenantDialog } from "../components/DeleteTenantDialog";
 
 type Row = Schemas["TenantOverview"];
 
@@ -15,6 +16,7 @@ export function TenantsPage() {
   const me = useMe();
   const [adding, setAdding] = useState(false);
   const [reinviting, setReinviting] = useState<Row | null>(null);
+  const [deleting, setDeleting] = useState<Row | null>(null);
   const isAdmin = me.data?.platform_role === "admin";
   const add = isAdmin
     ? <Button variant="primary" onClick={() => setAdding(true)}>Add a customer</Button> : null;
@@ -26,7 +28,7 @@ export function TenantsPage() {
         actions={add} />
       {tenants.isError ? <Notice tone="error">{describeError(tenants.error)}</Notice> : null}
       {tenants.data?.length === 0 ? (
-        <EmptyState title="No customers yet" action={add}>Add a customer: its first administrator gets an email to join.</EmptyState>
+        <EmptyState title="No customers yet">Add a customer: its first administrator gets an email to join.</EmptyState>
       ) : null}
       {tenants.data && tenants.data.length > 0 ? (
         <Table<Row> caption="Tenants" rows={tenants.data} rowKey={(t) => t.id} columns={[
@@ -40,10 +42,14 @@ export function TenantsPage() {
               {isAdmin ? <Button onClick={() => setReinviting(t)}>Invite again</Button> : null}
             </span>
           )) },
+          ...(isAdmin ? [{ header: "", className: "text-right", cell: (t: Row) => (
+            <Button variant="danger" onClick={() => setDeleting(t)}>Delete</Button>
+          ) }] : []),
         ]} />
       ) : null}
       <CreateTenantDialog open={adding} onOpenChange={setAdding} />
-      <ReinviteDialog tenant={reinviting} onClose={() => setReinviting(null)} />
+      <ReinviteDialog key={`reinvite:${reinviting?.id ?? ""}`} tenant={reinviting} onClose={() => setReinviting(null)} />
+      <DeleteTenantDialog key={`delete:${deleting?.id ?? ""}`} tenant={deleting} onClose={() => setDeleting(null)} />
     </div>
   );
 }

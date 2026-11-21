@@ -62,8 +62,8 @@ func (s *Server) getReview(w http.ResponseWriter, r *http.Request, u *auth.User)
 	switch {
 	case err == nil:
 		out.AI = ai
-	case errors.Is(err, store.ErrNotFound) && v.Status == "in_review" && s.hasLLM(r, a.Tenant):
-		// First look at a version under review: ask the AI now.
+	case errors.Is(err, store.ErrNotFound) && (v.Status == "draft" || v.Status == "in_review") && s.hasLLM(r, a.Tenant):
+		// First look at a version not yet published: ask the AI now.
 		_ = s.Store.QueueReview(r.Context(), a.ID, v.Version)
 		out.AI = store.AIReview{Status: "queued", Questions: []string{}}
 	default:
@@ -77,7 +77,7 @@ func (s *Server) askReview(w http.ResponseWriter, r *http.Request, u *auth.User)
 	if !ok {
 		return
 	}
-	if !u.HasTenantRole(a.Tenant, "admin", "editor", "approver") {
+	if !u.HasTenantRole(a.Tenant, "admin") {
 		forbidden(w)
 		return
 	}

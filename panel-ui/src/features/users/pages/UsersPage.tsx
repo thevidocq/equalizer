@@ -20,9 +20,9 @@ export function UsersPage() {
 
   return (
     <div className="flex flex-col gap-6">
-      <PageHeader title="People" subtitle="Approvals always need two people: an author and someone else." actions={add} />
+      <PageHeader title="People" subtitle="Administrators do everything; viewers read and change nothing." actions={add} />
       {users.isError ? <Notice tone="error">{describeError(users.error)}</Notice> : null}
-      {users.data?.length === 0 ? <EmptyState title="Nobody here yet" action={add}>Invite at least an editor and an approver.</EmptyState> : null}
+      {users.data?.length === 0 ? <EmptyState title="Nobody here yet">Invite the people who look after your sites.</EmptyState> : null}
       {users.data && users.data.length > 0 ? (
         <Table<User> caption="People" rows={users.data} rowKey={(u) => String(u.id)} columns={[
           { header: "Name", cell: (u) => <span className="font-semibold">{u.name}</span> },

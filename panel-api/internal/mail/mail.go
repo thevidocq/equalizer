@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"log/slog"
 	"net"
+	"net/mail"
 	"net/smtp"
 	"strings"
 	"sync"
@@ -54,58 +55,103 @@ type SMTP struct {
 	From     string
 }
 
+// Problems: why an email could not be sent, in words the panel can show.
+// They never carry the server's own answer, which may echo addresses.
+const (
+	ProblemNotConfigured     = "not_configured"
+	ProblemUnreachable       = "unreachable"
+	ProblemTLS               = "tls"
+	ProblemAuthRejected      = "auth_rejected"
+	ProblemSenderRejected    = "sender_rejected"
+	ProblemRecipientRejected = "recipient_rejected"
+	ProblemRejected          = "rejected"
+)
+
+// SendError tells at which step of the SMTP exchange sending failed.
+type SendError struct {
+	Problem string
+	Err     error
+}
+
+func (e *SendError) Error() string { return e.Problem + ": " + e.Err.Error() }
+func (e *SendError) Unwrap() error { return e.Err }
+
+func fail(problem string, err error) error { return &SendError{Problem: problem, Err: err} }
+
+// Problem is the reason an email was not sent, for the panel.
+func Problem(err error) string {
+	var se *SendError
+	switch {
+	case err == nil:
+		return ""
+	case errors.Is(err, ErrDisabled):
+		return ProblemNotConfigured
+	case errors.As(err, &se):
+		return se.Problem
+	}
+	return ProblemRejected
+}
+
 // Send implements Sender.
 func (s SMTP) Send(ctx context.Context, m Message) error {
 	if strings.ContainsAny(m.To+m.Subject, "\r\n") {
 		return errors.New("invalid header value")
 	}
+	from, err := mail.ParseAddress(s.From)
+	if err != nil {
+		return fail(ProblemSenderRejected, fmt.Errorf("sender address (EQ_MAIL_FROM): %w", err))
+	}
 	host, port, err := net.SplitHostPort(s.Addr)
 	if err != nil {
-		return err
+		return fail(ProblemUnreachable, err)
 	}
 	d := net.Dialer{Timeout: 10 * time.Second}
-	var conn net.Conn
-	if port == "465" {
-		conn, err = tls.DialWithDialer(&d, "tcp", s.Addr, &tls.Config{ServerName: host, MinVersion: tls.VersionTLS12})
-	} else {
-		conn, err = d.DialContext(ctx, "tcp", s.Addr)
-	}
+	conn, err := d.DialContext(ctx, "tcp", s.Addr)
 	if err != nil {
-		return err
+		return fail(ProblemUnreachable, err)
+	}
+	if port == "465" { // implicit TLS
+		tc := tls.Client(conn, &tls.Config{ServerName: host, MinVersion: tls.VersionTLS12})
+		if err := tc.HandshakeContext(ctx); err != nil {
+			conn.Close()
+			return fail(ProblemTLS, err)
+		}
+		conn = tc
 	}
 	c, err := smtp.NewClient(conn, host)
 	if err != nil {
 		conn.Close()
-		return err
+		return fail(ProblemUnreachable, err)
 	}
 	defer c.Close()
 	if ok, _ := c.Extension("STARTTLS"); ok {
 		if err := c.StartTLS(&tls.Config{ServerName: host, MinVersion: tls.VersionTLS12}); err != nil {
-			return err
+			return fail(ProblemTLS, err)
 		}
 	}
 	if s.User != "" {
 		if err := c.Auth(smtp.PlainAuth("", s.User, s.Password, host)); err != nil {
-			return err
+			return fail(ProblemAuthRejected, err)
 		}
 	}
-	if err := c.Mail(s.From); err != nil {
-		return err
+	// The envelope takes the bare address; the header keeps the name.
+	if err := c.Mail(from.Address); err != nil {
+		return fail(ProblemSenderRejected, err)
 	}
 	if err := c.Rcpt(m.To); err != nil {
-		return err
+		return fail(ProblemRecipientRejected, err)
 	}
 	w, err := c.Data()
 	if err != nil {
-		return err
+		return fail(ProblemRejected, err)
 	}
 	msg := fmt.Sprintf("From: %s\r\nTo: %s\r\nSubject: %s\r\nMIME-Version: 1.0\r\nContent-Type: text/plain; charset=utf-8\r\n"+
-		"Date: %s\r\n\r\n%s\r\n", s.From, m.To, m.Subject, time.Now().UTC().Format(time.RFC1123Z), strings.ReplaceAll(m.Body, "\n", "\r\n"))
+		"Date: %s\r\n\r\n%s\r\n", from.String(), m.To, m.Subject, time.Now().UTC().Format(time.RFC1123Z), strings.ReplaceAll(m.Body, "\n", "\r\n"))
 	if _, err := w.Write([]byte(msg)); err != nil {
-		return err
+		return fail(ProblemRejected, err)
 	}
 	if err := w.Close(); err != nil {
-		return err
+		return fail(ProblemRejected, err)
 	}
 	return c.Quit()
 }

@@ -7,6 +7,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"net"
 	"net/http"
 	"time"
@@ -120,18 +121,42 @@ func (p *Probe) TunnelVersions(ctx context.Context) (map[string][]string, bool) 
 	return out, answered
 }
 
-// Replicas reports how many replicas of a service answer /readyz.
-func (p *Probe) Replicas(ctx context.Context, hostport string) (up, total int) {
+// Replicas reports how many replicas of a service are ready (/readyz) and
+// how many are running (/healthz). A gateway with no published map runs but
+// is not ready: that is a fresh installation, not a failure.
+func (p *Probe) Replicas(ctx context.Context, hostport string) (ready, running, total int) {
 	addrs, err := p.replicas(ctx, hostport)
 	if err != nil {
-		return 0, 0
+		return 0, 0, 0
 	}
 	for _, a := range addrs {
 		if p.get(ctx, "http://"+a+"/readyz", nil) == nil {
-			up++
+			ready++
+			running++
+		} else if p.get(ctx, "http://"+a+"/healthz", nil) == nil {
+			running++
 		}
 	}
-	return up, len(addrs)
+	return ready, running, len(addrs)
+}
+
+// ReplicaCheck turns replica counts into a check. Replicas that run but are
+// not ready (a gateway with no site loaded yet) are not a failure.
+func ReplicaCheck(name string, ready, running, total int) Check {
+	c := Check{Name: name, Detail: fmt.Sprintf("%d of %d replicas ready", ready, total)}
+	switch {
+	case total == 0 || running == 0:
+		c.State = Down
+		c.Detail = fmt.Sprintf("0 of %d replicas answer", total)
+	case ready == 0 && running == total:
+		c.State = OK
+		c.Detail = fmt.Sprintf("%d of %d replicas running, no site loaded yet", running, total)
+	case running < total || ready < total:
+		c.State = Degraded
+	default:
+		c.State = OK
+	}
+	return c
 }
 
 // LokiReady reports whether the log store answers.

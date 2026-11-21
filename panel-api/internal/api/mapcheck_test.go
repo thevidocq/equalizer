@@ -19,7 +19,7 @@ func TestMapCheckedByGateway(t *testing.T) {
 	admin := e.join("boss@acme.test")
 	admin.must(201, "POST", "/v1/tenants/acme/apps", map[string]string{"id": "portal", "name": "Portal", "public_domain": "portal.acme.test"}, nil)
 	admin.must(201, "POST", "/v1/tenants/acme/connectors", map[string]string{"id": "cn-1"}, nil)
-	admin.must(201, "POST", "/v1/tenants/acme/invitations", map[string]string{"email": "ap@acme.test", "name": "Ap", "role": "approver"}, nil)
+	admin.must(201, "POST", "/v1/tenants/acme/invitations", map[string]string{"email": "ap@acme.test", "name": "Ap", "role": "admin"}, nil)
 	ap := e.join("ap@acme.test")
 
 	var mode atomic.Value // ok, refuse, down

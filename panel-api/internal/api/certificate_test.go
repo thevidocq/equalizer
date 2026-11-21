@@ -45,7 +45,7 @@ func TestSiteCertificate(t *testing.T) {
 	root.must(200, "POST", "/v1/auth/login", map[string]string{"email": "root@example.com", "password": "platform-admin-password"}, nil)
 	root.must(201, "POST", "/v1/tenants", map[string]string{"id": "acme", "name": "Acme", "admin_email": "boss@acme.test", "admin_name": "Boss"}, nil)
 	admin := e.join("boss@acme.test")
-	admin.must(201, "POST", "/v1/tenants/acme/invitations", map[string]string{"email": "ap@acme.test", "name": "Ap", "role": "approver"}, nil)
+	admin.must(201, "POST", "/v1/tenants/acme/invitations", map[string]string{"email": "ap@acme.test", "name": "Ap", "role": "viewer"}, nil)
 	ap := e.join("ap@acme.test")
 	admin.must(201, "POST", "/v1/tenants/acme/connectors", map[string]string{"id": "cn-1"}, nil)
 	admin.must(201, "POST", "/v1/tenants/acme/apps", map[string]string{"id": "portal", "name": "Portal", "public_domain": "www.acme.test"}, nil)
@@ -114,8 +114,8 @@ func TestSiteCertificate(t *testing.T) {
 	}
 	admin.must(201, "POST", "/v1/apps/portal/maps", map[string]any{"document": json.RawMessage(mapDoc)}, nil)
 	admin.must(200, "POST", "/v1/apps/portal/maps/1/submit", nil, nil)
-	ap.must(200, "POST", "/v1/apps/portal/maps/1/approve", nil, nil)
-	ap.must(200, "POST", "/v1/apps/portal/maps/1/publish", nil, nil)
+	admin.must(200, "POST", "/v1/apps/portal/maps/1/approve", nil, nil)
+	admin.must(200, "POST", "/v1/apps/portal/maps/1/publish", nil, nil)
 	feed := certsFeed()
 	if len(feed) != 1 || strings.Join(feed[0].Domains, ",") != "www.acme.test,acme.test" || !strings.Contains(feed[0].KeyPEM, "PRIVATE KEY") {
 		t.Fatalf("feed: %+v", feed)

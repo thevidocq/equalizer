@@ -39,6 +39,153 @@ merge of #39).
 
 ## Entries
 
+### 2026-11-20 — Lab run: redirect after a form, tagline, Dependabot
+
+- **Branch:** fix/first-install-feedback
+- **What:** the redirect-loop guard ignored the method: a form sent with
+  POST and answered with a redirect to the same page in the other scheme
+  (Joomla's administrator login) was stopped, though the browser follows
+  with GET and nothing loops; now only GET and HEAD are checked (test
+  added). Tagline: a minimum gap between the words. Lab: an https site
+  is sent to https with 302 (`test_01`). CI: the changelog check skips
+  Dependabot's pull requests (`contracts.yml`), which never carry an entry.
+- **Why:** the full lab run (79 tests) failed only on Joomla's admin
+  login; the tagline still touched at phone size; Dependabot's #65 failed
+  the changelog check.
+- **Status:** lab end to end: 78 passed, then onboarding and the other
+  sites again after the fix, all passed. Panel checked at phone width
+  (390 px) with Playwright: menu, sites, status, maps, isolation, new
+  version, settings, people.
+- **Next steps:** merge; tag v0.2.1 (owner); update the VPS; then
+  `@dependabot rebase` on #65.
+
+### 2026-11-20 — Direct mode for customer sites, manuals
+
+- **Branch:** fix/first-install-feedback
+- **What:**
+  - Direct mode as a deployment option: a site that stays at its public
+    address and accepts only Equalizer's addresses needs no connector.
+    `checkReach` accepts in direct mode a public IP address and port written
+    as such (`publicDest`; never a name, which could later resolve to the
+    platform's network) or `EQ_DIRECT_DESTINATIONS`. Template and first
+    discovery take `mode` (`newReach`). The agent reaches such a site pinned
+    to the address with the site's name in Host and SNI (`_Pinned`), as the
+    gateway does. Equalizer's addresses (`EQ_OUTBOUND_IPS`, or those of the
+    panel's and relay's domains) are returned as `direct_from` and shown in
+    the panel. Isolation of such a site cannot be checked from the
+    platform, whose requests are the accepted ones: Status says so, the
+    hourly check and "Check now" skip it, the Isolation page gives a
+    command to run from another network. `App.reach_mode` tells the panel.
+    UI: "How Equalizer reaches the site" (`ReachFields`) in the template and
+    first discovery forms; neutral wording.
+  - Requirement 2 and the decision table in `CLAUDE.md` and
+    `docs/architecture.md` updated as decisions of the owner: direct mode,
+    one administrator publishes, site certificates always uploaded.
+  - Manuals (tenant, admin), `INSTALL.md`, `docs/map-format.md`: two roles,
+    publish alone, direct mode, never-public sites, alert kinds, AI model
+    list, tenant deletion, email reasons. `INSTALL.md` no longer says Caddy
+    gets a certificate for a protected site (it never does).
+  - Lab end-to-end tests: one administrator publishes, the second person is
+    a viewer who cannot.
+- **Why:** owner's decision after the first installation: a site already
+  behind a perimeter that accepts only Equalizer does not need a connector.
+  Automatic certificates for protected sites were proposed and declined:
+  the certificate stays the one issued for the original site.
+- **Status:** unit, API and agent tests pass; lab end-to-end not run yet in
+  this commit.
+- **Next steps:** run the lab end to end and the panel at phone width; open
+  the PR; release 0.2.1 (tag by the owner) and update the VPS.
+
+### 2026-11-20 — One person publishes, two roles, tenant deletion, AI models, alert kinds
+
+- **Branch:** fix/first-install-feedback
+- **What:**
+  - Approval: no second person needed. An administrator publishes a
+    version straight from draft (`publish` from draft, in review or
+    approved), the author included; submit, approve and reject stay as
+    optional steps. Publishing retires older versions still pending. The
+    database rule `approver_id <> author_id` is dropped (migration 0019).
+    Panel: a single "Publish" button (and "Discard"), a two-step rail.
+  - Roles: administrator and viewer only. Editors and approvers become
+    administrators, auditors viewers (migration 0019); viewers read sites,
+    maps, status, activity and logs.
+  - Tenant deletion: `DELETE /v1/platform/tenants/{tenant}` with the id
+    typed again (`Store.DeleteTenant`, one transaction): sites and maps,
+    connectors, people, invitations, settings and activity; recorded in the
+    platform's activity. Traffic logs expire on their own. Panel: Delete on
+    the Tenants page, confirmed by typing the id.
+  - Isolation: "the site never had a public address" (`never_public`,
+    migration 0018) shows Isolation as fine; an old IP that is Equalizer's
+    own address (the panel's or relay's domain resolves to it) is refused,
+    since the check would reach Equalizer and report the site exposed; a
+    port after the IP is dropped; the error is in plain words.
+  - AI settings: `POST /v1/tenants/{tenant}/llm/models` asks the provider
+    which models the key may use (Anthropic, OpenAI, OpenAI-compatible
+    server; package `llmmodels`, never to a private address); the panel
+    shows them in a list, the typed name only when the provider cannot be
+    asked.
+  - Alerts: each kind is turned on or off (`kinds`: connector, legacy_site,
+    isolation, certificate, certificate_expiry, recovered; migration 0020).
+    The state is followed even when a kind is off.
+- **Why:** first installation feedback: one person runs a small customer,
+  four roles were too many, tenants could not be removed, the model had to
+  be typed, alerts were all or nothing.
+- **Status:** Go and vitest tests pass. Manuals not yet updated (next
+  commit); lab end-to-end tests still use the old roles.
+- **Next steps:** automatic certificates for protected sites, direct mode,
+  manuals, lab tests, a run at phone width.
+
+### 2026-11-20 — Fix what the first installation showed
+
+- **Branch:** fix/first-install-feedback
+- **What:** the problems found on the first VPS installation:
+  - Platform status: a gateway with no site published was shown "Down,
+    0 of 2 replicas ready". `health.Probe.Replicas` now tells running
+    (`/healthz`) from ready (`/readyz`); `health.ReplicaCheck` shows
+    "running, no site loaded yet" as OK.
+  - Email: `EQ_MAIL_FROM` with a display name (`Equalizer <noreply@…>`)
+    went whole into `MAIL FROM` and servers answered 501. The envelope now
+    carries the bare address, the header the name; the address is checked
+    at startup. Each failure has a reason (`mail.Problem`: unreachable,
+    tls, auth_rejected, sender_rejected, recipient_rejected, rejected,
+    not_configured), returned as `Invitation.send_problem` and shown in the
+    toasts instead of "check the mail settings".
+  - Invitations: refused with 409 when the email already has an account or
+    a pending invitation (`Store.EmailUse`), for a new tenant, a tenant
+    invitation and the first administrator's new invitation; before, the
+    link failed only when opened. "Invite again" opens with the name and
+    email of the last invitation (`TenantOverview.pending_admin`).
+  - Panel on phones: the sidebar becomes a menu under a top bar below the
+    `lg` breakpoint (`app/Shell.tsx`), tables scroll sideways, the form
+    grids get fewer columns; before, pages were squeezed into a narrow
+    column and the sidebar was cut in landscape.
+  - Logo: the tagline was SVG `textLength`, which Safari draws with the
+    spaces collapsed; now plain words spread over the name's width.
+  - Duplicate buttons on empty Tenants, People and Sites pages (header and
+    empty state).
+  - Isolation page: the old-IP form appeared twice after saving: it and the
+    aliases form had the same React key when both were empty.
+  - Address on the server (template and first discovery): empty with an
+    example, not a prefilled `127.0.0.1:8443` that looked like a value.
+  - Connector command: the relay address is filled in
+    (`EQ_RELAY_PUBLIC_URL`, set by Compose from `EQ_RELAY_DOMAIN`, returned
+    as `relay_url` with the connector list).
+  - Gateway: http to https of an https site is now 302/307, not 301/308,
+    since browsers keep a 301 after the site is switched to http; no HSTS
+    on the plain port. A legacy redirect to the same page in the other
+    scheme (WordPress with an https address served in http) is stopped with
+    a page and a `legacy.error` event `scheme_mismatch` that the panel
+    explains, instead of a redirect loop.
+  - Agent: route handlers removed before the browser closes, so no
+    `CancelledError` tracebacks outside the JSON logs.
+- **Why:** first installation on a real VPS (WordPress through a connector,
+  phone only).
+- **Status:** unit and API tests pass (Go, vitest, agent). Not yet seen on
+  a phone: checked at phone width in the lab with Playwright.
+- **Next steps:** simpler approval and roles, tenant deletion, AI model
+  list, alert choices, automatic certificates, "never public" isolation,
+  direct mode (same branch).
+
 ### 2026-11-20 — Prepare release 0.2.0
 
 - **Branch:** chore/release-0.2.0

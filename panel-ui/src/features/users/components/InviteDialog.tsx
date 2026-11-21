@@ -1,4 +1,5 @@
 import { useState, type FormEvent } from "react";
+import { notSentReason } from "@/shared/api/mail";
 import { Button, Dialog, Notice, SelectField, TextField, useToast } from "@/shared/ui";
 import { describeError } from "@/shared/api/errors";
 import type { Role } from "../hooks/useUsers";
@@ -6,7 +7,7 @@ import { useInvite } from "../hooks/useInvitations";
 import { roleText } from "./roles";
 
 type Props = { tenant: string; open: boolean; onOpenChange: (o: boolean) => void };
-const empty = { email: "", name: "", role: "editor" as Role };
+const empty = { email: "", name: "", role: "admin" as Role };
 
 export function InviteDialog({ tenant, open, onOpenChange }: Props) {
   const invite = useInvite(tenant);
@@ -18,7 +19,7 @@ export function InviteDialog({ tenant, open, onOpenChange }: Props) {
     e.preventDefault();
     invite.mutate(form, {
       onSuccess: (inv) => {
-        toast(inv.sent ? `Invitation sent to ${inv.email}` : `The email to ${inv.email} could not be sent. Revoke and try again later.`);
+        toast(inv.sent ? `Invitation sent to ${inv.email}` : `The email to ${inv.email} was not sent: ${notSentReason(inv.send_problem)}.`);
         onOpenChange(false); setForm(empty);
       },
     });

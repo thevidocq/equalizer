@@ -42,22 +42,18 @@ export function Logo({ size = "sm", inverted = false, tagline = true }: Props) {
 
 /**
  * The tagline spans exactly the width of the name, never more: the box
- * takes no width of its own (w-0 min-w-full) and the letters are spaced to
- * fill it (textLength).
+ * takes no width of its own (w-0 min-w-full) and the words are spread over
+ * it. Plain text, not SVG textLength, which Safari renders with the spaces
+ * collapsed.
  */
 function Tagline({ lg, inverted }: { lg: boolean; inverted: boolean }) {
-  const size = lg ? 10.5 : 6.4;
-  const height = Math.ceil(size * 1.3);
   return (
-    <div className={`w-0 min-w-full ${lg ? "mt-2.5" : "mt-1.5"}`}>
-      <svg width="100%" height={height} aria-label="Protect legacy web apps" role="img" className="block overflow-visible">
-        <text
-          x="0" y={size} textLength="100%" lengthAdjust="spacing" fontSize={size} fontWeight={500}
-          fill="currentColor" className={inverted ? "text-paper/70" : "text-ink-soft"}
-        >
-          PROTECT LEGACY WEB APPS
-        </text>
-      </svg>
+    <div
+      aria-label="Protect legacy web apps" role="img"
+      className={`flex w-0 min-w-full justify-between gap-[0.35em] whitespace-nowrap font-medium uppercase leading-none tracking-[0.02em] ${
+        lg ? "mt-2.5 text-[10.5px]" : "mt-1.5 text-[6.4px]"} ${inverted ? "text-paper/70" : "text-ink-soft"}`}
+    >
+      {["Protect", "legacy", "web", "apps"].map((w) => <span key={w} aria-hidden="true">{w}</span>)}
     </div>
   );
 }

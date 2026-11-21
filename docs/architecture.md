@@ -11,8 +11,12 @@ agent propose the map; people approve it from a multitenant panel.
 
 1. **Interface 100% identical**: faithful rendering by default. Planned:
    automatic visual comparison (Playwright, pixel by pixel).
-2. **No exposure of the legacy application**: only the connector reaches it,
-   opening the tunnel outbound, both in cloud and on-prem.
+2. **No exposure of the legacy application**: only Equalizer reaches it.
+   By default through the connector, which opens the tunnel outbound, both
+   in cloud and on-prem; or directly, when the site stays at its public
+   address and accepts only Equalizer's address (decision of the project
+   owner, 2026-11-20: saves the connector where the customer already
+   controls who reaches the site).
 3. **Rebuild, never forward.**
 4. **Continuity**: historical URLs keep working (`compat`).
 5. **Two modes**: cloud with repointed DNS and on-prem, same software.
@@ -74,8 +78,17 @@ Observability: Vector (log collection), Loki (logs, 30 days), Grafana
   configuration (internal listener, or connector-only) and checks it from
   outside every hour; a site that answers again turns "exposed", in the
   tenant's activity and in the logs.
-- **Direct mode** is limited to destinations the platform allows, so no
-  map can aim the gateway at the platform's own network.
+- **Direct mode.** A site can be reached directly, without a connector: it
+  stays at its public IP address and accepts only Equalizer's addresses
+  (`EQ_OUTBOUND_IPS`, or those of the panel's and relay's domains, shown in
+  the panel). The map then has `reach.mode: direct` with the site's public
+  IP and port in `reach.address`; the site's name goes in `Host` and SNI and
+  its certificate is checked against it. The panel accepts only a public
+  IP address written as such (a name could later resolve to the platform's
+  network), or a destination the platform allows (`EQ_DIRECT_DESTINATIONS`,
+  lab applications). Isolation cannot be checked from the platform, whose
+  requests are the accepted ones: the panel gives a command to run from
+  another network, and the hourly check skips these sites.
 
 ## Discovery
 
@@ -110,8 +123,10 @@ Two kinds of people use the panel, and they never share a view.
   and chooses their own password. The platform holds no tenant role: maps,
   connectors, people and the tenant's activity are closed to it, and its own
   activity log holds platform actions only.
-- **Tenant people** (`tenant_role` admin, editor, approver, auditor):
-  manage their own sites. The tenant administrator invites the others.
+- **Tenant people** (`tenant_role` admin or viewer): administrators manage
+  their own sites and publish maps alone; viewers read. The tenant
+  administrator invites the others. The platform administrator can delete a
+  tenant with everything it owns.
 
 Support access to a tenant (time-limited and audited, granted by the tenant)
 is not implemented: today the platform cannot see tenant data at all.

@@ -3,7 +3,6 @@ package api
 import (
 	"context"
 	"errors"
-	"fmt"
 	"net/http"
 	"time"
 
@@ -123,15 +122,6 @@ func replicas(name string, p *health.Probe, ctx context.Context, addr string) he
 	if addr == "" {
 		return health.Check{Name: name, State: health.Unknown, Detail: "address not configured"}
 	}
-	up, total := p.Replicas(ctx, addr)
-	c := health.Check{Name: name, Detail: fmt.Sprintf("%d of %d replicas ready", up, total)}
-	switch {
-	case total == 0 || up == 0:
-		c.State = health.Down
-	case up < total:
-		c.State = health.Degraded
-	default:
-		c.State = health.OK
-	}
-	return c
+	ready, running, total := p.Replicas(ctx, addr)
+	return health.ReplicaCheck(name, ready, running, total)
 }

@@ -111,3 +111,40 @@ func lowerASCII(s string) string {
 	}
 	return string(b)
 }
+
+// DeleteTenant removes a tenant and everything it owns, in one transaction:
+// sites with their maps (the gateways drop them at their next reload),
+// connectors (the relays close their tunnels), people, invitations,
+// settings and its activity. Traffic logs in the log store are not touched:
+// they expire on their own.
+func (s *Store) DeleteTenant(ctx context.Context, id string) error {
+	tx, err := s.DB.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback() //nolint:errcheck
+	var exists bool
+	if err := tx.QueryRowContext(ctx, `SELECT true FROM tenants WHERE id = $1 FOR UPDATE`, id).Scan(&exists); err != nil {
+		return translate(err)
+	}
+	apps := `(SELECT id FROM apps WHERE tenant_id = $1)`
+	users := `(SELECT id FROM users WHERE tenant_id = $1)`
+	for _, q := range []string{
+		`DELETE FROM unmapped_hits WHERE app_id IN ` + apps,
+		`DELETE FROM map_reviews WHERE app_id IN ` + apps,
+		`DELETE FROM map_verifications WHERE app_id IN ` + apps,
+		`DELETE FROM discoveries WHERE app_id IN ` + apps,
+		`DELETE FROM map_versions WHERE app_id IN ` + apps,
+		`DELETE FROM apps WHERE tenant_id = $1`, // aliases, certificates, login, alerts: cascade
+		`DELETE FROM connectors WHERE tenant_id = $1`,
+		`DELETE FROM invitations WHERE tenant_id = $1 OR invited_by IN ` + users,
+		`DELETE FROM audit WHERE tenant_id = $1 OR user_id IN ` + users,
+		`DELETE FROM users WHERE tenant_id = $1`, // sessions, password resets: cascade
+		`DELETE FROM tenants WHERE id = $1`,      // AI model, alert settings: cascade
+	} {
+		if _, err := tx.ExecContext(ctx, q, id); err != nil {
+			return err
+		}
+	}
+	return tx.Commit()
+}

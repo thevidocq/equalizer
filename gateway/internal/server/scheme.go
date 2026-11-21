@@ -20,9 +20,26 @@ type plainKey struct{}
 func (p *Public) HandlerPlain() http.Handler {
 	h := p.Handler()
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		h.ServeHTTP(w, r.WithContext(context.WithValue(r.Context(), plainKey{}, true)))
+		h.ServeHTTP(&noHSTS{ResponseWriter: w}, r.WithContext(context.WithValue(r.Context(), plainKey{}, true)))
 	})
 }
+
+// noHSTS drops Strict-Transport-Security from plain http answers: it means
+// nothing there, and a site served in http must stay reachable in http.
+type noHSTS struct{ http.ResponseWriter }
+
+func (n *noHSTS) WriteHeader(code int) {
+	n.ResponseWriter.Header().Del("Strict-Transport-Security")
+	n.ResponseWriter.WriteHeader(code)
+}
+
+func (n *noHSTS) Write(b []byte) (int, error) {
+	n.ResponseWriter.Header().Del("Strict-Transport-Security")
+	return n.ResponseWriter.Write(b)
+}
+
+// Unwrap lets http.ResponseController reach Flush and the deadlines.
+func (n *noHSTS) Unwrap() http.ResponseWriter { return n.ResponseWriter }
 
 func plainRequest(r *http.Request) bool {
 	v, _ := r.Context().Value(plainKey{}).(bool)
@@ -31,12 +48,14 @@ func plainRequest(r *http.Request) bool {
 
 func plainSite(st *site.Site) bool { return st.Model.Meta.Scheme() == "http" }
 
-// toHTTPS sends a plain http request of an https site to https: 301 for
-// GET and HEAD, 308 (method and body kept) for the others.
+// toHTTPS sends a plain http request of an https site to https: 302 for
+// GET and HEAD, 307 (method and body kept) for the others. Temporary, not
+// permanent: the scheme is a setting of the site, and a browser that cached
+// a 301 would keep going to https after the site is switched to http.
 func toHTTPS(w http.ResponseWriter, r *http.Request, st *site.Site) {
-	code := http.StatusMovedPermanently
+	code := http.StatusFound
 	if r.Method != http.MethodGet && r.Method != http.MethodHead {
-		code = http.StatusPermanentRedirect
+		code = http.StatusTemporaryRedirect
 	}
 	http.Redirect(w, r, "https://"+st.Model.Meta.PublicDomain+safeReturn(r.URL.RequestURI()), code)
 }

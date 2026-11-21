@@ -6,14 +6,17 @@ import (
 
 // Generic pages: they reveal nothing about the legacy application or the gateway.
 const (
-	pageNotFound    = "Page not found"
-	pageNotAllowed  = "Operation not allowed"
-	pageForbidden   = "Restricted access"
-	pageBadRequest  = "Invalid request"
-	pageBadGateway  = "The service is not responding. Please try again shortly."
-	pageUnavailable = "Service temporarily unavailable. Please try again shortly."
-	pageError       = "An error occurred. Please try again shortly."
-	pageTooMany     = "Too many requests. Please try again later."
+	pageNotFound   = "Page not found"
+	pageNotAllowed = "Operation not allowed"
+	pageForbidden  = "Restricted access"
+	pageBadRequest = "Invalid request"
+	pageBadGateway = "The service is not responding. Please try again shortly."
+	// The site's own settings disagree with Equalizer's on http and https:
+	// shown instead of a redirect loop; the operator fixes it, not the visitor.
+	pageSchemeMismatch = "This page cannot be shown right now: the site is being configured. Please try again later."
+	pageUnavailable    = "Service temporarily unavailable. Please try again shortly."
+	pageError          = "An error occurred. Please try again shortly."
+	pageTooMany        = "Too many requests. Please try again later."
 )
 
 func writePage(w http.ResponseWriter, status int, message string) {

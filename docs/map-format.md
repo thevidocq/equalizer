@@ -64,9 +64,13 @@ legacy:
 - One connector serves every site of the servers it reaches. The panel
   refuses a map whose `connector_id` is not a connector of the same tenant,
   and the relay refuses it again at every request.
-- `mode: direct` (the gateway connects itself) is accepted only towards the
-  destinations the platform allows (`EQ_DIRECT_DESTINATIONS`, e.g. lab
-  apps); customer sites always use a connector.
+- `mode: direct` (the gateway connects itself, no connector): for a site
+  that stays at its public address and accepts only Equalizer's addresses.
+  `allow` and `address` hold the site's public IP and port written as an
+  address (`203.0.113.10:443`, never a name); `base_url` keeps the site's
+  name, sent in `Host` and SNI, and its certificate is checked against it.
+  Private destinations only when the platform allows them
+  (`EQ_DIRECT_DESTINATIONS`, e.g. lab apps).
 - `client_ip: forwarded` (default) sends the visitor's real address to the
   legacy application in `X-Forwarded-For` and `X-Real-IP`, as a reverse
   proxy would: its own logs, bans and geolocation keep working. The address
@@ -408,7 +412,7 @@ pages and APIs that show one person's objects, add a rule per role:
 ## Rollback
 
 A version that was published before can be published again at once (Map →
-the version → **Roll back to this version**, approvers and administrators):
+the version → **Roll back to this version**, administrators):
 it was approved when it first went live, and its signed document is the
 same.
 

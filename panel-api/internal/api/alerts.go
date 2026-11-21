@@ -2,6 +2,7 @@ package api
 
 import (
 	"net/http"
+	"slices"
 	"strings"
 
 	"github.com/thevidocq/equalizer/panel-api/internal/auth"
@@ -51,10 +52,30 @@ func (s *Server) putAlerts(w http.ResponseWriter, r *http.Request, u *auth.User)
 		clean = append(clean, e)
 	}
 	in.ExtraEmails = clean
+	for k := range in.Kinds {
+		if !slices.Contains(store.AlertKinds, k) {
+			fail(w, http.StatusUnprocessableEntity, "invalid", "unknown kind of alert: "+k)
+			return
+		}
+	}
+	cur, err := s.Store.Alerts(r.Context(), tenant)
+	if err != nil {
+		s.storeError(w, r, err)
+		return
+	}
+	for k, on := range in.Kinds { // a kind left out stays as it was
+		cur.Kinds[k] = on
+	}
+	in.Kinds = cur.Kinds
 	if err := s.Store.SetAlerts(r.Context(), tenant, in); err != nil {
 		s.storeError(w, r, err)
 		return
 	}
 	_ = s.Store.Record(r.Context(), &u.ID, &tenant, "settings.alerts", "", map[string]any{"enabled": in.Enabled, "extra": len(clean)})
-	writeJSON(w, http.StatusOK, alertSettings{in, s.MailAvailable})
+	saved, err := s.Store.Alerts(r.Context(), tenant)
+	if err != nil {
+		s.storeError(w, r, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, alertSettings{saved, s.MailAvailable})
 }

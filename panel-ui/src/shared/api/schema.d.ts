@@ -494,7 +494,7 @@ export interface paths {
             };
         };
         put?: never;
-        /** Create a tenant and email an invitation to its first administrator (platform administrators) */
+        /** Create a tenant and email an invitation to its first administrator (platform administrators). 409 when the id exists or the email already has an account or a pending invitation */
         post: {
             parameters: {
                 query?: never;
@@ -604,7 +604,7 @@ export interface paths {
             };
         };
         put?: never;
-        /** Invite a person by email; they choose their own password (tenant administrators) */
+        /** Invite a person by email; they choose their own password (tenant administrators). 409 when the email already has an account or a pending invitation */
         post: {
             parameters: {
                 query?: never;
@@ -799,6 +799,51 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/platform/tenants/{tenant}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Delete a customer and everything it owns: sites and their maps (the gateways drop them), connectors (their tunnels close), people, invitations, settings and activity. Traffic logs expire on their own. The body repeats the tenant's id (platform administrators) */
+        delete: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    tenant: components["parameters"]["tenant"];
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": {
+                        /** @description The tenant's id, typed again */
+                        confirm: string;
+                    };
+                };
+            };
+            responses: {
+                /** @description Deleted */
+                204: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                404: components["responses"]["Error"];
+                422: components["responses"]["Error"];
+            };
+        };
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/platform/tenants/{tenant}/invitation": {
         parameters: {
             query?: never;
@@ -808,7 +853,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Invite the first administrator again (lost or unsent email, wrong address). Pending invitations are revoked. 409 once anyone has joined the tenant (platform administrators) */
+        /** Invite the first administrator again (lost or unsent email, wrong address). Pending invitations are revoked. 409 once anyone has joined the tenant, or when the email already has an account or a pending invitation elsewhere (platform administrators) */
         post: {
             parameters: {
                 query?: never;
@@ -971,8 +1016,10 @@ export interface paths {
                          * @enum {unknown}
                          */
                         public_scheme?: "https" | "http";
-                        /** @description Public IP the site answered on before Equalizer: the exposure check probes it. A public unicast IPv4 or IPv6 address; null stops the checks */
+                        /** @description Public IP the site answered on before Equalizer: the exposure check probes it. A public unicast IPv4 or IPv6 address (a port is ignored), not Equalizer's own; null stops the checks */
                         legacy_ip?: string | null;
+                        /** @description true: the site never had a public address (it was born behind Equalizer), so there is nothing to probe: Isolation is shown as fine. Clears legacy_ip. false: back to not_configured */
+                        never_public?: boolean;
                     };
                 };
             };
@@ -1196,7 +1243,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** A first map for the site from a template, filled with its domain, connector and address. Nothing is saved: the document goes into the editor and becomes a draft like any other (editors and administrators) */
+        /** A first map for the site from a template, filled with its domain and the way to reach it. Nothing is saved: the document goes into the editor and becomes a draft like any other (administrators) */
         post: {
             parameters: {
                 query?: never;
@@ -1210,8 +1257,15 @@ export interface paths {
                 content: {
                     "application/json": {
                         template: string;
-                        connector_id: string;
-                        /** @description host:port the connector connects to */
+                        /**
+                         * @description connector: through one of the tenant's connectors; direct: Equalizer reaches the site at its public address, and the site accepts only Equalizer's address
+                         * @default connector
+                         * @enum {unknown}
+                         */
+                        mode?: "connector" | "direct";
+                        /** @description Required with mode connector */
+                        connector_id?: string;
+                        /** @description host:port the connector connects to; direct: the site's public IP address and port */
                         address: string;
                         /**
                          * @default https
@@ -1395,7 +1449,7 @@ export interface paths {
             };
         };
         put?: never;
-        /** Ask the AI model again for this version (editors, approvers, administrators) */
+        /** Ask the AI model again for this version (administrators) */
         post: {
             parameters: {
                 query?: never;
@@ -1457,7 +1511,7 @@ export interface paths {
             };
         };
         put?: never;
-        /** Verify this version (editors, approvers, administrators): the agent compares every studied page with and without Equalizer using this version, and tries the attack set on every parameter and field, on the gateway only. Nothing is written to the legacy site. With test accounts, the pages behind their login are verified too (kept encrypted, erased when the verification ends); without, only public pages */
+        /** Verify this version (administrators): the agent compares every studied page with and without Equalizer using this version, and tries the attack set on every parameter and field, on the gateway only. Nothing is written to the legacy site. With test accounts, the pages behind their login are verified too (kept encrypted, erased when the verification ends); without, only public pages */
         post: {
             parameters: {
                 query?: never;
@@ -1508,7 +1562,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Lifecycle: submit (draft → in_review), approve and reject (never by the author), publish (approved → published, signed; the previous one is retired) */
+        /** Lifecycle (administrators, the author included): publish (draft, in_review or approved → published, signed; the previous one and older pending versions are retired); submit, approve and reject are optional steps */
         post: {
             parameters: {
                 query?: never;
@@ -1516,7 +1570,7 @@ export interface paths {
                 path: {
                     app: components["parameters"]["app"];
                     version: components["parameters"]["version"];
-                    /** @description rollback: publish again a retired version (it was approved before); approvers and administrators */
+                    /** @description rollback: publish again a retired version that was published before */
                     action: "submit" | "approve" | "reject" | "publish" | "rollback";
                 };
                 cookie?: never;
@@ -2016,6 +2070,62 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/tenants/{tenant}/llm/models": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** The models the provider offers for this key, to choose from a list. An empty api_key uses the saved one when the provider is the same. Only the list is read: nothing is sent to the model (tenant administrators) */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    tenant: components["parameters"]["tenant"];
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": {
+                        /** @enum {unknown} */
+                        provider: "anthropic" | "openai" | "local";
+                        /** @description local: https base URL of the OpenAI-compatible server, e.g. https://llm.example.com/v1; never a private address */
+                        endpoint?: string | null;
+                        api_key?: string;
+                    };
+                };
+            };
+            responses: {
+                /** @description Models, newest first */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            items: {
+                                /** @description What goes in model */
+                                id: string;
+                                name: string;
+                            }[];
+                        };
+                    };
+                };
+                422: components["responses"]["Error"];
+                502: components["responses"]["Error"];
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/apps/{app}/discoveries": {
         parameters: {
             query?: never;
@@ -2049,7 +2159,7 @@ export interface paths {
             };
         };
         put?: never;
-        /** Start a discovery: the agent explores the site through its connector, read-only, and proposes a draft map. Without a published map, connector_id and address say how to reach it (editors and administrators). 409 while another one is queued or running */
+        /** Start a discovery: the agent explores the site through its connector, read-only, and proposes a draft map. Without a published map, connector_id and address say how to reach it (administrators). 409 while another one is queued or running */
         post: {
             parameters: {
                 query?: never;
@@ -2444,7 +2554,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Summary and questions written by the AI for the approver */
+        /** Summary and questions written by the AI for whoever publishes */
         post: {
             parameters: {
                 query?: never;
@@ -2556,6 +2666,10 @@ export interface paths {
                             next_cursor?: string | null;
                             /** @description Release of the platform; connectors older than it are outdated */
                             platform_version?: string;
+                            /** @description Public address connectors dial (EQ_RELAY_URL in their command); empty when not configured */
+                            relay_url?: string;
+                            /** @description Addresses Equalizer connects from: a site reached directly accepts these and no other (EQ_OUTBOUND_IPS, or the addresses of the panel's and relay's domains) */
+                            direct_from?: string[];
                         };
                     };
                 };
@@ -3438,7 +3552,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Security events of the tenant's sites, newest first: what the gateway served and refused (tenant administrators, approvers and auditors; platform users see no tenant's events) */
+        /** Security events of the tenant's sites, newest first: what the gateway served and refused (tenant administrators and viewers; platform users see no tenant's events) */
         get: {
             parameters: {
                 query?: {
@@ -3639,7 +3753,7 @@ export interface components {
             platform_role?: "admin" | "operator" | null;
             tenant?: string | null;
             /** @enum {string|null} */
-            tenant_role?: "admin" | "editor" | "approver" | "auditor" | null;
+            tenant_role?: "admin" | "viewer" | null;
             /** @description An authenticator app is enrolled */
             mfa_enabled?: boolean;
             /** @description Only in /auth/me: this session passed the second step. Without it only /auth/* answers */
@@ -3661,26 +3775,40 @@ export interface components {
         InvitationCreate: {
             email: string;
             name: string;
-            /** @enum {unknown} */
-            role: "admin" | "editor" | "approver" | "auditor";
+            /**
+             * @description admin: everything; viewer: reads sites, status, activity and logs
+             * @enum {unknown}
+             */
+            role: "admin" | "viewer";
         };
         Invitation: {
             id: number;
             email: string;
             name: string;
-            /** @enum {unknown} */
-            role: "admin" | "editor" | "approver" | "auditor";
+            /**
+             * @description admin: everything; viewer: reads sites, status, activity and logs
+             * @enum {unknown}
+             */
+            role: "admin" | "viewer";
             /** Format: date-time */
             expires_at: string;
             /** @description False when the email could not be sent: revoke and invite again */
             sent?: boolean;
+            /**
+             * @description Why the email was not sent (only when sent is false): the mail server could not be reached, refused the TLS connection, refused the account or password, refused the sender or the recipient, or refused the message
+             * @enum {unknown}
+             */
+            send_problem?: "not_configured" | "unreachable" | "tls" | "auth_rejected" | "sender_rejected" | "recipient_rejected" | "rejected";
         };
         InvitationView: {
             tenant_name: string;
             email: string;
             name: string;
-            /** @enum {unknown} */
-            role: "admin" | "editor" | "approver" | "auditor";
+            /**
+             * @description admin: everything; viewer: reads sites, status, activity and logs
+             * @enum {unknown}
+             */
+            role: "admin" | "viewer";
             /** Format: date-time */
             expires_at: string;
         };
@@ -3691,6 +3819,11 @@ export interface components {
             created_at: string;
             /** @description Someone accepted an invitation; before that the platform may invite the first administrator again */
             joined: boolean;
+            /** @description Until someone joins: the name and email the last invitation went to, to invite them again */
+            pending_admin?: {
+                name: string;
+                email: string;
+            };
             site_count: number;
             sites: {
                 name: string;
@@ -3740,6 +3873,11 @@ export interface components {
             /** Format: date-time */
             created_at: string;
             published_version: number | null;
+            /**
+             * @description How the published map reaches the legacy site; null: nothing published
+             * @enum {unknown}
+             */
+            readonly reach_mode?: "connector" | "direct" | null;
             kind?: components["schemas"]["SiteKind"];
             /**
              * @description Continuous discovery: run again and propose what changed
@@ -3780,10 +3918,10 @@ export interface components {
         Exposure: {
             legacy_ip?: string | null;
             /**
-             * @description not_configured: no legacy_ip; pending: not checked yet; closed: not reachable directly; exposed: reachable directly; error: the check could not run
+             * @description not_configured: no legacy_ip; never_public: the site never had a public address; pending: not checked yet; closed: not reachable directly; exposed: reachable directly; error: the check could not run
              * @enum {unknown}
              */
-            status: "not_configured" | "pending" | "closed" | "exposed" | "error";
+            status: "not_configured" | "never_public" | "pending" | "closed" | "exposed" | "error";
             /** @description Why: refused, timeout, forbidden, default_site (the server answers with another site), answers_https, answers_http, probe_failed */
             reason?: string | null;
             /** Format: date-time */
@@ -3940,6 +4078,21 @@ export interface components {
             enabled: boolean;
             /** @description More addresses, e.g. the on-call mailbox */
             extra_emails: string[];
+            /** @description Which kinds of alert are emailed; a kind left out stays as it was saved (all on by default) */
+            kinds?: {
+                /** @description The site's connector went offline */
+                connector?: boolean;
+                /** @description The legacy site fails or does not answer */
+                legacy_site?: boolean;
+                /** @description The site answers again on its old IP, bypassing Equalizer */
+                isolation?: boolean;
+                /** @description The site's certificate is missing or expired */
+                certificate?: boolean;
+                /** @description Reminders before the certificate ends (30, 14, 7, 1 days) */
+                certificate_expiry?: boolean;
+                /** @description A problem is over: the site works again */
+                recovered?: boolean;
+            };
             /** @description False when the platform sends no email */
             readonly mail_available?: boolean;
         };
@@ -3977,9 +4130,15 @@ export interface components {
             } | null;
             /** @description Test accounts (for example customer and administrator). Each is explored in its own pass, to reach the pages behind its login; the map does not restrict pages by account (the legacy site decides access). Kept encrypted, deleted when the discovery ends. account counts as the first one */
             accounts?: components["schemas"]["TestAccount"][];
-            /** @description Needed while the site has no published map */
+            /**
+             * @description Needed while the site has no published map: how it is reached
+             * @default connector
+             * @enum {unknown}
+             */
+            mode: "connector" | "direct";
+            /** @description Needed while the site has no published map, with mode connector */
             connector_id?: string;
-            /** @description host:port the connector reaches */
+            /** @description host:port the connector reaches; direct: the site's public IP address and port */
             address?: string;
             /** @enum {unknown} */
             scheme?: "https" | "http";

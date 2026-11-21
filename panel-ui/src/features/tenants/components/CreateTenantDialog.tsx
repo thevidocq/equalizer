@@ -1,4 +1,5 @@
 import { useState, type FormEvent } from "react";
+import { notSentReason } from "@/shared/api/mail";
 import { Button, Dialog, Notice, TextField, useToast } from "@/shared/ui";
 import { describeError } from "@/shared/api/errors";
 import { useCreateTenant } from "../hooks/useTenants";
@@ -19,7 +20,7 @@ export function CreateTenantDialog({ open, onOpenChange }: { open: boolean; onOp
       onSuccess: (r) => {
         toast(r.invitation.sent
           ? `${r.tenant.name} added. Invitation sent to ${r.invitation.email}`
-          : `${r.tenant.name} added, but the invitation email could not be sent. Check the mail settings.`);
+          : `${r.tenant.name} added, but the invitation was not sent: ${notSentReason(r.invitation.send_problem)}.`);
         onOpenChange(false); setForm(empty); setIdTouched(false);
       },
     });

@@ -4,7 +4,7 @@ type Step = { label: string; who?: string | null };
 type State = "done" | "current" | "todo" | "failed";
 
 const reached: Record<MapVersion["status"], number> = {
-  draft: 0, in_review: 1, approved: 2, rejected: 2, published: 3, retired: 3,
+  draft: 0, in_review: 0, approved: 0, rejected: 1, published: 1, retired: 1,
 };
 
 const stateColor: Record<MapVersion["status"], string> = {
@@ -13,27 +13,24 @@ const stateColor: Record<MapVersion["status"], string> = {
 };
 
 /**
- * The four-eyes path of a map version: draft, review, approval, publication.
- * Every step reached is filled in the colour of the version's state; a
- * rejection stops the rail at the approval step.
+ * The path of a map version: written, then published (or discarded). Every
+ * step reached is filled in the colour of the version's state.
  */
 export function LifecycleRail({ v, compact = false }: { v: MapVersion; compact?: boolean }) {
   const steps: Step[] = [
     { label: "Draft", who: v.author },
-    { label: "In review" },
-    { label: v.status === "rejected" ? "Rejected" : "Approved", who: v.approver },
-    { label: v.status === "retired" ? "Retired" : "Published" },
+    { label: v.status === "rejected" ? "Discarded" : v.status === "retired" ? "Retired" : "Published", who: v.approver },
   ];
   const last = reached[v.status];
   const state = (i: number): State => {
-    if (v.status === "rejected" && i === 2) return "failed";
+    if (v.status === "rejected" && i === 1) return "failed";
     if (i < last || (i === last && (v.status === "published" || v.status === "retired"))) return "done";
     return i === last ? "current" : "todo";
   };
   const fill = stateColor[v.status];
 
   return (
-    <ol className="grid grid-cols-4 gap-1" aria-label={`Version ${v.version}: ${v.status.replace("_", " ")}`}>
+    <ol className="grid grid-cols-2 gap-1" aria-label={`Version ${v.version}: ${v.status.replace("_", " ")}`}>
       {steps.map((s, i) => {
         const st = state(i);
         return (
@@ -54,7 +51,7 @@ export function LifecycleRail({ v, compact = false }: { v: MapVersion; compact?:
 }
 
 export function StatusLabel({ status }: { status: MapVersion["status"] }) {
-  const text = { draft: "Draft", in_review: "In review", approved: "Approved", rejected: "Rejected", published: "Published", retired: "Retired" }[status];
+  const text = { draft: "Draft", in_review: "In review", approved: "Approved", rejected: "Discarded", published: "Published", retired: "Retired" }[status];
   return (
     <span className="inline-flex items-center gap-1.5 text-sm font-semibold">
       <span aria-hidden="true" className={`h-2 w-2 rounded-full ${stateColor[status]}`} />

@@ -60,6 +60,9 @@ func (s *Server) createTenant(w http.ResponseWriter, r *http.Request, u *auth.Us
 		fail(w, http.StatusUnprocessableEntity, "invalid", "id (lower case letters, digits, -), name, administrator's name and email are required")
 		return
 	}
+	if !s.emailFree(w, r, in.AdminEmail, "") {
+		return
+	}
 	t, err := s.Store.CreateTenant(r.Context(), in.ID, in.Name)
 	if err != nil {
 		s.storeError(w, r, err)
@@ -97,6 +100,9 @@ func (s *Server) reinviteFirstAdmin(w http.ResponseWriter, r *http.Request, u *a
 		fail(w, http.StatusUnprocessableEntity, "invalid", "administrator's name and email are required")
 		return
 	}
+	if !s.emailFree(w, r, in.Email, r.PathValue("tenant")) {
+		return
+	}
 	t, err := s.Store.RestartTenant(r.Context(), r.PathValue("tenant"))
 	if errors.Is(err, store.ErrState) {
 		fail(w, http.StatusConflict, "tenant_in_use", "people already joined this tenant: its administrators invite the others")
@@ -132,4 +138,32 @@ func (s *Server) listUsers(w http.ResponseWriter, r *http.Request, u *auth.User)
 func validEmail(e string) bool {
 	at := strings.LastIndexByte(e, '@')
 	return len(e) <= 254 && at > 0 && at < len(e)-3 && strings.Contains(e[at:], ".") && !strings.ContainsAny(e, " \t\r\n<>\"")
+}
+
+// deleteTenant removes a customer and everything it owns (platform
+// administrators). The request repeats the tenant's id, so a slip of the
+// finger never deletes one.
+func (s *Server) deleteTenant(w http.ResponseWriter, r *http.Request, u *auth.User) {
+	if !u.PlatformAdmin() {
+		forbidden(w)
+		return
+	}
+	var in struct {
+		Confirm string `json:"confirm"`
+	}
+	if !decode(w, r, &in) {
+		return
+	}
+	id := r.PathValue("tenant")
+	if in.Confirm != id {
+		fail(w, http.StatusUnprocessableEntity, "invalid", "confirm must repeat the tenant's id")
+		return
+	}
+	if err := s.Store.DeleteTenant(r.Context(), id); err != nil {
+		s.storeError(w, r, err)
+		return
+	}
+	// A platform action: recorded in the platform's activity.
+	_ = s.Store.Record(r.Context(), &u.ID, nil, "tenant.delete", id, nil)
+	w.WriteHeader(http.StatusNoContent)
 }

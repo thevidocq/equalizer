@@ -2,11 +2,13 @@ package api
 
 import (
 	"errors"
+	"log/slog"
 	"net/http"
 	"net/url"
 	"strings"
 
 	"github.com/thevidocq/equalizer/panel-api/internal/auth"
+	"github.com/thevidocq/equalizer/panel-api/internal/llmmodels"
 	"github.com/thevidocq/equalizer/panel-api/internal/store"
 )
 
@@ -107,4 +109,56 @@ func (s *Server) deleteLLM(w http.ResponseWriter, r *http.Request, u *auth.User)
 func validEndpoint(raw string) bool {
 	u, err := url.Parse(strings.TrimSpace(raw))
 	return err == nil && u.Scheme == "https" && u.Host != "" && u.User == nil && len(raw) <= 300
+}
+
+// llmModels asks the provider which models the key may use, so the panel
+// offers a list. An empty api_key uses the saved one (same provider).
+func (s *Server) llmModels(w http.ResponseWriter, r *http.Request, u *auth.User) {
+	tenant, ok := tenantAdmin(w, r, u)
+	if !ok {
+		return
+	}
+	var in struct {
+		Provider string  `json:"provider"`
+		Endpoint *string `json:"endpoint"`
+		APIKey   string  `json:"api_key"`
+	}
+	if !decode(w, r, &in) {
+		return
+	}
+	endpoint := ""
+	switch in.Provider {
+	case "anthropic", "openai":
+	case "local":
+		if in.Endpoint == nil || !validEndpoint(*in.Endpoint) {
+			fail(w, http.StatusUnprocessableEntity, "invalid", "endpoint: the https URL of an OpenAI-compatible server")
+			return
+		}
+		endpoint = strings.TrimSpace(*in.Endpoint)
+	default:
+		fail(w, http.StatusUnprocessableEntity, "invalid", "provider: anthropic, openai or local")
+		return
+	}
+	key := strings.TrimSpace(in.APIKey)
+	if key == "" {
+		if old, err := s.Store.TenantLLM(r.Context(), tenant); err == nil && old.Provider == in.Provider && len(old.Key) > 0 {
+			if k, err := s.MFA.OpenFor(llmLabel(tenant), old.Key); err == nil {
+				key = string(k)
+			}
+		}
+	}
+	if key == "" && in.Provider != "local" {
+		fail(w, http.StatusUnprocessableEntity, "invalid", "enter the API key first")
+		return
+	}
+	models, err := s.Models.List(r.Context(), in.Provider, endpoint, key)
+	switch {
+	case errors.Is(err, llmmodels.ErrKeyRefused):
+		fail(w, http.StatusUnprocessableEntity, "key_refused", "the provider refused this API key")
+	case err != nil:
+		s.Log.WarnContext(r.Context(), "AI provider model list failed", slog.String("provider", in.Provider), slog.String("error", err.Error()))
+		fail(w, http.StatusBadGateway, "provider_unreachable", "the provider did not answer: type the model's name instead")
+	default:
+		writeJSON(w, http.StatusOK, map[string]any{"items": models})
+	}
 }

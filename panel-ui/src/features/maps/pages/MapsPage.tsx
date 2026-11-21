@@ -9,7 +9,7 @@ export function MapsPage() {
   const { tenant = "", app = "" } = useParams();
   const versions = useMapVersions(app);
   const me = useMe();
-  const canEdit = hasRole(me.data, tenant, "admin", "editor");
+  const canEdit = hasRole(me.data, tenant, "admin");
   const newLink = canEdit ? (
     <Link to="new" className="rounded-[var(--radius-control)] bg-signal px-3.5 py-2 text-sm font-semibold text-white hover:bg-[#183f94]">
       New version
@@ -28,7 +28,7 @@ export function MapsPage() {
   return (
     <div className="flex flex-col gap-4">
       <div className="flex items-center justify-between gap-4">
-        <p className="text-ink-soft">Every change is a new version, approved by someone other than its author.</p>
+        <p className="text-ink-soft">Every change is a new version: publish it when it is right, go back to an earlier one if needed.</p>
         {newLink}
       </div>
       <ol className="flex flex-col">

@@ -20,9 +20,26 @@ import (
 // InvitationTTL is how long an invitation link works.
 const InvitationTTL = 48 * time.Hour
 
-var tenantRoles = map[string]bool{"admin": true, "editor": true, "approver": true, "auditor": true}
+var tenantRoles = map[string]bool{"admin": true, "viewer": true}
 
-var roleNames = map[string]string{"admin": "administrator", "editor": "editor", "approver": "approver", "auditor": "auditor"}
+var roleNames = map[string]string{"admin": "administrator", "viewer": "viewer"}
+
+// emailFree answers 409 when the address already has an account or a pending
+// invitation: the invitation would fail only once accepted.
+func (s *Server) emailFree(w http.ResponseWriter, r *http.Request, email, exceptTenant string) bool {
+	account, invited, err := s.Store.EmailUse(r.Context(), email, exceptTenant)
+	switch {
+	case err != nil:
+		s.storeError(w, r, err)
+	case account:
+		fail(w, http.StatusConflict, "email_in_use", "an account with this email already exists: use another address")
+	case invited:
+		fail(w, http.StatusConflict, "email_invited", "this email already has a pending invitation: revoke it first or use another address")
+	default:
+		return true
+	}
+	return false
+}
 
 func tokenHash(t string) string {
 	sum := sha256.Sum256([]byte(t))
@@ -54,7 +71,8 @@ func (s *Server) invite(r *http.Request, by *auth.User, inv store.Invitation) (s
 	}
 	if err := s.Mail.Send(r.Context(), msg); err != nil {
 		s.Log.ErrorContext(r.Context(), "invitation email not sent", slog.String("error", err.Error()),
-			slog.Group("detail", slog.Int64("invitation_id", saved.ID)))
+			slog.Group("detail", slog.Int64("invitation_id", saved.ID), slog.String("problem", mail.Problem(err))))
+		saved.SendProblem = mail.Problem(err)
 		return saved, nil
 	}
 	saved.Sent = true
@@ -93,12 +111,15 @@ func (s *Server) createInvitation(w http.ResponseWriter, r *http.Request, u *aut
 	}
 	in.Email, in.Name = strings.TrimSpace(in.Email), strings.TrimSpace(in.Name)
 	if !validEmail(in.Email) || in.Name == "" || len(in.Name) > 200 || !tenantRoles[in.Role] {
-		fail(w, http.StatusUnprocessableEntity, "invalid", "email, name and role (admin, editor, approver, auditor) are required")
+		fail(w, http.StatusUnprocessableEntity, "invalid", "email, name and role (admin or viewer) are required")
 		return
 	}
 	ts, err := s.Store.Tenants(r.Context(), &tenant)
 	if err != nil || len(ts) == 0 {
 		s.storeError(w, r, store.ErrNotFound)
+		return
+	}
+	if !s.emailFree(w, r, in.Email, "") {
 		return
 	}
 	inv, err := s.invite(r, u, store.Invitation{Tenant: tenant, TenantName: ts[0].Name, Email: in.Email, Name: in.Name, Role: in.Role})

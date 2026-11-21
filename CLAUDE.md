@@ -15,7 +15,9 @@ session or account. Read it in full before touching the code.
 ## Non-negotiable requirements
 
 1. **Interface 100% identical** to the legacy site (faithful rendering by default).
-2. **The legacy application is never exposed**: only the connector reaches it.
+2. **The legacy application is never exposed**: only Equalizer reaches it,
+   through the connector or, in direct mode, at an address that accepts
+   only Equalizer's.
 3. **Rebuild, never forward**: no client byte reaches the legacy application as is.
 4. **Deny by default**: whatever is not in the map does not exist.
 5. **Everything configurable from the panel**, including LLM, capacity, logs and SIEM forwarding.
@@ -82,6 +84,9 @@ session or account. Read it in full before touching the code.
 | UI components | Custom library in `panel-ui/src/shared/ui`, built on Radix UI and Tailwind CSS |
 | Prototype | One VPS with Docker Compose; Kubernetes driver later |
 | Tunnel | HTTPS upgrade to `equalizer-tunnel/1` + yamux + HTTP/1.1 per stream (no gRPC); connector local allowlist is the last barrier |
+| Direct mode | A site may be reached without a connector at its public IP address, accepting only Equalizer's addresses; the panel accepts only public IP literals (or `EQ_DIRECT_DESTINATIONS`) |
+| Map approval | One administrator publishes alone; tenant roles are administrator and viewer |
+| Site certificates | Always the legacy site's own, uploaded in the panel; no Let's Encrypt for protected sites |
 | Lab and remote servers | Prepared by the project owner |
 | Language | English for everything in the repository |
 | Coverage | The whole site is served, admin included (map `areas`, `/` by default in templates and discovery). Equalizer is in between and rebuilds every request; it never decides access, the legacy application does. Leftover files on the legacy server are not Equalizer's concern |

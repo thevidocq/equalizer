@@ -12,7 +12,7 @@ func TestReview(t *testing.T) {
 	root.must(200, "POST", "/v1/auth/login", map[string]string{"email": "root@example.com", "password": "platform-admin-password"}, nil)
 	root.must(201, "POST", "/v1/tenants", map[string]string{"id": "acme", "name": "Acme", "admin_email": "boss@acme.test", "admin_name": "Boss"}, nil)
 	boss := e.join("boss@acme.test")
-	boss.must(201, "POST", "/v1/tenants/acme/invitations", map[string]string{"email": "ap@acme.test", "name": "Ap", "role": "approver"}, nil)
+	boss.must(201, "POST", "/v1/tenants/acme/invitations", map[string]string{"email": "ap@acme.test", "name": "Ap", "role": "admin"}, nil)
 	ap := e.join("ap@acme.test")
 	boss.must(201, "POST", "/v1/tenants/acme/connectors", map[string]string{"id": "cn-1"}, nil)
 	boss.must(201, "POST", "/v1/tenants/acme/apps", map[string]string{"id": "portal", "name": "Portal", "public_domain": "portal.acme.test"}, nil)
@@ -79,8 +79,8 @@ func TestRollback(t *testing.T) {
 	root.must(200, "POST", "/v1/auth/login", map[string]string{"email": "root@example.com", "password": "platform-admin-password"}, nil)
 	root.must(201, "POST", "/v1/tenants", map[string]string{"id": "acme", "name": "Acme", "admin_email": "boss@acme.test", "admin_name": "Boss"}, nil)
 	boss := e.join("boss@acme.test")
-	boss.must(201, "POST", "/v1/tenants/acme/invitations", map[string]string{"email": "ap@acme.test", "name": "Ap", "role": "approver"}, nil)
-	boss.must(201, "POST", "/v1/tenants/acme/invitations", map[string]string{"email": "ed@acme.test", "name": "Ed", "role": "editor"}, nil)
+	boss.must(201, "POST", "/v1/tenants/acme/invitations", map[string]string{"email": "ap@acme.test", "name": "Ap", "role": "admin"}, nil)
+	boss.must(201, "POST", "/v1/tenants/acme/invitations", map[string]string{"email": "ed@acme.test", "name": "Ed", "role": "admin"}, nil)
 	ap, ed := e.join("ap@acme.test"), e.join("ed@acme.test")
 	boss.must(201, "POST", "/v1/tenants/acme/connectors", map[string]string{"id": "cn-1"}, nil)
 	boss.must(201, "POST", "/v1/tenants/acme/apps", map[string]string{"id": "portal", "name": "Portal", "public_domain": "portal.acme.test"}, nil)
@@ -90,7 +90,8 @@ func TestRollback(t *testing.T) {
 		ap.must(200, "POST", "/v1/apps/portal/maps/"+itoa(int64(v))+"/approve", nil, nil)
 		ap.must(200, "POST", "/v1/apps/portal/maps/"+itoa(int64(v))+"/publish", nil, nil)
 	}
-	ed.must(403, "POST", "/v1/apps/portal/maps/1/rollback", nil, nil)
+	boss.must(201, "POST", "/v1/tenants/acme/invitations", map[string]string{"email": "vi@acme.test", "name": "Vi", "role": "viewer"}, nil)
+	e.join("vi@acme.test").must(403, "POST", "/v1/apps/portal/maps/1/rollback", nil, nil)
 	ap.must(409, "POST", "/v1/apps/portal/maps/2/rollback", nil, nil) // already published
 	var v struct{ Status string }
 	ap.must(200, "POST", "/v1/apps/portal/maps/1/rollback", nil, &v)
@@ -107,4 +108,29 @@ func TestRollback(t *testing.T) {
 	if audit.Items[0].Action != "map.rollback" {
 		t.Fatalf("audit: %+v", audit.Items[0])
 	}
+}
+
+// One administrator publishes alone, straight from draft; older versions
+// still pending are retired by the newer one.
+func TestPublishAlone(t *testing.T) {
+	e := setup(t)
+	root := e.client()
+	root.must(200, "POST", "/v1/auth/login", map[string]string{"email": "root@example.com", "password": "platform-admin-password"}, nil)
+	root.must(201, "POST", "/v1/tenants", map[string]string{"id": "acme", "name": "Acme", "admin_email": "boss@acme.test", "admin_name": "Boss"}, nil)
+	boss := e.join("boss@acme.test")
+	boss.must(201, "POST", "/v1/tenants/acme/connectors", map[string]string{"id": "cn-1"}, nil)
+	boss.must(201, "POST", "/v1/tenants/acme/apps", map[string]string{"id": "portal", "name": "Portal", "public_domain": "portal.acme.test"}, nil)
+	boss.must(201, "POST", "/v1/apps/portal/maps", map[string]any{"document": json.RawMessage(mapDoc)}, nil)
+	boss.must(200, "POST", "/v1/apps/portal/maps/1/submit", nil, nil) // left in review
+	boss.must(201, "POST", "/v1/apps/portal/maps", map[string]any{"document": json.RawMessage(mapDoc)}, nil)
+	var v struct{ Status string }
+	boss.must(200, "POST", "/v1/apps/portal/maps/2/publish", nil, &v)
+	if v.Status != "published" {
+		t.Fatalf("published from draft: %+v", v)
+	}
+	boss.must(200, "GET", "/v1/apps/portal/maps/1", nil, &v)
+	if v.Status != "retired" {
+		t.Fatalf("older version in review after a newer one was published: %+v", v)
+	}
+	boss.must(409, "POST", "/v1/apps/portal/maps/1/publish", nil, nil)
 }

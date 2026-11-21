@@ -15,7 +15,7 @@ export function Sidebar() {
   const tenant = me?.tenant ?? "";
 
   return (
-    <aside className="sticky top-0 flex h-screen w-64 shrink-0 flex-col gap-6 overflow-y-auto bg-ink px-3 py-5 text-paper">
+    <aside className="flex h-full flex-col gap-6 overflow-y-auto bg-ink px-3 py-5 text-paper">
       <div className="px-3"><Logo inverted /></div>
       {tenant ? (
         <nav aria-label="Protected sites" className="flex flex-col gap-1">
@@ -33,7 +33,7 @@ export function Sidebar() {
         {tenant && canManage(me, tenant) ? <NavLink to={`/t/${tenant}/connectors`} className={link}>Connectors</NavLink> : null}
         {tenant ? <NavLink to={`/t/${tenant}/people`} className={link}>People</NavLink> : null}
         {tenant ? <NavLink to={`/t/${tenant}/activity`} className={link}>Activity</NavLink> : null}
-        {tenant && hasRole(me, tenant, "admin", "approver", "auditor") ? <NavLink to={`/t/${tenant}/logs`} className={link}>Logs</NavLink> : null}
+        {tenant && hasRole(me, tenant, "admin", "viewer") ? <NavLink to={`/t/${tenant}/logs`} className={link}>Logs</NavLink> : null}
         {tenant && canManage(me, tenant) ? <NavLink to={`/t/${tenant}/settings`} className={link}>Settings</NavLink> : null}
         {me?.platform_role ? <NavLink to="/tenants" className={link}>Tenants</NavLink> : null}
         {me?.platform_role ? <NavLink to="/status" className={link}>Platform status</NavLink> : null}

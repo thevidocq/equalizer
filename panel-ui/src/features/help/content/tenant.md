@@ -17,7 +17,7 @@ arrives as it was typed.
 
 What the site may receive is described by its **map**: by default the
 whole site, admin included, plus precise checks on the pages the map knows
-well. Maps are versioned, reviewed and approved by people of your
+well. Maps are versioned, reviewed and published by an administrator of your
 organisation.
 
 ### The panel
@@ -30,8 +30,12 @@ organisation.
   **Settings**: some pages depend on your role.
 - A site has four tabs: **Map**, **Discovery**, **Isolation**, **Login**.
 - At the bottom of the sidebar: your name and role (opens your account),
-  **Help** (the question mark: this guide) and **Log out** (the arrow out
-  of the door).
+  **Help** (the question mark: this guide), **Log out** (the arrow out
+  of the door) and the release of Equalizer, which opens its release notes.
+
+Dates and times are written the same way everywhere, for example
+`21 Nov 2026, 02:33:07 UTC+1`, in the time zone chosen in **Your account**
+(UTC until you choose one). Alert emails use the same time zone.
 
 ### Roles
 
@@ -169,9 +173,13 @@ opened and still served by the area, links that change something, fields
 that must still accept SQL characters such as a search or a message), what
 visitors asked for that the map lacks, and the protection against IDOR it proposes for JSON APIs (a list
 and a detail with the same id). If the map should change, a draft is
-proposed: review it and send it for approval. **Continuous discovery**
-(every day or week) explores again and proposes a draft only when something
-changed.
+proposed: review it and publish it. **Continuous discovery** explores
+again every day or every week, at the hour (and day) you choose in your
+time zone, and proposes a draft only when something changed; the page shows
+the next run and the latest discovery. The report says whether the AI
+model was used; when it was asked but could not answer (no credit left, key
+refused, provider not answering) it says so in plain words, and the draft
+comes from the fixed rules only.
 
 ### Verification
 
@@ -246,10 +254,20 @@ publication) until one is uploaded. When the certificate is near its end,
 **Status** turns yellow and the administrators get an email 30, 14, 7 and 1
 days before; upload the renewed one in the same place.
 
-A site that never had a certificate can stay in **http**, as before
-Equalizer (**Site → Certificate → Serve it in http**): pages and logins
-travel in clear, and the login with an identity provider is not available.
-A site in https sends visitors who type `http://` to `https://`.
+**Site → Certificate → How visitors reach the site** has three choices:
+
+- **HTTPS with the site's certificate** (the default): the certificate
+  uploaded above; visitors who type `http://` are sent to `https://`.
+- **HTTPS handled by a proxy in front**: a CDN, load balancer or reverse
+  proxy gives visitors https and reaches Equalizer in http (Cloudflare with
+  SSL "Flexible", for example). Equalizer writes every address in https and
+  needs no certificate. Between the proxy and Equalizer the traffic is in
+  clear. Leave the legacy application's own address in http (WordPress:
+  Settings → General). For the visitors' real addresses the platform must
+  trust the proxy (`EQ_BEHIND_CLOUDFLARE`, `EQ_TRUSTED_PROXIES`).
+- **HTTP, as before**: for a site that never had a certificate; pages and
+  logins travel in clear, and the login with an identity provider is not
+  available.
 
 ![Certificate](/help-img/certificate.png)
 
@@ -321,7 +339,7 @@ Off by default. **Site → Login** turns on the login with your
 organisation's identity provider (Entra ID, Google, Okta, Keycloak…) before
 the site: issuer, client ID, and which group of your provider gets which
 role of the map. **Save as new draft** writes a new version that follows
-the usual review and approval.
+the usual review before publishing.
 
 ![Login](/help-img/login.png)
 
@@ -363,7 +381,8 @@ last 7 days. Refreshed every 30 seconds.
 
 What the gateway served and refused on your sites, for 30 days: filters by
 site, period, kind of event and free search (IP address, path, request ID).
-A row opens its detail in plain words; on a path that is not in the map,
+A row opens its detail in plain words (alerts such as a connector going
+offline name the connector or the site); on a path that is not in the map,
 **Add to the map** opens a new version. **Live** refreshes every few
 seconds; **Export CSV** downloads up to 10 000 events (recorded in
 Activity). Field values are never stored, only the field name and the rule
@@ -375,8 +394,12 @@ working).
 
 ### Activity
 
-Who did what: logins, invitations, maps written, approved, published, rolled
-back, exports.
+Who did what, in plain sentences: logins, invitations, maps written,
+published and rolled back, discoveries (by you or by the agent), alert
+emails with what they reported and who got them, exports. Search for a
+person, a site, a connector or an action, and choose the period (last 24
+hours to 90 days, all time, or from one day to another); **Show older**
+goes further back.
 
 ![Activity](/help-img/activity.png)
 

@@ -29,11 +29,14 @@ export function useStartDiscovery(app: string) {
   });
 }
 
+export type Frequency = "off" | "daily" | "weekly";
+export type ScheduleChange = { discovery_schedule: Frequency; discovery_hour: number; discovery_weekday: number };
+
+/** Continuous discovery: how often, at which hour and on which day, in the person's time zone. */
 export function useSchedule(app: string) {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (discovery_schedule: "off" | "daily" | "weekly") =>
-      unwrap(api.PATCH("/apps/{app}", { params: { path: { app } }, body: { discovery_schedule } })),
+    mutationFn: (body: ScheduleChange) => unwrap(api.PATCH("/apps/{app}", { params: { path: { app } }, body })),
     onSuccess: (a) => qc.setQueryData(["app", app], a),
   });
 }

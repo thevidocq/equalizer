@@ -114,7 +114,35 @@ export interface paths {
         delete?: never;
         options?: never;
         head?: never;
-        patch?: never;
+        /** Change your own preferences */
+        patch: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": {
+                        /** @description IANA time zone name (Europe/Rome, UTC) the panel and your alert emails show times in */
+                        time_zone: string;
+                    };
+                };
+            };
+            responses: {
+                /** @description User */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["User"];
+                    };
+                };
+                422: components["responses"]["Error"];
+            };
+        };
         trace?: never;
     };
     "/auth/mfa/setup": {
@@ -799,6 +827,49 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/about": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The release of the platform, for the panel's footer (anyone logged in). Platform administrators also get the releases each service's replicas run: more than one while an update rolls out */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Release */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            /** @description e.g. 0.2.1; dev for a build without a release */
+                            release: string;
+                            services?: {
+                                name: string;
+                                releases: string[];
+                            }[];
+                        };
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/platform/tenants/{tenant}": {
         parameters: {
             query?: never;
@@ -1011,11 +1082,15 @@ export interface paths {
                     "application/json": {
                         /** @enum {unknown} */
                         discovery_schedule?: "off" | "daily" | "weekly";
+                        /** @description Hour of the day of continuous discovery, in the time zone of the person who sets it (with discovery_schedule) */
+                        discovery_hour?: number;
+                        /** @description Day of weekly discovery: 0 Sunday … 6 Saturday (with discovery_schedule) */
+                        discovery_weekday?: number;
                         /**
-                         * @description https: the site's own certificate (Certificate); http: in clear, as the legacy site was. Applied at once to the published map, which is signed again
+                         * @description https: the site's own certificate (Certificate); https_proxy: https ends at a proxy or CDN in front of Equalizer, which reaches it in http (no certificate here); http: in clear, as the legacy site was. Applied at once to the published map, which is signed again
                          * @enum {unknown}
                          */
-                        public_scheme?: "https" | "http";
+                        public_scheme?: "https" | "https_proxy" | "http";
                         /** @description Public IP the site answered on before Equalizer: the exposure check probes it. A public unicast IPv4 or IPv6 address (a port is ignored), not Equalizer's own; null stops the checks */
                         legacy_ip?: string | null;
                         /** @description true: the site never had a public address (it was born behind Equalizer), so there is nothing to probe: Isolation is shown as fine. Clears legacy_ip. false: back to not_configured */
@@ -3702,14 +3777,23 @@ export interface paths {
         /** Action log: the tenant's for tenant people, the platform's own for platform users */
         get: {
             parameters: {
-                query?: never;
+                query?: {
+                    /** @description Words to look for in the action, its target, who did it and its detail */
+                    q?: string;
+                    /** @description Only entries at or after this moment */
+                    from?: string;
+                    /** @description Only entries before this moment */
+                    to?: string;
+                    /** @description next_cursor of the page before */
+                    cursor?: string;
+                };
                 header?: never;
                 path?: never;
                 cookie?: never;
             };
             requestBody?: never;
             responses: {
-                /** @description Latest entries, newest first */
+                /** @description Latest entries, newest first, 200 per page */
                 200: {
                     headers: {
                         [name: string]: unknown;
@@ -3758,6 +3842,8 @@ export interface components {
             mfa_enabled?: boolean;
             /** @description Only in /auth/me: this session passed the second step. Without it only /auth/* answers */
             mfa_verified?: boolean;
+            /** @description IANA time zone name the person sees times in; UTC until they choose one */
+            time_zone?: string;
         };
         MfaSetup: {
             /** @description Base32, for manual entry */
@@ -3884,18 +3970,35 @@ export interface components {
              * @enum {unknown}
              */
             discovery_schedule?: "off" | "daily" | "weekly";
+            readonly discovery_time?: {
+                hour: number;
+                /** @description 0 Sunday … 6 Saturday; used by weekly */
+                weekday: number;
+                /** @description Time zone the hour is in (IANA) */
+                zone: string;
+                /**
+                 * Format: date-time
+                 * @description Next scheduled run; null when off
+                 */
+                next: string | null;
+                /**
+                 * Format: date-time
+                 * @description Latest discovery of the site, scheduled or not
+                 */
+                last: string | null;
+            };
             exposure?: components["schemas"]["Exposure"];
             tls?: components["schemas"]["SiteTLS"];
         };
         /** @description How visitors reach the site and its certificate */
         SiteTLS: {
             /** @enum {unknown} */
-            public_scheme: "https" | "http";
+            public_scheme: "https" | "https_proxy" | "http";
             /**
-             * @description ok; missing: https without a certificate (visitors get no HTTPS); incomplete: it does not cover every domain of the site; expiring: within 30 days; expired; not_needed: http
+             * @description ok; missing: https without a certificate (visitors get no HTTPS); incomplete: it does not cover every domain of the site; expiring: within 30 days; expired; not_needed: http; at_proxy: https handled by a proxy in front
              * @enum {unknown}
              */
-            status: "ok" | "missing" | "incomplete" | "expiring" | "expired" | "not_needed";
+            status: "ok" | "missing" | "incomplete" | "expiring" | "expired" | "not_needed" | "at_proxy";
             certificate?: components["schemas"]["Certificate"] | null;
         };
         Certificate: {
@@ -3984,6 +4087,8 @@ export interface components {
             status?: number | null;
             /** @description Name of the refused field */
             field?: string | null;
+            /** @description Connector concerned (connector.down) */
+            connector?: string | null;
         };
         LogStats: {
             /** @description Events per type in the period */

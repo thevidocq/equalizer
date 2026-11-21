@@ -78,6 +78,25 @@ paths:
             application/json:
               schema: { $ref: "#/components/schemas/User" }
         "401": { $ref: "#/components/responses/Error" }
+    patch:
+      tags: [auth]
+      summary: Change your own preferences
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [time_zone]
+              properties:
+                time_zone: { type: string, maxLength: 64, description: "IANA time zone name (Europe/Rome, UTC) the panel and your alert emails show times in" }
+      responses:
+        "200":
+          description: User
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/User" }
+        "422": { $ref: "#/components/responses/Error" }
   /auth/mfa/setup:
     post:
       tags: [auth]
@@ -344,6 +363,30 @@ paths:
                 properties:
                   items: { type: array, items: { $ref: "#/components/schemas/TenantOverview" } }
                   next_cursor: { type: [string, "null"] }
+  /about:
+    get:
+      tags: [auth]
+      summary: >-
+        The release of the platform, for the panel's footer (anyone logged in). Platform administrators also get the
+        releases each service's replicas run: more than one while an update rolls out
+      responses:
+        "200":
+          description: Release
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [release]
+                properties:
+                  release: { type: string, description: "e.g. 0.2.1; dev for a build without a release" }
+                  services:
+                    type: array
+                    items:
+                      type: object
+                      required: [name, releases]
+                      properties:
+                        name: { type: string }
+                        releases: { type: array, items: { type: string } }
   /platform/tenants/{tenant}:
     delete:
       tags: [tenants]
@@ -447,9 +490,11 @@ paths:
               type: object
               properties:
                 discovery_schedule: { enum: [off, daily, weekly] }
+                discovery_hour: { type: integer, minimum: 0, maximum: 23, description: "Hour of the day of continuous discovery, in the time zone of the person who sets it (with discovery_schedule)" }
+                discovery_weekday: { type: integer, minimum: 0, maximum: 6, description: "Day of weekly discovery: 0 Sunday … 6 Saturday (with discovery_schedule)" }
                 public_scheme:
-                  enum: [https, http]
-                  description: "https: the site's own certificate (Certificate); http: in clear, as the legacy site was. Applied at once to the published map, which is signed again"
+                  enum: [https, https_proxy, http]
+                  description: "https: the site's own certificate (Certificate); https_proxy: https ends at a proxy or CDN in front of Equalizer, which reaches it in http (no certificate here); http: in clear, as the legacy site was. Applied at once to the published map, which is signed again"
                 legacy_ip:
                   type: [string, "null"]
                   description: "Public IP the site answered on before Equalizer: the exposure check probes it. A public unicast IPv4 or IPv6 address (a port is ignored), not Equalizer's own; null stops the checks"
@@ -1547,9 +1592,14 @@ paths:
     get:
       tags: [audit]
       summary: "Action log: the tenant's for tenant people, the platform's own for platform users"
+      parameters:
+        - { name: q, in: query, description: "Words to look for in the action, its target, who did it and its detail", schema: { type: string, maxLength: 200 } }
+        - { name: from, in: query, description: "Only entries at or after this moment", schema: { type: string, format: date-time } }
+        - { name: to, in: query, description: "Only entries before this moment", schema: { type: string, format: date-time } }
+        - { name: cursor, in: query, description: "next_cursor of the page before", schema: { type: string, pattern: "^[0-9]{1,19}$" } }
       responses:
         "200":
-          description: Latest entries, newest first
+          description: Latest entries, newest first, 200 per page
           content:
             application/json:
               schema:
@@ -1655,6 +1705,7 @@ components:
         tenant_role: { type: [string, "null"], enum: [admin, viewer, null] }
         mfa_enabled: { type: boolean, description: "An authenticator app is enrolled" }
         mfa_verified: { type: boolean, description: "Only in /auth/me: this session passed the second step. Without it only /auth/* answers" }
+        time_zone: { type: string, description: "IANA time zone name the person sees times in; UTC until they choose one" }
     MfaSetup:
       type: object
       required: [secret, otpauth_uri]
@@ -1772,6 +1823,16 @@ components:
         reach_mode: { enum: [connector, direct, null], readOnly: true, description: "How the published map reaches the legacy site; null: nothing published" }
         kind: { $ref: "#/components/schemas/SiteKind" }
         discovery_schedule: { enum: [off, daily, weekly], description: "Continuous discovery: run again and propose what changed" }
+        discovery_time:
+          type: object
+          readOnly: true
+          required: [hour, weekday, zone, next, last]
+          properties:
+            hour: { type: integer, minimum: 0, maximum: 23 }
+            weekday: { type: integer, minimum: 0, maximum: 6, description: "0 Sunday … 6 Saturday; used by weekly" }
+            zone: { type: string, description: "Time zone the hour is in (IANA)" }
+            next: { type: [string, "null"], format: date-time, description: "Next scheduled run; null when off" }
+            last: { type: [string, "null"], format: date-time, description: "Latest discovery of the site, scheduled or not" }
         exposure: { $ref: "#/components/schemas/Exposure" }
         tls: { $ref: "#/components/schemas/SiteTLS" }
     SiteTLS:
@@ -1779,10 +1840,10 @@ components:
       description: How visitors reach the site and its certificate
       required: [public_scheme, status]
       properties:
-        public_scheme: { enum: [https, http] }
+        public_scheme: { enum: [https, https_proxy, http] }
         status:
-          enum: [ok, missing, incomplete, expiring, expired, not_needed]
-          description: "ok; missing: https without a certificate (visitors get no HTTPS); incomplete: it does not cover every domain of the site; expiring: within 30 days; expired; not_needed: http"
+          enum: [ok, missing, incomplete, expiring, expired, not_needed, at_proxy]
+          description: "ok; missing: https without a certificate (visitors get no HTTPS); incomplete: it does not cover every domain of the site; expiring: within 30 days; expired; not_needed: http; at_proxy: https handled by a proxy in front"
         certificate: { oneOf: [{ $ref: "#/components/schemas/Certificate" }, { type: "null" }] }
     Certificate:
       type: object
@@ -1866,6 +1927,7 @@ components:
         path: { type: [string, "null"] }
         status: { type: [integer, "null"] }
         field: { type: [string, "null"], description: Name of the refused field }
+        connector: { type: [string, "null"], description: "Connector concerned (connector.down)" }
     LogStats:
       type: object
       required: [counts, refused, step_seconds]

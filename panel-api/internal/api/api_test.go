@@ -315,6 +315,17 @@ func TestPanelFlow(t *testing.T) {
 			t.Errorf("audit misses %s", want)
 		}
 	}
+	// Search and time range, on the server.
+	var found struct{ Items []store.AuditEntry }
+	ap.must(200, "GET", "/v1/audit?q=connector.create", nil, &found)
+	if len(found.Items) == 0 || found.Items[0].Action != "connector.create" {
+		t.Errorf("audit search: %+v", found.Items)
+	}
+	ap.must(200, "GET", "/v1/audit?from=2099-01-01T00:00:00Z", nil, &found)
+	if len(found.Items) != 0 {
+		t.Errorf("audit from the future: %+v", found.Items)
+	}
+	ap.must(400, "GET", "/v1/audit?from=yesterday", nil, nil)
 	root.must(200, "GET", "/v1/audit", nil, &audit)
 	for _, a := range audit.Items {
 		if a.Tenant != nil {

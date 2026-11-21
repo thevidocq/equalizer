@@ -27,7 +27,7 @@ export function IsolationPage() {
         of the same server can stay public.
       </p>
       {check.isError ? <Notice tone="error">{describeError(check.error)}</Notice> : null}
-      {direct ? <DirectIsolation tenant={tenant} domain={site.public_domain} scheme={site.tls?.public_scheme ?? "https"} /> : (
+      {direct ? <DirectIsolation tenant={tenant} domain={site.public_domain} scheme={site.tls?.public_scheme === "http" ? "http" : "https"} /> : (
         <ExposureStatus exposure={exposure} onCheck={manage ? () => check.mutate() : undefined} busy={check.isPending} />
       )}
       {manage && !direct ? <LegacyIpForm key={`ip:${exposure.legacy_ip ?? ""}:${exposure.status}`} app={app} current={exposure.legacy_ip}

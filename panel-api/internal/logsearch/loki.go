@@ -30,6 +30,7 @@ type Event struct {
 	Path       *string   `json:"path"`
 	Status     *int      `json:"status"`
 	Field      *string   `json:"field"`
+	Connector  *string   `json:"connector"`
 }
 
 // Bucket is one interval of the refused chart.
@@ -144,6 +145,9 @@ func parse(raw, tenant string) (Event, bool) {
 	ev := e.Event
 	if f, ok := e.Detail["field"].(string); ok && f != "" {
 		ev.Field = &f
+	}
+	if c, ok := e.Detail["connector_id"].(string); ok && c != "" {
+		ev.Connector = &c
 	}
 	return ev, true
 }

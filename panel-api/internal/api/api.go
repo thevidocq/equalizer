@@ -73,6 +73,7 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("POST /v1/auth/login", s.login)
 	mux.HandleFunc("POST /v1/auth/logout", s.partial(s.logout))
 	mux.HandleFunc("GET /v1/auth/me", s.partial(s.me))
+	mux.HandleFunc("PATCH /v1/auth/me", s.authed(s.updateMe))
 	mux.HandleFunc("POST /v1/auth/mfa/setup", s.partial(s.mfaSetup))
 	mux.HandleFunc("POST /v1/auth/mfa/enable", s.partial(s.mfaEnable))
 	mux.HandleFunc("POST /v1/auth/mfa/verify", s.partial(s.mfaVerify))
@@ -92,6 +93,7 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("GET /v1/platform/tenants", s.authed(s.platformTenants))
 	mux.HandleFunc("POST /v1/platform/tenants/{tenant}/invitation", s.authed(s.reinviteFirstAdmin))
 	mux.HandleFunc("DELETE /v1/platform/tenants/{tenant}", s.authed(s.deleteTenant))
+	mux.HandleFunc("GET /v1/about", s.authed(s.about))
 	mux.HandleFunc("DELETE /v1/tenants/{tenant}/users/{id}", s.authed(s.deactivateUser))
 	mux.HandleFunc("POST /v1/tenants/{tenant}/users/{id}/reset-mfa", s.authed(s.resetMFA))
 	// Apps and connectors

@@ -124,3 +124,21 @@ func TestAlertKinds(t *testing.T) {
 		t.Fatalf("muted recovery sent: %d", n)
 	}
 }
+
+func TestWhen(t *testing.T) {
+	at := time.Date(2026, 11, 21, 1, 33, 7, 0, time.UTC)
+	rome, _ := time.LoadLocation("Europe/Rome")
+	kolkata, _ := time.LoadLocation("Asia/Kolkata")
+	for _, c := range []struct {
+		loc  *time.Location
+		want string
+	}{
+		{time.UTC, "21 Nov 2026, 01:33:07 UTC"},
+		{rome, "21 Nov 2026, 02:33:07 UTC+1"},
+		{kolkata, "21 Nov 2026, 07:03:07 UTC+5:30"},
+	} {
+		if got := When(at.In(c.loc)); got != c.want {
+			t.Errorf("%s: %q, want %q", c.loc, got, c.want)
+		}
+	}
+}

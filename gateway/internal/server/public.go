@@ -105,7 +105,7 @@ func (p *Public) handle(w http.ResponseWriter, r *http.Request) string {
 		return ""
 	}
 
-	if plainRequest(r) && !plainSite(active) {
+	if plainRequest(r) && !plainPort(active) {
 		toHTTPS(w, r, active)
 		return "https_redirect"
 	}

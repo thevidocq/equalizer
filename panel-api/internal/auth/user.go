@@ -9,7 +9,8 @@ type User struct {
 	Tenant       *string `json:"tenant"`
 	TenantRole   *string `json:"tenant_role"`
 	MFAEnabled   bool    `json:"mfa_enabled"`
-	MFAVerified  bool    `json:"mfa_verified"` // this session passed the second step
+	MFAVerified  bool    `json:"mfa_verified"`        // this session passed the second step
+	TimeZone     string  `json:"time_zone,omitempty"` // IANA name the panel and the alert emails show times in
 }
 
 // Platform reports a platform user (administrator or operator).

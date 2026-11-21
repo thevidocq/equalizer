@@ -126,8 +126,8 @@ func (s *Server) tellAdmins(ctx context.Context, a store.App, body string) {
 // setPublicScheme changes how visitors reach the site and signs the
 // published map again with it (the gateway reads it from the map).
 func (s *Server) setPublicScheme(r *http.Request, a store.App, scheme string) error {
-	if scheme != "https" && scheme != "http" {
-		return &inputError{"public_scheme: https or http"}
+	if scheme != "https" && scheme != "https_proxy" && scheme != "http" {
+		return &inputError{"public_scheme: https, https_proxy or http"}
 	}
 	if err := s.republishMeta(r, a.ID, map[string]any{"public_scheme": scheme}); err != nil {
 		return err

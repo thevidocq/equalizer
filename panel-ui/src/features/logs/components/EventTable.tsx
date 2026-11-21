@@ -1,12 +1,13 @@
 import type { App } from "@/shared/api/client";
-import { eventKey, kindOf, reasonLabel, type LogEvent } from "./kinds";
+import { formatDate } from "@/shared/ui";
+import { eventKey, kindOf, subtitle, type LogEvent } from "./kinds";
 
 type Props = { events: LogEvent[]; apps: App[]; selected: string | null; onSelect: (key: string) => void };
 
 const mono = "font-mono text-[13px]";
 
 export function eventTime(ts: string) {
-  return new Date(ts).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit", second: "2-digit" });
+  return formatDate(ts);
 }
 
 /** The events, newest first; a row opens its detail. */
@@ -44,10 +45,10 @@ export function EventTable({ events, apps, selected, onSelect }: Props) {
                       <span aria-hidden="true" className="size-2 rounded-full" style={{ background: k.color }} />
                       {k.label}
                     </span>
-                    <span className="text-[13px] text-ink-soft">{reasonLabel(e)}</span>
+                    {subtitle(e) ? <span className="text-[13px] text-ink-soft">{subtitle(e)}</span> : null}
                   </button>
                 </td>
-                <td className="whitespace-nowrap px-2 py-2">{name(e.app)}</td>
+                <td className="whitespace-nowrap px-2 py-2">{e.app ? name(e.app) : e.connector ? `Connector ${e.connector}` : ""}</td>
                 <td className={`max-w-60 truncate px-2 py-2 ${mono}`} title={e.path ?? ""}>{e.method} {e.path}</td>
                 <td className={`whitespace-nowrap px-2 py-2 ${mono}`}>{e.src_ip}</td>
                 <td className="px-4 py-2 text-right tabular-nums">{e.status}</td>

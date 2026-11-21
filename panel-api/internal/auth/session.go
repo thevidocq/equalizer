@@ -63,10 +63,10 @@ func (s *Sessions) User(ctx context.Context, id string) (*User, error) {
 	}
 	u := &User{}
 	err := s.DB.QueryRowContext(ctx, `
-		SELECT u.id, u.email, u.name, u.platform_role, u.tenant_id, u.tenant_role, u.mfa_secret IS NOT NULL, s.mfa_ok
+		SELECT u.id, u.email, u.name, u.platform_role, u.tenant_id, u.tenant_role, u.mfa_secret IS NOT NULL, s.mfa_ok, u.time_zone
 		FROM panel_sessions s JOIN users u ON u.id = s.user_id
 		WHERE s.id_hash = $1 AND s.expires_at > now() AND NOT u.disabled`, idHash(id)).
-		Scan(&u.ID, &u.Email, &u.Name, &u.PlatformRole, &u.Tenant, &u.TenantRole, &u.MFAEnabled, &u.MFAVerified)
+		Scan(&u.ID, &u.Email, &u.Name, &u.PlatformRole, &u.Tenant, &u.TenantRole, &u.MFAEnabled, &u.MFAVerified, &u.TimeZone)
 	if errors.Is(err, sql.ErrNoRows) {
 		return nil, ErrNoSession
 	}

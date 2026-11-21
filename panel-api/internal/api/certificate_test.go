@@ -133,6 +133,16 @@ func TestSiteCertificate(t *testing.T) {
 		t.Error("public_scheme not in the published map")
 	}
 	admin.must(422, "PATCH", "/v1/apps/portal", map[string]string{"public_scheme": "ftp"}, nil)
+	// https at a proxy in front: no certificate served, the map says so.
+	admin.must(200, "PATCH", "/v1/apps/portal", map[string]string{"public_scheme": "https_proxy"}, &a)
+	if a.TLS.Status != "at_proxy" || len(certsFeed()) != 0 {
+		t.Errorf("https at a proxy: %+v, feed %d", a.TLS, len(certsFeed()))
+	}
+	_ = json.Unmarshal(internalGet(t, e, "/v1/internal/apps/portal/map", internalToken), &signed)
+	raw, _ = base64.StdEncoding.DecodeString(signed.Payload)
+	if !strings.Contains(string(raw), `"public_scheme":"https_proxy"`) {
+		t.Error("https_proxy not in the published map")
+	}
 	admin.must(200, "PATCH", "/v1/apps/portal", map[string]string{"public_scheme": "https"}, nil)
 	admin.must(200, "DELETE", "/v1/apps/portal/certificate", nil, &a)
 	if a.TLS.Status != "missing" || len(certsFeed()) != 0 {

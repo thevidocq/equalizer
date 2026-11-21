@@ -9,7 +9,7 @@ export function exportName(app: string, version: number) {
 }
 
 export function exportMap(app: string, version: number, doc: Record<string, unknown>) {
-  const header = `# Equalizer map of ${app}, version ${version}. Import it as a new draft: it is checked and approved again.\n`;
+  const header = `# Equalizer map of ${app}, version ${version}. Import it as a new draft: it is checked again.\n`;
   const blob = new Blob([header + toEditorYaml(doc)], { type: "application/yaml" });
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");

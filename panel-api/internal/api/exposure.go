@@ -29,6 +29,8 @@ func (s *Server) patchApp(w http.ResponseWriter, r *http.Request, u *auth.User) 
 	var in struct {
 		LegacyIP json.RawMessage `json:"legacy_ip"`
 		Schedule *string         `json:"discovery_schedule"`
+		Hour     *int            `json:"discovery_hour"`
+		Weekday  *int            `json:"discovery_weekday"`
 		Scheme   *string         `json:"public_scheme"`
 		Never    *bool           `json:"never_public"`
 	}
@@ -61,11 +63,17 @@ func (s *Server) patchApp(w http.ResponseWriter, r *http.Request, u *auth.User) 
 			fail(w, http.StatusUnprocessableEntity, "invalid", "discovery_schedule: off, daily or weekly")
 			return
 		}
-		if err := s.Store.SetDiscoverySchedule(r.Context(), a.ID, *in.Schedule, u.ID); err != nil {
+		at, ok := discoveryTime(a.DiscoveryAt, in.Hour, in.Weekday, u.TimeZone)
+		if !ok {
+			fail(w, http.StatusUnprocessableEntity, "invalid", "discovery_hour: 0 to 23; discovery_weekday: 0 (Sunday) to 6")
+			return
+		}
+		if err := s.Store.SetDiscoverySchedule(r.Context(), a.ID, *in.Schedule, at, u.ID); err != nil {
 			s.storeError(w, r, err)
 			return
 		}
-		_ = s.Store.Record(r.Context(), &u.ID, &a.Tenant, "discovery.schedule", a.ID, map[string]any{"schedule": *in.Schedule})
+		_ = s.Store.Record(r.Context(), &u.ID, &a.Tenant, "discovery.schedule", a.ID,
+			map[string]any{"schedule": *in.Schedule, "hour": at.Hour, "weekday": at.Weekday, "zone": at.Zone})
 		if in.LegacyIP == nil && in.Never == nil {
 			s.writeApp(w, r, a.ID)
 			return
@@ -209,4 +217,21 @@ func (s *Server) writeApp(w http.ResponseWriter, r *http.Request, id string) {
 		return
 	}
 	writeJSON(w, http.StatusOK, a)
+}
+
+// discoveryTime is when continuous discovery runs after a change: the hour
+// and weekday given (the current ones otherwise), in the time zone of the
+// administrator who sets it.
+func discoveryTime(cur store.DiscoveryTime, hour, weekday *int, zone string) (store.DiscoveryTime, bool) {
+	at := store.DiscoveryTime{Hour: cur.Hour, Weekday: cur.Weekday, Zone: zone}
+	if hour != nil {
+		at.Hour = *hour
+	}
+	if weekday != nil {
+		at.Weekday = *weekday
+	}
+	if at.Zone == "" {
+		at.Zone = "UTC"
+	}
+	return at, at.Hour >= 0 && at.Hour <= 23 && at.Weekday >= 0 && at.Weekday <= 6
 }

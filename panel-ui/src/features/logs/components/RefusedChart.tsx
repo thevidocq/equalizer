@@ -1,12 +1,10 @@
+import { formatTick } from "@/shared/ui";
 type Bucket = { ts: string; count: number };
 
 const labels: Record<number, string> = { 300: "5 minutes", 3600: "hour", 21600: "6 hours", 86400: "day" };
 
 function time(ts: string, step: number) {
-  const d = new Date(ts);
-  return step >= 86400
-    ? d.toLocaleDateString("en-GB", { day: "numeric", month: "short" })
-    : d.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" });
+  return ts ? formatTick(new Date(ts), step >= 86400) : "";
 }
 
 /** Refused requests per interval: the latest interval stands out. */

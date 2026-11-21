@@ -1,5 +1,6 @@
 import { Link, NavLink, useNavigate } from "react-router";
 import { useLogout } from "@/features/auth";
+import { ReleaseLine } from "@/features/about";
 
 type Props = { name?: string; email?: string; role?: string | null; platform?: boolean };
 
@@ -55,6 +56,7 @@ export function SidebarFooter({ name, email, role, platform }: Props) {
           </button>
         </div>
       </div>
+      <ReleaseLine />
     </div>
   );
 }

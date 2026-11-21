@@ -3,6 +3,7 @@ package store
 import (
 	"context"
 	"encoding/json"
+	"strings"
 	"time"
 
 	"github.com/lib/pq"
@@ -34,13 +35,39 @@ func (s *Store) Record(ctx context.Context, userID *int64, tenant *string, actio
 	return err
 }
 
+// AuditQuery narrows the action log: words to look for, a time range and
+// a page (entries older than Before, an id).
+type AuditQuery struct {
+	Q        string
+	From, To *time.Time
+	Before   int64
+	Limit    int
+}
+
 // Audit lists the latest entries of a tenant, or of the platform itself
-// (entries without tenant) when tenant is nil.
-func (s *Store) Audit(ctx context.Context, tenant *string, limit int) ([]AuditEntry, error) {
+// (entries without tenant) when tenant is nil, newest first.
+func (s *Store) Audit(ctx context.Context, tenant *string, q AuditQuery) ([]AuditEntry, error) {
+	if q.Limit <= 0 || q.Limit > 500 {
+		q.Limit = 200
+	}
+	var like *string
+	if w := strings.TrimSpace(q.Q); w != "" {
+		v := "%" + strings.NewReplacer(`\`, `\\`, "%", `\%`, "_", `\_`).Replace(w) + "%"
+		like = &v
+	}
+	var before *int64
+	if q.Before > 0 {
+		before = &q.Before
+	}
 	rows, err := s.DB.QueryContext(ctx, `
 		SELECT a.id, a.ts, a.user_id, u.email, a.tenant_id, a.action, a.target, a.detail
 		FROM audit a LEFT JOIN users u ON u.id = a.user_id
-		WHERE a.tenant_id IS NOT DISTINCT FROM $1::text ORDER BY a.id DESC LIMIT $2`, tenant, limit)
+		WHERE a.tenant_id IS NOT DISTINCT FROM $1::text
+		  AND ($2::text IS NULL OR a.action ILIKE $2 OR a.target ILIKE $2 OR u.email ILIKE $2 OR a.detail::text ILIKE $2)
+		  AND ($3::timestamptz IS NULL OR a.ts >= $3)
+		  AND ($4::timestamptz IS NULL OR a.ts < $4)
+		  AND ($5::bigint IS NULL OR a.id < $5)
+		ORDER BY a.id DESC LIMIT $6`, tenant, like, q.From, q.To, before, q.Limit)
 	if err != nil {
 		return nil, err
 	}

@@ -13,7 +13,7 @@ import (
 // SiteTLS in panel-api.yaml).
 type SiteTLS struct {
 	PublicScheme string       `json:"public_scheme"`
-	Status       string       `json:"status"` // ok, missing, incomplete, expiring, expired, not_needed
+	Status       string       `json:"status"` // ok, missing, incomplete, expiring, expired, not_needed, at_proxy
 	Certificate  *Certificate `json:"certificate"`
 }
 
@@ -103,6 +103,8 @@ func fillTLS(a *App, now time.Time) {
 	switch {
 	case t.PublicScheme == "http":
 		t.Status = "not_needed"
+	case t.PublicScheme == "https_proxy":
+		t.Status = "at_proxy"
 	case t.Certificate == nil:
 		t.Status = "missing"
 	case now.After(t.Certificate.NotAfter):

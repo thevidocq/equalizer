@@ -107,9 +107,9 @@
           "items": { "type": "string", "pattern": "^([a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?\\.)+[a-z]{2,63}$" }
         },
         "public_scheme": {
-          "enum": ["https", "http"],
+          "enum": ["https", "https_proxy", "http"],
           "default": "https",
-          "description": "How visitors reach the site, set by the panel. https: with the site's own certificate (uploaded in the panel), HSTS and Secure cookies; plain http is redirected. http: in clear, as the legacy site was: no HSTS, cookies without Secure, no OIDC login."
+          "description": "How visitors reach the site, set by the panel. https: with the site's own certificate (uploaded in the panel), HSTS and Secure cookies; plain http is redirected. https_proxy: visitors use https up to a proxy or CDN in front, which reaches Equalizer in http: addresses are written in https and cookies are Secure, the plain port serves the site, no certificate and no HSTS from Equalizer. http: in clear, as the legacy site was: no HSTS, cookies without Secure, no OIDC login."
         }
       }
     },

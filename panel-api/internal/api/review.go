@@ -40,11 +40,17 @@ func (s *Server) versionFor(w http.ResponseWriter, r *http.Request, u *auth.User
 	return a, v, true
 }
 
-// compare returns the published version this one is compared with.
+// compare returns the version this one is compared with: the published one
+// for a version not yet live, the one it replaced for a version that went
+// live (published or retired since).
 func (s *Server) compare(r *http.Request, a store.App, v store.MapVersion) mapReview {
 	out := mapReview{Version: v.Version}
 	var base json.RawMessage
-	if p, err := s.Store.Published(r.Context(), a.ID); err == nil && p.Version != v.Version {
+	p, err := s.Store.Published(r.Context(), a.ID)
+	if v.PublishedAt != nil {
+		p, err = s.Store.PublishedBefore(r.Context(), a.ID, v.Version)
+	}
+	if err == nil && p.Version != v.Version {
 		base, out.BaseVersion = p.Document, &p.Version
 	}
 	res := review.Compare(base, v.Document)

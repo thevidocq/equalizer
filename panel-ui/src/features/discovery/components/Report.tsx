@@ -1,5 +1,5 @@
 import { Link, useParams } from "react-router";
-import { Notice } from "@/shared/ui";
+import { Notice, Spinner } from "@/shared/ui";
 import { STILL_OPEN, VerificationPanel } from "@/features/maps";
 import type { Discovery } from "../hooks/useDiscovery";
 
@@ -33,13 +33,20 @@ export function Report({ d }: { d: Discovery }) {
   const { app = "" } = useParams();
   const r = (d.report ?? {}) as R;
   if (d.status === "failed") return <Notice tone="error">The discovery failed: {d.error}</Notice>;
-  if (d.status !== "done") return <p className="text-sm text-ink-soft">Running: {(d.progress as R)?.pages ?? 0} pages so far.</p>;
+  if (d.status !== "done") {
+    const pages = (d.progress as R)?.pages ?? 0;
+    return (
+      <p className="text-sm text-ink-soft">
+        <Spinner label={d.status === "queued" ? "Waiting to start…" : `Running: ${pages} ${pages === 1 ? "page" : "pages"} so far…`} />
+      </p>
+    );
+  }
   const ai = (r.ai ?? {}) as R;
   return (
     <div className="flex flex-col gap-5">
       {d.draft_version ? (
         <Notice tone="info">A draft was proposed: <Link className="font-semibold text-signal hover:underline" to={`../maps/${d.draft_version}`}>
-          version {d.draft_version}</Link>. Review it and send it for approval.</Notice>
+          version {d.draft_version}</Link>. Review it and publish it.</Notice>
       ) : <Notice tone="info">The map already covers what was found: no draft needed.</Notice>}
       {d.draft_version ? <VerificationPanel app={app} version={d.draft_version} canVerify={false} versionLink={(v) => `../maps/${v}`} /> : null}
       <div className="grid gap-3 sm:grid-cols-4">
@@ -51,7 +58,9 @@ export function Report({ d }: { d: Discovery }) {
       {r.known_issues?.length ? (
         <Notice tone="error">{r.known_issues.length} component(s) with known issues: their paths stay closed. Update them.</Notice>
       ) : null}
-      {ai.used === false ? <p className="text-sm text-ink-soft">Without AI{ai.reason ? `: ${ai.reason}` : ai.error ? `: ${ai.error}` : ""}.</p> : null}
+      {ai.used === false && ai.error ? (
+        <Notice tone="error">The AI was asked but not used, so the draft comes from the fixed rules only: {ai.error}.</Notice>
+      ) : ai.used === false ? <p className="text-sm text-ink-soft">Without AI{ai.reason ? `: ${ai.reason}` : ""}.</p> : null}
       {ai.notes?.length ? <List title="AI notes" items={ai.notes.map((n: string) => ({ n }))} render={(i) => i.n} /> : null}
       <List title="Routes added" items={r.routes_added} render={(i) => `${i.path}${i.logged_in_only ? "  (logged in)" : ""}`} />
       <List title="Forms added" items={r.forms_added} render={(i) => `${i.route}  ${i.fields.join(", ")}`} />

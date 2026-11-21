@@ -1,11 +1,8 @@
 import type { Schemas } from "@/shared/api/client";
+import { formatDay } from "@/shared/ui";
 import { State } from "./State";
 
 type Site = Schemas["SiteStatus"];
-
-function dayLabel(date: string) {
-  return new Date(`${date}T00:00:00Z`).toLocaleDateString("en-GB", { weekday: "short", day: "numeric", timeZone: "UTC" });
-}
 
 /** One site: its overall state, what it needs, and the last 7 days. */
 export function SiteRow({ site }: { site: Site }) {
@@ -31,7 +28,7 @@ export function SiteRow({ site }: { site: Site }) {
             const bad = d.legacy_errors + d.connector_drops;
             const words = bad ? `${d.legacy_errors} legacy errors, ${d.connector_drops} connector drops` : "no problems";
             return (
-              <li key={d.date} title={`${dayLabel(d.date)}: ${words}`} aria-label={`${dayLabel(d.date)}: ${words}`}
+              <li key={d.date} title={`${formatDay(d.date)}: ${words}`} aria-label={`${formatDay(d.date)}: ${words}`}
                 className="h-8 w-4 rounded-[2px]"
                 style={{ background: d.connector_drops ? "#b42318" : d.legacy_errors ? "#d9a441" : "#b7d7c2" }} />
             );

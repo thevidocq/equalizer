@@ -72,10 +72,33 @@ const reasons: Record<string, string> = {
   websocket_not_supported: "WebSocket not supported yet",
 };
 
+/** What happened, for events of the Alert group (they have no reason code). */
+const titles: Partial<Record<EventType, string>> = {
+  "connector.down": "Connector offline",
+  "exposure.alert": "Site reachable without Equalizer",
+  "behavior.alert": "Visitor behaving like a scanner",
+  "parse.failed": "Page could not be rebuilt",
+};
+
 /** A short line for the table: the field name first when there is one. */
 export function reasonLabel(e: LogEvent): string {
-  const r = e.reason ? reasons[e.reason] ?? e.reason.replaceAll("_", " ") : kindOf(e.type).label;
-  return e.field ? `${e.field}: ${r.toLowerCase()}` : r;
+  return subtitle(e) ?? kindOf(e.type).label;
+}
+
+/** The line under the kind, or null when it would only repeat the kind ("Served"). */
+export function subtitle(e: LogEvent): string | null {
+  if (e.reason) {
+    const r = reasons[e.reason] ?? e.reason.replaceAll("_", " ");
+    return e.field ? `${e.field}: ${r.toLowerCase()}` : r;
+  }
+  const t = titles[e.type];
+  if (t) return e.connector ? `${t}: ${e.connector}` : t;
+  return null;
+}
+
+/** Events about a visitor's request (the others concern a site or a connector). */
+export function isRequest(e: LogEvent): boolean {
+  return Boolean(e.path || e.request_id || e.src_ip);
 }
 
 const explain: Record<string, string> = {

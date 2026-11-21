@@ -175,3 +175,22 @@ func (p *Probe) LokiReady(ctx context.Context) bool {
 	resp.Body.Close()
 	return resp.StatusCode == http.StatusOK
 }
+
+// Versions are the releases the replicas of a service report on /healthz,
+// each with how many replicas run it.
+func (p *Probe) Versions(ctx context.Context, hostport string) map[string]int {
+	out := map[string]int{}
+	addrs, err := p.replicas(ctx, hostport)
+	if err != nil {
+		return out
+	}
+	for _, a := range addrs {
+		var h struct {
+			Version string `json:"version"`
+		}
+		if p.get(ctx, "http://"+a+"/healthz", &h) == nil && h.Version != "" {
+			out[h.Version]++
+		}
+	}
+	return out
+}

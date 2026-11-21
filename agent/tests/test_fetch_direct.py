@@ -43,3 +43,16 @@ class DirectTest(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class ExplainTest(unittest.TestCase):
+    def test_provider_refusals_in_words(self):
+        from equalizer_agent.llm import _explain
+        self.assertIn("API key", _explain(401, b""))
+        credit = b'{"error":{"type":"invalid_request_error","message":"Your credit balance is too low"}}'
+        self.assertIn("no credit", _explain(400, credit))
+        self.assertIn("no credit", _explain(429, b'{"error":{"code":"insufficient_quota"}}'))
+        self.assertIn("try again later", _explain(429, b"{}"))
+        self.assertIn("does not exist", _explain(404, b""))
+        self.assertIn("not answering", _explain(503, b""))
+        self.assertNotIn("credit balance is too low", _explain(400, credit))  # never the provider's own text

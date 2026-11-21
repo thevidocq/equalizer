@@ -10,11 +10,13 @@ const headline: Record<TLS["status"], string> = {
   expiring: "The certificate ends soon: upload the renewed one",
   expired: "The certificate has expired: browsers refuse the site",
   not_needed: "Served in http, as before Equalizer: no certificate",
+  at_proxy: "HTTPS is handled by the proxy in front: no certificate here",
 };
 
 const tone: Record<TLS["status"], string> = {
   ok: "border-state-published", not_needed: "border-rule", incomplete: "border-state-review",
   expiring: "border-state-review", missing: "border-state-rejected", expired: "border-state-rejected",
+  at_proxy: "border-state-published",
 };
 
 /** What visitors get: the site's certificate, its domains and its end. */

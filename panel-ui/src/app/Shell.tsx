@@ -38,7 +38,7 @@ export function Shell() {
         <div className="fixed inset-0 z-40 lg:hidden">
           <button type="button" aria-label="Close the menu" onClick={() => setOpen(false)} className="absolute inset-0 bg-ink/50" />
           <div id="mobile-menu" role="dialog" aria-modal="true" aria-label="Menu" className="absolute inset-y-0 left-0 w-72 max-w-[85vw]">
-            <Sidebar />
+            <Sidebar onAction={() => setOpen(false)} />
           </div>
         </div>
       ) : null}

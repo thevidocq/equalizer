@@ -221,6 +221,28 @@ func SetMeta(doc json.RawMessage, fields map[string]any) (json.RawMessage, error
 	return setMeta(doc, fields)
 }
 
+// SetReach replaces legacy.reach of a map document, keeping everything else
+// (base_url included: the gateway connects to reach.address and keeps
+// base_url's host for Host and SNI).
+func SetReach(doc json.RawMessage, reach json.RawMessage) (json.RawMessage, error) {
+	var m map[string]any
+	if err := json.Unmarshal(doc, &m); err != nil {
+		return nil, err
+	}
+	legacy, _ := m["legacy"].(map[string]any)
+	if legacy == nil {
+		legacy = map[string]any{}
+	}
+	var r any
+	if err := json.Unmarshal(reach, &r); err != nil {
+		return nil, err
+	}
+	legacy["reach"] = r
+	m["legacy"] = legacy
+	dropRetired(m)
+	return json.Marshal(m)
+}
+
 // SignedVersion is a published version as the gateway needs it.
 type SignedVersion struct {
 	App       string

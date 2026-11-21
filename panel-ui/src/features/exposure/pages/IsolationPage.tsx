@@ -8,6 +8,7 @@ import { LegacyIpForm } from "../components/LegacyIpForm";
 import { IsolationGuide } from "../components/IsolationGuide";
 import { AliasesForm } from "../components/AliasesForm";
 import { DirectIsolation } from "../components/DirectIsolation";
+import { ReachForm } from "../components/ReachForm";
 
 /** Site → Isolation: is the site still reachable without Equalizer? */
 export function IsolationPage() {
@@ -27,6 +28,7 @@ export function IsolationPage() {
         of the same server can stay public.
       </p>
       {check.isError ? <Notice tone="error">{describeError(check.error)}</Notice> : null}
+      {manage && site.published_version != null ? <ReachForm key={`reach:${site.reach_mode}:${site.reach_address}`} tenant={tenant} site={site} /> : null}
       {direct ? <DirectIsolation tenant={tenant} domain={site.public_domain} scheme={site.tls?.public_scheme === "http" ? "http" : "https"} /> : (
         <ExposureStatus exposure={exposure} onCheck={manage ? () => check.mutate() : undefined} busy={check.isPending} />
       )}

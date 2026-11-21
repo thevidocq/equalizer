@@ -125,6 +125,13 @@ those and refuse everyone else, or visitors could skip Equalizer. Use
 HTTPS: the requests cross the Internet. A site on a private network always
 needs a connector.
 
+**Changing it later.** How Equalizer reaches a site — through a connector or
+directly, which connector, which address — is chosen the first time
+discovery runs. Afterwards you change it in **Site → Isolation**, under
+*How Equalizer reaches this site*: the current map is republished with the
+new reach and your tuned entries are kept. You no longer rerun discovery to
+change it.
+
 ### Write the first map
 
 **Site → Map → New version**:

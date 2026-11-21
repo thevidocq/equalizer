@@ -101,6 +101,7 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("POST /v1/tenants/{tenant}/apps", s.authed(s.createApp))
 	mux.HandleFunc("GET /v1/apps/{app}", s.authed(s.getApp))
 	mux.HandleFunc("PATCH /v1/apps/{app}", s.authed(s.patchApp))
+	mux.HandleFunc("PUT /v1/apps/{app}/reach", s.authed(s.putReach))
 	mux.HandleFunc("PUT /v1/apps/{app}/aliases", s.authed(s.putAliases))
 	mux.HandleFunc("PUT /v1/apps/{app}/certificate", s.authed(s.putCertificate))
 	mux.HandleFunc("DELETE /v1/apps/{app}/certificate", s.authed(s.deleteCertificate))

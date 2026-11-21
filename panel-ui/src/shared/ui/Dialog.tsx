@@ -13,9 +13,9 @@ export function Dialog({ open, onOpenChange, title, description, children }: Pro
   return (
     <RD.Root open={open} onOpenChange={onOpenChange}>
       <RD.Portal>
-        <RD.Overlay className="fixed inset-0 bg-ink/30" />
+        <RD.Overlay className="fixed inset-0 z-50 bg-ink/30" />
         <RD.Content
-          className="fixed left-1/2 top-[12vh] w-[min(34rem,calc(100vw-2rem))] -translate-x-1/2
+          className="fixed left-1/2 top-[12vh] z-50 w-[min(34rem,calc(100vw-2rem))] -translate-x-1/2
             rounded-[var(--radius-panel)] border border-rule bg-surface p-6"
         >
           <RD.Title className="text-lg font-semibold">{title}</RD.Title>

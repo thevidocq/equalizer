@@ -1159,6 +1159,57 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/apps/{app}/reach": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Change how Equalizer reaches the site (through a connector or directly at its public address) and republish the current map with it, keeping the tuned entries. The first reach is chosen when discovery runs the first time; afterwards it is changed here (tenant administrators) */
+        put: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    app: components["parameters"]["app"];
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": {
+                        /** @enum {unknown} */
+                        mode: "connector" | "direct";
+                        /** @description Required when mode is connector */
+                        connector_id?: string;
+                        /** @description host:port the gateway connects to (the public address for direct mode) */
+                        address: string;
+                    };
+                };
+            };
+            responses: {
+                /** @description Site */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["App"];
+                    };
+                };
+                409: components["responses"]["Error"];
+                422: components["responses"]["Error"];
+            };
+        };
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/apps/{app}/certificate": {
         parameters: {
             query?: never;
@@ -3964,6 +4015,10 @@ export interface components {
              * @enum {unknown}
              */
             readonly reach_mode?: "connector" | "direct" | null;
+            /** @description Connector used, from the published map */
+            readonly reach_connector_id?: string | null;
+            /** @description host:port reached, from the published map */
+            readonly reach_address?: string | null;
             kind?: components["schemas"]["SiteKind"];
             /**
              * @description Continuous discovery: run again and propose what changed

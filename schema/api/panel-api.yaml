@@ -533,6 +533,33 @@ paths:
               schema: { $ref: "#/components/schemas/App" }
         "409": { $ref: "#/components/responses/Error" }
         "422": { $ref: "#/components/responses/Error" }
+  /apps/{app}/reach:
+    put:
+      tags: [apps]
+      summary: >-
+        Change how Equalizer reaches the site (through a connector or directly at its public address) and republish
+        the current map with it, keeping the tuned entries. The first reach is chosen when discovery runs the first
+        time; afterwards it is changed here (tenant administrators)
+      parameters: [{ $ref: "#/components/parameters/app" }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [mode, address]
+              properties:
+                mode: { enum: [connector, direct] }
+                connector_id: { type: string, description: "Required when mode is connector" }
+                address: { type: string, description: "host:port the gateway connects to (the public address for direct mode)" }
+      responses:
+        "200":
+          description: Site
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/App" }
+        "409": { $ref: "#/components/responses/Error" }
+        "422": { $ref: "#/components/responses/Error" }
   /apps/{app}/certificate:
     put:
       tags: [apps]
@@ -1821,6 +1848,8 @@ components:
         created_at: { type: string, format: date-time }
         published_version: { type: [integer, "null"] }
         reach_mode: { enum: [connector, direct, null], readOnly: true, description: "How the published map reaches the legacy site; null: nothing published" }
+        reach_connector_id: { type: [string, "null"], readOnly: true, description: "Connector used, from the published map" }
+        reach_address: { type: [string, "null"], readOnly: true, description: "host:port reached, from the published map" }
         kind: { $ref: "#/components/schemas/SiteKind" }
         discovery_schedule: { enum: [off, daily, weekly], description: "Continuous discovery: run again and propose what changed" }
         discovery_time:

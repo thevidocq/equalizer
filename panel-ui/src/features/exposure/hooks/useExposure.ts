@@ -25,7 +25,7 @@ export function useExposureActions(app: string) {
     onSuccess: store,
   });
   const setReach = useMutation({
-    mutationFn: (body: { mode: "connector" | "direct"; connector_id?: string; address: string }) =>
+    mutationFn: (body: { mode: "connector" | "direct"; connector_id?: string; address: string; legacy_host?: string }) =>
       unwrap(api.PUT("/apps/{app}/reach", { params: { path: { app } }, body })),
     onSuccess: store,
   });

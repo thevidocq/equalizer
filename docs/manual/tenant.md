@@ -134,9 +134,44 @@ name that resolves to public addresses only (for example
 Equalizer connects only to a public address: a name that resolves to a
 private or reserved one is refused, at save time and again at the moment of
 connection, so it can never reach the platform's own network. The panel
-shows Equalizer's addresses: the site must accept those and refuse everyone
-else, or visitors could skip Equalizer. Use HTTPS: the requests cross the
+shows the address Equalizer connects from: in production the site must
+accept only that one and refuse everyone else, or visitors could skip
+Equalizer (for a test it does not matter). Use HTTPS: the requests cross the
 Internet. A site on a private network always needs a connector.
+
+**The name the site is asked for.** Equalizer sends the legacy site a name
+(the `Host` header and the TLS name) and checks the site's certificate
+against it. You do not choose it:
+
+- with a **name** in the address (`www.example.com:443`), Equalizer asks for
+  that name — what a site behind Cloudflare or another CDN needs;
+- with an **IP** in the address, or through a connector, it asks for the
+  site's public domain.
+
+Under **Advanced** you can set another name (*Name asked of the site*), only
+for a site that answers to a name different from both — for example a
+dedicated origin hostname whose server only knows the public name.
+
+### A parallel domain, to try a site without moving it
+
+You can put Equalizer in front of a site under **another name**, while the
+original keeps working as it is. For example `test.example.org` through
+Equalizer, in front of `www.example.com` (here behind Cloudflare):
+
+1. **DNS of your test domain:** `test.example.org` → the VPS address, proxied
+   by Cloudflare (orange cloud).
+2. **Certificate for the test domain:** in Cloudflare (zone of
+   `example.org`) → SSL/TLS → *Origin Server* → *Create certificate* for
+   `test.example.org`; SSL mode **Full (strict)**. Any valid certificate for
+   that name works too.
+3. **Protect a site** with domain `test.example.org`.
+4. **Discovery:** *Directly*, address `www.example.com:443`, HTTPS. Equalizer
+   asks the site for `www.example.com` by itself.
+5. **Site → Certificate:** upload the certificate and key of step 2.
+6. Review the proposed map and **Publish**; open `https://test.example.org`.
+
+Visitors of `www.example.com` are not touched. Links in the pages are
+rewritten to the test domain, so you stay on it while browsing.
 
 **Changing it later.** How Equalizer reaches a site — through a connector or
 directly, which connector, which address — is chosen the first time

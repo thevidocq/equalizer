@@ -30,6 +30,7 @@ func (s *Server) mapTemplate(w http.ResponseWriter, r *http.Request, u *auth.Use
 		ConnectorID string `json:"connector_id"`
 		Address     string `json:"address"`
 		Scheme      string `json:"scheme"`
+		LegacyHost  string `json:"legacy_host"`
 		MaxUploadMB int    `json:"max_upload_mb"`
 	}
 	if !decode(w, r, &in) {
@@ -52,7 +53,12 @@ func (s *Server) mapTemplate(w http.ResponseWriter, r *http.Request, u *auth.Use
 		fail(w, http.StatusUnprocessableEntity, "invalid", "max_upload_mb must be between 1 and 1024")
 		return
 	}
-	doc, err := templates.Render(in.Template, templates.Fill{BaseURL: in.Scheme + "://" + a.PublicDomain,
+	host, err := legacyHost(a.PublicDomain, in.Mode, in.Address, in.LegacyHost)
+	if err != nil {
+		s.reachFail(w, r, err, http.StatusUnprocessableEntity)
+		return
+	}
+	doc, err := templates.Render(in.Template, templates.Fill{BaseURL: in.Scheme + "://" + host,
 		Connector: in.ConnectorID, Address: normDest(in.Address), MaxUploadMB: in.MaxUploadMB})
 	if err == nil {
 		doc, err = withReach(doc, reach)

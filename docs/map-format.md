@@ -57,7 +57,11 @@ legacy:
 
 - The host of `base_url` goes in the `Host` header and in TLS SNI: the web
   server picks the right virtual host. Links in pages that point to it are
-  recognised as internal.
+  recognised as internal. It need not be the public domain: the panel sets
+  it to the name in a direct-mode address (`www.example.com:443` asks for
+  `www.example.com`, as a site behind a CDN needs), to the public domain
+  otherwise, or to the advanced *Name asked of the site*. So a parallel
+  public domain (`test.example.org`) can front `www.example.com`.
 - `address` (optional) is where the connection actually goes, when it is
   not the host of `base_url`: a site moved to an internal listener, or an
   IP shared by several virtual hosts. It must be in `allow`.

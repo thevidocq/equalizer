@@ -3,6 +3,7 @@ package api_test
 import (
 	"encoding/base64"
 	"encoding/json"
+	"strings"
 	"testing"
 )
 
@@ -60,4 +61,41 @@ func TestReachUpdate(t *testing.T) {
 	// An unknown connector is refused; a viewer cannot change the reach.
 	admin.must(409, "PUT", "/v1/apps/portal/reach", map[string]any{"mode": "connector", "connector_id": "cn-nope", "address": "10.0.0.1:8080"}, nil)
 	ap.must(403, "PUT", "/v1/apps/portal/reach", map[string]any{"mode": "direct", "address": "8.8.8.8:443"}, nil)
+}
+
+// TestReachLegacyHost: changing the reach also sets the name the legacy site
+// is asked for (legacy.base_url's host).
+func TestReachLegacyHost(t *testing.T) {
+	e := setup(t)
+	root := e.client()
+	root.must(200, "POST", "/v1/auth/login", map[string]string{"email": "root@example.com", "password": "platform-admin-password"}, nil)
+	root.must(201, "POST", "/v1/tenants", map[string]string{"id": "acme", "name": "Acme", "admin_email": "boss@acme.test", "admin_name": "Boss"}, nil)
+	admin := e.join("boss@acme.test")
+	admin.must(201, "POST", "/v1/tenants/acme/connectors", map[string]string{"id": "cn-1"}, nil)
+	admin.must(201, "POST", "/v1/tenants/acme/apps", map[string]string{"id": "portal", "name": "Portal", "public_domain": "www.acme.test"}, nil)
+	admin.must(201, "POST", "/v1/apps/portal/maps", map[string]any{"document": json.RawMessage(mapDoc)}, nil)
+	admin.must(200, "POST", "/v1/apps/portal/maps/1/submit", nil, nil)
+	admin.must(200, "POST", "/v1/apps/portal/maps/1/approve", nil, nil)
+	admin.must(200, "POST", "/v1/apps/portal/maps/1/publish", nil, nil)
+
+	baseURL := func() string {
+		var signed struct{ Payload string }
+		_ = json.Unmarshal(internalGet(t, e, "/v1/internal/apps/portal/map", internalToken), &signed)
+		raw, _ := base64.StdEncoding.DecodeString(signed.Payload)
+		var doc struct {
+			Legacy struct {
+				BaseURL string `json:"base_url"`
+			} `json:"legacy"`
+		}
+		_ = json.Unmarshal(raw, &doc)
+		return doc.Legacy.BaseURL
+	}
+	admin.must(200, "PUT", "/v1/apps/portal/reach", map[string]any{"mode": "direct", "address": "8.8.8.8:443", "legacy_host": "www.metreta.com"}, nil)
+	if got := baseURL(); !strings.Contains(got, "://www.metreta.com") {
+		t.Fatalf("base_url with override: %s", got)
+	}
+	admin.must(200, "PUT", "/v1/apps/portal/reach", map[string]any{"mode": "direct", "address": "8.8.8.8:443"}, nil)
+	if got := baseURL(); !strings.Contains(got, "://www.acme.test") {
+		t.Fatalf("base_url back to the public domain: %s", got)
+	}
 }

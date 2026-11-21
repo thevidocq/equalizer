@@ -26,6 +26,7 @@ func (s *Server) putReach(w http.ResponseWriter, r *http.Request, u *auth.User) 
 		Mode        string `json:"mode"`
 		ConnectorID string `json:"connector_id"`
 		Address     string `json:"address"`
+		LegacyHost  string `json:"legacy_host"`
 	}
 	if !decode(w, r, &in) {
 		return
@@ -44,7 +45,15 @@ func (s *Server) putReach(w http.ResponseWriter, r *http.Request, u *auth.User) 
 		s.storeError(w, r, err)
 		return
 	}
+	host, err := legacyHost(a.PublicDomain, in.Mode, in.Address, in.LegacyHost)
+	if err != nil {
+		writeReachError(w, err)
+		return
+	}
 	doc, err := store.SetReach(v.Document, reach)
+	if err == nil {
+		doc, err = store.SetBaseHost(doc, host)
+	}
 	if err != nil {
 		s.storeError(w, r, err)
 		return
@@ -71,7 +80,7 @@ func (s *Server) putReach(w http.ResponseWriter, r *http.Request, u *auth.User) 
 		mode = "connector"
 	}
 	_ = s.Store.Record(r.Context(), &u.ID, &a.Tenant, "app.reach", a.ID,
-		map[string]any{"mode": mode, "connector_id": in.ConnectorID, "address": in.Address})
+		map[string]any{"mode": mode, "connector_id": in.ConnectorID, "address": in.Address, "legacy_host": host})
 	s.writeApp(w, r, a.ID)
 }
 

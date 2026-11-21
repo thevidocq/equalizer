@@ -1208,6 +1208,8 @@ export interface paths {
                         connector_id?: string;
                         /** @description host:port the gateway connects to (the public address for direct mode) */
                         address: string;
+                        /** @description Advanced, optional: the name the legacy site is asked for (Host and SNI). Default: in direct mode with a name as address, that name (a site behind a CDN); otherwise the public domain */
+                        legacy_host?: string;
                     };
                 };
             };
@@ -1413,8 +1415,10 @@ export interface paths {
                         mode?: "connector" | "direct";
                         /** @description Required with mode connector */
                         connector_id?: string;
-                        /** @description host:port the connector connects to; direct: the site's public IP address and port */
+                        /** @description host:port the connector connects to; direct: the site's public IP or name and port */
                         address: string;
+                        /** @description Advanced, optional: the name the legacy site is asked for (Host and SNI). Default: in direct mode with a name as address, that name (a site behind a CDN); otherwise the public domain */
+                        legacy_host?: string;
                         /**
                          * @default https
                          * @enum {unknown}
@@ -4320,8 +4324,10 @@ export interface components {
             mode: "connector" | "direct";
             /** @description Needed while the site has no published map, with mode connector */
             connector_id?: string;
-            /** @description host:port the connector reaches; direct: the site's public IP address and port */
+            /** @description host:port the connector reaches; direct: the site's public IP or name and port */
             address?: string;
+            /** @description Advanced, optional: the name the legacy site is asked for (Host and SNI). Default: in direct mode with a name as address, that name (a site behind a CDN); otherwise the public domain */
+            legacy_host?: string;
             /** @enum {unknown} */
             scheme?: "https" | "http";
         };

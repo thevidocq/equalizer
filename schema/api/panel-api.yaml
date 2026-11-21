@@ -563,6 +563,7 @@ paths:
                 mode: { enum: [connector, direct] }
                 connector_id: { type: string, description: "Required when mode is connector" }
                 address: { type: string, description: "host:port the gateway connects to (the public address for direct mode)" }
+                legacy_host: { type: string, description: "Advanced, optional: the name the legacy site is asked for (Host and SNI). Default: in direct mode with a name as address, that name (a site behind a CDN); otherwise the public domain" }
       responses:
         "200":
           description: Site
@@ -658,7 +659,8 @@ paths:
                   default: connector
                   description: "connector: through one of the tenant's connectors; direct: Equalizer reaches the site at its public address, and the site accepts only Equalizer's address"
                 connector_id: { type: string, pattern: "^[a-z0-9][a-z0-9_-]{1,62}$", description: "Required with mode connector" }
-                address: { type: string, pattern: "^[A-Za-z0-9.\\-]+:[0-9]{1,5}$", description: "host:port the connector connects to; direct: the site's public IP address and port" }
+                address: { type: string, pattern: "^[A-Za-z0-9.\\-]+:[0-9]{1,5}$", description: "host:port the connector connects to; direct: the site's public IP or name and port" }
+                legacy_host: { type: string, description: "Advanced, optional: the name the legacy site is asked for (Host and SNI). Default: in direct mode with a name as address, that name (a site behind a CDN); otherwise the public domain" }
                 scheme: { enum: [https, http], default: https }
                 max_upload_mb:
                   type: integer
@@ -2123,7 +2125,8 @@ components:
           items: { $ref: "#/components/schemas/TestAccount" }
         mode: { enum: [connector, direct], default: connector, description: "Needed while the site has no published map: how it is reached" }
         connector_id: { type: string, description: "Needed while the site has no published map, with mode connector" }
-        address: { type: string, description: "host:port the connector reaches; direct: the site's public IP address and port" }
+        address: { type: string, description: "host:port the connector reaches; direct: the site's public IP or name and port" }
+        legacy_host: { type: string, description: "Advanced, optional: the name the legacy site is asked for (Host and SNI). Default: in direct mode with a name as address, that name (a site behind a CDN); otherwise the public domain" }
         scheme: { enum: [https, http] }
     Discovery:
       type: object

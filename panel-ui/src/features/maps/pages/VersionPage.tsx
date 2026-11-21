@@ -45,7 +45,7 @@ export function VersionPage() {
         <dl className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 text-sm">
           <dt className="text-ink-soft">Author</dt><dd>{v.data.author}</dd>
           <dt className="text-ink-soft">Saved</dt><dd>{formatDate(v.data.created_at)}</dd>
-          {v.data.approver ? (<><dt className="text-ink-soft">Decided by</dt><dd>{v.data.approver}</dd></>) : null}
+          {v.data.approver ? (<><dt className="text-ink-soft">{v.data.status === "rejected" ? "Discarded by" : "Published by"}</dt><dd>{v.data.approver}</dd></>) : null}
           {v.data.published_at ? (<><dt className="text-ink-soft">Published</dt><dd>{formatDate(v.data.published_at)}</dd></>) : null}
         </dl>
         <VersionActions v={v.data} tenant={tenant} me={me.data} />

@@ -23,7 +23,7 @@ export function ImportFile({ onLoad }: { onLoad: (doc: Record<string, unknown>, 
       <h3 className="text-base font-semibold">Import a map file</h3>
       <p className="text-sm text-ink-soft">
         A YAML or JSON map exported from this or another site. It opens in the editor: tenant, site and domain are set
-        from this site, and the draft gets the same checks and approval as any other.
+        from this site, and the draft gets the same checks as any other.
       </p>
       {error ? <Notice tone="error">{error}</Notice> : null}
       <div>

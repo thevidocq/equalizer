@@ -78,7 +78,7 @@ func (s *Store) Credentials(ctx context.Context, email string) (auth.User, strin
 // Users lists the users of a tenant.
 func (s *Store) Users(ctx context.Context, tenant string) ([]auth.User, error) {
 	rows, err := s.DB.QueryContext(ctx, `
-		SELECT id, email, name, platform_role, tenant_id, tenant_role, mfa_secret IS NOT NULL
+		SELECT id, email, name, platform_role, tenant_id, tenant_role, mfa_secret IS NOT NULL, time_zone
 		FROM users WHERE tenant_id = $1 AND NOT disabled ORDER BY email`, tenant)
 	if err != nil {
 		return nil, err
@@ -87,7 +87,7 @@ func (s *Store) Users(ctx context.Context, tenant string) ([]auth.User, error) {
 	out := []auth.User{}
 	for rows.Next() {
 		var u auth.User
-		if err := rows.Scan(&u.ID, &u.Email, &u.Name, &u.PlatformRole, &u.Tenant, &u.TenantRole, &u.MFAEnabled); err != nil {
+		if err := rows.Scan(&u.ID, &u.Email, &u.Name, &u.PlatformRole, &u.Tenant, &u.TenantRole, &u.MFAEnabled, &u.TimeZone); err != nil {
 			return nil, err
 		}
 		out = append(out, u)
@@ -147,4 +147,10 @@ func (s *Store) DeleteTenant(ctx context.Context, id string) error {
 		}
 	}
 	return tx.Commit()
+}
+
+// SetTimeZone sets the time zone a person sees times in.
+func (s *Store) SetTimeZone(ctx context.Context, user int64, zone string) error {
+	res, err := s.DB.ExecContext(ctx, `UPDATE users SET time_zone = $2 WHERE id = $1`, user, zone)
+	return affected(res, err)
 }

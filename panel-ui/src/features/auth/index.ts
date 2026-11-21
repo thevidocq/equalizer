@@ -5,4 +5,4 @@ export { ForgotPage } from "./pages/ForgotPage";
 export { ResetPage } from "./pages/ResetPage";
 export { AuthenticatorPage } from "./pages/AuthenticatorPage";
 export { RequireAuth } from "./components/RequireAuth";
-export { useMe, useLogout, useChangePassword, canManage, hasRole } from "./hooks/useSession";
+export { useMe, useLogout, useChangePassword, useSetTimeZone, canManage, hasRole } from "./hooks/useSession";

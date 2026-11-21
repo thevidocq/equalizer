@@ -144,6 +144,8 @@ func certificateCheck(in Input) Check {
 		return Check{"Certificate", Down, "expired on " + until + ": browsers refuse the site"}
 	case "missing":
 		return Check{"Certificate", Down, "no certificate: visitors get no HTTPS (Site → Certificate)"}
+	case "at_proxy":
+		return Check{"Certificate", NotUsed, "HTTPS is handled by the proxy in front of Equalizer"}
 	}
 	return Check{"Certificate", NotUsed, "the site is served in http"}
 }

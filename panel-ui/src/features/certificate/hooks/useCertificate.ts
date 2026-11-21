@@ -19,7 +19,7 @@ export function useCertificateActions(app: string) {
     onSuccess: store,
   });
   const setScheme = useMutation({
-    mutationFn: (public_scheme: "https" | "http") =>
+    mutationFn: (public_scheme: Scheme) =>
       unwrap(api.PATCH("/apps/{app}", { params: { path: { app } }, body: { public_scheme } })),
     onSuccess: store,
   });
@@ -36,3 +36,5 @@ export async function readCertificateFile(file: File): Promise<Upload> {
   }
   return { pem: await file.text() };
 }
+
+export type Scheme = "https" | "https_proxy" | "http";

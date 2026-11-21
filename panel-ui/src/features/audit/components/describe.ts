@@ -1,44 +1,115 @@
 import type { AuditEntry } from "@/shared/api/client";
 
-const verbs: Record<string, string> = {
-  "auth.login": "logged in",
-  "auth.logout": "logged out",
-  "auth.login_failed": "failed to log in",
-  "auth.mfa_enabled": "set up an authenticator app:",
-  "auth.mfa_verified": "completed the second login step",
-  "auth.mfa_failed": "entered a wrong second-step code",
-  "auth.password_changed": "changed the password of",
-  "user.deactivate": "deactivated",
-  "user.mfa_reset": "reset the authenticator of user",
-  "tenant.create": "added customer",
-  "tenant.reinvite": "invited again the administrator of",
-  "user.create": "added",
-  "user.invite": "invited",
-  "user.invite_revoked": "revoked the invitation of",
-  "user.join": "joined with the invitation for",
-  "app.create": "protected site",
-  "app.legacy_ip": "changed the old IP of",
-  "llm.set": "set the AI model",
-  "llm.delete": "removed the AI model of",
-  "discovery.start": "started a discovery of",
-  "discovery.finish": "discovery finished for",
-  "discovery.schedule": "changed the continuous discovery of",
-  "site.exposure": "exposure check changed for",
-  "connector.create": "added connector",
-  "connector.rotate": "rotated the token of",
-  "connector.delete": "removed connector",
-  "map.draft": "saved a draft of",
-  "map.submit": "sent for review",
-  "map.approve": "approved",
-  "map.reject": "rejected",
-  "map.publish": "published",
+type Detail = Record<string, unknown>;
+type Say = (target: string, d: Detail) => string;
+
+const version = (d: Detail) => (typeof d.version === "number" ? `version ${d.version} of the map of ` : "the map of ");
+const schemes: Record<string, string> = {
+  https: "HTTPS served by Equalizer",
+  https_proxy: "HTTPS handled by a proxy in front",
+  http: "plain HTTP",
 };
 
-/** "ap@acme.test approved version 3 of portal". */
+/** What each action did, as the end of a sentence. */
+const actions: Record<string, Say> = {
+  "auth.login": () => "logged in",
+  "auth.logout": () => "logged out",
+  "auth.login_failed": () => "failed to log in",
+  "auth.mfa_enabled": () => "set up an authenticator app",
+  "auth.mfa_verified": () => "completed the second login step",
+  "auth.mfa_failed": () => "entered a wrong second-step code",
+  "auth.password_changed": () => "changed their password",
+  "auth.password_reset_requested": (t) => `asked for a password reset for ${t}`,
+  "auth.password_reset": () => "set a new password with a reset link",
+  "user.deactivate": (t) => `deactivated ${t}`,
+  "user.mfa_reset": () => "reset the authenticator app of a user",
+  "user.create": (t) => `added ${t}`,
+  "user.invite": (t) => `invited ${t}`,
+  "user.invite_revoked": () => "revoked an invitation",
+  "user.join": (t) => `joined as ${t}`,
+  "tenant.create": (t) => `added the customer ${t}`,
+  "tenant.delete": (t) => `deleted the customer ${t}`,
+  "tenant.reinvite": (t) => `invited again the administrator of ${t}`,
+  "app.create": (t) => `added the site ${t}`,
+  "app.legacy_ip": (t) => `changed the address of the legacy server of ${t}`,
+  "app.aliases": (t) => `changed the other names of ${t}`,
+  "app.certificate": (t) => `uploaded a certificate for ${t}`,
+  "app.certificate_removed": (t) => `removed the certificate of ${t}`,
+  "app.public_scheme": (t, d) => `set ${t} to ${schemes[String(d.scheme)] ?? String(d.scheme)}`,
+  "app.never_public": (t, d) =>
+    d.never_public ? `marked ${t} as never reachable from the internet` : `let ${t} be checked from the internet again`,
+  "oidc.secret_set": (t) => `saved the identity provider secret of ${t}`,
+  "oidc.secret_deleted": (t) => `removed the identity provider secret of ${t}`,
+  "llm.set": (t) => `set the AI model (${t})`,
+  "llm.delete": () => "removed the AI model",
+  "discovery.start": (t) => `started a discovery of ${t}`,
+  "discovery.finish": (t, d) =>
+    d.error ? `could not finish the discovery of ${t}` :
+      typeof d.draft_version === "number" ? `finished the discovery of ${t}: draft version ${d.draft_version} is ready to review` :
+        `finished the discovery of ${t}: nothing new`,
+  "discovery.schedule": (t, d) => `set the continuous discovery of ${t} to ${when(d)}`,
+  "site.exposure": (t, d) => (d.status === "exposed" ? `found ${t} still reachable without Equalizer` : `checked that ${t} is reachable only through Equalizer`),
+  "connector.create": (t) => `added the connector ${t}`,
+  "connector.rotate": (t) => `changed the token of the connector ${t}`,
+  "connector.delete": (t) => `removed the connector ${t}`,
+  "map.draft": (t, d) => `saved a draft: ${version(d)}${t}`,
+  "map.submit": (t, d) => `sent ${version(d)}${t} for review`,
+  "map.approve": (t, d) => `approved ${version(d)}${t}`,
+  "map.reject": (t, d) => `discarded ${version(d)}${t}`,
+  "map.publish": (t, d) => `published ${version(d)}${t}`,
+  "map.rollback": (t, d) => `went back to ${version(d)}${t}`,
+  "map.verify": (t, d) => `asked to check ${version(d)}${t}`,
+  "map.corrected": (t, d) => `corrected version ${String(d.from)} of the map of ${t} into version ${String(d.version)}`,
+  "logs.export": (t) => (t ? `exported the logs of ${t}` : "exported the logs"),
+  "settings.alerts": (_, d) => (d.enabled ? "turned alert emails on or changed who gets them" : "turned alert emails off"),
+  "alert.sent": (_, d) => alertSentence(d),
+};
+
+/** Actions Equalizer takes by itself; the others without a person were done by the agent. */
+const byEqualizer = new Set(["alert.sent", "site.exposure", "map.corrected"]);
+const byAgent = new Set(["discovery.finish", "discovery.start", "map.verify"]);
+
+const weekdays = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+
+function when(d: Detail): string {
+  if (d.schedule === "off") return "off";
+  const at = typeof d.hour === "number" ? ` at ${String(d.hour).padStart(2, "0")}:00${d.zone ? ` (${String(d.zone)})` : ""}` : "";
+  const day = d.schedule === "weekly" ? `every ${typeof d.weekday === "number" ? weekdays[d.weekday] ?? "week" : "week"}` : "every day";
+  return `${day}${at}`;
+}
+
+type Alert = { site?: string; check?: string; down?: boolean };
+
+function alertSentence(d: Detail): string {
+  const alerts = Array.isArray(d.alerts) ? (d.alerts as Alert[]) : [];
+  const to = Array.isArray(d.to) ? (d.to as string[]) : [];
+  const what = alerts.length
+    ? alerts.map((a) => `${a.check ?? "check"} ${a.down ? "failing" : "back to normal"} on ${a.site ?? "a site"}`).join("; ")
+    : `${String(d.changes ?? "some")} change(s)`;
+  const who = to.length ? to.join(", ") : `${String(d.recipients ?? "")} address(es)`.trim();
+  return `emailed ${who}: ${what}`;
+}
+
+/** Who did it: the person, or Equalizer and its agent when nobody did. */
+export function actor(e: AuditEntry): string {
+  if (e.user) return e.user;
+  if (byEqualizer.has(e.action)) return "Equalizer";
+  if (byAgent.has(e.action)) return "The agent";
+  return "Someone";
+}
+
+/** True when the entry is a problem worth seeing at a glance. */
+export function isWarning(e: AuditEntry): boolean {
+  const d = e.detail ?? {};
+  return e.action === "auth.login_failed" || e.action === "auth.mfa_failed" ||
+    (e.action === "site.exposure" && d.status === "exposed") ||
+    (e.action === "discovery.finish" && Boolean(d.error)) ||
+    (e.action === "alert.sent" && Array.isArray(d.alerts) && (d.alerts as Alert[]).some((a) => a.down));
+}
+
+/** "ap@acme.test published version 3 of the map of portal". */
 export function describeEntry(e: AuditEntry): string {
-  const who = e.user ?? "Someone";
-  const verb = verbs[e.action] ?? e.action;
-  const version = typeof e.detail?.version === "number" ? `version ${e.detail.version} of ` : "";
-  const target = e.target ? ` ${version}${e.target}` : "";
-  return `${who} ${verb}${target}`.trim();
+  const say = actions[e.action];
+  const what = say ? say(e.target, e.detail ?? {}) : `${e.action.replace(/[._]/g, " ")} ${e.target}`.trim();
+  return `${actor(e)} ${what}`;
 }

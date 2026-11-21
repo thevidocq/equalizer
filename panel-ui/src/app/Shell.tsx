@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { Outlet, useLocation } from "react-router";
-import { Logo } from "@/shared/ui";
+import { Logo, setTimeZone } from "@/shared/ui";
+import { useMe } from "@/features/auth";
 import { Sidebar } from "./Sidebar";
 
 /**
@@ -10,6 +11,8 @@ import { Sidebar } from "./Sidebar";
  */
 export function Shell() {
   const [open, setOpen] = useState(false);
+  const zone = useMe().data?.time_zone ?? "UTC";
+  setTimeZone(zone); // before the pages render their dates
   const { pathname } = useLocation();
   useEffect(() => setOpen(false), [pathname]);
   useEffect(() => {
@@ -39,7 +42,7 @@ export function Shell() {
           </div>
         </div>
       ) : null}
-      <main className="min-w-0 flex-1 px-4 py-6 sm:px-6 lg:px-10 lg:py-8">
+      <main key={zone} className="min-w-0 flex-1 px-4 py-6 sm:px-6 lg:px-10 lg:py-8">
         <div className="mx-auto max-w-6xl">
           <Outlet />
         </div>

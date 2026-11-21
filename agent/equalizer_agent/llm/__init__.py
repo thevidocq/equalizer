@@ -13,6 +13,23 @@ class LLMError(Exception):
     pass
 
 
+def _explain(status: int, body: bytes) -> str:
+    """The provider's refusal in words a customer can act on. The provider's
+    own message is not repeated: only what kind of refusal it is."""
+    text = body[:4096].decode("utf-8", "replace").lower()
+    if status in (401, 403):
+        return "the AI provider refused the API key: check it in Settings → AI"
+    if status == 402 or "credit balance" in text or "insufficient_quota" in text or "billing" in text:
+        return "no credit left on the AI account: top it up on the provider's billing page"
+    if status == 404 or "model" in text and "not found" in text or "model_not_found" in text:
+        return "the AI model does not exist for this key: choose it again in Settings → AI"
+    if status == 429:
+        return "the AI provider limits the requests: try again later"
+    if status >= 500:
+        return "the AI provider is not answering right now: try again later"
+    return f"the AI provider refused the request ({status})"
+
+
 def _post(url: str, headers: dict, body: dict, timeout: float, public_only: bool = True) -> dict:
     """POSTs JSON over https. Redirects are never followed, and with
     public_only the address actually connected to must be public: a tenant's
@@ -34,12 +51,12 @@ def _post(url: str, headers: dict, body: dict, timeout: float, public_only: bool
         if 300 <= resp.status < 400:
             raise LLMError(f"provider answered {resp.status} (redirects are not followed)")
         if resp.status >= 400:
-            raise LLMError(f"provider answered {resp.status}")
+            raise LLMError(_explain(resp.status, resp.read(4096)))
         return json.loads(resp.read(4 << 20))
     except LLMError:
         raise
     except (OSError, ValueError, http.client.HTTPException) as e:
-        raise LLMError(f"provider unreachable: {type(e).__name__}") from None
+        raise LLMError(f"the AI provider could not be reached ({type(e).__name__})") from None
     finally:
         conn.close()
 

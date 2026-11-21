@@ -10,6 +10,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/thevidocq/equalizer/panel-api/internal/store"
+
 	"github.com/thevidocq/equalizer/panel-api/internal/signing"
 )
 
@@ -225,4 +227,11 @@ func TestDiscovery(t *testing.T) {
 		t.Fatalf("scheduled without a published map: %d %v", n, err)
 	}
 	boss.must(422, "PATCH", "/v1/apps/blog", map[string]any{"discovery_schedule": "hourly"}, nil)
+	boss.must(422, "PATCH", "/v1/apps/blog", map[string]any{"discovery_schedule": "daily", "discovery_hour": 24}, nil)
+	var site store.App
+	boss.must(200, "PATCH", "/v1/apps/blog", map[string]any{"discovery_schedule": "weekly", "discovery_hour": 4, "discovery_weekday": 2}, &site)
+	if at := site.DiscoveryAt; at.Hour != 4 || at.Weekday != 2 || at.Zone != "UTC" || at.Next == nil ||
+		at.Next.UTC().Hour() != 4 || at.Next.UTC().Weekday() != time.Tuesday {
+		t.Fatalf("discovery time: %+v", at)
+	}
 }

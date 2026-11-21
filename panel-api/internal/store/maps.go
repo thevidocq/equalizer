@@ -163,6 +163,20 @@ func (s *Store) Published(ctx context.Context, app string) (MapVersion, error) {
 	return s.Version(ctx, app, version)
 }
 
+// PublishedBefore is the last version published before this one went live:
+// what a published or retired version replaced.
+func (s *Store) PublishedBefore(ctx context.Context, app string, version int) (MapVersion, error) {
+	var prev int
+	if err := s.DB.QueryRowContext(ctx, `
+		SELECT p.version FROM map_versions p, map_versions v
+		WHERE v.app_id = $1 AND v.version = $2 AND p.app_id = $1 AND p.version <> $2
+			AND p.published_at IS NOT NULL AND p.published_at < v.published_at
+		ORDER BY p.published_at DESC LIMIT 1`, app, version).Scan(&prev); err != nil {
+		return MapVersion{}, translate(err)
+	}
+	return s.Version(ctx, app, prev)
+}
+
 // setMeta overwrites fields of the document's meta object.
 func setMeta(doc json.RawMessage, fields map[string]any) (json.RawMessage, error) {
 	var m map[string]any

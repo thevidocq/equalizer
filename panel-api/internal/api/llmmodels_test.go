@@ -62,3 +62,41 @@ func TestAlertKindsAPI(t *testing.T) {
 	}
 	boss.must(422, "PUT", "/v1/tenants/acme/alerts", map[string]any{"enabled": true, "extra_emails": []string{}, "kinds": map[string]bool{"nope": true}}, nil)
 }
+
+func TestAbout(t *testing.T) {
+	e := setup(t)
+	e.server.Version = "9.9.9"
+	root := e.client()
+	root.must(200, "POST", "/v1/auth/login", map[string]string{"email": "root@example.com", "password": "platform-admin-password"}, nil)
+	root.must(201, "POST", "/v1/tenants", map[string]string{"id": "acme", "name": "Acme", "admin_email": "boss@acme.test", "admin_name": "Boss"}, nil)
+	boss := e.join("boss@acme.test")
+	var a struct {
+		Release  string
+		Services []struct{ Name string }
+	}
+	boss.must(200, "GET", "/v1/about", nil, &a)
+	if a.Release != "9.9.9" || a.Services != nil {
+		t.Fatalf("tenant view: %+v", a)
+	}
+	e.client().must(401, "GET", "/v1/about", nil, nil) // not before logging in
+}
+
+func TestTimeZone(t *testing.T) {
+	e := setup(t)
+	root := e.client()
+	root.must(200, "POST", "/v1/auth/login", map[string]string{"email": "root@example.com", "password": "platform-admin-password"}, nil)
+	var me struct {
+		TimeZone string `json:"time_zone"`
+	}
+	root.must(200, "GET", "/v1/auth/me", nil, &me)
+	if me.TimeZone != "UTC" {
+		t.Fatalf("default: %q", me.TimeZone)
+	}
+	root.must(422, "PATCH", "/v1/auth/me", map[string]string{"time_zone": "Mars/Olympus"}, nil)
+	root.must(422, "PATCH", "/v1/auth/me", map[string]string{"time_zone": "Local"}, nil)
+	root.must(200, "PATCH", "/v1/auth/me", map[string]string{"time_zone": "Europe/Rome"}, nil)
+	root.must(200, "GET", "/v1/auth/me", nil, &me)
+	if me.TimeZone != "Europe/Rome" {
+		t.Fatalf("saved: %q", me.TimeZone)
+	}
+}

@@ -46,7 +46,12 @@ func plainRequest(r *http.Request) bool {
 	return v
 }
 
+// plainSite: visitors use plain http (cookies without __Host- and Secure).
 func plainSite(st *site.Site) bool { return st.Model.Meta.Scheme() == "http" }
+
+// plainPort: served on the plain port, in clear or behind a proxy that ends
+// https in front of Equalizer (visitors still use https: Secure cookies).
+func plainPort(st *site.Site) bool { return plainSite(st) || st.Model.Meta.HTTPSAtProxy() }
 
 // toHTTPS sends a plain http request of an https site to https: 302 for
 // GET and HEAD, 307 (method and body kept) for the others. Temporary, not

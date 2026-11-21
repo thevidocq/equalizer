@@ -21,6 +21,7 @@ import (
 	"strings"
 	"syscall"
 	"time"
+	_ "time/tzdata" // time zones for the people's chosen zone, whatever the image has
 
 	"github.com/thevidocq/equalizer/panel-api/internal/alerts"
 	"github.com/thevidocq/equalizer/panel-api/internal/api"

@@ -7,6 +7,7 @@ export { TabNav, type Tab } from "./TabNav";
 export { ToastProvider, useToast } from "./Toast";
 export { Table, type Column } from "./Table";
 export { PageHeader } from "./PageHeader";
-export { formatDate } from "./dates";
+export { formatDate, formatDay, formatTick, isTimeZone, setTimeZone, startOfDay, timeZone, today, zoneLabel } from "./dates";
 export { Logo, LogoMark } from "./Logo";
 export { BrandBanner } from "./BrandBanner";
+export { Spinner } from "./Spinner";

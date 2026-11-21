@@ -2,6 +2,7 @@ import { useState, type FormEvent } from "react";
 import { Button, Notice, PageHeader, TextField, useToast } from "@/shared/ui";
 import { describeError } from "@/shared/api/errors";
 import { useChangePassword, useMe } from "@/features/auth";
+import { TimeZoneForm } from "../components/TimeZoneForm";
 
 export function AccountPage() {
   const me = useMe().data;
@@ -21,6 +22,7 @@ export function AccountPage() {
   return (
     <div className="flex max-w-md flex-col gap-6">
       <PageHeader title="Your account" subtitle={me ? `${me.name}, ${me.email}` : undefined} />
+      {me ? <TimeZoneForm key={me.time_zone ?? "UTC"} current={me.time_zone ?? "UTC"} /> : null}
       <form onSubmit={submit} className="flex flex-col gap-4">
         <h2 className="font-semibold">Change password</h2>
         {change.isError ? <Notice tone="error">{describeError(change.error)}</Notice> : null}

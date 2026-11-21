@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"net/netip"
 	"strings"
+	"time"
 
 	"github.com/thevidocq/equalizer/panel-api/internal/auth"
 	"github.com/thevidocq/equalizer/panel-api/internal/store"
@@ -83,6 +84,27 @@ func (s *Server) setSessionCookie(w http.ResponseWriter, id string) {
 }
 
 func (s *Server) me(w http.ResponseWriter, _ *http.Request, u *auth.User) {
+	writeJSON(w, http.StatusOK, u)
+}
+
+// updateMe changes the person's own preferences: the time zone the panel
+// and the alert emails show times in.
+func (s *Server) updateMe(w http.ResponseWriter, r *http.Request, u *auth.User) {
+	var in struct {
+		TimeZone string `json:"time_zone"`
+	}
+	if !decode(w, r, &in) {
+		return
+	}
+	if _, err := time.LoadLocation(in.TimeZone); err != nil || in.TimeZone == "" || in.TimeZone == "Local" {
+		fail(w, http.StatusUnprocessableEntity, "invalid", "time_zone: a time zone name such as Europe/Rome or UTC")
+		return
+	}
+	if err := s.Store.SetTimeZone(r.Context(), u.ID, in.TimeZone); err != nil {
+		s.storeError(w, r, err)
+		return
+	}
+	u.TimeZone = in.TimeZone
 	writeJSON(w, http.StatusOK, u)
 }
 

@@ -139,15 +139,30 @@ func (r *Runner) tenant(ctx context.Context, t store.Tenant) {
 	if len(to) == 0 {
 		return
 	}
-	msg := compose(t.Name, changes, r.PanelURL, t.ID)
-	for _, addr := range to {
-		msg.To = addr
+	now := r.now()
+	for _, rc := range to {
+		msg := compose(t.Name, changes, r.PanelURL, t.ID, now.In(rc.zone))
+		msg.To = rc.email
 		if err := r.Mail.Send(ctx, msg); err != nil {
 			r.Log.Error("alert email not sent", slog.String("error", err.Error()))
 		}
 	}
 	tenant := t.ID
-	_ = r.Store.Record(ctx, nil, &tenant, "alert.sent", "", map[string]any{"changes": len(changes), "recipients": len(to)})
+	_ = r.Store.Record(ctx, nil, &tenant, "alert.sent", "", activity(changes, to))
+}
+
+// activity is what the Activity page shows of a sent alert: each change in
+// words and who was emailed.
+func activity(changes []change, to []recipient) map[string]any {
+	items := make([]map[string]any, 0, len(changes))
+	for _, c := range changes {
+		items = append(items, map[string]any{"site": c.site, "check": c.check, "down": c.down, "detail": c.detail})
+	}
+	emails := make([]string, 0, len(to))
+	for _, rc := range to {
+		emails = append(emails, rc.email)
+	}
+	return map[string]any{"changes": len(changes), "recipients": len(to), "alerts": items, "to": emails}
 }
 
 // site compares a site's checks with what was seen and sent before.
@@ -213,30 +228,58 @@ func (r *Runner) expiry(ctx context.Context, s health.Site, k store.SiteAlert, n
 		s.CertificateExpires.UTC().Format(time.DateOnly), left), true}, true
 }
 
-func (r *Runner) recipients(ctx context.Context, tenant string, s store.AlertSettings) []string {
+// recipient is an address and the time zone its times are written in
+// (an administrator's own; UTC for the extra addresses).
+type recipient struct {
+	email string
+	zone  *time.Location
+}
+
+func (r *Runner) recipients(ctx context.Context, tenant string, s store.AlertSettings) []recipient {
 	seen := map[string]bool{}
-	var out []string
-	add := func(e string) {
+	var out []recipient
+	add := func(e, zone string) {
 		if e = strings.ToLower(strings.TrimSpace(e)); e != "" && !seen[e] {
 			seen[e] = true
-			out = append(out, e)
+			loc, err := time.LoadLocation(zone)
+			if err != nil || zone == "" {
+				loc = time.UTC
+			}
+			out = append(out, recipient{e, loc})
 		}
 	}
 	if users, err := r.Store.Users(ctx, tenant); err == nil {
 		for _, u := range users {
 			if u.TenantRole != nil && *u.TenantRole == "admin" {
-				add(u.Email)
+				add(u.Email, u.TimeZone)
 			}
 		}
 	}
 	for _, e := range s.ExtraEmails {
-		add(e)
+		add(e, "UTC")
 	}
-	sort.Strings(out)
+	sort.Slice(out, func(i, j int) bool { return out[i].email < out[j].email })
 	return out
 }
 
-func compose(tenantName string, cs []change, panel, tenant string) mail.Message {
+// When is how the panel writes a date and time: 21 Nov 2026, 02:33:07 UTC+1.
+func When(t time.Time) string {
+	_, off := t.Zone()
+	zone := "UTC"
+	if off != 0 {
+		h, m := off/3600, (off%3600)/60
+		if m < 0 {
+			m = -m
+		}
+		zone = fmt.Sprintf("UTC%+d", h)
+		if m != 0 {
+			zone += fmt.Sprintf(":%02d", m)
+		}
+	}
+	return t.Format("2 Jan 2006, 15:04:05") + " " + zone
+}
+
+func compose(tenantName string, cs []change, panel, tenant string, at time.Time) mail.Message {
 	down := 0
 	var b strings.Builder
 	for _, c := range cs {
@@ -251,7 +294,7 @@ func compose(tenantName string, cs []change, panel, tenant string) mail.Message 
 	if down == 0 {
 		subject = "Equalizer: sites of " + tenantName + " working again"
 	}
-	body := "Hello,\n\nthe status of your protected sites changed:\n\n" + b.String() +
+	body := "Hello,\n\nthe status of your protected sites changed (" + When(at) + "):\n\n" + b.String() +
 		"\nDetails on the Status page: " + strings.TrimSuffix(panel, "/") + "/t/" + tenant + "/status\n\n" +
 		"You receive this as an administrator of " + tenantName + " (Settings → Alerts).\n"
 	return mail.Message{Subject: subject, Body: body}

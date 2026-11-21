@@ -34,6 +34,15 @@ export function useChangePassword() {
   });
 }
 
+/** Changes the time zone dates are written in for the logged-in person. */
+export function useSetTimeZone() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (time_zone: string) => unwrap(api.PATCH("/auth/me", { body: { time_zone } })),
+    onSuccess: (user) => qc.setQueryData(["me"], user),
+  });
+}
+
 export function useLogout() {
   const qc = useQueryClient();
   return useMutation({

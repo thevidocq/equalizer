@@ -39,6 +39,63 @@ merge of #39).
 
 ## Entries
 
+### 2026-11-21 — Second feedback round: HTTPS at a proxy, time zones, activity
+
+- **Branch:** feat/second-feedback
+- **What:**
+  - HTTPS handled by a proxy in front (Cloudflare or any other):
+    - new `public_scheme` value `https_proxy` (map schema, API, migration 0021);
+    - the gateway serves such a site on the plain port with https addresses and
+      Secure cookies, and sends no HSTS;
+    - the panel asks for no certificate (TLS status `at_proxy`);
+    - Site → Certificate offers the three choices.
+  - Dates:
+    - one format everywhere ("21 Nov 2026, 02:33:07 UTC+1", `shared/ui/dates.ts`);
+    - a time zone per person (`users.time_zone`, migration 0022,
+      `PATCH /v1/auth/me`, Account page, default UTC);
+    - alert emails are written in each administrator's zone (UTC for the extra
+      addresses).
+  - Activity:
+    - server-side search, time range and paging (`GET /v1/audit` with `q`, `from`,
+      `to`, `cursor`);
+    - a period picker (presets or from day to day, in the person's zone);
+    - every action written as a sentence, "The agent" and "Equalizer" for what
+      nobody did by hand;
+    - `alert.sent` records what was reported and to whom.
+  - Logs:
+    - alert events have a title per kind and name the connector (`connector` in
+      LogEvent, from the event detail);
+    - request-only rows (map entry, request ID, the field-values footer) are
+      hidden when not relevant;
+    - no repeated "Served / Served".
+  - Continuous discovery:
+    - runs at a chosen hour and weekday (migration 0023, `discovery_hour` and
+      `discovery_weekday` on PATCH /apps, `discovery_time` with next and last run
+      on App);
+    - a schedule never fires for a slot that passed before it was set.
+  - Discovery:
+    - a spinner while it runs;
+    - the report and the list say when the AI was asked but not used, with the
+      provider's refusal in plain words (no credit, key refused, provider down)
+      from the agent.
+  - Release shown at the bottom of the sidebar, with an About dialog (release
+    notes link; service releases for platform users) from `GET /v1/about`.
+  - The review compares a published version with the one published before it;
+    leftover approval wording removed.
+  - Tenant manual and in-panel help updated.
+- **Why:** feedback 23–31 from using 0.2.1 on the VPS. The WordPress editor
+  behind Cloudflare could not publish: mixed content, since the site was
+  served in http behind an https proxy.
+- **Status:**
+  - Go, vitest, agent tests, schema validation, `check:api`, `check:help` and
+    boundaries pass.
+  - Not yet run in the lab end-to-end.
+  - Rate limits deliberately unchanged (a later product feature).
+- **Next steps:**
+  1. Review and merge.
+  2. Release 0.2.2 and update the VPS.
+  3. On the VPS, switch the Cloudflare site to "HTTPS handled by a proxy in front".
+
 ### 2026-11-21 — Release 0.2.1
 
 - **Branch:** chore/release-0.2.1

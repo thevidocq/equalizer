@@ -5,7 +5,7 @@ import { useAskReview, useReview, type MapReview } from "../hooks/useReview";
 const sev = { high: "border-state-rejected text-state-rejected", medium: "border-state-review text-state-review", low: "border-rule text-ink-soft" } as const;
 const change = { added: "+", removed: "−", changed: "~" } as const;
 
-/** The approver's aid: changes, risks found by fixed rules, the AI's summary. It never approves. */
+/** Help before publishing: changes, risks found by fixed rules, the AI's summary. It never publishes. */
 export function ReviewPanel({ app, version, canAsk }: { app: string; version: number; canAsk: boolean }) {
   const review = useReview(app, version);
   const ask = useAskReview(app, version);
@@ -16,7 +16,7 @@ export function ReviewPanel({ app, version, canAsk }: { app: string; version: nu
     <section aria-labelledby="review-title" className="flex flex-col gap-4 border border-rule bg-surface p-5">
       <div className="flex flex-wrap items-baseline justify-between gap-2">
         <h3 id="review-title" className="text-base font-semibold">Review aid</h3>
-        <span className="text-sm text-ink-soft">{r.base_version ? `Compared with published version ${r.base_version}` : "No published version yet: everything is new"}</span>
+        <span className="text-sm text-ink-soft">{r.base_version ? `Compared with version ${r.base_version}` : "Nothing was published before it: everything is new"}</span>
       </div>
       <AI r={r} canAsk={canAsk} onAsk={() => ask.mutate()} busy={ask.isPending} />
       {ask.isError ? <Notice tone="error">{describeError(ask.error)}</Notice> : null}
@@ -38,7 +38,7 @@ export function ReviewPanel({ app, version, canAsk }: { app: string; version: nu
           {r.changes.map((c, i) => <li key={i}>{change[c.change]} {c.section}.{c.entry}{c.detail ? `  ${c.detail}` : ""}</li>)}
         </ul>
       </details>
-      <p className="text-xs text-ink-soft">The rules and the AI inform; approving stays your decision.</p>
+      <p className="text-xs text-ink-soft">The rules and the AI inform; publishing stays your decision.</p>
     </section>
   );
 }
@@ -53,7 +53,7 @@ function AI({ r, canAsk, onAsk, busy }: { r: MapReview; canAsk: boolean; onAsk: 
       {ai.summary ? <p className="max-w-prose text-sm">{ai.summary}</p> : null}
       {ai.questions?.length ? (
         <>
-          <h4 className="text-sm font-semibold">Before approving</h4>
+          <h4 className="text-sm font-semibold">Before publishing</h4>
           <ul className="list-disc pl-5 text-sm">{ai.questions.map((q, i) => <li key={i}>{q}</li>)}</ul>
         </>
       ) : null}

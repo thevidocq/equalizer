@@ -69,6 +69,21 @@ func TestPublicScheme(t *testing.T) {
 		!strings.Contains(cookies, "lang=it") || strings.Contains(cookies, "PHPSESSID") {
 		t.Errorf("http site cookies:\n%s", cookies)
 	}
+
+	// https at a proxy in front (a CDN reaching Equalizer in http): served on
+	// the plain port, no redirect, addresses in https, Secure cookies, no
+	// HSTS from Equalizer.
+	proxied := build("https_proxy")
+	rec = get(proxied.HandlerPlain(), "GET")
+	if rec.Code != 200 || !strings.Contains(rec.Body.String(), `"https://blog.example/"`) {
+		t.Fatalf("https at a proxy: %d %s", rec.Code, rec.Body.String())
+	}
+	if hsts := rec.Header().Get("Strict-Transport-Security"); hsts != "" {
+		t.Errorf("https at a proxy sends HSTS: %q", hsts)
+	}
+	if cookies := strings.Join(rec.Header().Values("Set-Cookie"), "\n"); !strings.Contains(cookies, "Secure") {
+		t.Errorf("https at a proxy, cookies not Secure:\n%s", cookies)
+	}
 }
 
 // A legacy application that wants https (a WordPress whose address is

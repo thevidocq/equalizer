@@ -109,8 +109,9 @@ type Meta struct {
 	// Aliases are other domains of the site, redirected to PublicDomain.
 	Aliases []string `json:"aliases"`
 	// PublicScheme is how visitors reach the site: "https" (default, with
-	// the site's own certificate) or "http" (in clear, as the legacy site
-	// was).
+	// the site's own certificate), "https_proxy" (https ends at a proxy or
+	// CDN in front, which reaches Equalizer in http) or "http" (in clear, as
+	// the legacy site was).
 	PublicScheme string `json:"public_scheme"`
 }
 
@@ -273,6 +274,11 @@ func (m Meta) Scheme() string {
 	}
 	return "https"
 }
+
+// HTTPSAtProxy: visitors use https up to a proxy in front, which reaches
+// Equalizer in http. Addresses are written in https; the plain port serves
+// the site instead of redirecting it.
+func (m Meta) HTTPSAtProxy() bool { return m.PublicScheme == "https_proxy" }
 
 // Link maps a legacy URL found in a page to a public route.
 // Legacy format: "/path?key={name}", where {name} is a parameter or a query

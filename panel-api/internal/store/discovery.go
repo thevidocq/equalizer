@@ -189,10 +189,13 @@ func (s *Store) FinishDiscovery(ctx context.Context, id int64, report json.RawMe
 	return affected(res, err)
 }
 
-// SetDiscoverySchedule turns continuous discovery on or off; the owner
-// authors the drafts it proposes.
-func (s *Store) SetDiscoverySchedule(ctx context.Context, app, schedule string, owner int64) error {
-	res, err := s.DB.ExecContext(ctx, `UPDATE apps SET discovery_schedule = $2, discovery_owner = $3 WHERE id = $1`, app, schedule, owner)
+// SetDiscoverySchedule turns continuous discovery on or off and sets when
+// it runs; the owner is the administrator whose rights the scheduled runs use.
+func (s *Store) SetDiscoverySchedule(ctx context.Context, app, schedule string, at DiscoveryTime, owner int64) error {
+	res, err := s.DB.ExecContext(ctx, `
+		UPDATE apps SET discovery_schedule = $2, discovery_owner = $3, discovery_hour = $4,
+			discovery_weekday = $5, discovery_zone = $6, discovery_set_at = now() WHERE id = $1`,
+		app, schedule, owner, at.Hour, at.Weekday, at.Zone)
 	return affected(res, err)
 }
 
@@ -202,26 +205,32 @@ type Due struct {
 	Owner int64
 }
 
-// DueDiscoveries lists the sites with a published map whose last discovery
-// is older than their schedule and that have none running.
+// DueDiscoveries lists the sites with a published map, none running, and
+// whose scheduled hour passed since their latest discovery.
 func (s *Store) DueDiscoveries(ctx context.Context) ([]Due, error) {
 	rows, err := s.DB.QueryContext(ctx, `
-		SELECT a.id, a.discovery_owner FROM apps a
+		SELECT a.id, a.discovery_owner, a.discovery_schedule, a.discovery_hour, a.discovery_weekday,
+			a.discovery_zone, a.discovery_set_at, (SELECT max(d.created_at) FROM discoveries d WHERE d.app_id = a.id)
+		FROM apps a
 		WHERE a.discovery_schedule <> 'off' AND a.discovery_owner IS NOT NULL
 		AND EXISTS (SELECT 1 FROM map_versions m WHERE m.app_id = a.id AND m.status = 'published')
-		AND NOT EXISTS (SELECT 1 FROM discoveries d WHERE d.app_id = a.id AND (d.status IN ('queued', 'running')
-			OR d.created_at > now() - CASE a.discovery_schedule WHEN 'daily' THEN interval '1 day' ELSE interval '7 days' END))`)
+		AND NOT EXISTS (SELECT 1 FROM discoveries d WHERE d.app_id = a.id AND d.status IN ('queued', 'running'))`)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
+	now := time.Now()
 	var out []Due
 	for rows.Next() {
 		var d Due
-		if err := rows.Scan(&d.App, &d.Owner); err != nil {
+		var schedule string
+		var t DiscoveryTime
+		if err := rows.Scan(&d.App, &d.Owner, &schedule, &t.Hour, &t.Weekday, &t.Zone, &t.setAt, &t.Last); err != nil {
 			return nil, err
 		}
-		out = append(out, d)
+		if t.due(schedule, now) {
+			out = append(out, d)
+		}
 	}
 	return out, rows.Err()
 }

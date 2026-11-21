@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"net/http"
+	"strconv"
 	"strings"
 	"time"
 
@@ -226,10 +227,19 @@ func (s *Server) listAudit(w http.ResponseWriter, r *http.Request, u *auth.User)
 		forbidden(w)
 		return
 	}
-	entries, err := s.Store.Audit(r.Context(), tenant, 200)
+	q, ok := auditQuery(r)
+	if !ok {
+		fail(w, http.StatusBadRequest, "bad_request", "from, to and cursor must be dates (RFC 3339) and an entry id")
+		return
+	}
+	entries, err := s.Store.Audit(r.Context(), tenant, q)
 	if err != nil {
 		s.storeError(w, r, err)
 		return
 	}
-	writeJSON(w, http.StatusOK, list(entries))
+	var next any
+	if len(entries) == q.Limit {
+		next = strconv.FormatInt(entries[len(entries)-1].ID, 10)
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"items": entries, "next_cursor": next})
 }

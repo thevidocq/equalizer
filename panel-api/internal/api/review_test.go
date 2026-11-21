@@ -133,4 +133,20 @@ func TestPublishAlone(t *testing.T) {
 		t.Fatalf("older version in review after a newer one was published: %+v", v)
 	}
 	boss.must(409, "POST", "/v1/apps/portal/maps/1/publish", nil, nil)
+
+	// Once live, a version is still compared with the one it replaced.
+	boss.must(201, "POST", "/v1/apps/portal/maps", map[string]any{"document": json.RawMessage(mapDoc)}, nil)
+	var rv struct {
+		BaseVersion *int `json:"base_version"`
+	}
+	boss.must(200, "GET", "/v1/apps/portal/maps/3/review", nil, &rv)
+	if rv.BaseVersion == nil || *rv.BaseVersion != 2 {
+		t.Fatalf("draft compared with %v, want the published 2", rv.BaseVersion)
+	}
+	boss.must(200, "POST", "/v1/apps/portal/maps/3/publish", nil, nil)
+	rv.BaseVersion = nil
+	boss.must(200, "GET", "/v1/apps/portal/maps/3/review", nil, &rv)
+	if rv.BaseVersion == nil || *rv.BaseVersion != 2 {
+		t.Fatalf("published 3 compared with %v, want 2", rv.BaseVersion)
+	}
 }

@@ -9,18 +9,19 @@ import (
 
 // App is a protected site.
 type App struct {
-	ID           string    `json:"id"`
-	Tenant       string    `json:"tenant"`
-	Name         string    `json:"name"`
-	PublicDomain string    `json:"public_domain"`
-	Aliases      []string  `json:"aliases"`
-	CreatedAt    time.Time `json:"created_at"`
-	Published    *int      `json:"published_version"` // nil: no published map
-	ReachMode    *string   `json:"reach_mode"`        // connector or direct, from the published map; nil: none
-	Kind         *string   `json:"kind"`              // wordpress, joomla, ... or nil
-	Schedule     string    `json:"discovery_schedule"`
-	Exposure     Exposure  `json:"exposure"`
-	TLS          SiteTLS   `json:"tls"`
+	ID           string        `json:"id"`
+	Tenant       string        `json:"tenant"`
+	Name         string        `json:"name"`
+	PublicDomain string        `json:"public_domain"`
+	Aliases      []string      `json:"aliases"`
+	CreatedAt    time.Time     `json:"created_at"`
+	Published    *int          `json:"published_version"` // nil: no published map
+	ReachMode    *string       `json:"reach_mode"`        // connector or direct, from the published map; nil: none
+	Kind         *string       `json:"kind"`              // wordpress, joomla, ... or nil
+	Schedule     string        `json:"discovery_schedule"`
+	DiscoveryAt  DiscoveryTime `json:"discovery_time"`
+	Exposure     Exposure      `json:"exposure"`
+	TLS          SiteTLS       `json:"tls"`
 }
 
 // Exposure is the result of the last exposure check of a site.
@@ -46,7 +47,9 @@ const appColumns = `a.id, a.tenant_id, a.name, a.public_domain, a.created_at,
 	a.legacy_ip, a.exposure_status, a.exposure_reason, a.exposure_checked_at, a.kind, a.discovery_schedule,
 	ARRAY(SELECT x.domain FROM app_aliases x WHERE x.app_id = a.id ORDER BY x.domain), a.public_scheme,
 	c.subject, c.issuer, c.domains, c.not_before, c.not_after, c.fingerprint, c.uploaded_at, c.chain_pem,
-	(SELECT u.email FROM users u WHERE u.id = c.uploaded_by)`
+	(SELECT u.email FROM users u WHERE u.id = c.uploaded_by),
+	a.discovery_hour, a.discovery_weekday, a.discovery_zone, a.discovery_set_at,
+	(SELECT max(d.created_at) FROM discoveries d WHERE d.app_id = a.id)`
 
 // appFrom is the FROM of app queries: the site and its certificate, if any.
 const appFrom = ` FROM apps a LEFT JOIN app_certificates c ON c.app_id = a.id`
@@ -64,7 +67,8 @@ func scanApp(row scanner) (App, error) {
 	err := row.Scan(&a.ID, &a.Tenant, &a.Name, &a.PublicDomain, &a.CreatedAt, &a.Published, &a.ReachMode,
 		&a.Exposure.LegacyIP, &a.Exposure.Status, &a.Exposure.Reason, &a.Exposure.CheckedAt, &a.Kind, &a.Schedule,
 		pq.Array(&a.Aliases), &a.TLS.PublicScheme, &subject, &issuer, pq.Array(&domains), &notBefore, &notAfter,
-		&fingerprint, &uploadedAt, &chain, &uploadedBy)
+		&fingerprint, &uploadedAt, &chain, &uploadedBy,
+		&a.DiscoveryAt.Hour, &a.DiscoveryAt.Weekday, &a.DiscoveryAt.Zone, &a.DiscoveryAt.setAt, &a.DiscoveryAt.Last)
 	if a.Aliases == nil {
 		a.Aliases = []string{}
 	}
@@ -74,6 +78,10 @@ func scanApp(row scanner) (App, error) {
 			UploadedAt: uploadedAt.Time, UploadedBy: uploadedBy, ChainPEM: chain.String}
 	}
 	fillTLS(&a, time.Now())
+	if a.Schedule == "daily" || a.Schedule == "weekly" {
+		next := a.DiscoveryAt.NextSlot(a.Schedule, time.Now())
+		a.DiscoveryAt.Next = &next
+	}
 	return a, err
 }
 

@@ -512,7 +512,14 @@ areas:
 ```
 
 A request that no precise entry (route, form, API, asset) matches goes to
-the area with the longest prefix. The answer is the legacy site's: same
+the area with the longest prefix. Entries and areas are matched against the
+path as legacy servers read it, not as the client wrote it: `//` counts as
+`/` (Apache, nginx), `;parameters` in a segment are ignored (Tomcat, Jetty),
+trailing dots and spaces in a segment are ignored (Windows). The request still
+reaches the legacy application with its own path. A path that falls in
+another area when letters are compared without case (`/Admin/` against an
+area `/admin/`, as Windows servers read it) is refused (`ambiguous_path`).
+The answer is the legacy site's: same
 status, same content, pages rendered like any other (an HTML fragment sent
 to JavaScript stays a fragment, and JSON or text sent as `text/html` is
 passed on as it is), downloads streamed,

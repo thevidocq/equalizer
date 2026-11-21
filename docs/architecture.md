@@ -17,7 +17,12 @@ agent propose the map; people approve it from a multitenant panel.
    address and accepts only Equalizer's address (decision of the project
    owner, 2026-11-20: saves the connector where the customer already
    controls who reaches the site).
-3. **Rebuild, never forward.**
+3. **Rebuild, never forward.** Values are decoded once and written again as
+   they were: never decoded twice, normalised or mapped to a look-alike
+   character. What parsers read differently (a JSON key written twice, an
+   unpaired surrogate, a character the legacy charset cannot hold) is refused,
+   not interpreted. Fuzz tests in `gateway/internal/rebuild`, `pathkey` and
+   `jsontext` check that a rebuilt request reads back as the same values.
 4. **Continuity**: historical URLs keep working (`compat`).
 5. **Two modes**: cloud with repointed DNS and on-prem, same software.
 6. **Configurable LLM**: Claude, ChatGPT or a local model, from the panel.

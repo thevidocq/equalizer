@@ -1,8 +1,6 @@
 // Package mapmodel defines the map types used by the gateway.
 package mapmodel
 
-import "strings"
-
 // Model is the subset of the map (schema/map/gateway-map.schema.json) used so
 // far by the gateway. Full validation against the schema happens in the panel
 // before signing; the gateway trusts only the signature.
@@ -73,20 +71,6 @@ func (a *Area) Allows(method string) bool {
 		}
 	}
 	return false
-}
-
-// AreaFor returns the area with the longest prefix of path, nil if none.
-func (m *Model) AreaFor(path string) *Area {
-	var best *Area
-	for i := range m.Areas {
-		a := &m.Areas[i]
-		if strings.HasPrefix(path, a.Prefix) || path+"/" == a.Prefix {
-			if best == nil || len(a.Prefix) > len(best.Prefix) {
-				best = a
-			}
-		}
-	}
-	return best
 }
 
 // Asset is a prefix of legacy static files served by the gateway.

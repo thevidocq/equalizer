@@ -19,9 +19,10 @@ Add a section at the top of "Entries" for every commit:
 
 ## Current project status
 
-Latest release: **0.2.2** (`docs/releases/0.2.2.md`); 0.2.0 was for the first
-installations; before it, 0.1.0 (`docs/releases/0.1.0.md`, tag on the
-merge of #39).
+Latest release: **0.2.4** (`docs/releases/0.2.4.md`); before it 0.2.3
+(`docs/releases/0.2.3.md`) and 0.2.2 (`docs/releases/0.2.2.md`); 0.2.0 was
+for the first installations; before it, 0.1.0 (`docs/releases/0.1.0.md`, tag
+on the merge of #39).
 
 | Area | Status |
 | --- | --- |
@@ -38,6 +39,44 @@ merge of #39).
 | tools (eqtool) | Map signing keys, form key, relay token, connector registration, map signing |
 
 ## Entries
+
+### 2026-11-21 — Onboarding flow, direct mode by name, delete a site (release 0.2.4)
+
+- **Branch:** fix/onboarding-reach-ux
+- **What:** five fixes reported after 0.2.3, plus the release.
+  - *Onboarding (36):* adding a site now opens **Discovery**, not an empty
+    map. `router.tsx` index redirects to `discovery`; `SiteLayout` tab order
+    is Discovery → Map → Isolation → Certificate → Login;
+    `CreateSiteDialog` navigates to `discovery` after creating; `MapsPage`
+    empty state points to Discovery (with a hand-built fallback).
+  - *Delete a site (34):* `DELETE /v1/apps/{app}` (admin), `store.DeleteApp`,
+    migration `0024_app_delete_cascade.sql` (a DO block reads each real FK
+    name from the catalogue and re-adds it `ON DELETE CASCADE`), contract
+    `delete` op, `useDeleteApp` hook and `DeleteSite` component (type the
+    name to confirm) in the site header.
+  - *Direct mode by name (37):* `transport.Direct` resolves a name at dial
+    time and connects only to a public address (`gateway/internal/publicip`);
+    panel `checkReach`/`checkDirectDest` accepts a public IP or a name that
+    resolves to public addresses only; `ReachFields` hint/placeholder and
+    the manuals updated.
+  - *Double spinner (38):* the Discovery table Status column no longer shows
+    a spinner; the live one (with page count) stays in the report.
+  - *Mobile "Protect a site" (35):* the add-site dialog moved from `Sidebar`
+    to `Shell`, so closing the phone menu no longer unmounts it (regression
+    from 0.2.3's fix 32).
+  - *Release:* `VERSION` 0.2.4, `docs/releases/0.2.4.md`, `INSTALL.md`,
+    `README.md`.
+- **Why:** the first-run experience started on an empty map and confused
+  people; direct mode could not point at a site behind a CDN; a site could
+  not be deleted; two spinners and a broken mobile dialog were reported.
+- **Status:** gateway + panel-api `gofmt`/`vet`/`test` green; panel-ui
+  `tsc`/`test`/`build`/boundaries green; `scripts/validate_schemas.py` green.
+  New tests: `publicip`, `transport` name-guard, `checkDirectDest`,
+  `TestDeleteApp`. Screenshots not regenerated (no visual-regression need;
+  text docs updated).
+- **Next steps:** resume strict mode (branch `feat/strict-mode`): frontend
+  enforcement selector, coverage metric, observe `would_block` filter,
+  attacklab rerun, docs, PR.
 
 ### 2026-11-21 — Release 0.2.3 documents
 

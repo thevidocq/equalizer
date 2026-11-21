@@ -45,7 +45,7 @@ export const router = createBrowserRouter([
         path: "t/:tenant/sites/:app",
         element: <SiteLayout />,
         children: [
-          { index: true, element: <Navigate to="maps" replace /> },
+          { index: true, element: <Navigate to="discovery" replace /> },
           { path: "maps", element: <MapsPage /> },
           { path: "maps/new", element: <NewVersionPage /> },
           { path: "maps/:version", element: <VersionPage /> },

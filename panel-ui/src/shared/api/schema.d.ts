@@ -1064,7 +1064,29 @@ export interface paths {
         };
         put?: never;
         post?: never;
-        delete?: never;
+        /** Delete a site and everything that belongs to it — maps, connectors, discoveries, reviews, verifications, recorded hits, certificate and alerts. The gateway stops serving it and the connector can no longer reconnect. Cannot be undone (tenant administrators) */
+        delete: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    app: components["parameters"]["app"];
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Deleted */
+                204: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                403: components["responses"]["Error"];
+                404: components["responses"]["Error"];
+            };
+        };
         options?: never;
         head?: never;
         /** Change site settings (tenant administrators) */

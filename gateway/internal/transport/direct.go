@@ -11,8 +11,11 @@ import (
 	"fmt"
 	"net"
 	"net/http"
+	"net/netip"
 	"strings"
 	"time"
+
+	"github.com/thevidocq/equalizer/gateway/internal/publicip"
 )
 
 // ErrDestinationNotAllowed reports a connection attempt outside the allowlist.
@@ -23,6 +26,12 @@ var ErrDestinationNotAllowed = errors.New("destination not allowed")
 // connections to other hosts even if a redirect or DNS asked for one.
 // With address set, every connection goes there (it must be allowed): the
 // URL's host still goes in Host and TLS SNI, for virtual hosts.
+//
+// A destination may be a public IP literal or a name (a site behind a CDN).
+// A name is resolved at dial time and the connection goes only to a public
+// address: a name that resolves, now or later, to a private or reserved
+// address is refused, so DNS rebinding cannot reach the platform's own
+// network.
 func Direct(allow []string, address string, timeout time.Duration) (http.RoundTripper, error) {
 	if len(allow) == 0 {
 		return nil, errors.New("empty destination allowlist")
@@ -52,7 +61,7 @@ func Direct(allow []string, address string, timeout time.Duration) (http.RoundTr
 			if err != nil || !allowed[net.JoinHostPort(strings.ToLower(host), port)] {
 				return nil, fmt.Errorf("%w: %s", ErrDestinationNotAllowed, addr)
 			}
-			return dialer.DialContext(ctx, network, addr)
+			return safeDial(ctx, dialer, network, host, port)
 		},
 		MaxIdleConnsPerHost:   32,
 		IdleConnTimeout:       90 * time.Second,
@@ -60,6 +69,45 @@ func Direct(allow []string, address string, timeout time.Duration) (http.RoundTr
 		TLSHandshakeTimeout:   5 * time.Second,
 		ForceAttemptHTTP2:     false, // HTTP/1.1 only towards the legacy application
 	}, nil
+}
+
+// resolveHost is the name resolver; tests replace it.
+var resolveHost = func(ctx context.Context, host string) ([]netip.Addr, error) {
+	return net.DefaultResolver.LookupNetIP(ctx, "ip", host)
+}
+
+// safeDial connects to host:port. An IP literal is dialed as it is: it is
+// already in the explicit allowlist, the operator's own decision, so a lab
+// application on a private address stays reachable. A name introduces DNS
+// indirection the operator cannot pin, so it is resolved and the connection
+// goes only to a public address; a name that resolves to a private or
+// reserved address is refused. This is the last barrier against rebinding
+// to the platform's own network, even if config-time validation passed.
+func safeDial(ctx context.Context, dialer *net.Dialer, network, host, port string) (net.Conn, error) {
+	if _, err := netip.ParseAddr(host); err == nil {
+		return dialer.DialContext(ctx, network, net.JoinHostPort(host, port))
+	}
+	ips, err := resolveHost(ctx, host)
+	if err != nil {
+		return nil, fmt.Errorf("resolve %q: %w", host, err)
+	}
+	var lastErr error
+	for _, ip := range ips {
+		ip = ip.Unmap()
+		if !publicip.Public(ip) {
+			lastErr = fmt.Errorf("%w: %s resolves to non-public %s", ErrDestinationNotAllowed, host, ip)
+			continue
+		}
+		conn, err := dialer.DialContext(ctx, network, net.JoinHostPort(ip.String(), port))
+		if err == nil {
+			return conn, nil
+		}
+		lastErr = err
+	}
+	if lastErr == nil {
+		lastErr = fmt.Errorf("%w: %s has no public address", ErrDestinationNotAllowed, host)
+	}
+	return nil, lastErr
 }
 
 // normalize lower-cases the host of a host:port ("" when malformed).

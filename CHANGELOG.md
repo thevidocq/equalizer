@@ -19,8 +19,8 @@ Add a section at the top of "Entries" for every commit:
 
 ## Current project status
 
-Latest release: **0.2.5** (`docs/releases/0.2.5.md`); before it 0.2.4
-(`docs/releases/0.2.4.md`), 0.2.3 (`docs/releases/0.2.3.md`) and 0.2.2
+Latest release: **0.2.6** (`docs/releases/0.2.6.md`); before it 0.2.5
+(`docs/releases/0.2.5.md`), 0.2.4 (`docs/releases/0.2.4.md`), 0.2.3 (`docs/releases/0.2.3.md`) and 0.2.2
 (`docs/releases/0.2.2.md`); 0.2.0 was for the first installations; before
 it, 0.1.0 (`docs/releases/0.1.0.md`, tag on the merge of #39).
 
@@ -39,6 +39,22 @@ it, 0.1.0 (`docs/releases/0.1.0.md`, tag on the merge of #39).
 | tools (eqtool) | Map signing keys, form key, relay token, connector registration, map signing |
 
 ## Entries
+
+### 2026-11-21 — Discovery: the chosen reach replaces the template's (release 0.2.6)
+
+- **Branch:** fix/discovery-direct-template
+- **What:** `panel-api/internal/api/agent.go`: when the first discovery hands
+  the agent a CMS template, the site's chosen reach (`withReach`) replaces
+  the template's connector reach. Test `TestDiscoveryDirectTemplate` (fails
+  without the fix). Release 0.2.6 (`VERSION`, agent version,
+  `docs/releases/0.2.6.md`, `INSTALL.md`, `README.md`).
+- **Why:** templates are written for a connector; in direct mode the
+  connector stayed empty and the proposed map was refused with
+  `no connector "" in this tenant`, so direct mode never got past the first
+  discovery. The hand-opened template path already applied the reach.
+- **Status:** panel-api `gofmt`/`vet`/`test` green.
+- **Next steps:** make a malformed `EQ_DIRECT_DESTINATIONS` visible instead
+  of stopping panel-api silently; resume strict mode (`feat/strict-mode`).
 
 ### 2026-11-21 — Agent: direct mode by name for discovery (release 0.2.5)
 

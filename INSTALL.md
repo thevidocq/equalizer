@@ -62,7 +62,7 @@ VPN or an SSH tunnel.
 ```bash
 git clone https://github.com/thevidocq/equalizer.git
 cd equalizer
-git checkout v0.2.5        # a release; main is the development version
+git checkout v0.2.6        # a release; main is the development version
 ```
 
 Releases and what they contain: `docs/releases/`.
@@ -86,7 +86,7 @@ Main values in `.env`:
 
 | Variable | Example | Meaning |
 | --- | --- | --- |
-| `EQ_VERSION` | `0.2.5` | Release being installed (shown by the services; `dev` when unset) |
+| `EQ_VERSION` | `0.2.6` | Release being installed (shown by the services; `dev` when unset) |
 | `EQ_RELAY_DOMAIN` | `relay.example.com` | Public domain of the relay, where connectors open their tunnel |
 | `EQ_PANEL_DOMAIN` | `panel.example.com` | Public domain of the panel (customers, invitation links) |
 | `EQ_ACME_EMAIL` | `admin@example.com` | Email for Let's Encrypt |
@@ -255,7 +255,7 @@ docker run -d --name eq-connector --restart unless-stopped --network host \
 - For an `https` legacy app with a self-signed certificate: mount its CA and
   set `EQ_LEGACY_CA_FILE`, or as a last resort `EQ_LEGACY_INSECURE_TLS=true`.
 - Use the connector of the same release as the platform:
-  `ghcr.io/thevidocq/equalizer-connector:0.2.5` (`latest` follows `main`).
+  `ghcr.io/thevidocq/equalizer-connector:0.2.6` (`latest` follows `main`).
 - The image is published by CI on every merge to `main` and on every
   release tag. GitHub packages
   start private: make `equalizer-connector` public in the repository's
@@ -287,9 +287,9 @@ Move to the new release, set it in `.env`, rebuild:
 
 ```bash
 git fetch --tags
-git checkout v0.2.5            # the release to install
+git checkout v0.2.6            # the release to install
 cd deploy/compose
-sed -i 's/^EQ_VERSION=.*/EQ_VERSION=0.2.5/' .env
+sed -i 's/^EQ_VERSION=.*/EQ_VERSION=0.2.6/' .env
 docker compose pull            # third-party images (Caddy, Postgres, …)
 docker compose up -d --build
 ```

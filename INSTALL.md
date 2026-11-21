@@ -62,7 +62,7 @@ VPN or an SSH tunnel.
 ```bash
 git clone https://github.com/thevidocq/equalizer.git
 cd equalizer
-git checkout v0.2.6        # a release; main is the development version
+git checkout v0.2.7        # a release; main is the development version
 ```
 
 Releases and what they contain: `docs/releases/`.
@@ -86,11 +86,12 @@ Main values in `.env`:
 
 | Variable | Example | Meaning |
 | --- | --- | --- |
-| `EQ_VERSION` | `0.2.6` | Release being installed (shown by the services; `dev` when unset) |
+| `EQ_VERSION` | `0.2.7` | Release being installed (shown by the services; `dev` when unset) |
 | `EQ_RELAY_DOMAIN` | `relay.example.com` | Public domain of the relay, where connectors open their tunnel |
 | `EQ_PANEL_DOMAIN` | `panel.example.com` | Public domain of the panel (customers, invitation links) |
 | `EQ_ACME_EMAIL` | `admin@example.com` | Email for Let's Encrypt |
-| `EQ_DIRECT_DESTINATIONS` | `vuln-app:80` | Lab only: destinations a map may reach without a connector |
+| `EQ_DIRECT_DESTINATIONS` | `vuln-app:80` | Lab only: private destinations a map may reach without a connector. Each entry is `host:port` (the port is required); a malformed entry stops `panel-api` at start. Not needed for a public site reached directly: its IP or name goes in the site's reach |
+| `EQ_OUTBOUND_IPS` | `203.0.113.5` | The address(es) this server connects from, shown to customers who reach a site directly. Empty: worked out from the panel and relay names — wrong when the panel is behind Cloudflare (it would show Cloudflare's addresses), so set it then. Find it with `curl -4 ifconfig.me` on the VPS |
 | `EQ_EXPOSURE_INTERVAL` | `1h` | How often protected sites are checked on their old IP |
 | `EQ_GATEWAY_REPLICAS` | `2` | Gateway replicas |
 | `EQ_LOG_LEVEL` | `info` | Log level (`debug`, `info`, `warn`, `error`) |
@@ -255,7 +256,7 @@ docker run -d --name eq-connector --restart unless-stopped --network host \
 - For an `https` legacy app with a self-signed certificate: mount its CA and
   set `EQ_LEGACY_CA_FILE`, or as a last resort `EQ_LEGACY_INSECURE_TLS=true`.
 - Use the connector of the same release as the platform:
-  `ghcr.io/thevidocq/equalizer-connector:0.2.6` (`latest` follows `main`).
+  `ghcr.io/thevidocq/equalizer-connector:0.2.7` (`latest` follows `main`).
 - The image is published by CI on every merge to `main` and on every
   release tag. GitHub packages
   start private: make `equalizer-connector` public in the repository's
@@ -287,9 +288,9 @@ Move to the new release, set it in `.env`, rebuild:
 
 ```bash
 git fetch --tags
-git checkout v0.2.6            # the release to install
+git checkout v0.2.7            # the release to install
 cd deploy/compose
-sed -i 's/^EQ_VERSION=.*/EQ_VERSION=0.2.6/' .env
+sed -i 's/^EQ_VERSION=.*/EQ_VERSION=0.2.7/' .env
 docker compose pull            # third-party images (Caddy, Postgres, …)
 docker compose up -d --build
 ```
@@ -299,7 +300,7 @@ connectors to the same release: on each connector's server, recreate it
 with the same settings (token included) and the new image:
 
 ```bash
-v=0.2.2
+v=0.2.7   # the release you are installing
 docker pull ghcr.io/thevidocq/equalizer-connector:$v
 docker inspect eq-connector --format '{{range .Config.Env}}{{println .}}{{end}}' | grep '^EQ_' > ~/eq-connector.env
 chmod 600 ~/eq-connector.env      # it holds the connector token

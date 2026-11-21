@@ -4,6 +4,8 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
+	"net"
+	"net/url"
 	"time"
 )
 
@@ -298,4 +300,29 @@ func (s *Store) Rollback(ctx context.Context, app string, version int) error {
 		return err
 	}
 	return tx.Commit()
+}
+
+// SetBaseHost replaces the host of legacy.base_url (scheme, port and path
+// kept): the name the legacy site is asked for, in Host and SNI.
+func SetBaseHost(doc json.RawMessage, host string) (json.RawMessage, error) {
+	var m map[string]any
+	if err := json.Unmarshal(doc, &m); err != nil {
+		return nil, err
+	}
+	legacy, _ := m["legacy"].(map[string]any)
+	raw, _ := legacy["base_url"].(string)
+	if legacy == nil || raw == "" || host == "" {
+		return doc, nil
+	}
+	u, err := url.Parse(raw)
+	if err != nil {
+		return nil, err
+	}
+	if port := u.Port(); port != "" {
+		u.Host = net.JoinHostPort(host, port)
+	} else {
+		u.Host = host
+	}
+	legacy["base_url"] = u.String()
+	return json.Marshal(m)
 }

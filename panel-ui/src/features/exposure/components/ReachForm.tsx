@@ -13,18 +13,20 @@ export function ReachForm({ tenant, site }: { tenant: string; site: App }) {
     connector_id: site.reach_connector_id ?? "",
     address: site.reach_address ?? "",
     scheme: "https",
+    legacy_host: "",
   };
   const [reach, setReach] = useState<Reach>(current);
   const connector = useChosenConnector(tenant, reach);
   const { setReach: save } = useExposureActions(site.id);
   const toast = useToast();
-  const changed = reach.mode !== current.mode || reach.address.trim() !== current.address ||
+  const changed = reach.mode !== current.mode || reach.address.trim() !== current.address || reach.legacy_host.trim() !== "" ||
     (reach.mode === "connector" && connector !== current.connector_id);
 
   function submit(e: FormEvent) {
     e.preventDefault();
     save.mutate(
-      { mode: reach.mode, connector_id: reach.mode === "connector" ? connector : undefined, address: reach.address.trim() },
+      { mode: reach.mode, connector_id: reach.mode === "connector" ? connector : undefined, address: reach.address.trim(),
+        legacy_host: reach.legacy_host.trim() || undefined },
       { onSuccess: () => toast("Reach saved, map republished") },
     );
   }

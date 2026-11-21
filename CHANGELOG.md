@@ -19,8 +19,8 @@ Add a section at the top of "Entries" for every commit:
 
 ## Current project status
 
-Latest release: **0.2.6** (`docs/releases/0.2.6.md`); before it 0.2.5
-(`docs/releases/0.2.5.md`), 0.2.4 (`docs/releases/0.2.4.md`), 0.2.3 (`docs/releases/0.2.3.md`) and 0.2.2
+Latest release: **0.2.7** (`docs/releases/0.2.7.md`); before it 0.2.6
+(`docs/releases/0.2.6.md`), 0.2.5 (`docs/releases/0.2.5.md`), 0.2.4 (`docs/releases/0.2.4.md`), 0.2.3 (`docs/releases/0.2.3.md`) and 0.2.2
 (`docs/releases/0.2.2.md`); 0.2.0 was for the first installations; before
 it, 0.1.0 (`docs/releases/0.1.0.md`, tag on the merge of #39).
 
@@ -39,6 +39,33 @@ it, 0.1.0 (`docs/releases/0.1.0.md`, tag on the merge of #39).
 | tools (eqtool) | Map signing keys, form key, relay token, connector registration, map signing |
 
 ## Entries
+
+### 2026-11-21 — The legacy site is asked for its own name (release 0.2.7)
+
+- **Branch:** feat/legacy-host
+- **What:** `legacy.base_url`'s host (Host, SNI, certificate check) is no
+  longer always the public domain. `panel-api/internal/api/legacy_host.go`
+  (`legacyHost`): an advanced override wins; in direct mode with a name as
+  address, that name; otherwise the public domain. Used by discovery start
+  (`discoveryReach`), the hand-opened template (`templates.go`) and
+  `PUT /apps/{app}/reach` (new `store.SetBaseHost`). Optional `legacy_host`
+  in the three bodies (contract + client). UI: `ReachFields` gets
+  *Advanced → Name asked of the site* and a clearer direct-mode notice.
+  Docs: manual (the name asked, *A parallel domain* step by step), map
+  format, INSTALL (`EQ_OUTBOUND_IPS` behind Cloudflare,
+  `EQ_DIRECT_DESTINATIONS` needs a port, connector update example), env
+  example. Release 0.2.7.
+- **Why:** a parallel public domain (metreta.thevidocq.com) in front of a
+  site behind Cloudflare (www.metreta.com) sent the test name to the origin,
+  which Cloudflare refuses. The direct address already names the site.
+- **Status:** panel-api `gofmt`/`vet`/`test` green (new `TestLegacyHost`,
+  `TestSetBaseHost`, `TestDiscoveryLegacyHost`, `TestReachLegacyHost`);
+  panel-ui `tsc`/boundaries green; schemas valid. Screenshots of the reach
+  form not regenerated.
+- **Next steps:** `check.sh`/panel to report a malformed
+  `EQ_DIRECT_DESTINATIONS` and an `EQ_OUTBOUND_IPS` that looks like
+  Cloudflare's; regenerate screenshots; resume strict mode
+  (`feat/strict-mode`).
 
 ### 2026-11-21 — Discovery: the chosen reach replaces the template's (release 0.2.6)
 

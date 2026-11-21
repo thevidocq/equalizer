@@ -23,6 +23,7 @@ type discoveryStart struct {
 	ConnectorID string        `json:"connector_id"`
 	Address     string        `json:"address"`
 	Scheme      string        `json:"scheme"`
+	LegacyHost  string        `json:"legacy_host"`
 }
 
 // testAccount is one of the test accounts of a discovery.
@@ -166,7 +167,11 @@ func (s *Server) discoveryReach(r *http.Request, a store.App, in discoveryStart)
 	if err := s.checkReach(r.Context(), a.Tenant, probe); err != nil {
 		return nil, err
 	}
-	return json.Marshal(runReach{BaseURL: in.Scheme + "://" + a.PublicDomain, Reach: reach})
+	host, err := legacyHost(a.PublicDomain, in.Mode, in.Address, in.LegacyHost)
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(runReach{BaseURL: in.Scheme + "://" + host, Reach: reach})
 }
 
 func (s *Server) listDiscoveries(w http.ResponseWriter, r *http.Request, u *auth.User) {

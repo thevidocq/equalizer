@@ -1,9 +1,11 @@
 import { Notice, SelectField, TextField } from "@/shared/ui";
 import { useConnectors, useConnectorSetup } from "../hooks/useConnectors";
 
-export type Reach = { mode: "connector" | "direct"; connector_id: string; address: string; scheme: "https" | "http" };
+export type Reach = {
+  mode: "connector" | "direct"; connector_id: string; address: string; scheme: "https" | "http"; legacy_host: string;
+};
 
-export const emptyReach: Reach = { mode: "connector", connector_id: "", address: "", scheme: "https" };
+export const emptyReach: Reach = { mode: "connector", connector_id: "", address: "", scheme: "https", legacy_host: "" };
 
 /** The connector chosen, or the first one: what the form sends. */
 export function useChosenConnector(tenant: string, reach: Reach) {
@@ -34,9 +36,9 @@ export function ReachFields({ tenant, value, onChange, hideScheme }: Props) {
       </SelectField>
       {direct ? (
         <Notice tone="info">
-          The site must accept only Equalizer's {from.length === 1 ? "address" : "addresses"}
-          {from.length > 0 ? <>: <span className="font-mono">{from.join(", ")}</span></> : null}. Everyone else must be refused,
-          or visitors could skip Equalizer.
+          Equalizer connects to the site from {from.length > 0 ? <span className="font-mono">{from.join(", ")}</span> : "its own address"}.
+          In production, let the site accept only {from.length === 1 ? "this address" : "these addresses"}, so nobody can skip Equalizer.
+          Not needed for a test.
         </Notice>
       ) : null}
       {!direct && connectors.data?.length === 0 ? (
@@ -58,6 +60,16 @@ export function ReachFields({ tenant, value, onChange, hideScheme }: Props) {
           </SelectField>
         )}
       </div>
+      <details className="text-sm">
+        <summary className="cursor-pointer font-medium">Advanced</summary>
+        <div className="mt-3 max-w-md">
+          <TextField label="Name asked of the site" placeholder="www.example.com" value={value.legacy_host}
+            onChange={(e) => set({ legacy_host: e.target.value })}
+            hint={direct
+              ? "Leave empty: with a name in the address, Equalizer asks for that name; with an IP, for the public domain. Fill it only if the site answers to another name."
+              : "Leave empty: Equalizer asks for the public domain. Fill it only if the site answers to another name."} />
+        </div>
+      </details>
       {direct && value.scheme === "http" ? (
         <Notice tone="error">In HTTP the requests cross the Internet in clear: use HTTPS when the site has it.</Notice>
       ) : null}

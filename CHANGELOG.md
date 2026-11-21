@@ -39,6 +39,19 @@ merge of #39).
 
 ## Entries
 
+### 2026-11-21 — Release 0.2.3 documents
+
+- **Branch:** chore/release-0.2.3
+- **What:** `VERSION`, `.env.example`, `INSTALL.md` and `README.md` point to
+  0.2.3, and `docs/releases/0.2.3.md` holds the release notes (reach from the
+  site page, mobile menu fix, request-rebuilding hardening and fuzzing).
+- **Why:** the v0.2.3 tag was created from #71 without the release documents,
+  so the panel showed no release notes and `VERSION` still read 0.2.2.
+- **Status:** the images for 0.2.3 are already built and published from the
+  tag. These documents are cosmetic and do not block updating the server.
+- **Next steps:** optionally move the v0.2.3 tag onto this commit so the tag
+  carries VERSION and the notes; otherwise the next tag picks them up.
+
 ### 2026-11-21 — Reach from the site page, mobile menu over dialogs
 
 - **Branch:** feat/reach-and-mobile-menu

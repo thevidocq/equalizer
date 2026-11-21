@@ -58,6 +58,13 @@ func (s *Server) claimDiscovery(w http.ResponseWriter, r *http.Request) {
 		}
 		_ = json.Unmarshal(rr.Reach, &reach)
 		job.Template, _ = templates.Render(*c.App.Kind, templates.Fill{BaseURL: rr.BaseURL, Connector: reach.ConnectorID, Address: reach.Address})
+		// The template is written for a connector; the reach chosen for this
+		// site (direct or connector) replaces it, as for a template opened by hand.
+		if job.Template != nil {
+			if t, err := withReach(job.Template, rr.Reach); err == nil {
+				job.Template = t
+			}
+		}
 	}
 	job.Accounts = s.jobAccounts(c)
 	if len(job.Accounts) > 0 {

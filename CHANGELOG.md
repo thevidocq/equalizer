@@ -19,10 +19,10 @@ Add a section at the top of "Entries" for every commit:
 
 ## Current project status
 
-Latest release: **0.2.4** (`docs/releases/0.2.4.md`); before it 0.2.3
-(`docs/releases/0.2.3.md`) and 0.2.2 (`docs/releases/0.2.2.md`); 0.2.0 was
-for the first installations; before it, 0.1.0 (`docs/releases/0.1.0.md`, tag
-on the merge of #39).
+Latest release: **0.2.5** (`docs/releases/0.2.5.md`); before it 0.2.4
+(`docs/releases/0.2.4.md`), 0.2.3 (`docs/releases/0.2.3.md`) and 0.2.2
+(`docs/releases/0.2.2.md`); 0.2.0 was for the first installations; before
+it, 0.1.0 (`docs/releases/0.1.0.md`, tag on the merge of #39).
 
 | Area | Status |
 | --- | --- |
@@ -39,6 +39,28 @@ on the merge of #39).
 | tools (eqtool) | Map signing keys, form key, relay token, connector registration, map signing |
 
 ## Entries
+
+### 2026-11-21 — Agent: direct mode by name for discovery (release 0.2.5)
+
+- **Branch:** fix/agent-direct-name
+- **What:** the discovery agent (`agent/equalizer_agent/fetch.py`) had its
+  own direct-mode check that accepted only a public IP literal or an
+  `EQ_DIRECT_DESTINATIONS` entry, so discovery against a site reached
+  directly by name (added in 0.2.4) failed with the old message. The agent
+  now mirrors the gateway: `_reachable_public` accepts a public IP or a name
+  that resolves to public addresses only; `_safe_connect` resolves a name at
+  connect time and connects only to a public address (rebinding to a private
+  or reserved address is refused). `_Pinned` uses `_safe_connect`. Tests
+  added (`test_fetch_direct.py`): name→public allowed, name→private refused,
+  name not resolving refused. Release 0.2.5 (`VERSION`,
+  `agent/__init__.py`, `agent/pyproject.toml`, `docs/releases/0.2.5.md`,
+  `INSTALL.md`, `README.md`).
+- **Why:** 0.2.4 enabled direct-by-name in the panel and gateway but missed
+  the agent, so the feature failed exactly where the user first hit it — the
+  first discovery of a site behind a CDN.
+- **Status:** `compileall` and the 42 agent unittests green. No change to
+  gateway/panel/ui/schemas.
+- **Next steps:** resume strict mode (branch `feat/strict-mode`).
 
 ### 2026-11-21 — Onboarding flow, direct mode by name, delete a site (release 0.2.4)
 

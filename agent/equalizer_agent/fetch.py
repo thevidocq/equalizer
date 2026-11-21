@@ -46,12 +46,68 @@ class ReachError(Exception):
 
 
 def _public_ip(host: str) -> bool:
-    """A public IP address written as such: a name could resolve to the
-    platform's own network, an address cannot."""
+    """A public IP address written as such."""
     try:
         return ipaddress.ip_address(host.strip("[]")).is_global
     except ValueError:
         return False
+
+
+def _reachable_public(host: str) -> bool:
+    """True when host is a direct destination the agent may reach: a public
+    IP literal, or a name that resolves to public addresses only (a site
+    behind a CDN). A name that resolves to any private or reserved address
+    is refused, as it could point at the platform's own network. The
+    connection is resolved and guarded again at connect time."""
+    host = host.strip("[]")
+    try:
+        return ipaddress.ip_address(host).is_global
+    except ValueError:
+        pass
+    try:
+        infos = socket.getaddrinfo(host, None, proto=socket.IPPROTO_TCP)
+    except OSError:
+        return False
+    addrs = []
+    for info in infos:
+        try:
+            addrs.append(ipaddress.ip_address(info[4][0]))
+        except ValueError:
+            return False
+    return bool(addrs) and all(a.is_global for a in addrs)
+
+
+def _safe_connect(dest: str, timeout):
+    """Connect to dest (host:port). An IP literal is dialed as it is (the
+    allowlist is the barrier). A name is resolved and the connection goes
+    only to a public address, so DNS rebinding cannot reach the platform's
+    own network — the same guard the gateway applies."""
+    host, _, port = dest.rpartition(":")
+    host = host.strip("[]")
+    port = int(port)
+    try:
+        ipaddress.ip_address(host)
+        return socket.create_connection((host, port), timeout)
+    except ValueError:
+        pass
+    last = None
+    try:
+        infos = socket.getaddrinfo(host, port, proto=socket.IPPROTO_TCP)
+    except OSError as e:
+        raise ReachError(f"cannot resolve {host}") from e
+    for info in infos:
+        ip = info[4][0]
+        try:
+            if not ipaddress.ip_address(ip).is_global:
+                last = ReachError(f"{host} resolves to a non-public address ({ip})")
+                continue
+        except ValueError:
+            continue
+        try:
+            return socket.create_connection((ip, port), timeout)
+        except OSError as e:
+            last = e
+    raise last or ReachError(f"{host} has no public address")
 
 
 class _Pinned(urllib.request.HTTPHandler, urllib.request.HTTPSHandler):
@@ -62,23 +118,22 @@ class _Pinned(urllib.request.HTTPHandler, urllib.request.HTTPSHandler):
     def __init__(self, dest: str):
         urllib.request.HTTPHandler.__init__(self)
         urllib.request.HTTPSHandler.__init__(self, context=ssl.create_default_context())
-        host, _, port = dest.rpartition(":")
-        self.addr = (host.strip("[]"), int(port))
+        self.dest = dest
 
     def http_open(self, req):
-        addr = self.addr
+        dest = self.dest
 
         class Conn(http.client.HTTPConnection):
             def connect(self):
-                self.sock = socket.create_connection(addr, self.timeout)
+                self.sock = _safe_connect(dest, self.timeout)
         return self.do_open(Conn, req)
 
     def https_open(self, req):
-        addr, ctx = self.addr, self._context
+        dest, ctx = self.dest, self._context
 
         class Conn(http.client.HTTPSConnection):
             def connect(self):
-                raw = socket.create_connection(addr, self.timeout)
+                raw = _safe_connect(dest, self.timeout)
                 self.sock = ctx.wrap_socket(raw, server_hostname=self.host)
         return self.do_open(Conn, req)
 
@@ -112,8 +167,9 @@ class Fetcher:
         if self.dest not in self.allow:
             raise ReachError("the destination is not in legacy.reach.allow")
         mode = self.reach.get("mode")
-        if mode == "direct" and self.dest not in self.direct and not _public_ip(self.dest.rpartition(":")[0]):
-            raise ReachError("direct mode reaches a public IP address, or a destination in EQ_DIRECT_DESTINATIONS")
+        if mode == "direct" and self.dest not in self.direct and not _reachable_public(self.dest.rpartition(":")[0]):
+            raise ReachError("direct mode reaches a public IP address, or a name that resolves to public "
+                             "addresses only (e.g. a CDN origin), or a destination in EQ_DIRECT_DESTINATIONS")
         if mode not in ("direct", "connector"):
             raise ReachError("unknown legacy.reach.mode")
         if mode == "direct":

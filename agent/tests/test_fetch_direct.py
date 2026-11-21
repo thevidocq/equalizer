@@ -1,8 +1,16 @@
 import http.server
+import socket
 import threading
 import unittest
+from unittest import mock
 
 from equalizer_agent.fetch import Fetcher, ReachError
+
+
+def _resolves_to(*ips):
+    def fake(host, port, *a, **k):
+        return [(socket.AF_INET, socket.SOCK_STREAM, 6, "", (ip, port or 0)) for ip in ips]
+    return fake
 
 
 class Echo(http.server.BaseHTTPRequestHandler):
@@ -24,8 +32,21 @@ class DirectTest(unittest.TestCase):
         for dest in ("10.0.0.5:443", "127.0.0.1:80"):
             with self.assertRaises(ReachError):
                 Fetcher("https://www.acme.test", {"mode": "direct", "address": dest, "allow": [dest]}, "acme")
+    def test_name_resolving_to_public_allowed(self):
+        name = {"mode": "direct", "address": "origin.example.com:443", "allow": ["origin.example.com:443"]}
+        with mock.patch("equalizer_agent.fetch.socket.getaddrinfo", _resolves_to("8.8.8.8", "1.1.1.1")):
+            Fetcher("https://origin.example.com", name, "acme")  # all public: allowed
+
+    def test_name_resolving_to_private_refused(self):
+        name = {"mode": "direct", "address": "origin.example.com:443", "allow": ["origin.example.com:443"]}
+        for bad in ("10.0.0.5", "169.254.169.254", "127.0.0.1"):
+            with mock.patch("equalizer_agent.fetch.socket.getaddrinfo", _resolves_to("8.8.8.8", bad)):
+                with self.assertRaises(ReachError):
+                    Fetcher("https://origin.example.com", name, "acme")
+
+    def test_name_not_resolving_refused(self):
         name = {"mode": "direct", "address": "www.acme.test:443", "allow": ["www.acme.test:443"]}
-        with self.assertRaises(ReachError):  # a name could resolve to the platform's network
+        with self.assertRaises(ReachError):  # .test never resolves
             Fetcher("https://www.acme.test", name, "acme")
 
     def test_pinned_to_the_address_with_the_site_name(self):

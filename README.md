@@ -8,9 +8,9 @@ request by a gateway: the signed map says what exists (by default the whole
 site, admin included), and nothing reaches the legacy application as the
 client wrote it.
 
-> **Status:** prototype 0.2.4, installed on its first server (release
-> notes in [`docs/releases/0.2.4.md`](docs/releases/0.2.4.md); the previous
-> ones, [`0.2.3`](docs/releases/0.2.3.md), [`0.2.2`](docs/releases/0.2.2.md), [`0.2.1`](docs/releases/0.2.1.md), [`0.2.0`](docs/releases/0.2.0.md) and [`0.1.0`](docs/releases/0.1.0.md)). Tested in the local lab against
+> **Status:** prototype 0.2.5, installed on its first server (release
+> notes in [`docs/releases/0.2.5.md`](docs/releases/0.2.5.md); the previous
+> ones, [`0.2.4`](docs/releases/0.2.4.md), [`0.2.3`](docs/releases/0.2.3.md), [`0.2.2`](docs/releases/0.2.2.md), [`0.2.1`](docs/releases/0.2.1.md), [`0.2.0`](docs/releases/0.2.0.md) and [`0.1.0`](docs/releases/0.1.0.md)). Tested in the local lab against
 > ten real web applications. See [`CHANGELOG.md`](CHANGELOG.md) for what is
 > implemented.
 

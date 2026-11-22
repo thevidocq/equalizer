@@ -28,7 +28,9 @@ class ActionsTest(unittest.TestCase):
                   "/shop/oak-drop-leaf-table/", "/guides/how-to-export-wine/",
                   # log-off / sign-out spellings are whole words only
                   "/blog-offers/", "/catalog-offers/", "/design-office/", "/blog-offline-mode/",
-                  "/sign-off-letter-examples/", "/blog/how-to-sign-off-an-email/"):
+                  "/sign-off-letter-examples/", "/blog/how-to-sign-off-an-email/",
+                  # logoff/signoff never inside a word
+                  "/catalogoffers/", "/designoffice/", "/blog/designoffers-2024", "/shop/analogoffset-printing"):
             self.assertFalse(is_action(u), u)
 
 

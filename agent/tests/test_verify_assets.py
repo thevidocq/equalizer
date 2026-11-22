@@ -13,7 +13,7 @@ from equalizer_agent.fetch import Response  # noqa: E402
 PAGE = b"""<html><head><link rel=stylesheet href="/t/css/s.css"><script src="/t/js/app.js"></script></head><body>
 <img src="/t/img/a.avif"><video src="/t/video/big.mp4"></video><img src="/up/photo.jpg">
 <a href="/t/news/">a page under the prefix</a><a href="/t/feed.xhtml">xhtml</a><a href="/t/export.csv">csv</a>
-<a href="/t/backup.zip">zip</a><a href="/t/logout">action</a><a href="/t/account/logout/bye.png">action folder</a><img src="/t/img/delete-icon.png"><a href="/t/js/linked.js">linked script</a>
+<a href="/t/backup.zip">zip</a><a href="/t/logout">action</a><script src="/t/lib/dropzone/dropzone.min.js"></script><a href="/t/account/logout/bye.png">action folder</a><img src="/t/img/delete-icon.png"><a href="/t/js/linked.js">linked script</a>
 <img src="https://cdn.elsewhere.test/x.png"></body></html>"""
 FILES = {
     "/t/css/s.css": (200, "text/css", b"@font-face{src:url(../fonts/f.woff)} .x{background:url(/t/img/b.png)}", ""),
@@ -29,6 +29,7 @@ FILES = {
     "/t/export.csv": (200, "text/csv", b"", ""),
     "/t/backup.zip": (200, "application/zip", b"", ""),
     "/t/logout": (200, "image/png", b"", ""),
+    "/t/lib/dropzone/dropzone.min.js": (200, "application/javascript", b"", ""),
     "/t/account/logout/bye.png": (200, "image/png", b"", ""),
     "/t/img/delete-icon.png": (200, "image/png", b"", ""),
 }
@@ -88,6 +89,7 @@ class VerifyAssetsTest(unittest.TestCase):
         self.assertNotIn("/t/logout", f.asked)  # an action: never opened
         self.assertNotIn("/t/account/logout/bye.png", f.asked)  # a file in an action's folder neither
         self.assertIn("/t/img/delete-icon.png", f.asked)  # a file named delete-icon is no action, as in the crawl
+        self.assertIn("/t/lib/dropzone/dropzone.min.js", f.asked)  # nor a folder named dropzone
         self.assertNotIn("/t/news/", [p for _, p in gw.asked])  # a page: verify compares it, not this
         fixes = correct.widen(d, m)
         a = d["assets"][0]

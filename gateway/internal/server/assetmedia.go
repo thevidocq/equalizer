@@ -2,6 +2,7 @@ package server
 
 import (
 	"bytes"
+	"context"
 	"io"
 	"mime"
 	"net/http"
@@ -138,7 +139,7 @@ func (p *Public) serveMediaAsset(w http.ResponseWriter, r *http.Request, st *sit
 	securityHeaders(h)
 	w.WriteHeader(resp.Status)
 	if r.Method != http.MethodHead {
-		switch copyMedia(w, io.MultiReader(bytes.NewReader(head), resp.Body), limit) {
+		switch copyMedia(r.Context(), w, io.MultiReader(bytes.NewReader(head), resp.Body), limit) {
 		case mediaTooLong:
 			p.Events.Emit(p.event(r, st, "request.blocked", "asset_too_large", resp.Status, telemetry.Ptr(m.Entry.ID)))
 			p.abortStream(r)
@@ -165,7 +166,7 @@ const (
 // copyMedia sends a media body. A stalled client is dropped; a body longer
 // than limit, or one the legacy server cut, is reported so the caller fails
 // the response: never a short file taken as whole.
-func copyMedia(w http.ResponseWriter, body io.Reader, limit int64) int {
+func copyMedia(ctx context.Context, w http.ResponseWriter, body io.Reader, limit int64) int {
 	rc := http.NewResponseController(w)
 	buf := make([]byte, 32<<10)
 	var sent int64
@@ -184,6 +185,8 @@ func copyMedia(w http.ResponseWriter, body io.Reader, limit int64) int {
 		switch {
 		case rerr == io.EOF:
 			return mediaSent
+		case rerr != nil && ctx.Err() != nil:
+			return mediaSent // the client closed or seeked: the legacy read stopped with it, nothing failed
 		case rerr != nil:
 			return mediaCut
 		}

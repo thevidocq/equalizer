@@ -289,8 +289,9 @@ func (s *Server) verificationResult(w http.ResponseWriter, r *http.Request) {
 					if err := s.Store.RetireDraft(r.Context(), a.ID, nv); err != nil {
 						s.Log.ErrorContext(r.Context(), "correction not withdrawn", slog.Group("detail",
 							slog.String("app", a.ID), slog.Int("version", nv), slog.String("error", err.Error())))
+					} else {
+						_ = s.Store.Record(r.Context(), nil, &a.Tenant, "map.correction_withdrawn", a.ID, map[string]any{"from": v.Version, "version": nv})
 					}
-					_ = s.Store.Record(r.Context(), nil, &a.Tenant, "map.correction_withdrawn", a.ID, map[string]any{"from": v.Version, "version": nv})
 					res = store.VerificationResult{Score: in.Before, Corrections: in.Corrections, Before: in.Before}
 				}
 			}

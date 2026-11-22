@@ -190,8 +190,9 @@ refused. Every file the public pages name (in their HTML, their links and
 their stylesheets, up to 200 files and 30 stylesheets) that an asset prefix
 of the draft serves is opened directly and asked through the gateway
 (preview with `HEAD`: the verdict, not the body). Sensitive files and action
-links are never opened, as in the study (for a file, its folders are read,
-not its name: `reset.css` is a file, `/account/logout/bye.png` is not
+links are never opened, as in the study (a file is judged by its folders
+and only against the strong words — logout, delete, unsubscribe…: `reset.css`
+and `/lib/dropzone/…js` are checked, `/account/logout/bye.png` is not
 opened); a page answering under a prefix
 is left to the page comparison. A file the site serves and the gateway
 refuses is a broken page; the correction adds the type the site sends if
@@ -314,10 +315,11 @@ The agent never changes the legacy site. Three layers:
    or `_`, with at most one such verb and never at either end:
    `how-to-remove-stains`; not `item-12-remove` nor `my-plan-cancel`) is a
    page, unless it holds `logout`, `delete`, `unsubscribe`, `destroy`,
-   `purge` or `impersonate`; `logout`, `logoff`, `signout`, `signoff` are
-   actions anywhere (`/doLogoff`), their spellings with a separator
-   (`log-off`, `sign_out`) as whole words (`/blog-offers/` is a page); the
-   query is always read in full.
+   `purge` or `impersonate`; `logout` and `signout` are actions anywhere,
+   log off / sign off / log out / sign out (with or without `-` or `_`) as a
+   word of its own: after a non-letter or a camelCase step (`/SignOff.aspx`,
+   `/doLogoff`), never inside a word (`/catalogoffers/`, `/blog-offers/`);
+   the query is always read in full.
 3. **Checks stop at the gateway.** Preview only serves `GET` and `HEAD`;
    everything else is dry-run and never forwarded.
 

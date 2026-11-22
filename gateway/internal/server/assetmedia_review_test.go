@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -243,4 +244,52 @@ func TestMediaCutStreamFails(t *testing.T) {
 	if _, err := io.Copy(io.Discard, resp.Body); err == nil {
 		t.Fatal("a cut stream reached the client as a complete file")
 	}
+}
+
+// A visitor who closes or seeks a video is no legacy error: the site's
+// health must not turn Degraded because people watch videos.
+func TestMediaClientGoneIsNoLegacyError(t *testing.T) {
+	var events bytes.Buffer
+	var mu sync.Mutex
+	st := rebuild(t, testSite(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "video/mp4")
+		_, _ = w.Write(mp4Head)
+		for i := 0; i < 200; i++ { // a slow legacy server: 64 KiB every 10 ms
+			if _, err := w.Write(make([]byte, 64<<10)); err != nil {
+				return
+			}
+			w.(http.Flusher).Flush()
+			time.Sleep(10 * time.Millisecond)
+		}
+	})), func(m *mapmodel.Model) {
+		m.Assets = append(m.Assets, mapmodel.Asset{Prefix: "/media/", Types: []string{"video/mp4"}})
+	})
+	h := newPublic(t, st, lockedWriter{&mu, &events})
+	srv := httptest.NewServer(h)
+	defer srv.Close()
+	for i := 0; i < 5; i++ {
+		resp, err := http.Get(srv.URL + "/media/v.mp4")
+		if err != nil {
+			t.Fatal(err)
+		}
+		_, _ = io.CopyN(io.Discard, resp.Body, 200<<10)
+		resp.Body.Close() // the visitor goes away
+	}
+	time.Sleep(300 * time.Millisecond)
+	mu.Lock()
+	defer mu.Unlock()
+	if strings.Contains(events.String(), "stream_cut") || strings.Contains(events.String(), "legacy.error") {
+		t.Fatalf("a visitor leaving counted as a legacy error:\n%s", events.String())
+	}
+}
+
+type lockedWriter struct {
+	mu *sync.Mutex
+	w  io.Writer
+}
+
+func (l lockedWriter) Write(b []byte) (int, error) {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	return l.w.Write(b)
 }

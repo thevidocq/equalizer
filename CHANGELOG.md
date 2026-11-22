@@ -42,6 +42,28 @@ it, 0.1.0 (`docs/releases/0.1.0.md`, tag on the merge of #39).
 
 ## Entries
 
+### 2026-11-22 — Third re-review of the review fixes
+
+- **Branch:** fix/independent-review
+- **What:** a seventh independent reviewer found four problems; fixed:
+  - gateway: a visitor closing or seeking a video was reported as
+    `legacy.error stream_cut` (the legacy read stops with the request's
+    context), which turns a site's health Degraded; `copyMedia` now treats
+    a read error after the client left as a normal end
+    (`TestMediaClientGoneIsNoLegacyError`, which fails without the fix).
+  - agent: log off / sign off match as a word of their own or a camelCase
+    step, never inside a word (`/catalogoffers/`, `/designoffice/` are
+    pages; `/doLogoff`, `/SignOff.aspx`, `/Home/LogOffUser` actions);
+    verification judges a file's folders against the strong words only
+    (`/lib/dropzone/…js`, `/assets/update/x.png` checked again).
+  - panel-api: the withdrawal of a correction is now tested on its real
+    path (a trigger takes the draft on mid-correction:
+    `TestCorrectionWithdrawnWhenTakenOnMidway`), and audited only when the
+    retirement succeeded.
+  - Docs: `docs/agent.md`, `docs/map-format.md`.
+- **Status:** gateway (race), panel-api, agent green.
+- **Next steps:** as above.
+
 ### 2026-11-22 — Second re-review of the review fixes
 
 - **Branch:** fix/independent-review

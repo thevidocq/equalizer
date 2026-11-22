@@ -171,7 +171,8 @@ so streams are bounded: at most half the site's `max_concurrency` and two
 per visitor, beyond which the gateway answers 503; pages keep the rest.
 With `max_concurrency: 1`, one stream at a time, which holds no budget
 slot (the page keeps it). A stream the legacy server cuts is a failed
-transfer for the client, never a whole file. A client that takes no data for 60 s is dropped. A first range
+transfer for the client, never a whole file; a visitor who closes or seeks
+is not a legacy error. A client that takes no data for 60 s is dropped. A first range
 shorter than the signature (`bytes=0-1`, as Safari asks) is checked by
 reading the start apart. The
 asset query string is never sent to the legacy application.

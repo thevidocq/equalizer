@@ -13,7 +13,7 @@ a page an asset prefix refuses stays broken, for a person to decide."""
 
 import urllib.parse
 
-from . import assettypes, crawler, css, extract, mapbuild, rules
+from . import assettypes, crawler, css, extract, mapbuild, rules, webapps
 from .fetch import ReachError
 from .gateway import TryError
 
@@ -31,10 +31,14 @@ def names(body: bytes, url: str) -> list:
     return [(u, True) for u in page.assets + page.scripts] + [(u, False) for u in page.links]
 
 
-def _actionable(path: str) -> str:
-    """What the action rule reads: a file's folders, not its name (reset.css,
-    delete-icon.svg are files; /account/logout/bye.png still is an action)."""
-    return path.rsplit("/", 1)[0] + "/" if crawler.Crawler._static(path) else path
+def _acts(path: str) -> bool:
+    """Whether opening path could act on the site. A file (by its name) is
+    judged by its folders, and only against the strong words (logout,
+    delete, unsubscribe…): reset.css, /lib/dropzone/…js, /assets/update/x.png
+    are files; /account/logout/bye.png is not opened."""
+    if crawler.Crawler._static(path):
+        return bool(webapps.STRONG.search(path.rsplit("/", 1)[0] + "/"))
+    return rules.is_action(path)
 
 
 def _prefix(doc: dict, path: str):
@@ -65,7 +69,7 @@ def check(gw, f, doc: dict, m, files, cms=None) -> None:
         a = _prefix(doc, path)
         # the crawler's rules hold here too: never an action, never a sensitive file
         # (a file's name such as reset.css or delete-icon.svg is not an action, as in the crawl)
-        if a is None or path in already or rules.excluded(path, cms) or rules.is_action(_actionable(path)):
+        if a is None or path in already or rules.excluded(path, cms) or _acts(path):
             continue
         try:
             direct = f.get(path)

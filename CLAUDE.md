@@ -52,6 +52,23 @@ session or account. Read it in full before touching the code.
 - Commit messages in English, imperative mood, first line under 72
   characters.
 
+## Definition of done
+
+A change is done only when, in the same PR, without being asked:
+
+1. Tests cover it and every touched service's checks pass (`gofmt`/`vet`/
+   `test`, agent `unittest`, panel-ui `tsc`/`test`/`check:help`/boundaries,
+   `scripts/validate_schemas.py`).
+2. **Every document that describes the behaviour is updated**: the user
+   manuals (`docs/manual/tenant.md`, `docs/manual/admin.md`) and the in-app
+   help (`cd panel-ui && node scripts/sync-help.mjs`), `docs/map-format.md`,
+   `docs/agent.md`, `docs/architecture.md`, `INSTALL.md`, as they apply.
+   Grep the docs for the feature's words before opening the PR.
+3. `CHANGELOG.md` has the entry.
+4. Anything the customer would have to do by hand is a bug of the product,
+   not an instruction: the agent and the panel do it. The only manual step
+   is publishing a map.
+
 ## Development environment in Claude sessions
 
 - The Go module proxy (`proxy.golang.org`) may be blocked. Modules hosted on

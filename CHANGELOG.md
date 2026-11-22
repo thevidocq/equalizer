@@ -42,6 +42,18 @@ it, 0.1.0 (`docs/releases/0.1.0.md`, tag on the merge of #39).
 
 ## Entries
 
+### 2026-11-22 — Tenant manual: discovery finds every file
+
+- **Branch:** chore/release-0.2.9
+- **What:** `docs/manual/tenant.md` (Discovery) and the in-app help
+  (`panel-ui/src/features/help/content/tenant.md`, via `sync-help.mjs`)
+  say that discovery finds every file the pages load and learns from files
+  the gateway refused; release notes list the documentation touched.
+- **Why:** #80 and #81 changed what the customer sees in discovery; the
+  manual still implied types might be added by hand.
+- **Status:** `check:help` green.
+- **Next steps:** resume strict mode (`feat/strict-mode`).
+
 ### 2026-11-22 — Release 0.2.9
 
 - **Branch:** chore/release-0.2.9

@@ -219,6 +219,13 @@ allows: a list of values, a number with its range, an email, a phone, a
 pattern. Free-text fields refuse HTML and template code; fields holding a
 name or a code also refuse SQL delimiters.
 
+It also finds every file the pages load (stylesheets, scripts, images,
+fonts, videos), including those named only in stylesheets, lazy-loaded
+images and video posters, and proposes their types in the map: you never
+add a type by hand. When the gateway refuses a file a visitor asked for
+(a type or a size the map does not allow yet), the next discovery checks it
+on the site and proposes it if the site really serves it.
+
 ![Discovery](../screenshots/discovery.png)
 
 The whole site always stays in the map through the `/` area. The report

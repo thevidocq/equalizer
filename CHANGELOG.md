@@ -19,7 +19,8 @@ Add a section at the top of "Entries" for every commit:
 
 ## Current project status
 
-Latest release: **0.2.12** (`docs/releases/0.2.12.md`); before it 0.2.11
+Latest release: **0.2.13** (`docs/releases/0.2.13.md`); before it 0.2.12
+(tagged on the code of 0.2.11, `docs/releases/0.2.11.md`), 0.2.11
 (`docs/releases/0.2.11.md`), 0.2.10
 (`docs/releases/0.2.10.md`), 0.2.9
 (`docs/releases/0.2.9.md`), 0.2.8
@@ -45,16 +46,17 @@ it, 0.1.0 (`docs/releases/0.1.0.md`, tag on the merge of #39).
 
 ## Entries
 
-### 2026-11-22 — Release 0.2.12
+### 2026-11-22 — Release 0.2.13
 
 - **Branch:** feat/visitors-into-draft
 - **What:** `VERSION`, agent version, `deploy/compose/.env.example`,
-  `INSTALL.md`, `README.md` point to 0.2.12; notes `docs/releases/0.2.12.md`.
+  `INSTALL.md`, `README.md` point to 0.2.13; notes `docs/releases/0.2.13.md`.
 - **Why:** checked visitors' requests go into the agent's draft, page
   options only with the values the site offers; email when a draft is
-  ready.
-- **Status:** documents only. Tag `v0.2.12` on the merge commit publishes
-  the images (0.2.11 may be skipped: 0.2.12 contains it).
+  ready. The tag `v0.2.12` already exists on the merge of #93 (the code of
+  0.2.11), so this release is 0.2.13.
+- **Status:** documents only. Tag `v0.2.13` on the merge commit publishes
+  the images.
 - **Next steps:**
   1. Discovery on metreta and metaliquid; check the email and the report.
   2. Lost-session detection and re-login in the logged-in passes.
@@ -77,7 +79,7 @@ it, 0.1.0 (`docs/releases/0.1.0.md`, tag on the merge of #39).
   an `enum` narrower than the site's real choices would refuse real
   visitors' pages; a comment's link could have offered a value with SQL.
 - **Status:** agent, panel-api tests pass.
-- **Next steps:** release 0.2.12.
+- **Next steps:** release 0.2.13.
 
 ### 2026-11-22 — Visitors' requests into the draft; draft-ready email
 
@@ -106,7 +108,7 @@ it, 0.1.0 (`docs/releases/0.1.0.md`, tag on the merge of #39).
   the site keep an attack out even when a key goes in; continuous discovery
   needs an email to be useful.
 - **Status:** agent (75), panel-api tests pass; panel-ui in CI.
-- **Next steps:** release 0.2.12; lost-session detection; the AI key.
+- **Next steps:** release 0.2.13; lost-session detection; the AI key.
 
 ### 2026-11-22 — Release 0.2.11
 

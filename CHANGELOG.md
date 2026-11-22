@@ -44,6 +44,21 @@ it, 0.1.0 (`docs/releases/0.1.0.md`, tag on the merge of #39).
 
 ## Entries
 
+### 2026-11-22 — Release 0.2.11
+
+- **Branch:** feat/visitor-requests-actionable
+- **What:** `VERSION`, `agent/equalizer_agent/__init__.py`,
+  `agent/pyproject.toml`, `deploy/compose/.env.example`, `INSTALL.md` and
+  `README.md` point to 0.2.11; release notes `docs/releases/0.2.11.md`.
+- **Why:** visitors' requests only as actions checked on the site, distinct
+  visitors counted once (two independent reviews, findings fixed).
+- **Status:** documents only. Tag `v0.2.11` on the merge commit publishes
+  the images.
+- **Next steps:**
+  1. Discovery on metreta and metaliquid with 0.2.11; check the report.
+  2. Lost-session detection and re-login in the logged-in passes.
+  3. Directory listings classified as kept out.
+
 ### 2026-11-22 — Second review of visitor requests
 
 - **Branch:** feat/visitor-requests-actionable

@@ -18,7 +18,16 @@ ASSET_EXT = {".css": "text/css", ".js": "application/javascript", ".png": "image
              ".otf": "font/otf", ".pdf": "application/pdf", ".mp4": "video/mp4", ".m4v": "video/mp4",
              ".webm": "video/webm", ".ogv": "video/ogg", ".mp3": "audio/mpeg", ".m4a": "audio/mp4",
              ".ogg": "audio/ogg", ".wav": "audio/wav", ".avif": "image/avif", ".bmp": "image/bmp",
-             ".mov": "video/quicktime", ".flac": "audio/flac", ".aac": "audio/aac", ".opus": "audio/ogg"}
+             ".mov": "video/quicktime", ".flac": "audio/flac", ".aac": "audio/aac", ".opus": "audio/ogg",
+             ".mjs": "application/javascript", ".webmanifest": "application/manifest+json", ".wasm": "application/wasm",
+             ".txt": "text/plain", ".csv": "text/csv", ".rtf": "application/rtf",
+             ".doc": "application/msword", ".xls": "application/vnd.ms-excel", ".ppt": "application/vnd.ms-powerpoint",
+             ".docx": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+             ".xlsx": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+             ".pptx": "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+             ".odt": "application/vnd.oasis.opendocument.text", ".ods": "application/vnd.oasis.opendocument.spreadsheet",
+             ".odp": "application/vnd.oasis.opendocument.presentation", ".epub": "application/epub+zip"}
+# Archives, logs and dumps are never studied (rules.SENSITIVE), even when linked.
 PER_SHAPE = 20  # a calendar or a search must not eat the whole budget
 MAX_SCRIPTS = 30
 MAX_STYLESHEETS = 60  # read for the fonts and images they name

@@ -235,8 +235,14 @@ def build(job: dict, crawl, fp) -> tuple:
         added_forms.append({"id": e["id"], "route": e["route"], "fields": sorted(e["fields"])})
     added_assets = _widen_assets(doc, crawl.assets)
     have_assets = [a.get("prefix", "") for a in doc.get("assets", [])]
+    # An asset prefix takes everything under it that no route matches, POSTs
+    # included: never one over pages, forms or script requests the study saw
+    # (they stay with the site area, files included).
+    pages = {pq.split("?")[0] for pq in crawl.pages} | {urllib.parse.urlsplit(f.action).path for f in crawl.forms}
     for prefix, types in cluster.asset_prefixes(crawl.assets).items():
         if any(prefix.startswith(h) for h in have_assets):
+            continue
+        if any(p.startswith(prefix) and p not in crawl.assets for p in pages):
             continue
         doc.setdefault("assets", []).append({"prefix": prefix, "types": types})
         added_assets.append({"prefix": prefix, "types": types})

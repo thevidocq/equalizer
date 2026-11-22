@@ -40,6 +40,32 @@ it, 0.1.0 (`docs/releases/0.1.0.md`, tag on the merge of #39).
 
 ## Entries
 
+### 2026-11-22 — Stream audio and video assets with byte ranges
+
+- **Branch:** feat/asset-media-stream (on top of fix/asset-font-types, #77)
+- **What:** new package `gateway/internal/mediasig` (media file names,
+  `audio/`/`video/` types, container signatures: MP4/MOV, WebM, Ogg, MP3,
+  WAV, FLAC). New `gateway/internal/server/assetmedia.go`: when an asset file
+  looks like media and its prefix allows an audio/video type, the legacy
+  response is opened with `Legacy.Open` and streamed (no 16 MiB buffer), a
+  single checked `Range` is passed on (206/416 answered as the legacy app
+  does), the declared type must be allowed, the signature is checked when the
+  response starts at byte 0, and the full size must fit `max_size_kb`
+  (default 512 MiB for media). Tests `TestMediaAssets` (17 MiB video, range,
+  range list dropped, fake and HTML "videos" refused) and `mediasig` tests.
+  Map format doc updated.
+- **Why:** `homepage-video.mp4` on metaliquid.thevidocq.com failed with
+  `response_too_large`: every asset was buffered up to 16 MiB, and players
+  need ranges to seek.
+- **Status:** gateway `gofmt`/`vet`/`test` (and `-race` on server) green.
+  The site's map must list `video/mp4` in the `/site/templates/` types.
+  A mid-file range has no signature to check: its declared type is still
+  checked and `nosniff` is set.
+- **Next steps:**
+  1. Panel/agent: propose `video/mp4` (and other media seen) for asset
+     prefixes already in the map, not only for new prefixes.
+  2. Resume strict mode (`feat/strict-mode`).
+
 ### 2026-11-22 — Fonts served with a generic or old media type
 
 - **Branch:** fix/asset-font-types

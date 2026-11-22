@@ -145,7 +145,14 @@ are the exception: many servers send them as `application/octet-stream` or
 with an old name (`application/x-font-woff`). A font is then served when its
 signature (`wOFF`, `wOF2`, TrueType, `OTTO`, EOT) is a type the prefix allows,
 with the canonical `Content-Type` (`font/woff`, ...); a declared font type
-that disagrees with the signature is refused. The
+that disagrees with the signature is refused. Audio and video (`.mp4`,
+`.webm`, `.mp3`, ... under a prefix whose `types` include an `audio/` or
+`video/` type) are streamed instead of buffered, with one byte range passed
+on so that players can seek (`bytes=a-b`, `bytes=a-`, `bytes=-n`; a list of
+ranges is dropped). The declared type must be in `types`, a response that
+starts at the first byte must begin with a media container signature (MP4,
+WebM, Ogg, MP3, WAV, FLAC), and the whole file must fit `max_size_kb`
+(default 512 MiB for media, 10 MiB for other assets). The
 asset query string is never sent to the legacy application.
 
 ## Forms

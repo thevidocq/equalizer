@@ -315,14 +315,16 @@ The agent never changes the legacy site. Three layers:
    or `_`, with at most one such verb and never at either end:
    `how-to-remove-stains`; not `item-12-remove` nor `my-plan-cancel`) is a
    page, unless it holds `logout`, `delete`, `unsubscribe`, `destroy`,
-   `purge` or `impersonate`; `logout`, `logoff`, `signout`, `signoff` are
-   actions anywhere (`/dologoff`, `/UserLogOff.aspx`), except inside the few
-   words that hold them by chance (catalog-offers, analog-offset,
-   blog-offers, dialog-off…, design-office); `log-out`, `log_off`,
-   `sign-out`… as words of their own, also inside a title
-   (`/sessions/log-out-all-devices` is an action, `/sign-off-letter-examples/`
-   a page); the query is always read in full. The cases the reviews found
-   are kept as a regression corpus in `agent/tests/test_actions.py`.
+   `purge` or `impersonate`; the query is always read in full. Ending the
+   session is judged apart (`ends_session`), on each piece of the URL
+   decoded, in lower case and without separators, so no spelling escapes
+   (`/WebLogOff.aspx`, `/Account/DoLog_Off`, `/log%2Dout`, `/log.out`):
+   log out, log off, sign out, sign off anywhere, except when followed by
+   offer(s), offset, office or offline (catalog-offers, analog-offset,
+   design-office, blog-offline). A page that only talks about signing off
+   is not studied: safer than a test account logged out. The cases the
+   reviews found are kept as a regression corpus in
+   `agent/tests/test_actions.py`.
 3. **Checks stop at the gateway.** Preview only serves `GET` and `HEAD`;
    everything else is dry-run and never forwarded.
 

@@ -26,7 +26,16 @@ class ActionsTest(unittest.TestCase):
                   "/doLOGOFF", "/dosignoff", "/index.php?cmd=dologoff",
                   # a title that ends every session is still an action
                   "/sessions/log-out-all-devices", "/account/sign-out-all-sessions",
-                  "/account/sign-out-everywhere-now", "/me/log-off-all-devices"):
+                  "/account/sign-out-everywhere-now", "/me/log-off-all-devices",
+                  # whatever precedes, whatever the separator or the encoding
+                  "/WebLogOff.aspx", "/weblogoff", "/dbLogoff", "/Account/JobLogOff", "/clubLogoff", "/hubLogoff.do",
+                  "/codeSignOff", "/ModeSignoff", "/nodesignoff", "/Account/DoLog_Off", "/Home/UserLog-Out",
+                  "/userSign_Out", "/doLog-Off", "/AppLog_Out.aspx", "/Account/Log_OffUser", "/x/log_offUser",
+                  "/x/log.out", "/sign.out", "/log%2Dout", "/log%5Fout", "/log%252Dout", "?a=log+out",
+                  "/log-outnow", "/sign-outall", "/account/sign-off-all-devices", "/my-account-sign-off-now",
+                  "/x;jsessionid=1/logout",
+                  # a page about signing off is not studied: safer than a session ended
+                  "/sign-off-letter-examples/", "/blog/how-to-sign-off-an-email/"):
             self.assertTrue(is_action(u), u)
 
     def test_content_slugs(self):
@@ -34,9 +43,9 @@ class ActionsTest(unittest.TestCase):
                   "/shop/oak-drop-leaf-table/", "/guides/how-to-export-wine/",
                   # log-off / sign-out spellings are whole words only
                   "/blog-offers/", "/catalog-offers/", "/design-office/", "/blog-offline-mode/",
-                  "/sign-off-letter-examples/", "/blog/how-to-sign-off-an-email/",
                   # logoff/signoff never inside a word
-                  "/catalogoffers/", "/designoffice/", "/blog/designoffers-2024", "/shop/analogoffset-printing"):
+                  "/catalogoffers/", "/designoffice/", "/blog/designoffers-2024", "/shop/analogoffset-printing",
+                  "/changelogoffset", "/backlogoffice", "/prologoffer", "/vlogoffers", "/resignoffer", "/assignoffice"):
             self.assertFalse(is_action(u), u)
 
 

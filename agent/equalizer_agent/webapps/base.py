@@ -8,6 +8,7 @@ only opened. Most of a profile is data; code only where an application
 behaves differently (Joomla's administration has a login of its own)."""
 
 import re
+import urllib.parse
 from dataclasses import dataclass
 
 
@@ -42,16 +43,25 @@ SENSITIVE = (
 )
 
 # Links that change something, whatever the application: never followed.
-# Log out / log off / sign out / sign off end the test account's session:
-# without a separator they are actions anywhere (/dologoff, /UserLogOff.aspx,
-# ?cmd=dologoff), except inside the few words that hold them by chance
-# (catalog-offers, analog-offset, blog-offers, dialog-off…, design-office);
-# with a separator (log-out, sign_off) as a word of their own.
-_JOINED = r"(?:logout|signout|(?<!cata)(?<!ana)(?<!dia)(?<!b)logoff|(?<!de)signoff)"
-_SEPARATED = r"(?<![a-z])(?:log[-_]out|log[-_]off|sign[-_]out|sign[-_]off)(?![a-z])"
-# Strong: never part of an innocent title; sign-off is (sign-off letters).
-_SEPARATED_STRONG = r"(?<![a-z])(?:log[-_]out|log[-_]off|sign[-_]out)(?![a-z])"
-ACTIONS = re.compile(r"(" + _JOINED + r"|" + _SEPARATED + r"|"
+# Ending the session (log out, log off, sign out, sign off) is judged on each
+# piece of the URL normalised: decoded, lower case, without separators
+# (- _ . + spaces), so no spelling escapes (/WebLogOff.aspx, /log%2Dout,
+# /Account/DoLog_Off, /log.out). The only exceptions are decided by what
+# follows: offer(s), offset, office, offline (catalog-offers, analog-offset,
+# design-office, blog-offline). A page that merely talks about signing off is not studied:
+# safer than a test account logged out.
+_SESSION_END = re.compile(r"logout|signout|(?:log|sign)off(?!ers?|set|ice|line)")
+_PIECES = re.compile(r"[/?&=;#]")
+_SEPARATORS = re.compile(r"[^a-z0-9]")
+
+
+def ends_session(path_query: str) -> bool:
+    """Whether a URL would end the session, however it is spelled."""
+    text = urllib.parse.unquote_plus(urllib.parse.unquote_plus(path_query)).lower()
+    return any(_SESSION_END.search(_SEPARATORS.sub("", piece)) for piece in _PIECES.split(text))
+
+
+ACTIONS = re.compile(r"(logout|signout|"
                      r"delete|remove|destroy|unsubscribe|reset|drop|purge|"
                      r"action=(del|delete|remove|logout|edit|update))", re.I)
 # More of them, as whole words (a slug such as /running-tips/ is not "run").
@@ -68,7 +78,7 @@ TOKENS = re.compile(r"[?&](_wpnonce|nonce|_nonce|token|_token|csrf|csrf_token|fo
 
 _SLUG_WORD = re.compile(r"^[A-Za-z0-9]+$")
 # Never part of an innocent slug: a segment holding one is always an action.
-STRONG = re.compile(r"(" + _JOINED + r"|" + _SEPARATED_STRONG + r"|unsubscribe|destroy|delete|purge|impersonate)", re.I)
+STRONG = re.compile(r"(logout|signout|unsubscribe|destroy|delete|purge|impersonate)", re.I)
 
 
 def _is_action_word(word: str) -> bool:
@@ -91,7 +101,7 @@ def is_action(path_query: str) -> bool:
     """A link that changes something. The query is always read in full; in
     the path, a segment that is a content slug is not an action whatever
     words it holds."""
-    if TOKENS.search(path_query):
+    if TOKENS.search(path_query) or ends_session(path_query):
         return True
     path, sep, query = path_query.partition("?")
     kept = "/".join("" if _content_slug(s) else s for s in path.split("/")) + sep + query

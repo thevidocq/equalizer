@@ -5,7 +5,7 @@ application: they ask the profile of the one recognised, or the generic one."""
 
 from . import (drupal, generic, joomla, magento, mediawiki, moodle, opencart, phpbb, prestashop, typo3,
                wordpress)
-from .base import ACTIONS, ACTION_WORDS, SENSITIVE, STRONG, TOKENS, Profile, is_action, is_fragment  # noqa: F401
+from .base import ACTIONS, ACTION_WORDS, SENSITIVE, STRONG, TOKENS, Profile, ends_session, is_action, is_fragment  # noqa: F401
 
 # The order matters only for recognition by URL when nothing else tells.
 ALL = tuple(m.PROFILE for m in (wordpress, joomla, drupal, magento, prestashop, opencart, typo3, moodle,

@@ -42,6 +42,22 @@ it, 0.1.0 (`docs/releases/0.1.0.md`, tag on the merge of #39).
 
 ## Entries
 
+### 2026-11-22 — Fifth re-review: session end judged on normalised URLs
+
+- **Branch:** fix/independent-review
+- **What:** a ninth independent reviewer found that the exceptions decided
+  by what precedes the word hid real logout links (`/WebLogOff.aspx`,
+  `/codeSignOff`) and that separated camelCase spellings were missed
+  (`/Account/DoLog_Off`). The regular expressions on the raw URL are gone:
+  `webapps.base.ends_session` decodes each piece of the URL, lowers it and
+  drops separators, then looks for log out / log off / sign out / sign off
+  anywhere, with exceptions decided only by what follows (offer(s), offset,
+  office, offline). `is_action` and verification's folder check use it.
+  Every case from the five reviews is in `test_actions.py`; pages about
+  signing off are no longer studied (safety first).
+- **Status:** agent green.
+- **Next steps:** as above.
+
 ### 2026-11-22 — Fourth re-review: log off and sign off, safety first
 
 - **Branch:** fix/independent-review

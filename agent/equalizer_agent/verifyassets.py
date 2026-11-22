@@ -37,7 +37,8 @@ def _acts(path: str) -> bool:
     delete, unsubscribe…): reset.css, /lib/dropzone/…js, /assets/update/x.png
     are files; /account/logout/bye.png is not opened."""
     if crawler.Crawler._static(path):
-        return bool(webapps.STRONG.search(path.rsplit("/", 1)[0] + "/"))
+        folders = path.rsplit("/", 1)[0] + "/"
+        return bool(webapps.STRONG.search(folders)) or webapps.ends_session(folders)
     return rules.is_action(path)
 
 

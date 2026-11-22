@@ -7,7 +7,7 @@ import urllib.parse
 from collections import deque
 from dataclasses import dataclass, field
 
-from . import browser, extract, rules, webapps
+from . import browser, css, extract, rules, webapps
 from .fetch import Fetcher, ReachError
 from .login import LoginMixin, path_query
 
@@ -19,6 +19,7 @@ ASSET_EXT = {".css": "text/css", ".js": "application/javascript", ".png": "image
              ".ogg": "audio/ogg", ".wav": "audio/wav"}
 PER_SHAPE = 20  # a calendar or a search must not eat the whole budget
 MAX_SCRIPTS = 30
+MAX_STYLESHEETS = 60  # read for the fonts and images they name
 BROWSER_PAGES = 40  # pages opened in the browser per pass
 
 
@@ -61,6 +62,7 @@ class Crawler(LoginMixin):
         self.r = CrawlResult()
         self.shapes: dict = {}
         self.scripts = 0
+        self.sheets: dict = {}  # stylesheet path -> read already
         self.label = "anonymous"
         self.browser = None  # {"executable": path} to study pages in a real browser
 
@@ -68,6 +70,7 @@ class Crawler(LoginMixin):
         self.label = "anonymous"
         self._crawl(seeds, logged_in=False)
         self._browse(logged_in=False)
+        self._stylesheets()
         return self.r
 
     def _browse(self, logged_in: bool):
@@ -125,6 +128,7 @@ class Crawler(LoginMixin):
             seeds = getattr(self, "after_login", []) + ["/"] + admin
             self._crawl(seeds + [p for p in list(self.r.pages)[:50]], logged_in=True)
             self._browse(logged_in=True)
+            self._stylesheets()
         self.f.cookies = {}
         return self.r
 
@@ -162,6 +166,9 @@ class Crawler(LoginMixin):
             if pq in visited:
                 continue
             visited.add(pq)
+            if self._static(pq):
+                self._known_file(pq)
+                continue
             if not self._allowed(pq):
                 continue
             fetched += 1
@@ -249,6 +256,42 @@ class Crawler(LoginMixin):
         kind = "text/html" if self._fragment(path) else ASSET_EXT.get(ext)
         if kind and not rules.excluded(path, self.cms):
             self.r.assets[path] = kind
+            if kind == "text/css":
+                self.sheets.setdefault(path, False)
+
+    @staticmethod
+    def _static(pq: str) -> bool:
+        last = pq.split("?")[0].rsplit("/", 1)[-1]
+        return "." in last and "." + last.rsplit(".", 1)[-1].lower() in ASSET_EXT
+
+    def _known_file(self, pq: str):
+        """A file named outside any page (a visitor asked for it and the
+        gateway refused it): studied only if the site really serves it."""
+        try:
+            resp = self.f.get(pq.split("?")[0])
+        except (ReachError, OSError, ValueError):
+            return
+        if resp.status == 200:
+            self._asset(self.f.base_url.rstrip("/") + pq.split("?")[0])
+
+    def _stylesheets(self):
+        """Reads the stylesheets found so far, and those they import, for the
+        fonts and images they name."""
+        read = 0
+        while read < MAX_STYLESHEETS:
+            path = next((p for p, done in self.sheets.items() if not done), None)
+            if path is None:
+                return
+            self.sheets[path] = True
+            read += 1
+            try:
+                resp = self.f.get(path)
+            except (ReachError, OSError, ValueError):
+                continue
+            if resp.status != 200:
+                continue
+            for url in css.refs(resp.body.decode("utf-8", "replace"), resp.url):
+                self._asset(url)
 
     def _fragment(self, path: str) -> bool:
         return webapps.is_fragment(webapps.get(self.cms), path)

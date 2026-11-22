@@ -17,7 +17,10 @@ def seeds(job: dict, cms: str | None) -> list:
                 out.append(p)
     for u in job.get("unmapped", []):
         p = u.get("path", "")
-        if u.get("method") == "GET" and u.get("clients", 0) >= 2 and p.startswith("/") and not rules.excluded(p, cms):
+        # a file (a font, a video) the gateway refused: one visitor is enough,
+        # the crawler studies it only if the site really serves it
+        least = 1 if crawler.Crawler._static(p) else 2
+        if u.get("method") == "GET" and u.get("clients", 0) >= least and p.startswith("/") and not rules.excluded(p, cms):
             out.append(p)
     return list(dict.fromkeys(out))
 

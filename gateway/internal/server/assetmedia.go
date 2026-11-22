@@ -3,7 +3,6 @@ package server
 import (
 	"bytes"
 	"io"
-	"log/slog"
 	"mime"
 	"net/http"
 	"regexp"
@@ -87,9 +86,7 @@ func (p *Public) serveMediaAsset(w http.ResponseWriter, r *http.Request, st *sit
 	ct := resp.Header.Get("Content-Type")
 	head, reason := checkMedia(asset, ct, resp, limit)
 	if reason != "" {
-		p.Log.WarnContext(r.Context(), "asset rejected", slog.Group("detail",
-			slog.String("prefix", asset.Prefix), slog.String("reason", reason), slog.String("content_type", ct)))
-		p.block(w, r, st, http.StatusNotFound, reason)
+		p.refuseAsset(w, r, st, asset, reason, ct)
 		return
 	}
 

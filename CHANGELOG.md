@@ -41,6 +41,36 @@ it, 0.1.0 (`docs/releases/0.1.0.md`, tag on the merge of #39).
 
 ## Entries
 
+### 2026-11-22 — The agent studies every file the site loads
+
+- **Branch:** feat/agent-full-study (on top of fix/agent-asset-types, #80)
+- **What:**
+  - `agent/equalizer_agent/css.py` (new): `url()` and `@import` references
+    of a piece of CSS, comments and `data:` skipped.
+  - `extract.py`: images, video, audio, `track`, `embed`, `object` give
+    `src`, `data-src`, `data-lazy-src`, `data-original`, `poster`,
+    `data-poster`, `data` and every `srcset`/`data-srcset` candidate;
+    `<style>` blocks and `style=""` attributes give their CSS references.
+  - `crawler.py`: stylesheets found are read (up to 60, imports followed)
+    for fonts and images, at the end of each pass; a seed that is a file is
+    fetched and becomes an asset only if the site answers 200.
+  - `discovery.py`: a file the gateway reported is a seed with one visitor
+    (pages still need two).
+  - gateway `internal/server/asset.go` (`refuseAsset`): an asset refused
+    for its type or size is reported as unmapped, so discovery studies it;
+    a content mismatch is not.
+  - Tests: `agent/tests/test_assets_study.py` (CSS refs, HTML attributes,
+    whole study with imported stylesheets, a visitor's file, a file the
+    site does not serve), gateway `TestRefusedAssetsReported`. Doc
+    `docs/agent.md` (Explore → Files).
+- **Why:** the customer never edits the map by hand except to publish it.
+  Fonts named only in CSS, lazy images and files blocked in production
+  (metaliquid's fonts and video) escaped discovery.
+- **Status:** agent unittests (46) and gateway tests green.
+- **Next steps:**
+  1. Release 0.2.9 (#80 and this).
+  2. Resume strict mode (`feat/strict-mode`).
+
 ### 2026-11-22 — Discovery widens the types of existing asset prefixes
 
 - **Branch:** fix/agent-asset-types

@@ -78,6 +78,15 @@ when it is stale, so it never says more than the code does.
   request answered with JSON stays with the site area and is listed as
   still open (map APIs need their shapes). Without Playwright
   (`EQ_BROWSER=off`) the study runs with plain requests.
+- **Files**: every file a page loads becomes an asset of the map, with
+  its type from the file extension: `src`, `data-src` and other lazy-loading
+  copies, each `srcset` candidate, a video's `poster`, `<style>` blocks and
+  `style=""` attributes, and the stylesheets themselves (up to 60 per
+  study, `@import` followed) for their fonts and background images. A
+  prefix already in the map gets the new types (a video under a prefix that
+  listed only images); a file the gateway refused for its type or size is
+  reported like an unmapped page and studied at the next discovery, one
+  visitor is enough, only if the site really serves it.
 - **Passes**: one anonymous, then one per test account. Each pass records
   the pages, the requests the scripts make (with their parameters), the
   forms and their fields, and the links.

@@ -75,9 +75,7 @@ func (p *Public) serveAsset(w http.ResponseWriter, r *http.Request, st *site.Sit
 	ct := resp.Header.Get("Content-Type")
 	served, reason := checkAsset(asset, ct, resp, maxKB)
 	if reason != "" {
-		p.Log.WarnContext(r.Context(), "asset rejected", slog.Group("detail",
-			slog.String("prefix", asset.Prefix), slog.String("reason", reason), slog.String("content_type", ct)))
-		p.block(w, r, st, http.StatusNotFound, reason)
+		p.refuseAsset(w, r, st, asset, reason, ct)
 		return
 	}
 
@@ -111,6 +109,18 @@ func (p *Public) serveAsset(w http.ResponseWriter, r *http.Request, st *site.Sit
 		_, _ = w.Write(body)
 	}
 	p.Events.Emit(p.event(r, st, "request.served", "", http.StatusOK, telemetry.Ptr(m.Entry.ID)))
+}
+
+// refuseAsset refuses a legacy file. A type or a size the map does not allow
+// yet is also reported to discovery, which studies the file and proposes it;
+// a file whose content contradicts its type is not.
+func (p *Public) refuseAsset(w http.ResponseWriter, r *http.Request, st *site.Site, asset *mapmodel.Asset, reason, ct string) {
+	p.Log.WarnContext(r.Context(), "asset rejected", slog.Group("detail",
+		slog.String("prefix", asset.Prefix), slog.String("reason", reason), slog.String("content_type", ct)))
+	if reason == "asset_type_not_allowed" || reason == "asset_too_large" {
+		p.Unmapped.Record(st.Model.Meta.App, http.MethodGet, r.URL.Path, p.IPs.IP(r))
+	}
+	p.block(w, r, st, http.StatusNotFound, reason)
 }
 
 func validAssetFile(file string) bool {

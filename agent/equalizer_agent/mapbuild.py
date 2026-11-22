@@ -363,8 +363,8 @@ def build(job: dict, crawl, fp) -> tuple:
         "excluded": [{"path": p.split("?")[0], "reason": r} for p, r in sorted(crawl.excluded.items())][:200],
         "skipped_actions": len(crawl.skipped_actions), "not_supported": not_supported,
         "query_added": query_added,
-        # filled by visitors.confirm, which checks them on the site
-        "query_dropped": [], "files_refused": [],
+        # filled by visitors.apply, which checks them on the site
+        "visitors_added": [],
         "not_seen_anymore": stale[:100], "login": crawl.login or None, "errors": crawl.errors,
         "accounts": [{"label": k, "login": v} for k, v in crawl.logins.items()],
         "pages": [pq for pq, s in crawl.pages.items()

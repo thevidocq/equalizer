@@ -44,6 +44,35 @@ it, 0.1.0 (`docs/releases/0.1.0.md`, tag on the merge of #39).
 
 ## Entries
 
+### 2026-11-22 — Visitors' requests into the draft; draft-ready email
+
+- **Branch:** feat/visitors-into-draft
+- **What:**
+  - agent `visitors.py` (`apply`, was `confirm`): what passes the checks
+    goes into the discovery's draft, listed in `report.visitors_added`. A
+    query key goes in only with the values the site offers (`enum` from its
+    `<select>` and links), or as an integer for page numbers and price
+    bounds; none when the site offers no values. The probes use those
+    values.
+  - panel-api: `POST /v1/apps/{app}/discoveries/{id}/adopt` removed (code,
+    contract, tests); new alert kind `draft_ready`: once the agent's
+    verification of a discovery's draft is over and the version is still a
+    draft, the tenant's administrators and extra addresses get one email
+    (what changes, what came from visitors, the check, the link);
+    `internal/alerts/draftready.go`, `internal/api/draftready.go`, test
+    `draftready_test.go`.
+  - panel-ui: "Added from visitors' requests" (read-only) replaces the
+    buttons; `useAdopt` removed; the new alert kind in Settings → Alerts;
+    Activity describes the email.
+  - docs: `docs/agent.md` "Visitor requests", `docs/manual/tenant.md`
+    (discovery, alerts) and help, `docs/architecture.md`.
+- **Why:** the owner's rule: the agent studies and prepares, a person only
+  publishes. Checked requests no longer wait for a click; values decided by
+  the site keep an attack out even when a key goes in; continuous discovery
+  needs an email to be useful.
+- **Status:** agent (75), panel-api tests pass; panel-ui in CI.
+- **Next steps:** release 0.2.12; lost-session detection; the AI key.
+
 ### 2026-11-22 — Release 0.2.11
 
 - **Branch:** feat/visitor-requests-actionable

@@ -31,7 +31,7 @@ function List({ title, items, render }: { title: string; items?: R[]; render: (i
 const LOGIN: Record<string, string> = { ok: "logged in", failed: "login failed", no_login_form: "no login form found" };
 
 /** What a finished discovery found and proposes. */
-export function Report({ d, canAdd }: { d: Discovery; canAdd: boolean }) {
+export function Report({ d }: { d: Discovery }) {
   const { app = "" } = useParams();
   const r = (d.report ?? {}) as R;
   if (d.status === "failed") return <Notice tone="error">The discovery failed: {d.error}</Notice>;
@@ -71,7 +71,7 @@ export function Report({ d, canAdd }: { d: Discovery; canAdd: boolean }) {
       ) : (
         <List title="Not opened by the agent (still served, by the site area)" items={r.excluded} render={(i) => `${i.path}  ${i.reason}`} />
       )}
-      <VisitorRequests app={app} discovery={d.id} draft={d.draft_version ?? null} report={r} canAdd={canAdd} />
+      <VisitorRequests report={r} />
       <List title="Served by the site area, without typed checks" items={r.open ? [] : r.not_supported} render={(i) => `${i.path}  ${i.reason}`} />
       <List title="In the map, not seen any more" items={(r.not_seen_anymore ?? []).map((p: string) => ({ p }))} render={(i) => i.p} />
       <List title="Components" items={r.components} render={(i) => `${i.name}${i.version ? " " + i.version : ""}`} />

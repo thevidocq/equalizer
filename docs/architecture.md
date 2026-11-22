@@ -107,9 +107,11 @@ tenant's own model that can only rename, exclude or narrow. The draft always
 keeps the `/` area, so the whole site, admin included, is served. The gateway reports the paths it refused, so discovery
 also sees what real visitors miss; it counts distinct visitors by a hash of
 their address keyed with a secret only the gateway holds (never the
-address), and the report lists a
-visitor's request only once the agent has checked it on the site and a
-person can add it in one click ([agent.md](agent.md#visitor-requests)). Continuous discovery (daily or weekly)
+address), and the agent puts a
+visitor's request in its draft only once it has checked it on the site,
+page options with the values the site offers
+([agent.md](agent.md#visitor-requests)). The tenant is emailed when a
+discovery's draft is checked and ready to publish. Continuous discovery (daily or weekly)
 proposes a draft only when something changed. Every proposal goes through
 the usual approval.
 

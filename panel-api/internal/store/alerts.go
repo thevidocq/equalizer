@@ -19,7 +19,7 @@ type AlertSettings struct {
 }
 
 // AlertKinds are the kinds of alert a tenant turns on or off one by one.
-var AlertKinds = []string{"connector", "legacy_site", "isolation", "certificate", "certificate_expiry", "recovered"}
+var AlertKinds = []string{"connector", "legacy_site", "isolation", "certificate", "certificate_expiry", "recovered", "draft_ready"}
 
 // Wants reports whether a kind of alert is emailed.
 func (a AlertSettings) Wants(kind string) bool {

@@ -231,36 +231,35 @@ folder.
 **What visitors asked for.** Equalizer notes what it refused visitors: a
 file, a page option (a sort, a filter: `?orderby=`). A visitor's request is
 not proof of anything — anyone can ask for anything, and scanners try
-thousands of addresses — so the agent never adds one on its own, and the
-report shows one **only when you can act on it**, with the button **Add to
-a new draft**. The agent first checks it:
+thousands of addresses — so the agent puts one in its draft only after
+checking it on the site:
 
-- a **file** is shown when at least two different visitors asked for it,
-  it is of a harmless type (image, font, audio, video, stylesheet, PDF or
+- a **file** goes in when at least two different visitors asked for it, it
+  is of a harmless type (image, font, audio, video, stylesheet, PDF or
   office document) in a folder the map already serves, and the agent finds
-  it on the site, of that type. The button adds the type the site really
-  sends for it. Files the site's own pages use are not shown: the agent
-  handles them itself.
-- a **page option** is shown when at least two different visitors used it,
-  it is an option that changes how a page presents its content (a sort, an
-  order, a page number, a view, a language, a search, a shop filter), and
-  the page really shows something else with it: the agent opens the page
-  with and without it. An option the site ignores (`?test=1`), one that
-  only redirects or errors, and any other kind of key (which could make the
-  site do something, such as adding to a cart) are not shown — and the
-  agent never opens the latter.
+  it on the site, of that type. A `.php` file, a script or a page never
+  goes in, however many ask. Files the site's own pages use are added by
+  the study anyway.
+- a **page option** goes in when at least two different visitors used it,
+  it changes how a page presents its content (a sort, an order, a page
+  number, a view, a language, a shop filter), the site itself offers its
+  values (the choices of its menus and links), and the page really shows
+  something else with it. It goes in with **only those values**, or as a
+  number for page numbers and prices: any other value, an attack
+  included, is refused. An option the site ignores (`?test=1`), one that
+  only redirects or errors, one whose values the site does not offer, and
+  any other kind of key (which could make the site do something, such as
+  adding to a cart) never go in — and the agent never opens the latter.
 
-Scanners, a single visitor, files that do not exist, scripts and options
-that change nothing never appear (they stay in the logs). One visitor
-coming back many times still counts as one: Equalizer counts visitors by a
-key made from their address with a secret only the gateway knows, never
-storing the address itself. **Add to a
-new draft** makes the change in one click, in a new draft you review and
-publish as any other; the change is the one the report proposes, nothing
-else. Adding a file type serves every file of that type in that folder.
-Each click adds to the same draft (the new one replaces the discovery's),
-so one draft holds every change; the buttons wait until the agent has
-checked its draft.
+What went in is listed in the report under **Added from visitors'
+requests**, with the reason, and in the email that tells you the draft is
+ready: look at it before publishing, and take out of the draft what you do
+not want. Scanners, a single visitor, files that do not exist, scripts and
+options that change nothing never appear (they stay in the logs). One
+visitor coming back many times still counts as one: Equalizer counts
+visitors by a key made from their address with a secret only the gateway
+knows, never storing the address itself. Adding a file type serves every
+file of that type in that folder.
 
 ![Discovery](/help-img/discovery.png)
 
@@ -269,7 +268,7 @@ shows what was found, which pages got precise entries, how each test
 account logged in, what is **still open** with its reason (pages not
 opened and still served by the area, links that change something, fields
 that must still accept SQL characters such as a search or a message), what
-visitors asked for that you can add in one click, and the protection against IDOR it proposes for JSON APIs (a list
+it added from visitors' requests, and the protection against IDOR it proposes for JSON APIs (a list
 and a detail with the same id). If the map should change, a draft is
 proposed: review it and publish it. **Continuous discovery** explores
 again every day or every week, at the hour (and day) you choose in your
@@ -514,9 +513,14 @@ goes further back.
 ### Alerts
 
 **Settings → Alerts**: an email when something stays wrong for more than a
-few minutes. Choose which: connector offline, legacy site failing, site
-reachable again on its old IP, certificate missing or expired, certificate
-about to end, and the site working again after a problem. It goes to the
+few minutes, and when a draft is ready. Choose which: connector offline,
+legacy site failing, site reachable again on its old IP, certificate
+missing or expired, certificate about to end, the site working again
+after a problem, and **a discovery's draft ready to publish** — sent once
+the agent has checked (and corrected) the draft, with what changes, what
+came from visitors' requests, the agent's check and the link to the
+draft; never when a discovery finds nothing to change. Nothing is
+published until you do. It goes to the
 administrators of your organisation and to up to five more addresses (an
 on-call mailbox, a ticketing address). On by default; each change is sent
 once.

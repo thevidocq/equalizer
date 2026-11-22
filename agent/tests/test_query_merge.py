@@ -51,7 +51,7 @@ class QueryMergeTest(unittest.TestCase):
         item = next(r for r in doc["routes"] if r["id"] == "item")
         # a key only visitors sent is listed for the person, never added
         self.assertNotIn("query", item)
-        self.assertEqual(rep["query_dropped"], [])  # listed only once checked on the site (visitors.confirm)
+        self.assertEqual(rep["visitors_added"], [])  # added only once checked on the site (visitors.apply)
         self.assertNotIn("view", shop["legacy_request"]["query"])
         send = next(r for r in doc["routes"] if r["id"] == "send")
         self.assertNotIn("query", send)  # a route posting to the site is not the agent's to change

@@ -45,6 +45,21 @@ it, 0.1.0 (`docs/releases/0.1.0.md`, tag on the merge of #39).
 
 ## Entries
 
+### 2026-11-22 — Release 0.2.12
+
+- **Branch:** feat/visitors-into-draft
+- **What:** `VERSION`, agent version, `deploy/compose/.env.example`,
+  `INSTALL.md`, `README.md` point to 0.2.12; notes `docs/releases/0.2.12.md`.
+- **Why:** checked visitors' requests go into the agent's draft, page
+  options only with the values the site offers; email when a draft is
+  ready.
+- **Status:** documents only. Tag `v0.2.12` on the merge commit publishes
+  the images (0.2.11 may be skipped: 0.2.12 contains it).
+- **Next steps:**
+  1. Discovery on metreta and metaliquid; check the email and the report.
+  2. Lost-session detection and re-login in the logged-in passes.
+  3. The tenant's AI key (refused by the provider).
+
 ### 2026-11-22 — Review of visitors into the draft
 
 - **Branch:** feat/visitors-into-draft

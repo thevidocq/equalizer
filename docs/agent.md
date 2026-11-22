@@ -116,7 +116,17 @@ when it is stale, so it never says more than the code does.
 Deterministic, no AI needed:
 
 - **Routes**: varying path segments become typed parameters (`{id}` integer,
-  `{slug}`), as today.
+  `{slug}`), as today. A route already in the map gets the query keys it
+  lacked (a GET route whose legacy request is a GET, keys a map can hold):
+  the gateway drops undeclared keys, so an unseen sort or filter would
+  change the page in silence. A key seen with at least three integer
+  values is an integer; any other starts as text up to 1000 characters
+  without markup or template code, narrowed by verification from the
+  values it sees. The gateway reports the names of the keys it dropped
+  (never their values, nor tracking keys such as `utm_*`, `fbclid`,
+  `gclid`), like an unmapped page (`/shop/?orderby=`); the next discovery
+  opens the page with the key and adds it. The report lists them under
+  `query_added`.
 - **Values**: every parameter gets the narrowest type that fits all the
   values seen and the form's own attributes: an integer with its range, a
   list of values (`enum`) when the site offers a closed set (a `<select>`,

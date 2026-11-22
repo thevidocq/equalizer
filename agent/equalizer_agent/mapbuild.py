@@ -70,6 +70,17 @@ def fits(doc: dict, route: dict, path: str) -> bool:
 
 
 def covered(doc: dict, path: str) -> bool:
+    """Whether the map serves path precisely. A path with a query (a key the
+    gateway reported as dropped: /shop/?orderby=) also needs its keys."""
+    path, _, q = path.partition("?")
+    if q:
+        keys = {k for k, _ in urllib.parse.parse_qsl(q, keep_blank_values=True)}
+        return any(fits(doc, r, path) and keys <= set(((r.get("legacy_request") or {}).get("query") or {}))
+                   for r in doc.get("routes", []))
+    return _covered(doc, path)
+
+
+def _covered(doc: dict, path: str) -> bool:
     if any(fits(doc, r, path) for r in doc.get("routes", [])):
         return True
     return any(path.startswith(a.get("prefix", "\0")) for a in doc.get("assets", []))
@@ -79,6 +90,37 @@ def _ensure_types(doc: dict):
     t = doc.setdefault("types", {})
     t.setdefault("slug", {"base": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9_-]{0,119}$", "deny": COMMON_DENY})
     t.setdefault("id", {"base": "int", "min": 0, "max": 999999999})
+
+
+# A query key added to a route already in the map: its values were seldom
+# seen (or not at all, when only the gateway reported the key), so it gets
+# a wide text type; verification narrows it from the values it sees.
+WIDE_QUERY = {"type": "string", "max_length": 1000, "required": False, "rules": ["no_html", "no_template_meta"]}
+
+
+def _merge_query(e: dict, r: cluster.Route) -> list:
+    """Adds to route e the query keys of r it does not declare yet (GET
+    routes the agent may change: legacy request by GET). Returns the legacy
+    keys added."""
+    lr = e.get("legacy_request") or {}
+    if e.get("method", "GET") != "GET" or lr.get("method", "GET") != "GET":
+        return []
+    have = set((lr.get("query") or {}).keys())
+    taken = set(e.get("params") or {}) | set(e.get("query") or {})
+    added = []
+    for name, key in sorted(r.query_keys.items()):
+        if key in have or key in taken or not cluster.IDENT.match(key):
+            continue  # a visitor sends the key itself: only a name the map can hold
+        spec = r.query[name]
+        if spec.get("type") != "int" or len([v for v in r.query_samples.get(name, []) if v]) < 3:
+            spec = dict(WIDE_QUERY)
+        pub = key
+        taken.add(pub)
+        e.setdefault("query", {})[pub] = spec
+        lr.setdefault("query", {})[key] = "{{query.%s}}" % pub
+        e["legacy_request"] = lr
+        added.append(key)
+    return added
 
 
 def _route_entry(r: cluster.Route, anon: str, taken: set) -> dict:
@@ -193,6 +235,7 @@ def build(job: dict, crawl, fp) -> tuple:
 
     taken = {r["id"] for r in doc.get("routes", [])} | {f["id"] for f in doc.get("forms", [])}
     added_routes, added_forms, not_supported, still_open = [], [], [], []
+    query_added = []
     for r in cluster.routes(pages, loose_top=bool(fp.cms)):
         if not MAP_PATH.match(r.path):  # Magento's base64 referers (…~/): left to the area
             not_supported.append({"path": r.path, "reason": "characters a map path cannot hold"})
@@ -203,9 +246,14 @@ def build(job: dict, crawl, fp) -> tuple:
         if sample and all(covered(doc, p) for p in sample) and not r.query:
             continue
         # one route per shape: the gateway refuses two that differ only by
-        # their parameters' names; the one already there wins
-        if any(_shape(e.get("path", "")) == _shape(r.path) or ("{" not in r.path and fits(doc, e, r.path))
-               for e in doc.get("routes", [])):
+        # their parameters' names; the one already there wins, and gets the
+        # query keys it lacked (the gateway drops undeclared ones silently)
+        there = next((e for e in doc.get("routes", []) if _shape(e.get("path", "")) == _shape(r.path)
+                      or ("{" not in r.path and fits(doc, e, r.path))), None)
+        if there is not None:
+            keys = _merge_query(there, r)
+            if keys:
+                query_added.append({"id": there.get("id"), "keys": keys})
             continue
         e = _route_entry(r, anon, taken)
         doc.setdefault("routes", []).append(e)
@@ -266,6 +314,7 @@ def build(job: dict, crawl, fp) -> tuple:
         "site_area": area,
         "excluded": [{"path": p.split("?")[0], "reason": r} for p, r in sorted(crawl.excluded.items())][:200],
         "skipped_actions": len(crawl.skipped_actions), "not_supported": not_supported,
+        "query_added": query_added,
         "visitors_missing": [{"path": u["path"], "clients": u.get("clients", 0)} for u in visitors][:50],
         "not_seen_anymore": stale[:100], "login": crawl.login or None, "errors": crawl.errors,
         "accounts": [{"label": k, "login": v} for k, v in crawl.logins.items()],

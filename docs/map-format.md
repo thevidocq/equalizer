@@ -657,7 +657,10 @@ case): `slug: { base: string, pattern: "^[a-z0-9-]+$", deny: [wp-admin, admin] }
 | `no_template_meta` | `<?`, `?>`, `<%`, `%>`, `${`, `#{`, `{{`, `}}` |
 
 An unknown rule makes the map impossible to load. Undeclared query
-parameters are dropped; repeated ones are rejected. Without
+parameters are dropped (their names, never their values, are reported to
+discovery, which adds them to the route; tracking keys such as `utm_*`,
+`fbclid` and `gclid` are dropped without a report); repeated ones are
+rejected. Without
 `roles.anonymous` no page is public.
 
 ## Lifecycle

@@ -41,6 +41,26 @@ it, 0.1.0 (`docs/releases/0.1.0.md`, tag on the merge of #39).
 
 ## Entries
 
+### 2026-11-22 — Discovery widens the types of existing asset prefixes
+
+- **Branch:** fix/agent-asset-types
+- **What:** `agent/equalizer_agent/mapbuild.py`: new `_widen_assets` adds to
+  the asset prefixes already in the map the types of the files crawled under
+  them (longest prefix wins); the additions are in the report's
+  `assets_added` with `"widened": true`. New prefixes are proposed as before.
+  `crawler.py` `ASSET_EXT` knows more media and fonts (`.otf`, `.m4v`,
+  `.webm`, `.ogv`, `.mp3`, `.m4a`, `.ogg`, `.wav`). Test
+  `AssetTypesTest`.
+- **Why:** after 0.2.8 a video under `/site/templates/` on
+  metaliquid.thevidocq.com still needed `video/mp4` added by hand: discovery
+  skipped prefixes already in the map. The customer must never edit types by
+  hand.
+- **Status:** agent unittests green (43). Types come from the file
+  extension, as before (never a generic `application/octet-stream`).
+- **Next steps:**
+  1. Release 0.2.9 with this fix.
+  2. Resume strict mode (`feat/strict-mode`).
+
 ### 2026-11-22 — Release 0.2.8
 
 - **Branch:** chore/release-0.2.8 (on top of #77 and #78)

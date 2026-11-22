@@ -8,6 +8,7 @@ import (
 	"slices"
 	"strings"
 
+	"github.com/thevidocq/equalizer/gateway/internal/fontsig"
 	"github.com/thevidocq/equalizer/gateway/internal/legacyclient"
 	"github.com/thevidocq/equalizer/gateway/internal/mapmodel"
 	"github.com/thevidocq/equalizer/gateway/internal/origin"
@@ -68,7 +69,8 @@ func (p *Public) serveAsset(w http.ResponseWriter, r *http.Request, st *site.Sit
 		maxKB = defaultAssetMaxKB
 	}
 	ct := resp.Header.Get("Content-Type")
-	if reason := checkAsset(asset, ct, resp, maxKB); reason != "" {
+	served, reason := checkAsset(asset, ct, resp, maxKB)
+	if reason != "" {
 		p.Log.WarnContext(r.Context(), "asset rejected", slog.Group("detail",
 			slog.String("prefix", asset.Prefix), slog.String("reason", reason), slog.String("content_type", ct)))
 		p.block(w, r, st, http.StatusNotFound, reason)
@@ -83,6 +85,9 @@ func (p *Public) serveAsset(w http.ResponseWriter, r *http.Request, st *site.Sit
 		for _, v := range vs {
 			h.Add(k, v)
 		}
+	}
+	if served != "" {
+		h.Set("Content-Type", served) // a font sent with a generic or old type
 	}
 	securityHeaders(h)
 	// The media type as checkAsset read it: "Text/HTML" is HTML too.
@@ -116,20 +121,25 @@ func validAssetFile(file string) bool {
 	return true
 }
 
-// checkAsset returns the rejection reason, or "" if the asset is fine.
-func checkAsset(asset *mapmodel.Asset, contentType string, resp *legacyclient.Response, maxKB int) string {
+// checkAsset returns the rejection reason, or "" if the asset is fine. When
+// the asset is a font declared with a generic or old media type, served is
+// the canonical type to send instead.
+func checkAsset(asset *mapmodel.Asset, contentType string, resp *legacyclient.Response, maxKB int) (served, reason string) {
 	if len(resp.Body) > maxKB<<10 {
-		return "asset_too_large"
+		return "", "asset_too_large"
 	}
 	mediaType, _, err := mime.ParseMediaType(contentType)
 	if err != nil || !slices.Contains(asset.Types, mediaType) {
-		return "asset_type_not_allowed"
+		if font := fontsig.Resolve(strings.ToLower(mediaType), resp.Body, asset.Types); err == nil && font != "" {
+			return font, ""
+		}
+		return "", "asset_type_not_allowed"
 	}
 	if strings.HasPrefix(mediaType, "image/") && mediaType != "image/svg+xml" && mediaType != "image/x-icon" &&
 		mediaType != "image/vnd.microsoft.icon" {
 		if !strings.HasPrefix(http.DetectContentType(resp.Body), "image/") {
-			return "asset_content_mismatch"
+			return "", "asset_content_mismatch"
 		}
 	}
-	return ""
+	return "", ""
 }

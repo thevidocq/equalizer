@@ -21,6 +21,8 @@ HOME = """<html><head><title>Liquid</title>
 <img src="data:image/gif;base64,R0lGOD" data-src="/site/assets/files/1/lazy.jpg"
      srcset="/site/assets/files/1/a-400.jpg 400w, /site/assets/files/1/a-800.jpg 800w">
 <video poster="/site/templates/front/img/poster.jpg"><source src="/site/templates/front/video/intro.mp4"></video>
+<a href="/blog/2024/hello/">Hello</a><img src="/blog/2024/hello.jpg">
+<a href="/site/assets/files/2/brochure.docx">Brochure</a>
 </body></html>"""
 STYLES = """@import url("fonts.css");
 /* url(/commented/out.png) */
@@ -42,6 +44,8 @@ class Site:
             def do_GET(self):
                 p = self.path.split("?")[0]
                 body, ctype = (HOME, "text/html") if p == "/" else FILES.get(p, ("", ""))
+                if p == "/blog/2024/hello/":
+                    body, ctype = "<html><title>Hello</title><body>post</body></html>", "text/html"
                 if not ctype:
                     status = 200 if p.startswith("/site/") and "missing" not in p else 404
                     body, ctype = "x", "application/octet-stream"
@@ -119,6 +123,9 @@ class StudyTest(unittest.TestCase):
         self.assertNotIn("video/ogg", types)  # the site does not serve it
         files = next(a for a in doc["assets"] if a["prefix"] == "/site/assets/")
         self.assertIn("application/pdf", files["types"])
+        self.assertIn("application/vnd.openxmlformats-officedocument.wordprocessingml.document", files["types"])
+        # images next to pages: no asset prefix over the pages, the area serves both
+        self.assertNotIn("/blog/2024/", {a["prefix"] for a in doc["assets"]})
         self.assertEqual(files["max_size_kb"], -(-(30 << 20) * 11 // 10240))  # 30 MiB + 10%
 
 

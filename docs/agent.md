@@ -91,7 +91,15 @@ when it is stale, so it never says more than the code does.
   the extension's family (`audio/x-wav` for a `.wav`), and a file larger
   than the gateway's default limit raises its prefix's `max_size_kb` (size
   plus 10%, up to 4 GiB). `srcset` is split as the HTML standard says, so a
-  CDN URL with commas stays whole.
+  CDN URL with commas stays whole. Documents (`.pdf`, `.docx`, `.xlsx`,
+  `.odt`, `.csv`, …) are files too; archives, logs and dumps never are
+  (they are not studied at all). No asset prefix is proposed over a folder
+  where the study saw pages, forms or script requests: an asset prefix
+  takes everything under it that no route matches, so those folders stay
+  with the site area, files included.
+- **Links**: `<a>`, `<area>`, `<iframe>`, `<frame>` and
+  `<meta http-equiv="refresh">` targets; `<link rel="manifest">` and
+  `<input type="image">` are files.
 - **Passes**: one anonymous, then one per test account. Each pass records
   the pages, the requests the scripts make (with their parameters), the
   forms and their fields, and the links.
@@ -161,6 +169,17 @@ whether it would accept it.
 
 A difference means the draft is too narrow there: the agent widens that
 entry (or gives it back to the area) and checks again.
+
+**Files.** A page can look the same while its fonts, images or videos are
+refused. Every file the public pages name (in their HTML, their links and
+their stylesheets, up to 200 files and 30 stylesheets) that an asset prefix
+of the draft serves is opened directly and asked through the gateway
+(preview with `HEAD`: the verdict, not the body). A file the site serves
+and the gateway refuses is a broken page; the correction adds the type the
+site sends (never a generic one such as `application/octet-stream`) or the
+`max_size_kb` the file needs (size plus 10%, up to 4 GiB). A page (not a
+file) refused by an asset prefix means the prefix covers pages: the prefix
+is removed and the site area serves that folder.
 
 ### 5. Check that attacks are refused
 

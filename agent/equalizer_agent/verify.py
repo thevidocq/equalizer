@@ -18,7 +18,7 @@ from html.parser import HTMLParser
 
 from dataclasses import dataclass, field
 
-from . import attacks, correct, crawler, mapbuild
+from . import attacks, correct, crawler, mapbuild, verifyassets
 from .fetch import Fetcher, ReachError
 from .gateway import Gateway, Jar, TryError
 
@@ -155,6 +155,9 @@ class Measure:
     protected: int = 0
     accounts: list = field(default_factory=list)  # labels whose pages were verified
     tried: set = field(default_factory=set)  # inputs already tried, in any session
+    files: list = field(default_factory=list)  # URLs of the files the pages name
+    asset_fixes: dict = field(default_factory=dict)  # asset prefix -> {"types", "max_size_kb"} that would mend it
+    broken_files: set = field(default_factory=set)  # broken paths that are files, not pages
 
     def score(self) -> dict:
         return {"functions_total": self.compared, "functions_identical": self.identical,
@@ -210,6 +213,7 @@ class Run:
             self._routes(gw, doc, m, pages, jar)
             self._forms(gw, doc, m, rendered)
             self.f.cookies = {}
+        verifyassets.check(gw, self.f, doc, m, m.files)  # public files, as an anonymous visitor
         return m
 
     # --- 1. the site still works -------------------------------------------
@@ -222,6 +226,8 @@ class Run:
             except (ReachError, OSError, ValueError):
                 continue  # not reachable now: neither identical nor broken
             jar.keep(via.get("cookies"))
+            if session is None and direct.status == 200 and direct.content_type == "text/html":
+                m.files += verifyassets.names(direct.body, direct.url)
             m.compared += 1
             m.area += 1 if via.get("area") else 0
             diff, detail = compare(direct, via, self.hosts)

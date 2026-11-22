@@ -12,7 +12,7 @@ import copy
 import re
 import urllib.parse
 
-from . import mapbuild
+from . import mapbuild, verifyassets
 
 WIDE = {"type": "string", "max_length": 1000, "rules": ["no_html", "no_template_meta"]}
 INT = re.compile(r"^-?\d{1,9}$")
@@ -47,10 +47,10 @@ def _describe(spec) -> str:
 
 def widen(doc: dict, m) -> list:
     """Changes doc so the pages m found broken work again; the corrections."""
-    out, areas = [], {a.get("id") for a in doc.get("areas", [])}
+    out, areas = verifyassets.widen(doc, m), {a.get("id") for a in doc.get("areas", [])}
     for b in m.broken:
         eid = b.get("entry")
-        if not eid or eid in areas:
+        if not eid or eid in areas or eid.startswith("asset:"):
             continue  # served by the area: nothing in the map to widen
         kind, e = _find(doc, eid)
         if e is None:

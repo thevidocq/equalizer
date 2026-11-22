@@ -42,6 +42,40 @@ it, 0.1.0 (`docs/releases/0.1.0.md`, tag on the merge of #39).
 
 ## Entries
 
+### 2026-11-22 — Verification checks the files; no asset prefix over pages
+
+- **Branch:** feat/study-depth
+- **What:**
+  - agent `verifyassets.py` (new): verification opens every file the public
+    pages name (HTML, links, stylesheets; up to 200 files, 30 sheets) under
+    an asset prefix of the draft, directly and through the gateway (preview
+    `HEAD`), and reports refused ones as broken; the correction adds the type
+    the site sends (never a generic one) or `max_size_kb`, and removes an
+    asset prefix that refused a page (the area serves that folder).
+    `Gateway.preview` takes a method; `Measure` has `files`, `asset_fixes`,
+    `broken_files`; `correct.widen` calls `verifyassets.widen`.
+  - agent `mapbuild`: no new asset prefix over a folder holding pages, form
+    actions or script requests the study saw (the router tries asset
+    prefixes before the area, POSTs included: such a prefix refused pages).
+  - agent `crawler.ASSET_EXT`: documents (`.doc(x)`, `.xls(x)`, `.ppt(x)`,
+    `.od*`, `.rtf`, `.csv`, `.txt`, `.epub`), `.mjs`, `.webmanifest`,
+    `.wasm`; archives stay excluded (`rules.SENSITIVE`).
+  - agent `extract`: `<meta http-equiv="refresh">`, `<frame>` as links;
+    `<link rel="manifest">`, `<input type="image">` as files.
+  - Tests: agent `test_verify_assets.py` (files checked and mended, prefix
+    over a page removed, file the site lacks), `test_assets_study.py`
+    (documents, no prefix over pages); gateway `TestTryAssetHead`.
+  - Docs: `docs/agent.md` (step 1 Files/Links, step 4 Files), tenant manual
+    and in-app help (Verification).
+- **Why:** a draft blocking fonts or videos was measured identical (only
+  pages were compared); an asset prefix over a folder with pages refused
+  them and the correction could not mend it; linked documents under an
+  asset prefix were never added.
+- **Status:** agent unittests (50), gateway tests, `check:help` green.
+- **Next steps:**
+  1. Release 0.2.10.
+  2. Resume strict mode (`feat/strict-mode`).
+
 ### 2026-11-22 — Stability fixes on fonts, media and file discovery
 
 - **Branch:** fix/stability-review

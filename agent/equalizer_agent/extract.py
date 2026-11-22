@@ -104,8 +104,10 @@ class _Parser(HTMLParser):
             self.page.links.append(self._abs(a["href"]))
         elif tag == "link" and a.get("href"):
             rel = a.get("rel", "").lower()
-            (self.page.assets if "stylesheet" in rel or "icon" in rel or "preload" in rel else self.page.links).append(self._abs(a["href"]))
-        elif tag in ("img", "source", "video", "audio", "track", "embed", "object"):
+            files = ("stylesheet", "icon", "preload", "manifest")  # modulepreload, apple-touch-icon too
+            (self.page.assets if any(w in rel for w in files) else self.page.links).append(self._abs(a["href"]))
+        elif tag in ("img", "source", "video", "audio", "track", "embed", "object") or \
+                (tag == "input" and a.get("type", "").lower() == "image"):
             self._media(a)
         elif tag == "style":
             self.in_style = True
@@ -113,8 +115,12 @@ class _Parser(HTMLParser):
             self.in_script = True
             if a.get("src"):
                 self.page.scripts.append(self._abs(a["src"]))
-        elif tag == "iframe" and a.get("src"):
+        elif tag in ("iframe", "frame") and a.get("src"):
             self.page.links.append(self._abs(a["src"]))
+        elif tag == "meta" and a.get("http-equiv", "").lower() == "refresh":
+            m = re.search(r"url\s*=\s*['\"]?([^'\";]+)", a.get("content", ""), re.I)
+            if m:  # <meta http-equiv="refresh" content="0; url=/new/">
+                self.page.links.append(self._abs(m.group(1)))
         elif tag == "meta" and a.get("name", "").lower() == "generator":
             self.page.generator = a.get("content", "")[:100]
         elif tag == "title":

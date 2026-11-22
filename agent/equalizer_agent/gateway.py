@@ -37,10 +37,11 @@ class Gateway:
         except (urllib.error.URLError, OSError, ValueError) as e:
             raise TryError("the gateway is unreachable: %s" % e)
 
-    def preview(self, path: str, headers=None, session=None) -> dict:
+    def preview(self, path: str, headers=None, session=None, method: str = "GET") -> dict:
         """session: a test account's {"role", "legacy_cookies"}, to open a try
-        session on the gateway (its cookie comes back in cookies)."""
-        res = self._try("preview", "GET", path, headers, session=session)
+        session on the gateway (its cookie comes back in cookies). method
+        HEAD gives the verdict without the body (a file, a video)."""
+        res = self._try("preview", method, path, headers, session=session)
         if res.get("response"):
             res["response"]["body"] = base64.b64decode(res["response"].get("body") or "")
         return res

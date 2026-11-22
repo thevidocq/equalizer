@@ -250,7 +250,9 @@ Every draft a discovery proposes is **verified** by the agent on the
 gateway, with the discovery's test accounts for the pages behind their
 login (their passwords are kept encrypted until the verification ends),
 and **corrected**: where this version breaks a page the agent widens what
-was refused (or gives the page back to the site area), where an attack
+was refused (or gives the page back to the site area) — the files the
+pages load (fonts, images, videos, documents) are checked too, and get the
+type or size limit they need — where an attack
 gets through it narrows what the values it saw allow, and it verifies
 again; it keeps a change only if no page that worked breaks. The result is
 a new draft, "Corrected by the agent from version N", with the list of

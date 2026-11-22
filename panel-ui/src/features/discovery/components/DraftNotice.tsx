@@ -20,6 +20,15 @@ export function DraftNotice({ app, draft }: { app: string; draft: number }) {
     );
   }
   const verified = v.data?.status === "done";
+  if (v.isError) {
+    // a draft a person made from the report: the agent does not verify it
+    return (
+      <Notice tone="info">
+        Draft to review: <Link className="font-semibold text-signal hover:underline" to={`../maps/${draft}`}>version {draft}</Link>.
+        Review it and publish it.
+      </Notice>
+    );
+  }
   const link = <Link className="font-semibold text-signal hover:underline" to={`../maps/${shown}`}>version {shown}</Link>;
   return (
     <>

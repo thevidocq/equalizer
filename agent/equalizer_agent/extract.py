@@ -51,6 +51,29 @@ class Page:
 SCRIPT_URL = re.compile(r"""["'](/[A-Za-z0-9_\-./]{1,200}(?:\?[A-Za-z0-9_\-=&.%]{0,200})?)["']""")
 
 
+def srcset(value: str) -> list:
+    """The URLs of a srcset, as the HTML standard splits it: a URL runs to
+    the next whitespace and may contain commas (a CDN's "w_400,h_300"); a
+    candidate's descriptors run to the next comma."""
+    out, i, n = [], 0, len(value)
+    while i < n:
+        while i < n and (value[i].isspace() or value[i] == ","):
+            i += 1
+        j = i
+        while j < n and not value[j].isspace():
+            j += 1
+        url = value[i:j]
+        if url.endswith(","):
+            url = url.rstrip(",")
+        elif j < n:
+            k = value.find(",", j)
+            j = n if k < 0 else k + 1
+        if url:
+            out.append(url)
+        i = j
+    return out
+
+
 class _Parser(HTMLParser):
     def __init__(self, base: str):
         super().__init__(convert_charrefs=True)
@@ -67,9 +90,8 @@ class _Parser(HTMLParser):
             if a.get(k) and not a[k].startswith("data:"):
                 self.page.assets.append(self._abs(a[k]))
         for k in ("srcset", "data-srcset"):
-            for cand in a.get(k, "").split(","):
-                url = cand.strip().split(" ")[0]
-                if url and not url.startswith("data:"):
+            for url in srcset(a.get(k, "")):
+                if not url.startswith("data:"):
                     self.page.assets.append(self._abs(url))
 
     def handle_starttag(self, tag, attrs):

@@ -42,6 +42,36 @@ it, 0.1.0 (`docs/releases/0.1.0.md`, tag on the merge of #39).
 
 ## Entries
 
+### 2026-11-22 — Stability fixes on fonts, media and file discovery
+
+- **Branch:** fix/stability-review
+- **What:**
+  - gateway `checkAsset`: a font sent with no `Content-Type` or an
+    unreadable one is treated as generic (the signature decides) instead of
+    refused; AVIF/HEIF images pass the raster content check (`isRaster`,
+    net/http does not recognise them). Test `TestCheckAsset`.
+  - agent `extract.srcset`: candidates split as the HTML standard says, so a
+    CDN URL with commas (`w_400,h_300`) stays whole.
+  - agent `crawler`: new extensions (`.avif`, `.bmp`, `.mov`, `.flac`,
+    `.aac`, `.opus`); a file opened because the gateway refused it keeps the
+    type the site sends when it is an image/audio/video type of the
+    extension's family (`audio/x-wav`), so the gateway's check passes; its
+    `Content-Length` is recorded; `http.client.HTTPException` no longer
+    escapes `_known_file`.
+  - agent `mapbuild._fit_sizes`: an asset prefix whose files exceed the
+    gateway's default limit (10 MiB, 512 MiB for media) gets `max_size_kb`
+    = largest size + 10% (up to 4 GiB), reported in `assets_added`.
+  - Tests in `agent/tests/test_assets_study.py` (srcset, `audio/x-wav`,
+    30 MiB PDF). Docs: `docs/agent.md`, `docs/map-format.md`, tenant manual
+    and in-app help.
+- **Why:** review of #77–#81: fonts with no type, AVIF images, CDN srcsets,
+  sites sending non-canonical media types and files above the default size
+  would still have needed a hand edit or stayed blocked forever.
+- **Status:** gateway tests, agent unittests (47), `check:help` green.
+- **Next steps:**
+  1. Release 0.2.10.
+  2. Resume strict mode (`feat/strict-mode`).
+
 ### 2026-11-22 — CLAUDE.md: definition of done
 
 - **Branch:** chore/release-0.2.9

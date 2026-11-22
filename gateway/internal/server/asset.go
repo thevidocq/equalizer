@@ -144,16 +144,36 @@ func checkAsset(asset *mapmodel.Asset, contentType string, resp *legacyclient.Re
 	}
 	mediaType, _, err := mime.ParseMediaType(contentType)
 	if err != nil || !slices.Contains(asset.Types, mediaType) {
-		if font := fontsig.Resolve(strings.ToLower(mediaType), resp.Body, asset.Types); err == nil && font != "" {
+		// No type or an unreadable one counts as a generic type: the
+		// signature still decides.
+		declared := strings.ToLower(mediaType)
+		if err != nil {
+			declared = "application/octet-stream"
+		}
+		if font := fontsig.Resolve(declared, resp.Body, asset.Types); font != "" {
 			return font, ""
 		}
 		return "", "asset_type_not_allowed"
 	}
 	if strings.HasPrefix(mediaType, "image/") && mediaType != "image/svg+xml" && mediaType != "image/x-icon" &&
-		mediaType != "image/vnd.microsoft.icon" {
-		if !strings.HasPrefix(http.DetectContentType(resp.Body), "image/") {
-			return "", "asset_content_mismatch"
-		}
+		mediaType != "image/vnd.microsoft.icon" && !isRaster(resp.Body) {
+		return "", "asset_content_mismatch"
 	}
 	return "", ""
+}
+
+// isRaster reports whether a body is a raster image, AVIF and HEIF included
+// (net/http does not recognise them).
+func isRaster(body []byte) bool {
+	if strings.HasPrefix(http.DetectContentType(body), "image/") {
+		return true
+	}
+	if len(body) < 12 || string(body[4:8]) != "ftyp" {
+		return false
+	}
+	switch string(body[8:12]) {
+	case "avif", "avis", "heic", "heix", "hevc", "mif1", "msf1":
+		return true
+	}
+	return false
 }

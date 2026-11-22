@@ -28,7 +28,9 @@ STYLES = """@import url("fonts.css");
 FONTS = """@font-face{font-family:G;src:url('../fonts/g.woff2') format('woff2'),url("../fonts/g.woff") format('woff')}"""
 FILES = {"/site/templates/front/css/styles.css": (STYLES, "text/css"),
          "/site/templates/front/css/fonts.css": (FONTS, "text/css"),
-         "/site/templates/front/video/late.webm": ("\x1aE\xdf\xa3", "video/webm")}
+         "/site/templates/front/video/late.webm": ("\x1aE\xdf\xa3", "video/webm"),
+         "/site/templates/front/audio/jingle.wav": ("RIFF", "audio/x-wav"),
+         "/site/assets/files/9/manual.pdf": ("%PDF", "application/pdf")}
 
 
 class Site:
@@ -47,6 +49,10 @@ class Site:
                     status = 200
                 self.send_response(status)
                 self.send_header("Content-Type", ctype)
+                if p.endswith("manual.pdf"):
+                    self.send_header("Content-Length", str(30 << 20))  # announced, not sent
+                    self.end_headers()
+                    return
                 self.end_headers()
                 self.wfile.write(body.encode("latin-1"))
 
@@ -66,6 +72,13 @@ class CssTest(unittest.TestCase):
 
 
 class ExtractTest(unittest.TestCase):
+    def test_srcset(self):
+        self.assertEqual(extract.srcset("/a-400.jpg 400w, /a-800.jpg 800w"), ["/a-400.jpg", "/a-800.jpg"])
+        # a CDN URL with commas stays whole
+        self.assertEqual(extract.srcset("https://c.test/w_400,h_300/a.jpg 1x,https://c.test/w_800,h_600/a.jpg 2x"),
+                         ["https://c.test/w_400,h_300/a.jpg", "https://c.test/w_800,h_600/a.jpg"])
+        self.assertEqual(extract.srcset(" "), [])
+
     def test_every_file_a_page_names(self):
         got = {a.split("x.test", 1)[1] for a in extract.parse(HOME, "http://x.test/").assets}
         for p in ("/site/templates/front/img/hero.webp", "/site/templates/front/img/band.jpg",
@@ -84,6 +97,8 @@ class StudyTest(unittest.TestCase):
                     "base_url": "http://liquid.test", "max_pages": 20,
                     "reach": {"mode": "direct", "address": dest, "allow": [dest]}, "llm": None,
                     "unmapped": [{"method": "GET", "path": "/site/templates/front/video/late.webm", "clients": 1},
+                                 {"method": "GET", "path": "/site/templates/front/audio/jingle.wav", "clients": 1},
+                                 {"method": "GET", "path": "/site/assets/files/9/manual.pdf", "clients": 1},
                                  {"method": "GET", "path": "/site/templates/front/video/missing.ogv", "clients": 1}]}
 
     def tearDown(self):
@@ -99,8 +114,12 @@ class StudyTest(unittest.TestCase):
         for t in ("text/css", "font/woff", "font/woff2", "image/svg+xml", "image/webp", "image/jpeg",
                   "video/mp4", "video/webm"):
             self.assertIn(t, types)
+        self.assertIn("audio/x-wav", types)  # the type the site sends, which the gateway checks
+        self.assertNotIn("audio/wav", types)
         self.assertNotIn("video/ogg", types)  # the site does not serve it
-        self.assertIn("/site/assets/", {a["prefix"] for a in doc["assets"]})
+        files = next(a for a in doc["assets"] if a["prefix"] == "/site/assets/")
+        self.assertIn("application/pdf", files["types"])
+        self.assertEqual(files["max_size_kb"], -(-(30 << 20) * 11 // 10240))  # 30 MiB + 10%
 
 
 if __name__ == "__main__":

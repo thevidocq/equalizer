@@ -307,7 +307,7 @@ func (s *Server) verificationResult(w http.ResponseWriter, r *http.Request) {
 		if res.CorrectedVersion != nil {
 			ready = *res.CorrectedVersion
 		}
-		s.draftReady(r.Context(), a, ready, in.Score, res.Failure)
+		go s.draftReady(r.Context(), a, ready, in.Score, res.Failure) // the agent's call never waits for the mail server
 	}
 	w.WriteHeader(http.StatusNoContent)
 }

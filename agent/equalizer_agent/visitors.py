@@ -59,6 +59,10 @@ PRESENTATION = {
     "category": ["1"], "cat": ["1"], "tag": ["1"], "year": ["2020"], "month": ["1"], "brand": ["1"],
     "color": ["red"], "colour": ["red"], "size": ["m"], "min_price": ["10"], "max_price": ["10"],
 }
+# Choices a site offers the same everywhere, unlike a filter's.
+SITE_WIDE = {"orderby", "order", "order_by", "sort", "sortby", "sort_by", "dir", "direction", "per_page", "perpage",
+             "limit", "posts_per_page", "product_count", "view", "display", "layout", "mode", "lang", "language",
+             "locale", "hl", "currency"}
 _FILTER = re.compile(r"^(filter_[a-z0-9_]+|pa_[a-z0-9_]+|min_[a-z_]+|max_[a-z_]+)$")
 
 # A font's first bytes and the type the gateway knows it by (fontsig).
@@ -158,47 +162,59 @@ def _uses(r, key: str) -> bool:
 
 
 _PAGES = {"page", "paged", "pg"}
-_VALUE = re.compile(r"^[^\x00-\x1f<>{}\"'`\\]{1,100}$")
+# A value the map may take for a visitor's key: a plain token (price,
+# date-desc, en_US, red,blue), never spaces, quotes, brackets or SQL.
+_VALUE = re.compile(r"^[A-Za-z0-9_.,:-]{1,50}$")
 
 
-def _offered(bodies: list, crawl, key: str) -> list:
-    """The values the site itself offers for key: the options of its
-    <select name="key"> and the values of its links, in the pages read and
-    in the study's own pages."""
-    seen = []
-
-    def add(v: str):
-        v = html.unescape(v).strip()
-        if _VALUE.match(v) and v not in seen:
-            seen.append(v)
+def _offered_in(body: bytes, key: str, route: str, hosts) -> set:
+    """The values one page offers for key: the options of its <select
+    name="key"> and the values of its links to pages of the same route."""
+    text = body.decode("utf-8", "replace")
     k = re.escape(key)
-    for body in bodies:
-        text = body.decode("utf-8", "replace")
-        for sel in re.findall(r"<select[^>]*\bname=[\"']?%s[\"'\s>][^>]*>(.*?)</select>" % k, text, re.S | re.I):
-            for v in re.findall(r"<option[^>]*\bvalue=[\"']([^\"']*)[\"']", sel, re.I):
-                add(v)
-        for href in re.findall(r"href=[\"']([^\"']+)[\"']", text, re.I):
-            for kk, v in urllib.parse.parse_qsl(urllib.parse.urlsplit(html.unescape(href)).query):
-                if kk == key:
-                    add(v)
+    out = set()
+    for sel in re.findall(r"<select[^>]*\bname=[\"']?%s[\"'\s>][^>]*>(.*?)</select>" % k, text, re.S | re.I):
+        out |= {html.unescape(v).strip() for v in re.findall(r"<option[^>]*\bvalue=[\"']([^\"']*)[\"']", sel, re.I)}
+    for href in re.findall(r"href=[\"']([^\"']+)[\"']", text, re.I):
+        u = urllib.parse.urlsplit(html.unescape(href))
+        if (u.netloc and u.netloc.lower() not in hosts) or (u.path and not matches(route, u.path)):
+            continue  # another site, or another kind of page
+        out |= {v for kk, v in urllib.parse.parse_qsl(u.query) if kk == key}
+    return {v for v in out if _VALUE.match(v)}
+
+
+def _offered(pages: list, crawl, key: str, route: str, hosts=()) -> list:
+    """The values the site offers for key on the route, when it offers the
+    same ones on every page that offers any: a sort or a language, not a
+    filter whose choices change with the category (a value missing from the
+    map would refuse a real visitor's page). [] otherwise. pages: the bodies
+    read. One page is enough for a site-wide choice (SITE_WIDE: a sort, a
+    view, a language) or a route that is one page; a filter's choices must
+    be the same on two pages at least."""
+    sets = [x for x in (_offered_in(b, key, route, hosts) for b in pages) if x]
     for pq in crawl.pages:
-        for kk, v in urllib.parse.parse_qsl(pq.partition("?")[2]):
-            if kk == key:
-                add(v)
-    return seen[:MAX_VALUES]
+        path, _, q = pq.partition("?")
+        if matches(route, path):
+            vals = {v for kk, v in urllib.parse.parse_qsl(q) if kk == key and _VALUE.match(v)}
+            if vals and sets and not vals <= sets[0]:
+                return []  # the study saw a value the pages do not offer
+    if not sets or any(x != sets[0] for x in sets) or (len(sets) < 2 and "{" in route and key not in SITE_WIDE):
+        return []
+    return sorted(sets[0])[:MAX_VALUES] if len(sets[0]) <= MAX_VALUES else []
 
 
 def spec(key: str, offered: list):
     """The check for key, from what the site offers, never from visitors: a
     page number, a price bound, or one of the values offered. None when the
-    site offers nothing: a value would then be free text."""
-    if key in _PAGES:
+    site offers nothing it can be checked against."""
+    numbers = bool(offered) and all(v.isdigit() for v in offered)
+    if key in _PAGES and (not offered or numbers):
         return {"type": "int", "min": 1, "max": 100000, "required": False}
-    if key.startswith(("min_", "max_")):
-        return {"type": "int", "min": 0, "max": 1000000000, "required": False}
-    if not offered:
+    if key.startswith(("min_", "max_")):  # a price, a date: only whole numbers the site offers
+        return {"type": "int", "min": 0, "max": 1000000000, "required": False} if numbers else None
+    if not offered or key in _PAGES:
         return None
-    return {"type": "enum", "values": sorted(offered), "required": False}
+    return {"type": "enum", "values": list(offered), "required": False}
 
 
 def _probes(key: str, sp: dict) -> list:
@@ -264,7 +280,8 @@ def _key_changes(f, crawl, item: dict, cms=None):
             loaded.append((pq, f.get(pq)))
         except (ReachError, OSError, ValueError):
             continue
-    sp = spec(item["key"], _offered([r.body for _, r in loaded if _page_ok(r)], crawl, item["key"]))
+    sp = spec(item["key"], _offered([r.body for _, r in loaded if _page_ok(r)], crawl, item["key"], item["route"],
+                                    getattr(f, "hosts", ())))
     if sp is None:
         return "", None
     loaded.sort(key=lambda x: not _uses(x[1], item["key"]))
@@ -308,10 +325,10 @@ def apply(report: dict, doc: dict, unmapped: list, crawl, f, cms=None) -> None:
             tried += 1
             page, sp = _key_changes(f, crawl, item, cms)
             route = next((r for r in doc.get("routes", []) if r.get("id") == item["route_id"]), None)
-            if not page or route is None:
+            if not page or route is None or not route.get("legacy_request"):
                 continue
             route.setdefault("query", {})[item["key"]] = sp
-            route.setdefault("legacy_request", {}).setdefault("query", {})[item["key"]] = "{{query.%s}}" % item["key"]
+            route["legacy_request"].setdefault("query", {})[item["key"]] = "{{query.%s}}" % item["key"]
             what = "a page number" if item["key"] in _PAGES else "a number" if sp["type"] == "int" else \
                 "one of the values the site offers (%s)" % ", ".join(sp["values"][:8])
             added.append({"kind": "key", "route": item["route"], "route_id": item["route_id"], "key": item["key"],

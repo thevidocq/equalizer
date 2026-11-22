@@ -19,7 +19,8 @@ Add a section at the top of "Entries" for every commit:
 
 ## Current project status
 
-Latest release: **0.2.11** (`docs/releases/0.2.11.md`); before it 0.2.10
+Latest release: **0.2.12** (`docs/releases/0.2.12.md`); before it 0.2.11
+(`docs/releases/0.2.11.md`), 0.2.10
 (`docs/releases/0.2.10.md`), 0.2.9
 (`docs/releases/0.2.9.md`), 0.2.8
 (`docs/releases/0.2.8.md`), 0.2.7
@@ -43,6 +44,25 @@ it, 0.1.0 (`docs/releases/0.1.0.md`, tag on the merge of #39).
 | tools (eqtool) | Map signing keys, form key, relay token, connector registration, map signing |
 
 ## Entries
+
+### 2026-11-22 — Review of visitors into the draft
+
+- **Branch:** feat/visitors-into-draft
+- **What:** the draft email is sent in the background and only when the
+  platform sends mail; SMTP connections get a deadline; Activity records
+  only the addresses actually emailed; names on one line in the subject.
+  Agent: a key's values must be the same on every page that offers them
+  (a filter on two pages at least, a site-wide choice such as a sort or a
+  language on one), include every value the study saw for that route, be
+  plain tokens from same-site links of the route; bounds and page numbers
+  are integers only when the site offers whole numbers; a route without a
+  legacy request is skipped. Tests for the corrected draft, a person's
+  verification and a platform without mail. Docs follow.
+- **Why:** independent review: an SMTP server could hold the agent's call;
+  an `enum` narrower than the site's real choices would refuse real
+  visitors' pages; a comment's link could have offered a value with SQL.
+- **Status:** agent, panel-api tests pass.
+- **Next steps:** release 0.2.12.
 
 ### 2026-11-22 — Visitors' requests into the draft; draft-ready email
 

@@ -14,7 +14,10 @@ import (
 // waits to be published: once the agent's verification (and correction)
 // is over, and only while the version is still a draft.
 func (s *Server) draftReady(ctx context.Context, a store.App, version int, score json.RawMessage, failure *string) {
-	ctx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 30*time.Second)
+	if !s.MailAvailable {
+		return
+	}
+	ctx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 2*time.Minute)
 	defer cancel()
 	v, err := s.Store.Version(ctx, a.ID, version)
 	if err != nil || v.Status != "draft" {
@@ -75,7 +78,7 @@ func draftLines(raw json.RawMessage) []string {
 // measure is the agent's check of the draft, in words.
 func measure(score json.RawMessage, failure *string) string {
 	if failure != nil {
-		return "it could not finish (" + *failure + "): look at the draft before publishing"
+		return "it reported a problem (" + *failure + "): look at the draft before publishing"
 	}
 	var sc struct {
 		Total     int `json:"functions_total"`

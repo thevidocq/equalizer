@@ -243,9 +243,10 @@ checking it on the site:
 - a **page option** goes in when at least two different visitors used it,
   it changes how a page presents its content (a sort, an order, a page
   number, a view, a language, a shop filter), the site itself offers its
-  values (the choices of its menus and links), and the page really shows
-  something else with it. It goes in with **only those values**, or as a
-  number for page numbers and prices: any other value, an attack
+  values (the choices of its menus and links, the same on every page that
+  offers them), and the page really shows something else with it. It goes
+  in with **only those values**, or as a whole number for page numbers and
+  for prices the site offers as whole numbers: any other value, an attack
   included, is refused. An option the site ignores (`?test=1`), one that
   only redirects or errors, one whose values the site does not offer, and
   any other kind of key (which could make the site do something, such as

@@ -172,7 +172,8 @@ class KeysTest(unittest.TestCase):
             self.assertNotIn(never, opened)
 
     def test_numbers_for_page_numbers_and_prices(self):
-        site = FakeSite({"/shop/": page("Page one items"), "/shop/?paged=2": page("Page two items"),
+        prices = '<a href="/shop/?min_price=10">10</a><a href="/shop/?min_price=50">50</a>'
+        site = FakeSite({"/shop/": page(prices + " Page one items"), "/shop/?paged=2": page("Page two items"),
                          "/shop/?min_price=10": page("Cheap items")})
         report, d = run([get("/shop/?paged=", 3), get("/shop/?min_price=", 3)], site)
         shop = next(r for r in d["routes"] if r["id"] == "shop")
@@ -238,8 +239,29 @@ class KeysTest(unittest.TestCase):
     def test_offered_values_are_plain(self):
         body = ('<select name="orderby"><option value="price">a</option><option value="x&quot;&gt;">b</option>'
                 '</select><a href="/shop/?orderby=date&amp;x=1">d</a><a href="/shop/?orderby={{7*7}}">t</a>').encode()
-        self.assertEqual(visitors._offered([body], crawler.CrawlResult(), "orderby"), ["price", "date"])
+        self.assertEqual(visitors._offered([body], crawler.CrawlResult(), "orderby", "/shop/"), ["date", "price"])
         self.assertIsNone(visitors.spec("view", []))
+        # a value with spaces or SQL is never one the map may take, even from the site's own links
+        sql = b'<a href="/shop/?orderby=price) OR SLEEP(5)#">x</a><a href="https://evil.test/shop/?orderby=evil">y</a>'
+        self.assertEqual(visitors._offered([sql], crawler.CrawlResult(), "orderby", "/shop/"), [])
+
+    def test_a_filter_must_offer_the_same_choices_everywhere(self):
+        a = b'<select name="filter_color"><option value="red">r</option><option value="blue">b</option></select>'
+        b = b'<select name="filter_color"><option value="green">g</option></select>'
+        c = crawler.CrawlResult()
+        self.assertEqual(visitors._offered([a, b], c, "filter_color", "/category/{slug}/"), [])
+        self.assertEqual(visitors._offered([a], c, "filter_color", "/category/{slug}/"), [])  # one page tells nothing
+        self.assertEqual(visitors._offered([a, a], c, "filter_color", "/category/{slug}/"), ["blue", "red"])
+        self.assertEqual(visitors._offered([a], c, "filter_color", "/shop/"), ["blue", "red"])  # a route that is one page
+        c.pages["/category/x/?filter_color=pink"] = crawler.Seen(200, "text/html")
+        self.assertEqual(visitors._offered([a, a], c, "filter_color", "/category/{slug}/"), [])  # seen, not offered
+
+    def test_numbers_only_when_the_site_offers_numbers(self):
+        self.assertIsNone(visitors.spec("min_price", []))
+        self.assertIsNone(visitors.spec("min_date", ["2020-01-01"]))
+        self.assertEqual(visitors.spec("min_price", ["10", "20"])["type"], "int")
+        self.assertIsNone(visitors.spec("page", ["contact", "about"]))
+        self.assertEqual(visitors.spec("paged", [])["type"], "int")
 
 
 if __name__ == "__main__":

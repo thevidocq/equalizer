@@ -167,14 +167,24 @@ it out first. Nothing else from visitors reaches the draft or the report.
   page shows other content with one of them**.
   - **Values come from the site, never from visitors** (the gateway does
     not even send them). A page number (`page`, `paged`, `pg`) is an
-    integer from 1 to 100000; a price bound (`min_*`, `max_*`) an integer
-    from 0; any other key an `enum` of the values the site itself offers:
-    the options of its `<select name="key">` and the values of its links,
-    in the route's pages and in the study's own pages (at most 50, plain
-    text: no markup, quotes or template code). The gateway refuses any
-    other value, an attack included (`?orderby=1 AND SLEEP(5)`). When the
-    site offers no values the key is not added: a value would then be free
-    text.
+    integer from 1 to 100000, unless the site offers other values for it
+    (`?page=contact`: then it is not added). A bound (`min_*`, `max_*`) is
+    an integer from 0 only when the site offers whole numbers for it (a
+    decimal price or a date: not added). Any other key is an `enum` of the
+    values the site itself offers: the options of its `<select
+    name="key">` and the values of its links to pages of the same route,
+    on the site's own host (at most 50, each a plain token
+    `[A-Za-z0-9_.,:-]`, so no spaces, quotes, brackets or SQL even in a
+    link a comment wrote). The choices must be **the same on every page**
+    read that offers them, and must include every value the study saw in
+    the site's links for that route: a value missing from the map would
+    refuse a real visitor's page (the gateway refuses a value outside the
+    `enum`, an attack included: `?orderby=1 AND SLEEP(5)`). A site-wide
+    choice (`visitors.SITE_WIDE`: a sort, a view, a language, a currency)
+    may come from one page; a filter's choices (`filter_*`, a colour, a
+    category) change with the page, so they must be the same on two pages
+    at least, unless the route is one page. When the site offers no values
+    the key is not added: a value would then be free text.
   - **The page must change.** A pattern such as `/{slug}/` covers the shop
     and the cart alike, so the agent reads up to 6 studied pages of the
     route and tries the key on up to 3, those that offer it themselves

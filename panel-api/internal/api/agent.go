@@ -181,6 +181,11 @@ func (s *Server) discoveryResult(w http.ResponseWriter, r *http.Request) {
 		_, _ = s.Store.QueueVerification(r.Context(), a.ID, *draft, nil, opts)
 	}
 	if err := s.Store.FinishDiscovery(r.Context(), id, in.Report, draft, fp); err != nil {
+		if draft != nil {
+			// the discovery ended otherwise meanwhile: its draft is nobody's,
+			// so no correction is made on it
+			_ = s.Store.RetireDraft(r.Context(), a.ID, *draft)
+		}
 		s.storeError(w, r, err)
 		return
 	}

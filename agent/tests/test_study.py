@@ -345,3 +345,26 @@ class FormQueryTest(unittest.TestCase):
         e, why = mapbuild._form_entry(form, "guest", set(), [])
         self.assertEqual(why, "")
         self.assertEqual(e["legacy_request"]["query"], {"mode": "login", "sid": "{{hidden.sid}}"})
+
+
+class AssetTypesTest(unittest.TestCase):
+    def test_existing_prefix_gets_the_types_the_site_serves(self):
+        """A video under a prefix already in the map (that listed only images)
+        widens that prefix in the next discovery: nobody edits types by hand."""
+        from equalizer_agent import crawler, fingerprint, mapbuild
+        crawl = crawler.CrawlResult()
+        crawl.pages["/"] = crawler.Seen(200, "text/html")
+        crawl.assets["/site/templates/front/metaliquid/video/homepage-video.mp4"] = "video/mp4"
+        crawl.assets["/site/templates/front/metaliquid/logo.png"] = "image/png"
+        crawl.assets["/new/files/a.css"] = "text/css"
+        current = {"meta": {"version": 2}, "legacy": {}, "roles": {"anonymous": "guest"},
+                   "routes": [{"id": "home", "path": "/", "method": "GET"}],
+                   "assets": [{"prefix": "/site/templates/", "types": ["image/png", "font/woff"]}]}
+        job = {"base_url": "http://x.test", "reach": {"mode": "direct", "address": "127.0.0.1:1"},
+               "unmapped": [], "current_map": current}
+        doc, rep, _ = mapbuild.build(job, crawl, fingerprint.Fingerprint())
+        tpl = next(a for a in doc["assets"] if a["prefix"] == "/site/templates/")
+        self.assertEqual(tpl["types"], ["image/png", "font/woff", "video/mp4"])
+        self.assertIn({"prefix": "/site/templates/", "types": ["video/mp4"], "widened": True}, rep["assets_added"])
+        self.assertIn({"prefix": "/new/files/", "types": ["text/css"]}, rep["assets_added"])
+        self.assertEqual(current["assets"][0]["types"], ["image/png", "font/woff"])  # the job's map is untouched

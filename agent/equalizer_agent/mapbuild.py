@@ -140,6 +140,22 @@ def _form_entry(form, anon: str, taken: set, still_open: list):
     return e, ""
 
 
+def _widen_assets(doc: dict, assets: dict) -> list:
+    """Adds to the asset prefixes already in the map the types of the files
+    the site serves under them (a video under /site/templates/ when the
+    prefix only listed images): the customer never edits types by hand.
+    Returns [{"prefix", "types": the added ones, "widened": True}]."""
+    added = {}
+    entries = sorted(doc.get("assets", []), key=lambda a: len(a.get("prefix", "")), reverse=True)
+    for path, ctype in sorted(assets.items()):
+        a = next((a for a in entries if path.startswith(a.get("prefix", "\0"))), None)
+        if a is None or ctype in a.get("types", []):
+            continue
+        a.setdefault("types", []).append(ctype)
+        added.setdefault(a["prefix"], []).append(ctype)
+    return [{"prefix": p, "types": t, "widened": True} for p, t in sorted(added.items())]
+
+
 def build(job: dict, crawl, fp) -> tuple:
     """Returns (document, report, samples): samples are the query values
     seen per (route id, key), to check what the AI suggests."""
@@ -195,8 +211,8 @@ def build(job: dict, crawl, fp) -> tuple:
             continue
         doc.setdefault("forms", []).append(e)
         added_forms.append({"id": e["id"], "route": e["route"], "fields": sorted(e["fields"])})
+    added_assets = _widen_assets(doc, crawl.assets)
     have_assets = [a.get("prefix", "") for a in doc.get("assets", [])]
-    added_assets = []
     for prefix, types in cluster.asset_prefixes(crawl.assets).items():
         if any(prefix.startswith(h) for h in have_assets):
             continue

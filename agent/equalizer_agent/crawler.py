@@ -14,7 +14,9 @@ from .login import LoginMixin, path_query
 ASSET_EXT = {".css": "text/css", ".js": "application/javascript", ".png": "image/png", ".jpg": "image/jpeg",
              ".jpeg": "image/jpeg", ".gif": "image/gif", ".svg": "image/svg+xml", ".webp": "image/webp",
              ".ico": "image/x-icon", ".woff": "font/woff", ".woff2": "font/woff2", ".ttf": "font/ttf",
-             ".pdf": "application/pdf", ".mp4": "video/mp4"}
+             ".otf": "font/otf", ".pdf": "application/pdf", ".mp4": "video/mp4", ".m4v": "video/mp4",
+             ".webm": "video/webm", ".ogv": "video/ogg", ".mp3": "audio/mpeg", ".m4a": "audio/mp4",
+             ".ogg": "audio/ogg", ".wav": "audio/wav"}
 PER_SHAPE = 20  # a calendar or a search must not eat the whole budget
 MAX_SCRIPTS = 30
 BROWSER_PAGES = 40  # pages opened in the browser per pass

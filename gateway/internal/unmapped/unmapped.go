@@ -2,14 +2,16 @@
 // the map and sends the counts to the panel once a minute. Discovery uses
 // them to find what real visitors miss. Only the path is kept (never the
 // query). Client addresses are never sent: each becomes a short key, an HMAC
-// with the gateway's token, so that the panel counts distinct visitors (one
-// visitor coming back is still one) without ever holding an address.
+// with a secret only the gateway holds (Key: the form key, never shared
+// with the panel), so that the panel counts distinct visitors (one visitor
+// coming back is still one) and cannot turn a key back into an address.
 package unmapped
 
 import (
 	"bytes"
 	"context"
 	"crypto/hmac"
+	"crypto/rand"
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
@@ -41,10 +43,14 @@ type entry struct {
 // Reporter collects and sends counts. A nil Reporter does nothing.
 type Reporter struct {
 	URL, Token string
-	Client     *http.Client
-	Log        *slog.Logger
-	mu         sync.Mutex
-	entries    map[key]*entry
+	// Key is the gateway's own secret for visitor keys; nil: a random one
+	// per process (a visitor is then counted again after a restart).
+	Key     []byte
+	Client  *http.Client
+	keyOnce sync.Once
+	Log     *slog.Logger
+	mu      sync.Mutex
+	entries map[key]*entry
 }
 
 // Record counts one refused request.
@@ -87,8 +93,14 @@ type item struct {
 // visitor is the key of a client address: keyed, so that it cannot be
 // turned back into the address by trying them all.
 func (r *Reporter) visitor(clientIP string) [8]byte {
-	m := hmac.New(sha256.New, []byte("equalizer-visitor\x00"+r.Token))
-	m.Write([]byte(clientIP))
+	r.keyOnce.Do(func() {
+		if len(r.Key) == 0 {
+			r.Key = make([]byte, 32)
+			_, _ = rand.Read(r.Key)
+		}
+	})
+	m := hmac.New(sha256.New, r.Key)
+	m.Write([]byte("equalizer-visitor\x00" + clientIP)) // apart from the key's other use (form tokens)
 	var h [8]byte
 	copy(h[:], m.Sum(nil))
 	return h

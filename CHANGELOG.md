@@ -43,6 +43,34 @@ it, 0.1.0 (`docs/releases/0.1.0.md`, tag on the merge of #39).
 
 ## Entries
 
+### 2026-11-22 — Fix the review of visitor requests
+
+- **Branch:** feat/visitor-requests-actionable
+- **What:**
+  - agent `visitors.py`: a query key is tried only if it is a presentation
+    key (`PRESENTATION`: sort, order, page, view, language, search, shop
+    filters…), never `rules.excluded` or action-like URLs; only a 200 HTML
+    page with other text counts as a change (a redirect or an error does
+    not: `?author=1`); a stable page counts any other word, a noisy one must
+    move beyond twice its noise; typical values tried (`orderby=price`).
+    A file is opened with HEAD, then GET when HEAD is not answered with it
+    or for a font (judged by its first bytes); the click adds the type the
+    site sends; budgets count only what is opened.
+  - gateway `unmapped`: visitor keys use a secret only the gateway holds
+    (its form key, never shared with the panel), not the panel token.
+  - panel-api: migration 0025 caps old summed counts at one visitor;
+    `adopt` refuses report items with a `verdict` (agents before 0.2.11).
+  - panel-ui: items with a `verdict` are not shown.
+  - docs: `docs/agent.md`, `docs/manual/tenant.md` and help,
+    `docs/architecture.md`, `INSTALL.md`.
+- **Why:** an independent review found that `?author=1` (a redirect) would
+  be offered, that a GET key could act on the site (`?add-to-cart=`), that
+  the button added the type of the extension instead of the one the gateway
+  compares, that fonts never passed, and that the panel could recompute the
+  visitor keys.
+- **Status:** gateway, panel-api and agent tests pass; panel-ui checks in CI.
+- **Next steps:** release 0.2.11.
+
 ### 2026-11-22 — Visitor requests only as actions, checked on the site
 
 - **Branch:** feat/visitor-requests-actionable

@@ -238,16 +238,23 @@ a new draft**. The agent first checks it:
 - a **file** is shown when at least two different visitors asked for it,
   it is of a harmless type (image, font, audio, video, stylesheet, PDF or
   office document) in a folder the map already serves, and the agent finds
-  it on the site, of that type. Files the site's own pages use are not
-  shown: the agent handles them itself.
-- a **page option** is shown when at least two different visitors used it
-  and the page really changes with it: the agent opens the page with and
-  without it. An option the site ignores (`?test=1`) is not shown.
+  it on the site, of that type. The button adds the type the site really
+  sends for it. Files the site's own pages use are not shown: the agent
+  handles them itself.
+- a **page option** is shown when at least two different visitors used it,
+  it is an option that changes how a page presents its content (a sort, an
+  order, a page number, a view, a language, a search, a shop filter), and
+  the page really shows something else with it: the agent opens the page
+  with and without it. An option the site ignores (`?test=1`), one that
+  only redirects or errors, and any other kind of key (which could make the
+  site do something, such as adding to a cart) are not shown — and the
+  agent never opens the latter.
 
 Scanners, a single visitor, files that do not exist, scripts and options
 that change nothing never appear (they stay in the logs). One visitor
 coming back many times still counts as one: Equalizer counts visitors by a
-key made from their address, never storing the address itself. **Add to a
+key made from their address with a secret only the gateway knows, never
+storing the address itself. **Add to a
 new draft** makes the change in one click, in a new draft you review and
 publish as any other; the change is the one the report proposes, nothing
 else. Adding a file type serves every file of that type in that folder.

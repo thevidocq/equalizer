@@ -105,8 +105,9 @@ reads), fingerprint (CMS, version, components), deterministic routes and
 types, IDOR protection for JSON APIs, then an optional AI review with the
 tenant's own model that can only rename, exclude or narrow. The draft always
 keeps the `/` area, so the whole site, admin included, is served. The gateway reports the paths it refused, so discovery
-also sees what real visitors miss; it counts distinct visitors by a keyed
-hash of their address (never the address), and the report lists a
+also sees what real visitors miss; it counts distinct visitors by a hash of
+their address keyed with a secret only the gateway holds (never the
+address), and the report lists a
 visitor's request only once the agent has checked it on the site and a
 person can add it in one click ([agent.md](agent.md#visitor-requests)). Continuous discovery (daily or weekly)
 proposes a draft only when something changed. Every proposal goes through

@@ -108,7 +108,7 @@ does not pass the legacy site's own HTTP login (Basic, Bearer).
 ```bash
 # from deploy/compose
 docker compose --profile tools run --rm eqtool keygen  -out secrets/map-signing.key   # panel signs, gateway verifies
-docker compose --profile tools run --rm eqtool formkey -out secrets/form.key          # gateway forms and sessions
+docker compose --profile tools run --rm eqtool formkey -out secrets/form.key          # gateway forms, sessions and visitor keys
 docker compose --profile tools run --rm eqtool secret  -out secrets/relay.token       # gateway → relay
 docker compose --profile tools run --rm eqtool secret  -out secrets/panel-internal.token  # gateway and relay → panel
 docker compose --profile tools run --rm eqtool secret  -out secrets/postgres.password

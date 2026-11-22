@@ -1276,8 +1276,8 @@ paths:
                         type: array
                         maxItems: 16
                         description: >-
-                          Visitor keys (an HMAC of the address with the gateway's token, 8 bytes in hex) so that
-                          the panel counts distinct visitors across reports; never an address
+                          Visitor keys (an HMAC of the address with a secret only the gateway holds, 8 bytes in hex)
+                          so that the panel counts distinct visitors across reports; never an address
                         items: { type: string, pattern: "^[0-9a-f]{16}$" }
       responses:
         "204": { description: Saved }

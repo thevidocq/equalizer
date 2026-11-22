@@ -2823,7 +2823,7 @@ export interface paths {
                             hits: number;
                             /** @description Distinct client addresses in this report (counted, never sent) */
                             clients: number;
-                            /** @description Visitor keys (an HMAC of the address with the gateway's token, 8 bytes in hex) so that the panel counts distinct visitors across reports; never an address */
+                            /** @description Visitor keys (an HMAC of the address with a secret only the gateway holds, 8 bytes in hex) so that the panel counts distinct visitors across reports; never an address */
                             client_keys?: string[];
                         }[];
                     };

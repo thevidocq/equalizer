@@ -108,7 +108,7 @@ func run() error {
 
 	var reporter *unmapped.Reporter
 	if cfg.UnmappedURL != "" {
-		reporter = &unmapped.Reporter{URL: cfg.UnmappedURL, Token: cfg.MapToken, Client: &http.Client{Timeout: 10 * time.Second},
+		reporter = &unmapped.Reporter{URL: cfg.UnmappedURL, Token: cfg.MapToken, Key: formKey, Client: &http.Client{Timeout: 10 * time.Second},
 			Log: log.With(slog.String("module", "unmapped"))}
 		go reporter.Run(ctx, time.Minute)
 	}

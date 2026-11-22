@@ -117,9 +117,12 @@ The gateway reports what it refused visitors: paths not in the map, files
 an asset prefix refused, query keys a route dropped (the route's pattern
 and the key's name, never a value). Each report counts **distinct
 visitors**: the gateway turns each client address into a short key (an
-HMAC of the address with the gateway's token, 8 bytes) and sends up to 16
-keys per path, never an address; the panel keeps up to 16 keys per path,
-so one visitor coming back every minute is still one visitor. The job
+HMAC of the address with a secret only the gateway holds, derived from its
+form key, 8 bytes) and sends up to 16 keys per path, never an address; the
+panel, which does not know that secret, cannot turn a key back into an
+address. It keeps up to 16 keys per path, so one visitor coming back every
+minute is still one visitor. Counts recorded before 0.2.11 summed every
+gateway batch: they count as one visitor until new keys arrive. The job
 carries the 200 refused paths with the most visitors (last 30 days).
 
 A visitor's request is never evidence: anyone can ask for any address, and
@@ -136,24 +139,39 @@ and the report lists one **only when there is something to do about it**
   prefix does not list it yet; no page of the site names it (a file the
   site's own pages use is the agent's job: it is studied, checked through
   the gateway and mended by the verification, never left to a person); and
-  the agent, opening it anonymously on the site (HEAD, then GET when the
-  server has no HEAD), gets a 200 **of that type**. A scanner's guess does
-  not exist (404) or is a script, a page or a configuration file: none of
-  them passes. Names that are actions or sensitive files (`rules.py`) are
-  never opened. Up to 20 files are opened per discovery.
+  the agent, opening it anonymously on the site, gets a 200 **of that
+  kind** (HEAD; the file itself when HEAD is not answered with it, such as
+  405 or a firewall's 403; a font always, judged by its first bytes as the
+  gateway does, since servers send fonts as `application/octet-stream`).
+  The click adds **the type the site sends** (`image/vnd.microsoft.icon`
+  for a `.ico`, `audio/x-wav` for a `.wav`), since that is what the
+  gateway compares; a type the prefix already lists is not offered (the
+  file is then refused for its size or content, and adding changes
+  nothing). A scanner's guess does not exist (404) or is a script, a page
+  or a configuration file: none of them passes. Names that are actions or
+  sensitive files (`rules.py`) are never opened. Up to 20 files are opened
+  per discovery.
 - **A query key** (`query_dropped`) is listed when: at least **2 distinct
   visitors** used it on a GET route whose legacy request is a GET; the map
   can take it there (a name, not a path parameter, not declared, not a key
-  the site already gets under that name); and **the page changes with it**.
-  The agent loads a studied page of the route twice (to measure its own
-  noise: dates, counters, tokens) and once with the key, with a value the
-  site's links give it or `1`; the key is listed when the page with it is
-  further from the page than two loads are from each other (a different
-  status, another redirect, or the visible text changing beyond
-  `TEXT_SIMILAR`). A key the site ignores (`?test=1`) changes nothing and
-  is left out; a page that changes on every load tells nothing and its
-  keys are left out. Action-like URLs are never opened. Up to 10 keys are
-  tried per discovery (three page loads each).
+  the site already gets under that name); it is a **presentation key**
+  (`visitors.PRESENTATION`: a sort, an order, a page number, a page size, a
+  view, a language, a currency, a search, a category or a shop filter such
+  as `filter_*`, `pa_*`, `min_price`), because the agent opens the page with
+  it and a GET can act (`?add-to-cart=`, `?doing_wp_cron=`): any other key
+  is never opened nor listed; and **the page shows other content with
+  it**. The agent loads a studied page of the route twice (its own noise:
+  dates, counters, rotating posts) and then with the key, with the values
+  the site's links give it or typical ones (`orderby=price`, `paged=2`).
+  Every answer must be the page itself (200, HTML): a redirect or an error
+  is not a page option (`?author=1` redirects to the author's page, a
+  firewall answers 403). On a page that is the same on both loads any
+  other word is a change (a sort only reorders); on a noisy page the text
+  must move well beyond what two loads differ by (twice that, and at least
+  `1 - TEXT_SIMILAR`). A key the site ignores (`?test=1`) changes nothing
+  and is left out; a page that changes on every load tells nothing.
+  Action-like and excluded URLs (`rules.py`) are never opened. Up to 10
+  keys are tried per discovery (two to four page loads each).
 
 Everything else — a single visitor, scanners, files that are not there,
 types that are not passive, scripts, keys that change nothing — stays out
@@ -167,7 +185,9 @@ panel takes the change from the report, never from the request, onto the
 discovery's draft or the published map, into a new draft to review and
 publish. A file adds its type to the asset prefix (every file of that type
 under it is then served); a key is added to the route as text without
-markup. The buttons wait until the agent has checked its draft.
+markup. The buttons wait until the agent has checked its draft. Reports of
+agents before 0.2.11 listed requests unchecked, each with a `verdict`: the
+panel shows none of those items and refuses to add them.
 
 ### 2. Understand
 

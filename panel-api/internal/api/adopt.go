@@ -23,18 +23,22 @@ type adoptIn struct {
 }
 
 // adoptReport is the part of a discovery report the person can adopt.
+// A report item with a verdict comes from an agent before 0.2.11, which
+// listed visitors' requests without checking them on the site: never added.
 type adoptReport struct {
 	Files []struct {
-		Path string `json:"path"`
-		Add  *struct {
+		Path    string  `json:"path"`
+		Verdict *string `json:"verdict"`
+		Add     *struct {
 			Prefix string `json:"prefix"`
 			Type   string `json:"type"`
 		} `json:"add"`
 	} `json:"files_refused"`
 	Keys []struct {
-		Route string `json:"route"`
-		Key   string `json:"key"`
-		Add   *struct {
+		Route   string  `json:"route"`
+		Key     string  `json:"key"`
+		Verdict *string `json:"verdict"`
+		Add     *struct {
 			RouteID string `json:"route_id"`
 			Key     string `json:"key"`
 		} `json:"add"`
@@ -180,7 +184,7 @@ func adoptApply(doc map[string]any, rep adoptReport, in adoptIn) (string, bool, 
 	switch in.Kind {
 	case "file":
 		for _, f := range rep.Files {
-			if f.Path != in.Path || f.Add == nil {
+			if f.Path != in.Path || f.Add == nil || f.Verdict != nil {
 				continue
 			}
 			assets, _ := doc["assets"].([]any)
@@ -200,7 +204,7 @@ func adoptApply(doc map[string]any, rep adoptReport, in adoptIn) (string, bool, 
 		}
 	case "key":
 		for _, k := range rep.Keys {
-			if k.Route != in.Route || k.Key != in.Key || k.Add == nil || !adoptName.MatchString(k.Add.Key) {
+			if k.Route != in.Route || k.Key != in.Key || k.Add == nil || k.Verdict != nil || !adoptName.MatchString(k.Add.Key) {
 				continue
 			}
 			routes, _ := doc["routes"].([]any)

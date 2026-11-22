@@ -59,8 +59,8 @@ func itoa(i int) string {
 }
 
 // A visitor is sent as a keyed hash: the same address gives the same key
-// across flushes (so the panel counts it once), never the address, and
-// another token gives another key.
+// across flushes (so the panel counts it once), never the address, and the
+// key comes from the gateway's own secret, not from the token it shares.
 func TestVisitorKeys(t *testing.T) {
 	var sent []item
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -70,7 +70,7 @@ func TestVisitorKeys(t *testing.T) {
 		w.WriteHeader(http.StatusNoContent)
 	}))
 	defer srv.Close()
-	r := &Reporter{URL: srv.URL, Token: "tok", Client: srv.Client()}
+	r := &Reporter{URL: srv.URL, Token: "tok", Key: []byte("gateway-only-secret"), Client: srv.Client()}
 	r.Record("blog", "GET", "/a.pdf", "203.0.113.7")
 	_ = r.Flush(context.Background())
 	r.Record("blog", "GET", "/a.pdf", "203.0.113.7")
@@ -81,9 +81,14 @@ func TestVisitorKeys(t *testing.T) {
 	if k := sent[0].ClientKeys[0]; len(k) != 16 || strings.Contains(k, "203") {
 		t.Errorf("key %q", k)
 	}
-	other := &Reporter{Token: "other"}
-	if a, b := r.visitor("203.0.113.7"), other.visitor("203.0.113.7"); a == b {
-		t.Error("the key does not depend on the token")
+	// the panel's token alone cannot recompute a key: the secret is the gateway's
+	sameToken := &Reporter{Token: "tok", Key: []byte("another-secret")}
+	if a, b := r.visitor("203.0.113.7"), sameToken.visitor("203.0.113.7"); a == b {
+		t.Error("the key depends on the token, not on the gateway's secret")
+	}
+	random := &Reporter{Token: "tok"}
+	if a, b := r.visitor("203.0.113.7"), random.visitor("203.0.113.7"); a == b || random.visitor("203.0.113.7") != b {
+		t.Error("without a key: a random one, stable in the process")
 	}
 	for i := 0; i < 40; i++ {
 		r.Record("blog", "GET", "/b.pdf", "198.51.100."+itoa(i))

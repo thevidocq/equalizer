@@ -20,7 +20,7 @@ def seeds(job: dict, cms: str | None) -> list:
         p = u.get("path", "")
         # What visitors asked for is a page to look at, never evidence: a file
         # or a query key they name is not crawled (it would let anyone widen
-        # the map); visitors.confirm checks it for the person instead.
+        # the map); visitors.apply checks it on the site instead.
         if "?" in p or crawler.Crawler._static(p) or _secret_like(p):
             continue
         if u.get("method") == "GET" and u.get("clients", 0) >= 2 and p.startswith("/") and not rules.excluded(p, cms):
@@ -104,8 +104,8 @@ def run(job: dict, cfg, panel, log) -> None:
         report["coverage_note"] = "after AI review"
     elif "ai" not in report:
         report["ai"] = {"used": False, "reason": "no AI model configured for this tenant" if not job.get("llm") else "off"}
-    try:  # after the AI review: the route ids a click names are those of the final draft
-        visitors.confirm(report, doc, job.get("unmapped", []), result, f, fp.cms)
+    try:  # after the AI review, on the draft's final routes
+        visitors.apply(report, doc, job.get("unmapped", []), result, f, fp.cms)
     except ReachError:
         pass  # the lists stay empty: the study itself is done
     log.info("discovery finished", discovery=jid, app=job["app"], pages=report["pages_found"],

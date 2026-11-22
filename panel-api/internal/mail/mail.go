@@ -110,6 +110,13 @@ func (s SMTP) Send(ctx context.Context, m Message) error {
 	if err != nil {
 		return fail(ProblemUnreachable, err)
 	}
+	// every SMTP command has an end too: a server that accepts and then
+	// stays silent never holds a caller
+	deadline, ok := ctx.Deadline()
+	if !ok {
+		deadline = time.Now().Add(time.Minute)
+	}
+	_ = conn.SetDeadline(deadline)
 	if port == "465" { // implicit TLS
 		tc := tls.Client(conn, &tls.Config{ServerName: host, MinVersion: tls.VersionTLS12})
 		if err := tc.HandshakeContext(ctx); err != nil {

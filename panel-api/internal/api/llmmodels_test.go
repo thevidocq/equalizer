@@ -52,7 +52,7 @@ func TestAlertKindsAPI(t *testing.T) {
 	boss := e.join("boss@acme.test")
 	var a struct{ Kinds map[string]bool }
 	boss.must(200, "GET", "/v1/tenants/acme/alerts", nil, &a)
-	if len(a.Kinds) != 6 || !a.Kinds["recovered"] {
+	if len(a.Kinds) != 7 || !a.Kinds["recovered"] || !a.Kinds["draft_ready"] {
 		t.Fatalf("defaults: %+v", a)
 	}
 	boss.must(200, "PUT", "/v1/tenants/acme/alerts", map[string]any{"enabled": true, "extra_emails": []string{}, "kinds": map[string]bool{"recovered": false}}, &a)

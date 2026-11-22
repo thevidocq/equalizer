@@ -1,30 +1,34 @@
-"""What visitors asked for and the map refuses, turned into actions a person
-can take with one click (docs/agent.md, "Visitor requests").
+"""What visitors asked for and the map refuses, checked on the site and
+added to the agent's draft (docs/agent.md, "Visitor requests").
 
-A visitor's request is never evidence: anyone can ask for any address. So
-the agent never widens the map from one, and the report lists one only when
-there is something to do about it, after checking it on the site itself:
+A visitor's request is never evidence on its own: anyone can ask for any
+address. So the agent adds one to its draft only after checking it on the
+site itself, and only in a form where nothing a visitor sends decides what
+passes:
 
 - a file: asked by at least MIN_VISITORS distinct visitors; under an asset
   prefix of the map; of a passive type (assettypes) the prefix does not
-  list yet; not named by the site's own pages (those the agent studies and
-  mends on its own); and served by the site, as that type, when the agent
-  opens it. A scanner asks for files that do not exist, or for scripts,
-  pages and configuration files: none of them passes.
+  list yet; not named by the site's own pages (those the study adds on its
+  own); and served by the site as that kind of file when the agent opens
+  it. The type added is the one the site sends. A scanner asks for files
+  that do not exist, or for scripts, pages and configuration files: none of
+  them passes.
 - a query key: asked by at least MIN_VISITORS distinct visitors on a GET
-  route; a name the map can take on that route; a presentation key (a
-  sort, an order, a page number, a filter, a language: PRESENTATION), since
-  the agent opens the page with it and a GET may act (?add-to-cart=,
-  ?doing_wp_cron=); and a page of the route (one that offers the key
-  first), answering 200 as without it, shows other text with it. A key the site ignores (?test=1) changes nothing, a key
-  that only redirects or errors (?author=1) is not a page option: both are
-  left out.
+  route; a name the map can take there; a presentation key (PRESENTATION:
+  a sort, an order, a page number, a filter, a language), since the agent
+  opens the page with it and a GET may act (?add-to-cart=); the values are
+  those the site itself offers (a <select>, its links) or a page number,
+  never free text; and a page of the route, answering 200 as without it,
+  shows other text with one of them. A key the site ignores (?test=1), one
+  that only redirects (?author=1) and one the site offers no values for
+  stay out.
 
-Everything else (scanners, a single visitor, files that are not there, keys
-that do nothing) stays out of the report: the gateway's logs keep every
-refused request. Each item carries add, the panel's one-click change."""
+What is added is listed in the report (visitors_added) with its reason, so
+the person who publishes sees it. Everything else stays out: the gateway's
+logs keep every refused request."""
 
 import difflib
+import html
 import re
 import secrets
 import urllib.parse
@@ -40,6 +44,7 @@ MAX_KEYS = 10  # keys tried per discovery (on up to MAX_PAGES pages of the route
 MAX_PAGES = 3  # pages of a route a key is tried on
 MAX_SCAN = 6  # pages of a route read to find those that use the key
 MAX_LISTED = 50
+MAX_VALUES = 50  # values a key may take
 
 # Keys that change how a page presents what it shows, with values to try
 # when no link of the site gives one. Only these are opened: a GET can act.
@@ -54,6 +59,10 @@ PRESENTATION = {
     "category": ["1"], "cat": ["1"], "tag": ["1"], "year": ["2020"], "month": ["1"], "brand": ["1"],
     "color": ["red"], "colour": ["red"], "size": ["m"], "min_price": ["10"], "max_price": ["10"],
 }
+# Choices a site offers the same everywhere, unlike a filter's.
+SITE_WIDE = {"orderby", "order", "order_by", "sort", "sortby", "sort_by", "dir", "direction", "per_page", "perpage",
+             "limit", "posts_per_page", "product_count", "view", "display", "layout", "mode", "lang", "language",
+             "locale", "hl", "currency"}
 _FILTER = re.compile(r"^(filter_[a-z0-9_]+|pa_[a-z0-9_]+|min_[a-z_]+|max_[a-z_]+)$")
 
 # A font's first bytes and the type the gateway knows it by (fontsig).
@@ -79,8 +88,7 @@ def files(doc: dict, unmapped: list, crawl) -> list:
         # a type the prefix lists may still be refused: the site sends it under another name
         if a is None or not assettypes.passive(kind, loaded=False):
             continue
-        out.append({"path": p, "clients": u["clients"], "type": kind,
-                    "add": {"prefix": a["prefix"], "type": kind, "prefix_types": list(a.get("types", []))}})
+        out.append({"path": p, "clients": u["clients"], "type": kind, "prefix": a["prefix"]})
     return sorted(out, key=lambda x: (-x["clients"], x["path"]))
 
 
@@ -97,8 +105,7 @@ def keys(doc: dict, unmapped: list) -> list:
         if e is None or lr.get("method", "GET") != "GET" or not cluster.IDENT.match(key) or not presentation(key) or \
                 key in (e.get("query") or {}) or key in (e.get("params") or {}) or key in (lr.get("query") or {}):
             continue
-        out.append({"route": path, "route_id": e.get("id"), "key": key, "clients": u["clients"],
-                    "add": {"route_id": e.get("id"), "key": key}})
+        out.append({"route": path, "route_id": e.get("id"), "key": key, "clients": u["clients"]})
     return sorted(out, key=lambda x: (-x["clients"], x["route"], x["key"]))
 
 
@@ -154,14 +161,66 @@ def _uses(r, key: str) -> bool:
     return bool(re.search(r"""name=["']?%s["'\s>]|[?&;]%s=""" % (re.escape(key), re.escape(key)), text))
 
 
-def _values(crawl, key: str) -> list:
-    """Values the site's own links give key, else a plain one."""
-    seen = []
+_PAGES = {"page", "paged", "pg"}
+# A value the map may take for a visitor's key: a plain token (price,
+# date-desc, en_US, red,blue), never spaces, quotes, brackets or SQL.
+_VALUE = re.compile(r"^[A-Za-z0-9_.,:-]{1,50}$")
+
+
+def _offered_in(body: bytes, key: str, route: str, hosts) -> set:
+    """The values one page offers for key: the options of its <select
+    name="key"> and the values of its links to pages of the same route."""
+    text = body.decode("utf-8", "replace")
+    k = re.escape(key)
+    out = set()
+    for sel in re.findall(r"<select[^>]*\bname=[\"']?%s[\"'\s>][^>]*>(.*?)</select>" % k, text, re.S | re.I):
+        out |= {html.unescape(v).strip() for v in re.findall(r"<option[^>]*\bvalue=[\"']([^\"']*)[\"']", sel, re.I)}
+    for href in re.findall(r"href=[\"']([^\"']+)[\"']", text, re.I):
+        u = urllib.parse.urlsplit(html.unescape(href))
+        if (u.netloc and u.netloc.lower() not in hosts) or (u.path and not matches(route, u.path)):
+            continue  # another site, or another kind of page
+        out |= {v for kk, v in urllib.parse.parse_qsl(u.query) if kk == key}
+    return {v for v in out if _VALUE.match(v)}
+
+
+def _offered(pages: list, crawl, key: str, route: str, hosts=()) -> list:
+    """The values the site offers for key on the route, when it offers the
+    same ones on every page that offers any: a sort or a language, not a
+    filter whose choices change with the category (a value missing from the
+    map would refuse a real visitor's page). [] otherwise. pages: the bodies
+    read. One page is enough for a site-wide choice (SITE_WIDE: a sort, a
+    view, a language) or a route that is one page; a filter's choices must
+    be the same on two pages at least."""
+    sets = [x for x in (_offered_in(b, key, route, hosts) for b in pages) if x]
     for pq in crawl.pages:
-        for k, v in urllib.parse.parse_qsl(pq.partition("?")[2]):
-            if k == key and v and v not in seen:
-                seen.append(v)
-    return seen[:2] or PRESENTATION.get(key, ["1"])[:2]
+        path, _, q = pq.partition("?")
+        if matches(route, path):
+            vals = {v for kk, v in urllib.parse.parse_qsl(q) if kk == key and _VALUE.match(v)}
+            if vals and sets and not vals <= sets[0]:
+                return []  # the study saw a value the pages do not offer
+    if not sets or any(x != sets[0] for x in sets) or (len(sets) < 2 and "{" in route and key not in SITE_WIDE):
+        return []
+    return sorted(sets[0])[:MAX_VALUES] if len(sets[0]) <= MAX_VALUES else []
+
+
+def spec(key: str, offered: list):
+    """The check for key, from what the site offers, never from visitors: a
+    page number, a price bound, or one of the values offered. None when the
+    site offers nothing it can be checked against."""
+    numbers = bool(offered) and all(v.isdigit() for v in offered)
+    if key in _PAGES and (not offered or numbers):
+        return {"type": "int", "min": 1, "max": 100000, "required": False}
+    if key.startswith(("min_", "max_")):  # a price, a date: only whole numbers the site offers
+        return {"type": "int", "min": 0, "max": 1000000000, "required": False} if numbers else None
+    if not offered or key in _PAGES:
+        return None
+    return {"type": "enum", "values": list(offered), "required": False}
+
+
+def _probes(key: str, sp: dict) -> list:
+    if sp["type"] == "int":
+        return PRESENTATION.get(key, ["10"])[:1]
+    return sp["values"][:3]
 
 
 def _words(r) -> list:
@@ -210,61 +269,72 @@ def _changes(f, page: str, a1, key: str, values: list, cms=None) -> bool:
     return False
 
 
-def _key_changes(f, crawl, item: dict, cms=None) -> str:
-    """The page of the route that changes with the key, or "": pages that
-    offer the key themselves first, then the others, up to MAX_PAGES."""
+def _key_changes(f, crawl, item: dict, cms=None):
+    """(page, check) for a key: the page of the route that shows other
+    text with one of the values the site offers, and the check those values
+    give; ("", None) when no page changes or the site offers no values.
+    Pages that offer the key themselves are tried first, up to MAX_PAGES."""
     loaded = []
     for pq in _pages_for(crawl, item["route"]):
         try:
             loaded.append((pq, f.get(pq)))
         except (ReachError, OSError, ValueError):
             continue
+    sp = spec(item["key"], _offered([r.body for _, r in loaded if _page_ok(r)], crawl, item["key"], item["route"],
+                                    getattr(f, "hosts", ())))
+    if sp is None:
+        return "", None
     loaded.sort(key=lambda x: not _uses(x[1], item["key"]))
-    values = _values(crawl, item["key"])
     for pq, a1 in loaded[:MAX_PAGES]:
-        if _changes(f, pq, a1, item["key"], values, cms):
-            return pq
-    return ""
+        if _changes(f, pq, a1, item["key"], _probes(item["key"], sp), cms):
+            return pq, sp
+    return "", None
 
 
-def confirm(report: dict, doc: dict, unmapped: list, crawl, f, cms=None) -> None:
-    """Checks the candidates on the site and lists those that pass in
-    report["files_refused"] and report["query_dropped"]. Opened anonymously:
-    a test account's session is set aside meanwhile."""
+def apply(report: dict, doc: dict, unmapped: list, crawl, f, cms=None) -> None:
+    """Checks the candidates on the site, adds those that pass to doc and
+    lists them in report["visitors_added"]. Opened anonymously: a test
+    account's session is set aside meanwhile."""
     saved, f.cookies = f.cookies, {}
+    added = []
     try:
-        listed, opened = [], 0
+        opened = 0
         for item in files(doc, unmapped, crawl):
-            p = item["path"]
-            if opened == MAX_FILES or len(listed) == MAX_LISTED:
+            if opened == MAX_FILES or len(added) == MAX_LISTED:
                 break
-            if rules.excluded(p, cms) or verifyassets._acts(p):
+            if rules.excluded(item["path"], cms) or verifyassets._acts(item["path"]):
                 continue
             opened += 1
-            served = _served(f, p)
-            # what the gateway compares is the type the site sends: that is what a click adds
-            types = item["add"].pop("prefix_types")
-            if not _kin(served, item["type"]) or not assettypes.passive(served, loaded=False) or served in types:
+            served = _served(f, item["path"])
+            asset = next((x for x in doc.get("assets", []) if x.get("prefix") == item["prefix"]), None)
+            # what the gateway compares is the type the site sends: that is what is added
+            if asset is None or not _kin(served, item["type"]) or not assettypes.passive(served, loaded=False) or \
+                    served in asset.get("types", []):
                 continue
-            item["type"] = item["add"]["type"] = served
-            item["why"] = "%d visitors asked for it; the site serves it as %s, which %s does not list" % (
-                item["clients"], served, item["add"]["prefix"])
-            listed.append(item)
-        report["files_refused"] = listed
-        listed, tried = [], 0
+            asset.setdefault("types", []).append(served)
+            added.append({"kind": "file", "path": item["path"], "prefix": item["prefix"], "type": served,
+                          "clients": item["clients"],
+                          "why": "%d visitors asked for it; the site serves it as %s: %s added to %s" % (
+                              item["clients"], served, served, item["prefix"])})
+        tried = 0
         for item in keys(doc, unmapped):
-            if tried == MAX_KEYS or len(listed) == MAX_LISTED:
+            if tried == MAX_KEYS or len(added) == MAX_LISTED:
                 break
             if not _pages_for(crawl, item["route"]):
                 continue
             tried += 1
-            page = _key_changes(f, crawl, item, cms)
-            if not page:
+            page, sp = _key_changes(f, crawl, item, cms)
+            route = next((r for r in doc.get("routes", []) if r.get("id") == item["route_id"]), None)
+            if not page or route is None or not route.get("legacy_request"):
                 continue
-            item["page"] = page
-            item["why"] = "%d visitors used it; %s shows other content with it, and the map drops it" % (
-                item["clients"], page)
-            listed.append(item)
-        report["query_dropped"] = listed
+            route.setdefault("query", {})[item["key"]] = sp
+            route["legacy_request"].setdefault("query", {})[item["key"]] = "{{query.%s}}" % item["key"]
+            what = "a page number" if item["key"] in _PAGES else "a number" if sp["type"] == "int" else \
+                "one of the values the site offers (%s)" % ", ".join(sp["values"][:8])
+            added.append({"kind": "key", "route": item["route"], "route_id": item["route_id"], "key": item["key"],
+                          "check": sp, "page": page, "clients": item["clients"],
+                          "why": "%d visitors used it; %s shows other content with it; accepted: %s" % (
+                              item["clients"], page, what)})
     finally:
         f.cookies = saved
+        report["visitors_added"] = added

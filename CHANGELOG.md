@@ -19,7 +19,9 @@ Add a section at the top of "Entries" for every commit:
 
 ## Current project status
 
-Latest release: **0.2.11** (`docs/releases/0.2.11.md`); before it 0.2.10
+Latest release: **0.2.13** (`docs/releases/0.2.13.md`); before it 0.2.12
+(tagged on the code of 0.2.11, `docs/releases/0.2.11.md`), 0.2.11
+(`docs/releases/0.2.11.md`), 0.2.10
 (`docs/releases/0.2.10.md`), 0.2.9
 (`docs/releases/0.2.9.md`), 0.2.8
 (`docs/releases/0.2.8.md`), 0.2.7
@@ -43,6 +45,70 @@ it, 0.1.0 (`docs/releases/0.1.0.md`, tag on the merge of #39).
 | tools (eqtool) | Map signing keys, form key, relay token, connector registration, map signing |
 
 ## Entries
+
+### 2026-11-22 — Release 0.2.13
+
+- **Branch:** feat/visitors-into-draft
+- **What:** `VERSION`, agent version, `deploy/compose/.env.example`,
+  `INSTALL.md`, `README.md` point to 0.2.13; notes `docs/releases/0.2.13.md`.
+- **Why:** checked visitors' requests go into the agent's draft, page
+  options only with the values the site offers; email when a draft is
+  ready. The tag `v0.2.12` already exists on the merge of #93 (the code of
+  0.2.11), so this release is 0.2.13.
+- **Status:** documents only. Tag `v0.2.13` on the merge commit publishes
+  the images.
+- **Next steps:**
+  1. Discovery on metreta and metaliquid; check the email and the report.
+  2. Lost-session detection and re-login in the logged-in passes.
+  3. The tenant's AI key (refused by the provider).
+
+### 2026-11-22 — Review of visitors into the draft
+
+- **Branch:** feat/visitors-into-draft
+- **What:** the draft email is sent in the background and only when the
+  platform sends mail; SMTP connections get a deadline; Activity records
+  only the addresses actually emailed; names on one line in the subject.
+  Agent: a key's values must be the same on every page that offers them
+  (a filter on two pages at least, a site-wide choice such as a sort or a
+  language on one), include every value the study saw for that route, be
+  plain tokens from same-site links of the route; bounds and page numbers
+  are integers only when the site offers whole numbers; a route without a
+  legacy request is skipped. Tests for the corrected draft, a person's
+  verification and a platform without mail. Docs follow.
+- **Why:** independent review: an SMTP server could hold the agent's call;
+  an `enum` narrower than the site's real choices would refuse real
+  visitors' pages; a comment's link could have offered a value with SQL.
+- **Status:** agent, panel-api tests pass.
+- **Next steps:** release 0.2.13.
+
+### 2026-11-22 — Visitors' requests into the draft; draft-ready email
+
+- **Branch:** feat/visitors-into-draft
+- **What:**
+  - agent `visitors.py` (`apply`, was `confirm`): what passes the checks
+    goes into the discovery's draft, listed in `report.visitors_added`. A
+    query key goes in only with the values the site offers (`enum` from its
+    `<select>` and links), or as an integer for page numbers and price
+    bounds; none when the site offers no values. The probes use those
+    values.
+  - panel-api: `POST /v1/apps/{app}/discoveries/{id}/adopt` removed (code,
+    contract, tests); new alert kind `draft_ready`: once the agent's
+    verification of a discovery's draft is over and the version is still a
+    draft, the tenant's administrators and extra addresses get one email
+    (what changes, what came from visitors, the check, the link);
+    `internal/alerts/draftready.go`, `internal/api/draftready.go`, test
+    `draftready_test.go`.
+  - panel-ui: "Added from visitors' requests" (read-only) replaces the
+    buttons; `useAdopt` removed; the new alert kind in Settings → Alerts;
+    Activity describes the email.
+  - docs: `docs/agent.md` "Visitor requests", `docs/manual/tenant.md`
+    (discovery, alerts) and help, `docs/architecture.md`.
+- **Why:** the owner's rule: the agent studies and prepares, a person only
+  publishes. Checked requests no longer wait for a click; values decided by
+  the site keep an attack out even when a key goes in; continuous discovery
+  needs an email to be useful.
+- **Status:** agent (75), panel-api tests pass; panel-ui in CI.
+- **Next steps:** release 0.2.13; lost-session detection; the AI key.
 
 ### 2026-11-22 — Release 0.2.11
 

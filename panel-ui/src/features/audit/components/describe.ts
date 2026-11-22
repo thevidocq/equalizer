@@ -84,13 +84,15 @@ function when(d: Detail): string {
   return `${day}${at}`;
 }
 
-type Alert = { site?: string; check?: string; down?: boolean };
+type Alert = { site?: string; check?: string; down?: boolean; detail?: string };
 
 function alertSentence(d: Detail): string {
   const alerts = Array.isArray(d.alerts) ? (d.alerts as Alert[]) : [];
   const to = Array.isArray(d.to) ? (d.to as string[]) : [];
   const what = alerts.length
-    ? alerts.map((a) => `${a.check ?? "check"} ${a.down ? "failing" : "back to normal"} on ${a.site ?? "a site"}`).join("; ")
+    ? alerts.map((a) => a.check === "Draft ready"
+      ? `draft ${a.detail ?? ""} of ${a.site ?? "a site"} ready to publish`
+      : `${a.check ?? "check"} ${a.down ? "failing" : "back to normal"} on ${a.site ?? "a site"}`).join("; ")
     : `${String(d.changes ?? "some")} change(s)`;
   const who = to.length ? to.join(", ") : `${String(d.recipients ?? "")} address(es)`.trim();
   return `emailed ${who}: ${what}`;

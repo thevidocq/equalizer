@@ -301,6 +301,14 @@ func (s *Server) verificationResult(w http.ResponseWriter, r *http.Request) {
 		s.storeError(w, r, err)
 		return
 	}
+	if v.RequestedBy == nil {
+		// after a discovery: the one draft to review is ready, the corrected one if any
+		ready := v.Version
+		if res.CorrectedVersion != nil {
+			ready = *res.CorrectedVersion
+		}
+		go s.draftReady(r.Context(), a, ready, in.Score, res.Failure) // the agent's call never waits for the mail server
+	}
 	w.WriteHeader(http.StatusNoContent)
 }
 

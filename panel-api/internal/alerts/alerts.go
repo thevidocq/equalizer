@@ -135,7 +135,7 @@ func (r *Runner) tenant(ctx context.Context, t store.Tenant) {
 	if len(changes) == 0 {
 		return
 	}
-	to := r.recipients(ctx, t.ID, settings)
+	to := recipients(ctx, r.Store, t.ID, settings)
 	if len(to) == 0 {
 		return
 	}
@@ -235,7 +235,7 @@ type recipient struct {
 	zone  *time.Location
 }
 
-func (r *Runner) recipients(ctx context.Context, tenant string, s store.AlertSettings) []recipient {
+func recipients(ctx context.Context, st Store, tenant string, s store.AlertSettings) []recipient {
 	seen := map[string]bool{}
 	var out []recipient
 	add := func(e, zone string) {
@@ -248,7 +248,7 @@ func (r *Runner) recipients(ctx context.Context, tenant string, s store.AlertSet
 			out = append(out, recipient{e, loc})
 		}
 	}
-	if users, err := r.Store.Users(ctx, tenant); err == nil {
+	if users, err := st.Users(ctx, tenant); err == nil {
 		for _, u := range users {
 			if u.TenantRole != nil && *u.TenantRole == "admin" {
 				add(u.Email, u.TimeZone)

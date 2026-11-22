@@ -118,85 +118,99 @@ an asset prefix refused, query keys a route dropped (the route's pattern
 and the key's name, never a value). Each report counts **distinct
 visitors**: the gateway turns each client address into a short key (an
 HMAC of the path and the address with a secret only the gateway holds,
-its form key, 8 bytes) and sends up to 16 keys per path, never an address;
-the panel, which does not know that secret, cannot turn a key back into an
-address nor link one visitor's requests across paths. It keeps up to 16 keys per path, so one visitor coming back every
-minute is still one visitor. Counts recorded before 0.2.11 summed every
-gateway batch: they count as one visitor until new keys arrive. The job
-carries the 200 refused paths with the most visitors (last 30 days).
+its form key, 8 bytes) and sends up to 16 keys per path, never an
+address; the panel, which does not know that secret, cannot turn a key
+back into an address nor link one visitor's requests across paths. It
+keeps up to 16 keys per path, so one visitor coming back every minute is
+still one visitor. Counts recorded before 0.2.11 summed every gateway
+batch: they count as one visitor until new keys arrive. The job carries
+the 200 refused paths with the most visitors (last 30 days).
 
-A visitor's request is never evidence: anyone can ask for any address, and
-a public site gets scanners all day (`/CFIDE/administrator`,
-`/crossdomain.xml`, `/.env`). So the agent never widens the map from one,
-and the report lists one **only when there is something to do about it**
-(`equalizer_agent/visitors.py`): every listed item has the button
-**Add to a new draft**, or it is not listed.
+A visitor's request is never evidence on its own: anyone can ask for any
+address, and a public site gets scanners all day (`/CFIDE/administrator`,
+`/crossdomain.xml`, `/.env`). So the agent adds one to its draft only
+after checking it on the site, and only in a form where nothing a visitor
+sends decides what passes (`equalizer_agent/visitors.py`). What it adds is
+listed in the report (`visitors_added`) with its reason, and in the email
+that says the draft is ready, so whoever publishes sees it and can take
+it out first. Nothing else from visitors reaches the draft or the report.
 
-- **A file** (`files_refused`) is listed when all of these hold: at least
-  **2 distinct visitors** asked for it; it is under an asset prefix of the
-  map; its type (by extension, then as the site sends it) is **passive**
+- **A file** is added when all of these hold: at least **2 distinct
+  visitors** asked for it; it is under an asset prefix of the map; its
+  type (by extension, then as the site sends it) is **passive**
   (`assettypes.py`: images, fonts, audio, video, stylesheets, PDF and
-  office documents) and the prefix does not list it yet; no page of the site names it (a file the
-  site's own pages use is the agent's job: it is studied, checked through
-  the gateway and mended by the verification, never left to a person); and
-  the agent, opening it anonymously on the site, gets a 200 **of that
-  kind** (HEAD; the file itself when HEAD is not answered with it, such as
-  405 or a firewall's 403; a font always, judged by its first bytes as the
-  gateway does, since servers send fonts as `application/octet-stream`).
-  The click adds **the type the site sends** (`image/vnd.microsoft.icon`
-  for a `.ico`, `audio/x-wav` for a `.wav`), since that is what the
-  gateway compares, so a `.wav` is offered even when the prefix lists
-  `audio/wav`; a type the site sends that the prefix already lists is not
-  offered (the file is then refused for its size or content, and adding
-  changes nothing). A path with spaces or accents is opened encoded, as a
-  browser sends it. A scanner's guess does not exist (404) or is a script, a page
-  or a configuration file: none of them passes. Names that are actions or
-  sensitive files (`rules.py`) are never opened. Up to 20 files are opened
-  per discovery.
-- **A query key** (`query_dropped`) is listed when: at least **2 distinct
-  visitors** used it on a GET route whose legacy request is a GET; the map
-  can take it there (a name, not a path parameter, not declared, not a key
-  the site already gets under that name); it is a **presentation key**
-  (`visitors.PRESENTATION`: a sort, an order, a page number, a page size, a
-  view, a language, a currency, a search, a category or a shop filter such
-  as `filter_*`, `pa_*`, `min_price`), because the agent opens the page with
-  it and a GET can act (`?add-to-cart=`, `?doing_wp_cron=`): any other key
-  is never opened nor listed; and **the page shows other content with
-  it**. A pattern such as `/{slug}/` covers the shop and the cart alike,
-  so the agent reads up to 6 studied pages of the route and tries the key
-  on up to 3, those that offer it themselves first (WooCommerce's `<select
-  name="orderby">`, a link with the key). On each it loads the page and
-  the page with a key no site knows (`?eqprobe=…`): a page cache serves the
-  plain page and builds any page with a query, so the noise (dates,
-  counters, rotating posts) is measured between the two, and the page with
-  the key is compared with the built one. Values: those the site's links
-  give the key, or typical ones (`orderby=price`, `paged=2`).
-  Every answer must be the page itself (200, HTML): a redirect or an error
-  is not a page option (`?author=1` redirects to the author's page, a
-  firewall answers 403). Without noise any other word is a change (a sort
-  only reorders); with noise the text must move well beyond it (twice it,
-  and at least `1 - TEXT_SIMILAR`). A key the site ignores (`?test=1`) changes nothing
-  and is left out; a page that changes on every load tells nothing.
-  Action-like and excluded URLs (`rules.py`) are never opened. Up to 10
-  keys are tried per discovery.
+  office documents), so a `.php`, a script or a page never is, however
+  many ask; no page of the site names it (the study adds those itself);
+  and the agent, opening it anonymously on the site, gets a 200 **of that
+  kind** (HEAD; the file itself when HEAD is not answered with it, such
+  as 405 or a firewall's 403; a font always, judged by its first bytes as
+  the gateway does, since servers send fonts as
+  `application/octet-stream`). The type added to the prefix is **the one
+  the site sends** (`image/vnd.microsoft.icon` for a `.ico`, `audio/x-wav`
+  for a `.wav`), since that is what the gateway compares; a type the
+  prefix already lists is not added again (the file is then refused for
+  its size or content). A path with spaces or accents is opened encoded,
+  as a browser sends it. A scanner's guess does not exist (404). Names
+  that are actions or sensitive files (`rules.py`) are never opened. Up to
+  20 files are opened per discovery. Adding a type serves every file of
+  that type under the prefix: a leftover file the site already serves to
+  anyone is the legacy server's concern, as everywhere else in Equalizer.
+- **A query key** is added when: at least **2 distinct visitors** used it
+  on a GET route whose legacy request is a GET; the map can take it there
+  (a name, not a path parameter, not declared, not a key the site already
+  gets under that name); it is a **presentation key**
+  (`visitors.PRESENTATION`: a sort, an order, a page number, a page size,
+  a view, a language, a currency, a category or a shop filter such as
+  `filter_*`, `pa_*`, `min_price`), because the agent opens the page with
+  it and a GET can act (`?add-to-cart=`, `?doing_wp_cron=`): any other
+  key is never opened nor added; **the site offers its values**; and **the
+  page shows other content with one of them**.
+  - **Values come from the site, never from visitors** (the gateway does
+    not even send them). A page number (`page`, `paged`, `pg`) is an
+    integer from 1 to 100000, unless the site offers other values for it
+    (`?page=contact`: then it is not added). A bound (`min_*`, `max_*`) is
+    an integer from 0 only when the site offers whole numbers for it (a
+    decimal price or a date: not added). Any other key is an `enum` of the
+    values the site itself offers: the options of its `<select
+    name="key">` and the values of its links to pages of the same route,
+    on the site's own host (at most 50, each a plain token
+    `[A-Za-z0-9_.,:-]`, so no spaces, quotes, brackets or SQL even in a
+    link a comment wrote). The choices must be **the same on every page**
+    read that offers them, and must include every value the study saw in
+    the site's links for that route: a value missing from the map would
+    refuse a real visitor's page (the gateway refuses a value outside the
+    `enum`, an attack included: `?orderby=1 AND SLEEP(5)`). A site-wide
+    choice (`visitors.SITE_WIDE`: a sort, a view, a language, a currency)
+    may come from one page; a filter's choices (`filter_*`, a colour, a
+    category) change with the page, so they must be the same on two pages
+    at least, unless the route is one page. When the site offers no values
+    the key is not added: a value would then be free text.
+  - **The page must change.** A pattern such as `/{slug}/` covers the shop
+    and the cart alike, so the agent reads up to 6 studied pages of the
+    route and tries the key on up to 3, those that offer it themselves
+    first (WooCommerce's `<select name="orderby">`). On each it loads the
+    page and the page with a key no site knows (`?eqprobe=…`): a page cache
+    serves the plain page and builds any page with a query, so the noise
+    (dates, counters, rotating posts) is measured between the two, and the
+    page with the key (one of the offered values, up to 3) is compared
+    with the built one. Every answer must be the page itself (200, HTML):
+    a redirect or an error is not a page option (`?author=1` redirects to
+    the author's page, a firewall answers 403). Without noise any other
+    word is a change (a sort only reorders); with noise the text must move
+    well beyond it (twice it, and at least `1 - TEXT_SIMILAR`). A key the
+    site ignores (`?test=1`) changes nothing and is left out; a page that
+    changes on every load tells nothing. Action-like and excluded URLs
+    (`rules.py`) are never opened. Up to 10 keys are tried per discovery.
 
-Everything else — a single visitor, scanners, files that are not there,
-types that are not passive, scripts, keys that change nothing — stays out
-of the report; the gateway's logs keep every refused request. Everything
-is opened anonymously: a test account's session is set aside meanwhile.
-The check runs after the AI review, so the route a click names is the one
-in the final draft.
-
-Each listed item carries `why` (what was asked and what the agent found)
-and `add`, the change the panel makes when an administrator clicks **Add
-to a new draft** (`POST /v1/apps/{app}/discoveries/{id}/adopt`): the
-panel takes the change from the report, never from the request, onto the
-discovery's draft or the published map, into a new draft to review and
-publish. A file adds its type to the asset prefix (every file of that type
-under it is then served); a key is added to the route as text without
-markup. The buttons wait until the agent has checked its draft. Reports of
-agents before 0.2.11 listed requests unchecked, each with a `verdict`: the
-panel shows none of those items and refuses to add them.
+Everything is opened anonymously: a test account's session is set aside
+meanwhile. The check runs after the AI review, on the draft's final
+routes. What is added makes the discovery's draft differ from the
+published map, so a continuous discovery proposes a draft for it; the
+draft is verified and corrected like any other, and when it is ready the
+tenant's administrators get the **draft ready** email (`draft_ready` alert
+kind, Settings → Alerts). Reports of agents before 0.2.11 listed requests
+unchecked (`files_refused`, `query_dropped`, with a `verdict`), and those
+of 0.2.11 offered a button to add them: the panel shows neither any more.
 
 ### 2. Understand
 

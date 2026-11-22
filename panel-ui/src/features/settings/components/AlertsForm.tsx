@@ -13,9 +13,10 @@ const kindText: [keyof Kinds, string][] = [
   ["certificate", "Certificate missing or expired"],
   ["certificate_expiry", "Certificate about to end (30, 14, 7 and 1 days before)"],
   ["recovered", "The site works again after a problem"],
+  ["draft_ready", "A discovery's draft is checked and ready to publish"],
 ];
 
-/** Who gets an email when a site stops working, and when it works again. */
+/** Who gets an email when a site stops working, when it works again and when a draft is ready. */
 export function AlertsForm({ tenant, current }: { tenant: string; current: Current }) {
   const save = useSaveAlerts(tenant);
   const toast = useToast();
@@ -34,7 +35,8 @@ export function AlertsForm({ tenant, current }: { tenant: string; current: Curre
       <div>
         <h2 className="text-base font-semibold">Alerts</h2>
         <p className="mt-1 text-sm text-ink-soft">
-          An email when something stays wrong for more than a few minutes. Choose which.
+          An email when something stays wrong for more than a few minutes, or when a draft is ready to
+          publish. Choose which.
         </p>
       </div>
       {current.mail_available === false ? (

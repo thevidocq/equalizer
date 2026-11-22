@@ -43,7 +43,7 @@ export function DiscoveryPage() {
           { header: "Draft", cell: (d) => (d.draft_version ? `Version ${d.draft_version}` : "") },
         ]} />
       ) : null}
-      {shown.data ? <Report d={shown.data} canAdd={isAdmin} /> : null}
+      {shown.data ? <Report d={shown.data} /> : null}
     </div>
   );
 }

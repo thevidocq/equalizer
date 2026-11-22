@@ -161,6 +161,8 @@ class Fetcher:
 
     def __post_init__(self):
         self.base = urllib.parse.urlsplit(self.base_url)
+        self.hosts = {self.base.netloc.lower()}  # names the site's own links may use (add_hosts)
+        self.add_hosts([self.base.netloc])
         self.allow = {a.lower() for a in self.reach.get("allow", [])}
         self.address = (self.reach.get("address") or "").lower()
         self.dest = self.address or _dest(self.base)
@@ -177,9 +179,25 @@ class Fetcher:
         else:
             self.opener = urllib.request.build_opener(NoRedirect())
 
+    def add_hosts(self, names) -> None:
+        """Other names of the same site (public domain, aliases), and each
+        one's www. / bare twin: a sitemap or an absolute link written with
+        them is the site's own, and is fetched by its path like any other."""
+        for n in names:
+            n = (n or "").strip().lower()
+            if not n or "/" in n or " " in n:
+                continue
+            self.hosts.add(n)
+            host, _, port = n.partition(":")
+            if host.replace(".", "").isdigit() or host.startswith("["):
+                continue  # an IP address has no www. twin
+            twin = host[4:] if host.startswith("www.") else "www." + host
+            if "." in twin:
+                self.hosts.add(twin + (":" + port if port else ""))
+
     def same_site(self, url: str) -> bool:
         u = urllib.parse.urlsplit(url)
-        return u.scheme in ("http", "https") and (u.netloc.lower() == self.base.netloc.lower())
+        return u.scheme in ("http", "https") and u.netloc.lower() in self.hosts
 
     def get(self, path_query: str) -> Response:
         return self.request("GET", path_query)

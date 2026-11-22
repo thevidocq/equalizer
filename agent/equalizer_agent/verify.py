@@ -184,6 +184,7 @@ class Run:
         meta = job["document"].get("meta") or {}
         self.hosts = tuple(h for h in (urllib.parse.urlsplit(job["base_url"]).netloc, meta.get("public_domain"),
                                        *(meta.get("aliases") or [])) if h)
+        self.f.add_hosts(self.hosts)
 
     def measure(self, doc: dict, try_map: dict) -> Measure:
         """Both checks of one version: public pages, then each test account's."""

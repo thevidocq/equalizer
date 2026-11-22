@@ -56,8 +56,29 @@ TOKENS = re.compile(r"[?&](_wpnonce|nonce|_nonce|token|_token|csrf|csrf_token|fo
                     r"[?&][0-9a-f]{32}=1|[?&]layout=edit", re.I)
 
 
+_SLUG_WORD = re.compile(r"^[A-Za-z0-9]+$")
+# Never part of an innocent slug: a segment holding one is always an action.
+STRONG = re.compile(r"(logout|log-out|logoff|signout|sign-out|unsubscribe|destroy|delete|purge|impersonate)", re.I)
+
+
+def _content_slug(segment: str) -> bool:
+    """A segment that names content: three words or more joined by - or _,
+    not starting with an action ("how-to-remove-stains", "big-product-update";
+    not "remove-item" nor "delete-account-now")."""
+    words = re.split(r"[-_]", segment)
+    return len(words) >= 3 and all(_SLUG_WORD.match(w) for w in words) and not STRONG.search(segment) and \
+        not (ACTIONS.match(words[0]) or ACTION_WORDS.match(words[0]))
+
+
 def is_action(path_query: str) -> bool:
-    return bool(ACTIONS.search(path_query) or ACTION_WORDS.search(path_query) or TOKENS.search(path_query))
+    """A link that changes something. The query is always read in full; in
+    the path, a segment that is a content slug is not an action whatever
+    words it holds."""
+    if TOKENS.search(path_query):
+        return True
+    path, sep, query = path_query.partition("?")
+    kept = "/".join("" if _content_slug(s) else s for s in path.split("/")) + sep + query
+    return bool(ACTIONS.search(kept) or ACTION_WORDS.search(kept))
 
 
 def is_fragment(profile: Profile, path: str) -> bool:

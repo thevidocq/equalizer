@@ -191,5 +191,11 @@ def script_urls(js: str, base: str) -> list:
 SITEMAP_LOC = re.compile(r"<loc>\s*([^<\s]+)\s*</loc>", re.I)
 
 
+def is_sitemap(body: bytes) -> bool:
+    """A sitemap or a sitemap index, whatever its URL."""
+    head = body[:2048].lower()
+    return b"<urlset" in head or b"<sitemapindex" in head
+
+
 def sitemap_urls(xml: str) -> list:
     return SITEMAP_LOC.findall(xml)[:2000]

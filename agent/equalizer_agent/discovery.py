@@ -3,7 +3,7 @@
 import re
 import urllib.parse
 
-from . import browser, crawler, fingerprint, mapbuild, rules
+from . import browser, crawler, fingerprint, mapbuild, rules, visitors
 from .fetch import Fetcher, ReachError
 from .llm import LLMError, provider
 from .llm.refine import refine
@@ -19,8 +19,8 @@ def seeds(job: dict, cms: str | None) -> list:
     for u in job.get("unmapped", []):
         p = u.get("path", "")
         # What visitors asked for is a page to look at, never evidence: a file
-        # or a query key they name is listed in the report, not opened (a
-        # reported file or key would let anyone widen the map).
+        # or a query key they name is not crawled (it would let anyone widen
+        # the map); visitors.confirm checks it for the person instead.
         if "?" in p or crawler.Crawler._static(p) or _secret_like(p):
             continue
         if u.get("method") == "GET" and u.get("clients", 0) >= 2 and p.startswith("/") and not rules.excluded(p, cms):
@@ -95,6 +95,10 @@ def run(job: dict, cfg, panel, log) -> None:
         panel.result(jid, error=str(e))
         return
     doc, report, samples = mapbuild.build(job, result, fp)
+    try:
+        visitors.confirm(report, doc, job.get("unmapped", []), result, f, fp.cms)
+    except ReachError:
+        pass  # the lists stay empty: the study itself is done
     try:
         llm = provider(job.get("llm"), cfg.allow_private_llm)
     except LLMError as e:

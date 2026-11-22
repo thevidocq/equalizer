@@ -64,8 +64,9 @@ when it is stale, so it never says more than the code does.
 ### 1. Explore
 
 - **Seeds**: `/`, `robots.txt`, `sitemap.xml`, the template's pages, the
-  paths real visitors asked for (reported by the gateway, as today), the
-  APIs the site declares. Every XML answer that is a sitemap or a sitemap
+  pages at least two distinct visitors asked for (reported by the gateway;
+  never a file, a query key or a secret-looking path), the APIs the site
+  declares. Every XML answer that is a sitemap or a sitemap
   index is read, whatever its name (`/wp-sitemap.xml`, those `robots.txt`
   lists). Links and sitemap entries written with another name of the site
   (its public domain, its aliases, the `www.` / bare twin of each) are the
@@ -93,15 +94,8 @@ when it is stale, so it never says more than the code does.
   stylesheets, PDF and office documents; scripts only when a page loads
   them): a type opens every file of that type under the prefix, linked or
   not, so text, CSV, archives, SQL, JSON, HTML and XML are never added by
-  the agent. What visitors ask for is never evidence: a file the gateway
-  refused them is listed in the report (`files_refused`) for the person,
-  not opened and not added (anyone can ask for any file). Each item (and
-  each of `query_dropped`) carries `verdict` (`site` when a studied page,
-  stylesheet or link names it, else `suspect`), `why` (with what adding it
-  would open) and `add`, the change the panel makes when the person clicks
-  **Add to a new draft** (`POST /v1/apps/{app}/discoveries/{id}/adopt`: the
-  panel takes the change from the report, never from the request, onto
-  the discovery's draft or the published map). `srcset` is split as the HTML standard says, so a
+  the agent. What visitors ask for is never evidence (see [Visitor
+  requests](#visitor-requests)). `srcset` is split as the HTML standard says, so a
   CDN URL with commas stays whole. Documents (`.pdf`, `.docx`, `.xlsx`,
   `.odt`, `.csv`, …) are files too; archives, logs and dumps never are
   (they are not studied at all). No asset prefix is proposed over a folder
@@ -117,6 +111,64 @@ when it is stale, so it never says more than the code does.
 - **Limits**: `max_pages`, at most 20 URLs per shape (calendars, searches),
   `EQ_RATE` requests per second, as today.
 
+### Visitor requests
+
+The gateway reports what it refused visitors: paths not in the map, files
+an asset prefix refused, query keys a route dropped (the route's pattern
+and the key's name, never a value). Each report counts **distinct
+visitors**: the gateway turns each client address into a short key (an
+HMAC of the address with the gateway's token, 8 bytes) and sends up to 16
+keys per path, never an address; the panel keeps up to 16 keys per path,
+so one visitor coming back every minute is still one visitor. The job
+carries the 200 refused paths with the most visitors (last 30 days).
+
+A visitor's request is never evidence: anyone can ask for any address, and
+a public site gets scanners all day (`/CFIDE/administrator`,
+`/crossdomain.xml`, `/.env`). So the agent never widens the map from one,
+and the report lists one **only when there is something to do about it**
+(`equalizer_agent/visitors.py`): every listed item has the button
+**Add to a new draft**, or it is not listed.
+
+- **A file** (`files_refused`) is listed when all of these hold: at least
+  **2 distinct visitors** asked for it; it is under an asset prefix of the
+  map; its type (by extension) is **passive** (`assettypes.py`: images,
+  fonts, audio, video, stylesheets, PDF and office documents) and the
+  prefix does not list it yet; no page of the site names it (a file the
+  site's own pages use is the agent's job: it is studied, checked through
+  the gateway and mended by the verification, never left to a person); and
+  the agent, opening it anonymously on the site (HEAD, then GET when the
+  server has no HEAD), gets a 200 **of that type**. A scanner's guess does
+  not exist (404) or is a script, a page or a configuration file: none of
+  them passes. Names that are actions or sensitive files (`rules.py`) are
+  never opened. Up to 20 files are opened per discovery.
+- **A query key** (`query_dropped`) is listed when: at least **2 distinct
+  visitors** used it on a GET route whose legacy request is a GET; the map
+  can take it there (a name, not a path parameter, not declared, not a key
+  the site already gets under that name); and **the page changes with it**.
+  The agent loads a studied page of the route twice (to measure its own
+  noise: dates, counters, tokens) and once with the key, with a value the
+  site's links give it or `1`; the key is listed when the page with it is
+  further from the page than two loads are from each other (a different
+  status, another redirect, or the visible text changing beyond
+  `TEXT_SIMILAR`). A key the site ignores (`?test=1`) changes nothing and
+  is left out; a page that changes on every load tells nothing and its
+  keys are left out. Action-like URLs are never opened. Up to 10 keys are
+  tried per discovery (three page loads each).
+
+Everything else — a single visitor, scanners, files that are not there,
+types that are not passive, scripts, keys that change nothing — stays out
+of the report; the gateway's logs keep every refused request. Everything
+is opened anonymously: a test account's session is set aside meanwhile.
+
+Each listed item carries `why` (what was asked and what the agent found)
+and `add`, the change the panel makes when an administrator clicks **Add
+to a new draft** (`POST /v1/apps/{app}/discoveries/{id}/adopt`): the
+panel takes the change from the report, never from the request, onto the
+discovery's draft or the published map, into a new draft to review and
+publish. A file adds its type to the asset prefix (every file of that type
+under it is then served); a key is added to the route as text without
+markup. The buttons wait until the agent has checked its draft.
+
 ### 2. Understand
 
 Deterministic, no AI needed:
@@ -130,9 +182,9 @@ Deterministic, no AI needed:
   drops undeclared keys, so a sort or a filter would change the page in
   silence. The gateway also reports the names of the keys it dropped for
   visitors, with the route's pattern (`/permits/{id}?orderby=`; never a
-  value, nor tracking keys such as `utm_*`, `fbclid`, `gclid`): they are
-  listed in the report (`query_dropped`) for the person, never added, since
-  any visitor can send any key.
+  value, nor tracking keys such as `utm_*`, `fbclid`, `gclid`): never added
+  by the agent, since any visitor can send any key (see [Visitor
+  requests](#visitor-requests)).
 - **Values**: every parameter gets the narrowest type that fits all the
   values seen and the form's own attributes: an integer with its range, a
   list of values (`enum`) when the site offers a closed set (a `<select>`,

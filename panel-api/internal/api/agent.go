@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"regexp"
 	"strconv"
 	"strings"
 
@@ -272,6 +273,7 @@ func (s *Server) internalUnmapped(w http.ResponseWriter, r *http.Request) {
 		if u.App == "" || u.Hits < 1 || u.Clients < 1 || !strings.HasPrefix(u.Path, "/") || len(u.Path) > 512 || len(u.Method) > 10 {
 			continue
 		}
+		u.Visitors = visitorKeys(u.Visitors)
 		clean = append(clean, u)
 	}
 	if err := s.Store.AddUnmapped(r.Context(), clean); err != nil {
@@ -280,6 +282,20 @@ func (s *Server) internalUnmapped(w http.ResponseWriter, r *http.Request) {
 	}
 	w.WriteHeader(http.StatusNoContent)
 }
+
+// visitorKeys keeps the well-formed visitor keys a gateway sent (8 bytes in
+// hex, at most 16): anything else is not a key and is dropped.
+func visitorKeys(in []string) []string {
+	out := make([]string, 0, len(in))
+	for _, k := range in {
+		if len(out) < 16 && visitorKey.MatchString(k) {
+			out = append(out, k)
+		}
+	}
+	return out
+}
+
+var visitorKey = regexp.MustCompile(`^[0-9a-f]{16}$`)
 
 // ScheduleDiscoveries queues the continuous discoveries that are due. The
 // site's published map says how to reach it; the owner authors the draft.

@@ -4,7 +4,7 @@ import { describeError } from "@/shared/api/errors";
 import { useVerification } from "@/features/maps";
 import { useAdopt, type AdoptItem } from "../hooks/useAdopt";
 
-type Item = { label: string; clients: number; verdict: "site" | "suspect"; why: string; adopt: AdoptItem | null };
+type Item = { label: string; clients: number; why: string; adopt: AdoptItem };
 type R = Record<string, any>; // eslint-disable-line @typescript-eslint/no-explicit-any
 
 function Row({ item, canAdd, onAdd, busy }: { item: Item; canAdd: boolean; onAdd: (a: AdoptItem) => void; busy: boolean }) {
@@ -12,44 +12,31 @@ function Row({ item, canAdd, onAdd, busy }: { item: Item; canAdd: boolean; onAdd
     <li className="flex flex-wrap items-start justify-between gap-2 border-b border-rule py-2">
       <div className="flex min-w-0 flex-col">
         <span className="break-all font-mono text-[12.5px]">{item.label}</span>
-        <span className="text-xs text-ink-soft">
-          {item.clients} {item.clients === 1 ? "visitor" : "visitors"} · {item.why}
-        </span>
+        <span className="text-xs text-ink-soft">{item.why}</span>
       </div>
-      {canAdd && item.adopt ? (
-        <Button busy={busy} onClick={() => item.adopt && onAdd(item.adopt)}>Add to a new draft</Button>
-      ) : null}
+      {canAdd ? <Button busy={busy} onClick={() => onAdd(item.adopt)}>Add to a new draft</Button> : null}
     </li>
   );
 }
 
 function Group({ title, items, canAdd, onAdd, busy }: { title: string; items: Item[]; canAdd: boolean;
   onAdd: (a: AdoptItem) => void; busy: boolean }) {
-  const site = items.filter((i) => i.verdict === "site");
-  const suspect = items.filter((i) => i.verdict !== "site");
   if (!items.length) return null;
   return (
     <section className="flex flex-col gap-1">
       <h3 className="text-sm font-semibold">{title} ({items.length})</h3>
-      {site.length ? (
-        <ul>{site.map((i, n) => <Row key={n} item={i} canAdd={canAdd} onAdd={onAdd} busy={busy} />)}</ul>
-      ) : null}
-      {suspect.length ? (
-        <details className="text-sm">
-          <summary className="cursor-pointer text-ink-soft">
-            {suspect.length} not linked by the site: probably leftovers or someone trying addresses
-          </summary>
-          <ul>{suspect.map((i, n) => <Row key={n} item={i} canAdd={canAdd} onAdd={onAdd} busy={busy} />)}</ul>
-        </details>
-      ) : null}
+      <ul>{items.map((i, n) => <Row key={n} item={i} canAdd={canAdd} onAdd={onAdd} busy={busy} />)}</ul>
     </section>
   );
 }
 
 /**
- * What visitors asked for and the map refuses: never added by the agent
- * (anyone can ask for anything). The agent says whether the site itself uses
- * it; a person adds it in one click, into a new draft to review and publish.
+ * What visitors asked for and the map refuses, only as actions: the agent
+ * lists an item once several visitors asked for it and it checked it on the
+ * site (a real file, a key that changes the page). It never adds one itself
+ * (anyone can ask for anything); a person does, in one click, into a new
+ * draft to review and publish. Reports of older agents may list items with
+ * nothing to do: they are left out.
  */
 export function VisitorRequests({ app, discovery, draft, report, canAdd }: {
   app: string; discovery: number; draft: number | null; report: R; canAdd: boolean;
@@ -58,13 +45,11 @@ export function VisitorRequests({ app, discovery, draft, report, canAdd }: {
   const check = useVerification(app, draft ?? 0, draft != null);
   // while the agent checks its draft, a change would land on a version about to be replaced
   const checking = draft != null && (check.isPending || ["queued", "running"].includes(check.data?.status ?? ""));
-  const files: Item[] = (report.files_refused ?? []).map((f: R) => ({
-    label: f.path, clients: f.clients, verdict: f.verdict, why: f.why ?? "",
-    adopt: f.add ? { kind: "file", path: f.path } : null,
+  const files: Item[] = (report.files_refused ?? []).filter((f: R) => f.add).map((f: R) => ({
+    label: f.path, clients: f.clients, why: f.why ?? "", adopt: { kind: "file", path: f.path },
   }));
-  const keys: Item[] = (report.query_dropped ?? []).map((k: R) => ({
-    label: `${k.route}  ?${k.key}=`, clients: k.clients, verdict: k.verdict, why: k.why ?? "",
-    adopt: k.add ? { kind: "key", route: k.route, key: k.key } : null,
+  const keys: Item[] = (report.query_dropped ?? []).filter((k: R) => k.add).map((k: R) => ({
+    label: `${k.route}  ?${k.key}=`, clients: k.clients, why: k.why ?? "", adopt: { kind: "key", route: k.route, key: k.key },
   }));
   if (!files.length && !keys.length) return null;
   return (

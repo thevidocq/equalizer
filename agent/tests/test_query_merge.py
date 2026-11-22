@@ -51,19 +51,8 @@ class QueryMergeTest(unittest.TestCase):
         item = next(r for r in doc["routes"] if r["id"] == "item")
         # a key only visitors sent is listed for the person, never added
         self.assertNotIn("query", item)
-        sort = next(x for x in rep["query_dropped"] if x["key"] == "sort")
-        self.assertEqual((sort["route"], sort["clients"], sort["verdict"]), ("/items/{id}", 2, "suspect"))
-        self.assertEqual(sort["add"], {"route_id": "item", "key": "sort"})  # one click for the person
-        self.assertNotIn("orderby", [x["key"] for x in rep["query_dropped"]])  # added from the site's own links
-        self.assertFalse([v for v in rep["visitors_missing"] if v["path"].startswith("/items/{id}")])
-        # on a literal route too, and never as a missing page
-        clash = next(x for x in rep["query_dropped"] if x["key"] == "id")
-        self.assertIsNone(clash["add"])  # never over a path parameter
-        self.assertNotIn("page", [x["key"] for x in rep["query_dropped"]])  # declared already
-        view = next(x for x in rep["query_dropped"] if x["key"] == "view")
-        self.assertEqual(view["add"], {"route_id": "shop", "key": "view"})  # the GET route, not the POST one
-        self.assertEqual((view["route"], view["clients"]), ("/shop/", 3))
-        self.assertFalse([v for v in rep["visitors_missing"] if v["path"] == "/shop/?view="])
+        self.assertEqual(rep["query_dropped"], [])  # listed only once checked on the site (visitors.confirm)
+        self.assertNotIn("view", shop["legacy_request"]["query"])
         send = next(r for r in doc["routes"] if r["id"] == "send")
         self.assertNotIn("query", send)  # a route posting to the site is not the agent's to change
         self.assertNotIn("empty", shop["legacy_request"]["query"])  # seen without a value: no evidence
@@ -94,28 +83,6 @@ class SeedsTest(unittest.TestCase):
                   "/o/123e4567-e89b-12d3-a456-426614174000", "/contact/", "/dl/aB3dE5gH7jK9mN1p_q",
                   "/invite/Zk8_Qm2Lx9Pw4Rt7Vn3B"):
             self.assertNotIn(p, got)
-
-    def test_files_refused_are_listed(self):
-        from equalizer_agent import crawler, fingerprint, mapbuild
-        crawl = crawler.CrawlResult()
-        crawl.pages["/"] = crawler.Seen(200, "text/html")
-        crawl.assets["/uploads/price-list.csv"] = "text/csv"  # a page of the site links to it
-        cur = current()
-        cur["assets"] = [{"prefix": "/uploads/", "types": ["image/png"]}]
-        job = {"base_url": "http://x.test", "reach": {"mode": "direct", "address": "127.0.0.1:1"},
-               "unmapped": [{"method": "GET", "path": "/uploads/orders.csv", "clients": 1},
-                            {"method": "GET", "path": "/uploads/evil.js", "clients": 4},
-                            {"method": "GET", "path": "/uploads/price-list.csv", "clients": 1}], "current_map": cur}
-        doc, rep, _ = mapbuild.build(job, crawl, fingerprint.Fingerprint())
-        f = rep["files_refused"]
-        # the site's own first, then the suspect ones
-        self.assertEqual([(x["path"], x["verdict"]) for x in f], [("/uploads/price-list.csv", "site"),
-                         ("/uploads/evil.js", "suspect"), ("/uploads/orders.csv", "suspect")])
-        orders = next(x for x in f if x["path"] == "/uploads/orders.csv")
-        self.assertEqual(orders["add"], {"prefix": "/uploads/", "type": "text/csv"})
-        self.assertIn("every text/csv file under /uploads/", orders["why"])  # what a click would open
-        self.assertIsNone(next(x for x in f if x["path"] == "/uploads/evil.js")["add"])  # a script: never
-        self.assertEqual(next(a for a in doc["assets"] if a["prefix"] == "/uploads/")["types"], ["image/png"])
 
 
 if __name__ == "__main__":

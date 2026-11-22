@@ -43,6 +43,47 @@ it, 0.1.0 (`docs/releases/0.1.0.md`, tag on the merge of #39).
 
 ## Entries
 
+### 2026-11-22 — Visitor requests only as actions, checked on the site
+
+- **Branch:** feat/visitor-requests-actionable
+- **What:**
+  - gateway `internal/unmapped`: each client address becomes a visitor key
+    (HMAC-SHA256 of the address with the gateway's token, 8 bytes, hex);
+    up to 16 keys per path go to the panel with the counts, never an address.
+  - contract `schema/api/panel-api.yaml` (`/internal/unmapped`:
+    `client_keys`; the `clients` description was cut by an unquoted comma).
+  - panel-api: migration `0025_unmapped_visitors.sql` (`unmapped_hits.visitors`,
+    up to 16 keys per path); `AddUnmapped` merges keys; `UnmappedOf` counts
+    distinct visitors from the keys (the old summed count only for reports
+    of older gateways); malformed keys are dropped. Test
+    `unmapped_visitors_test.go`.
+  - agent: new `equalizer_agent/visitors.py`, called by the discovery after
+    `mapbuild.build`. A refused file is listed only if 2+ distinct visitors
+    asked for it, it is of a passive type under an asset prefix that lacks
+    it, no page of the site names it, and the site serves it as that type
+    (HEAD, anonymous). A dropped query key is listed only if 2+ distinct
+    visitors used it, the route can take it, and the page changes with it
+    beyond two plain loads' own noise. `mapbuild` no longer lists
+    `files_refused`/`query_dropped` unchecked, nor `visitors_missing`.
+    Tests `tests/test_visitors.py`.
+  - panel-ui: `VisitorRequests` shows only items with **Add to a new draft**
+    (reports of older agents filtered); the list "Asked by visitors, still
+    missing" is gone.
+  - docs: `docs/agent.md` (new "Visitor requests"), `docs/manual/tenant.md`
+    and in-app help, `docs/architecture.md`.
+- **Why:** on metreta.thevidocq.com the report listed 13 refused files and 11
+  missing paths, none with anything to do (scanners, scripts, types already
+  allowed), while a key tried by one visitor was lost among them. The rule
+  now: a visitor's request is shown only with a button, after the agent has
+  checked it on the site; everything else stays in the logs. The previous
+  visitor count summed every gateway batch, so one visitor over five
+  minutes counted five.
+- **Status:** gateway, panel-api and agent tests pass; panel-ui `tsc`/`test`
+  and `check:api` run in CI (no node_modules here; `schema.d.ts` edited by
+  hand to match). Supersedes the closed PR #92.
+- **Next steps:** lost-session detection and re-login; directory listings
+  classified as kept out; strict mode.
+
 ### 2026-11-22 — Release 0.2.10
 
 - **Branch:** chore/release-0.2.10

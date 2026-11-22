@@ -57,3 +57,38 @@ func itoa(i int) string {
 	}
 	return string(b)
 }
+
+// A visitor is sent as a keyed hash: the same address gives the same key
+// across flushes (so the panel counts it once), never the address, and
+// another token gives another key.
+func TestVisitorKeys(t *testing.T) {
+	var sent []item
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		var b struct{ Items []item }
+		_ = json.NewDecoder(r.Body).Decode(&b)
+		sent = append(sent, b.Items...)
+		w.WriteHeader(http.StatusNoContent)
+	}))
+	defer srv.Close()
+	r := &Reporter{URL: srv.URL, Token: "tok", Client: srv.Client()}
+	r.Record("blog", "GET", "/a.pdf", "203.0.113.7")
+	_ = r.Flush(context.Background())
+	r.Record("blog", "GET", "/a.pdf", "203.0.113.7")
+	_ = r.Flush(context.Background())
+	if len(sent) != 2 || len(sent[0].ClientKeys) != 1 || sent[0].ClientKeys[0] != sent[1].ClientKeys[0] {
+		t.Fatalf("keys: %+v", sent)
+	}
+	if k := sent[0].ClientKeys[0]; len(k) != 16 || strings.Contains(k, "203") {
+		t.Errorf("key %q", k)
+	}
+	other := &Reporter{Token: "other"}
+	if a, b := r.visitor("203.0.113.7"), other.visitor("203.0.113.7"); a == b {
+		t.Error("the key does not depend on the token")
+	}
+	for i := 0; i < 40; i++ {
+		r.Record("blog", "GET", "/b.pdf", "198.51.100."+itoa(i))
+	}
+	if it := r.take(); len(it[0].ClientKeys) != MaxSentKeys || it[0].Clients != 40 {
+		t.Errorf("sent keys not bounded: %d", len(it[0].ClientKeys))
+	}
+}

@@ -1,13 +1,17 @@
 // Package unmapped counts the requests refused because their path is not in
 // the map and sends the counts to the panel once a minute. Discovery uses
 // them to find what real visitors miss. Only the path is kept (never the
-// query), and client addresses are only counted, never sent.
+// query). Client addresses are never sent: each becomes a short key, an HMAC
+// with the gateway's token, so that the panel counts distinct visitors (one
+// visitor coming back is still one) without ever holding an address.
 package unmapped
 
 import (
 	"bytes"
 	"context"
+	"crypto/hmac"
 	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"log/slog"
@@ -22,6 +26,9 @@ const (
 	MaxEntries    = 1000
 	MaxPath       = 512
 	maxClientKeys = 64
+	// MaxSentKeys bounds the visitor keys sent per path: discovery needs a
+	// few to tell one visitor from several, never a census.
+	MaxSentKeys = 16
 )
 
 type key struct{ app, method, path string }
@@ -64,19 +71,27 @@ func (r *Reporter) Record(app, method, path, clientIP string) {
 	}
 	e.hits++
 	if len(e.clients) < maxClientKeys {
-		sum := sha256.Sum256([]byte(clientIP))
-		var h [8]byte
-		copy(h[:], sum[:8])
-		e.clients[h] = struct{}{}
+		e.clients[r.visitor(clientIP)] = struct{}{}
 	}
 }
 
 type item struct {
-	App     string `json:"app"`
-	Method  string `json:"method"`
-	Path    string `json:"path"`
-	Hits    int    `json:"hits"`
-	Clients int    `json:"clients"`
+	App        string   `json:"app"`
+	Method     string   `json:"method"`
+	Path       string   `json:"path"`
+	Hits       int      `json:"hits"`
+	Clients    int      `json:"clients"`
+	ClientKeys []string `json:"client_keys"`
+}
+
+// visitor is the key of a client address: keyed, so that it cannot be
+// turned back into the address by trying them all.
+func (r *Reporter) visitor(clientIP string) [8]byte {
+	m := hmac.New(sha256.New, []byte("equalizer-visitor\x00"+r.Token))
+	m.Write([]byte(clientIP))
+	var h [8]byte
+	copy(h[:], m.Sum(nil))
+	return h
 }
 
 // take empties the counters and returns them.
@@ -85,7 +100,14 @@ func (r *Reporter) take() []item {
 	defer r.mu.Unlock()
 	out := make([]item, 0, len(r.entries))
 	for k, e := range r.entries {
-		out = append(out, item{App: k.app, Method: k.method, Path: k.path, Hits: e.hits, Clients: len(e.clients)})
+		keys := make([]string, 0, min(len(e.clients), MaxSentKeys))
+		for c := range e.clients {
+			if len(keys) == MaxSentKeys {
+				break
+			}
+			keys = append(keys, hex.EncodeToString(c[:]))
+		}
+		out = append(out, item{App: k.app, Method: k.method, Path: k.path, Hits: e.hits, Clients: len(e.clients), ClientKeys: keys})
 	}
 	r.entries = nil
 	return out

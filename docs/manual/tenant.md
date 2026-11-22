@@ -225,7 +225,10 @@ images and video posters, and proposes their types in the map: you never
 add a type by hand. When the gateway refuses a file a visitor asked for
 (a type or a size the map does not allow yet), the next discovery checks it
 on the site and proposes it if the site really serves it, with the type
-the site sends and, for a large file, the size limit it needs.
+the site sends and, for a large file, the size limit it needs. The same holds for
+the options of a page (a sort, a filter: `?orderby=`) that visitors use and
+the map does not declare yet: the gateway tells discovery their names,
+never their values, and the next discovery adds them.
 
 ![Discovery](../screenshots/discovery.png)
 

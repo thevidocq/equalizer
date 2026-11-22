@@ -551,7 +551,8 @@ redirects to other sites passed on. Equalizer still sits in between:
   the gateway;
 - the path is checked (no control characters, no `..`), the query and the
   body are parsed and written again: urlencoded and multipart forms (files
-  included, names cleaned), JSON (same order, same numbers), XML (a DOCTYPE,
+  included, names cleaned; a multipart field name with a backslash, which
+  servers read differently and browsers never send, is refused), JSON (same order, same numbers), XML (a DOCTYPE,
   where external entities live, is refused) and plain text; any other body
   is 415;
 - the browser's `User-Agent` becomes a fixed, ordinary string for its kind
@@ -657,7 +658,10 @@ case): `slug: { base: string, pattern: "^[a-z0-9-]+$", deny: [wp-admin, admin] }
 | `no_template_meta` | `<?`, `?>`, `<%`, `%>`, `${`, `#{`, `{{`, `}}` |
 
 An unknown rule makes the map impossible to load. Undeclared query
-parameters are dropped; repeated ones are rejected. Without
+parameters are dropped (their names, never their values, are reported to
+discovery, which adds them to the route; tracking keys such as `utm_*`,
+`fbclid` and `gclid` are dropped without a report); repeated ones are
+rejected. Without
 `roles.anonymous` no page is public.
 
 ## Lifecycle

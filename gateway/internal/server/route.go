@@ -50,6 +50,7 @@ func (p *Public) serveRoute(w http.ResponseWriter, r *http.Request, st *site.Sit
 		p.reject(w, r, st, route.ID, err)
 		return
 	}
+	p.reportDropped(r, st, route.Query, query)
 
 	if !p.authorize(w, r, st, route.ID, route.Authz, placeholder.Values{"params": params, "query": queryVals}, false) {
 		return

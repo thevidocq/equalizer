@@ -56,3 +56,37 @@ func TestRefusedAssetsReported(t *testing.T) {
 		t.Errorf("reported %v, want only /css/movie.mp4", got)
 	}
 }
+
+// A route drops undeclared query keys; their names (never their values) go
+// to discovery, except tracking keys.
+func TestDroppedQueryKeysReported(t *testing.T) {
+	st := testSite(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "text/html")
+		_, _ = w.Write([]byte("<html><body>permit</body></html>"))
+	}))
+	var got []string
+	panel := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		var body struct {
+			Items []struct{ Path string } `json:"items"`
+		}
+		_ = json.NewDecoder(r.Body).Decode(&body)
+		for _, it := range body.Items {
+			got = append(got, it.Path)
+		}
+		w.WriteHeader(http.StatusNoContent)
+	}))
+	defer panel.Close()
+	rep := &unmapped.Reporter{URL: panel.URL, Client: panel.Client()}
+	p := &Public{Maps: fixedMaps{st}, IPs: clientip.New(nil), Unmapped: rep,
+		Log: slog.New(slog.NewJSONHandler(io.Discard, nil)), Events: telemetry.NewEmitter(io.Discard, "test")}
+	rec := get(p.Handler(), "GET", "/permits/5?tab=data&orderby=secret-value&utm_source=x&fbclid=y&Bad-Key=1", nil)
+	if rec.Code != 200 {
+		t.Fatalf("status %d", rec.Code)
+	}
+	if err := rep.Flush(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	if len(got) != 1 || got[0] != "/permits/5?orderby=" {
+		t.Errorf("reported %v, want only /permits/5?orderby=", got)
+	}
+}

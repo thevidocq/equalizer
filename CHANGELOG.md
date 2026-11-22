@@ -42,6 +42,47 @@ it, 0.1.0 (`docs/releases/0.1.0.md`, tag on the merge of #39).
 
 ## Entries
 
+### 2026-11-22 — Multipart: refuse field names with a backslash
+
+- **Branch:** fix/route-building
+- **What:** `gateway/internal/rebuild/formats.go` (`Multipart`): a part
+  whose name contains `\` is refused as malformed. Regression seed
+  `internal/rebuild/testdata/fuzz/FuzzMultipart/backslash-name`. Doc
+  `docs/map-format.md` (rebuilding).
+- **Why:** CI's `FuzzMultipart` found that a part named `\` was rebuilt as
+  `name="\"`, which Go (and some legacy servers) read as an escaped quote:
+  the field reached the legacy application with another name (empty).
+  Browsers never send a backslash in a field name.
+- **Status:** `go test ./internal/rebuild` green; 40 s of fuzzing clean.
+- **Next steps:** release 0.2.10.
+
+### 2026-11-22 — Routes learn the query keys they lacked
+
+- **Branch:** fix/route-building
+- **What:**
+  - agent `mapbuild._merge_query`: a route already in the map (same
+    shape) gets the query keys the study saw and it lacked, instead of
+    being skipped; integer when seen with 3+ integer values, otherwise
+    `WIDE_QUERY` (text ≤1000, `no_html`, `no_template_meta`), narrowed later
+    by verification. Only GET routes with a GET legacy request, only keys a
+    map can hold. Report key `query_added`. `covered()` reads a reported
+    `path?key=` as covered only when the route declares the key.
+  - gateway `internal/server/dropped.go` (`reportDropped`, called by
+    `serveRoute`): the names of undeclared query keys a route dropped are
+    reported as unmapped `path?key=` (at most 5 per request; never values;
+    never `utm_*`, `fbclid`, `gclid` and other tracking keys).
+  - Tests: gateway `TestDroppedQueryKeysReported`; agent
+    `test_query_merge.py`. Docs: `docs/agent.md`, `docs/map-format.md`,
+    tenant manual and in-app help.
+- **Why:** the gateway drops undeclared query keys silently: a sort or a
+  filter the study had not seen made the page differ from the legacy one
+  with no refusal, no log and no way for discovery to learn it; and routes
+  already in the map never got new keys.
+- **Status:** gateway tests, agent unittests (57), `check:help` green.
+- **Next steps:**
+  1. Release 0.2.10 (#83, #84, #85 and this).
+  2. Resume strict mode (`feat/strict-mode`).
+
 ### 2026-11-22 — Crawler: sitemaps by any name, the site's other names, slugs
 
 - **Branch:** fix/crawler-sources

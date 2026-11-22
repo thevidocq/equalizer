@@ -123,6 +123,7 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("GET /v1/apps/{app}/discoveries", s.authed(s.listDiscoveries))
 	mux.HandleFunc("POST /v1/apps/{app}/discoveries", s.authed(s.startDiscovery))
 	mux.HandleFunc("GET /v1/apps/{app}/discoveries/{id}", s.authed(s.getDiscovery))
+	mux.HandleFunc("POST /v1/apps/{app}/discoveries/{id}/adopt", s.authed(s.adoptDiscovery))
 	mux.HandleFunc("POST /v1/apps/{app}/map-template", s.authed(s.mapTemplate))
 	mux.HandleFunc("GET /v1/apps/{app}/maps", s.authed(s.listMaps))
 	mux.HandleFunc("POST /v1/apps/{app}/maps", s.authed(s.createMap))

@@ -229,7 +229,13 @@ text, CSV, archives, HTML or XML, which would open every such file in the
 folder. What visitors ask for and the map refuses — a file, a page option —
 is listed in the discovery report for you to judge, never added on its
 own: anyone can ask for anything, so a visitor's request is not proof that
-the site uses it.
+the site uses it. For each item the agent says whether a page or a link of
+the site uses it (listed first) or not (folded away: probably a leftover
+file or someone trying addresses), and what adding it would do — for a
+type such as `text/csv`, that every such file in the folder would be
+served. **Add to a new draft** makes the change in one click, in a new
+draft you review and publish as any other; the change is the one the
+report proposes, nothing else.
 
 ![Discovery](/help-img/discovery.png)
 

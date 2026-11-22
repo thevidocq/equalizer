@@ -2386,6 +2386,61 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/apps/{app}/discoveries/{id}/adopt": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Adds to the map one thing visitors asked for that the discovery listed (a file type under an asset prefix, a query key on a route): never added by the agent, decided by a person in one click. The panel takes the change from the discovery's report, not from the request, and writes a new draft on top of the discovery's draft (still a draft) or of the published map; the draft goes through the usual checks and is published as any other. */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    app: components["parameters"]["app"];
+                    id: components["parameters"]["id"];
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": {
+                        /** @enum {unknown} */
+                        kind: "file" | "key";
+                        /** @description kind file: the file's path, as in report.files_refused */
+                        path?: string;
+                        /** @description kind key: the route's path, as in report.query_dropped */
+                        route?: string;
+                        /** @description kind key: the query key */
+                        key?: string;
+                    };
+                };
+            };
+            responses: {
+                /** @description Draft created */
+                201: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["MapVersion"];
+                    };
+                };
+                404: components["responses"]["Error"];
+                409: components["responses"]["Error"];
+                422: components["responses"]["Error"];
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/internal/discoveries/claim": {
         parameters: {
             query?: never;

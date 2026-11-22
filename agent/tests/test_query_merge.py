@@ -47,10 +47,14 @@ class QueryMergeTest(unittest.TestCase):
         item = next(r for r in doc["routes"] if r["id"] == "item")
         # a key only visitors sent is listed for the person, never added
         self.assertNotIn("query", item)
-        self.assertIn({"route": "/items/{id}", "key": "sort", "clients": 2}, rep["query_dropped"])
+        sort = next(x for x in rep["query_dropped"] if x["key"] == "sort")
+        self.assertEqual((sort["route"], sort["clients"], sort["verdict"]), ("/items/{id}", 2, "suspect"))
+        self.assertEqual(sort["add"], {"route_id": "item", "key": "sort"})  # one click for the person
+        self.assertNotIn("orderby", [x["key"] for x in rep["query_dropped"]])  # added from the site's own links
         self.assertFalse([v for v in rep["visitors_missing"] if v["path"].startswith("/items/{id}")])
         # on a literal route too, and never as a missing page
-        self.assertIn({"route": "/shop/", "key": "view", "clients": 3}, rep["query_dropped"])
+        view = next(x for x in rep["query_dropped"] if x["key"] == "view")
+        self.assertEqual((view["route"], view["clients"]), ("/shop/", 3))
         self.assertFalse([v for v in rep["visitors_missing"] if v["path"] == "/shop/?view="])
         send = next(r for r in doc["routes"] if r["id"] == "send")
         self.assertNotIn("query", send)  # a route posting to the site is not the agent's to change
@@ -87,12 +91,19 @@ class SeedsTest(unittest.TestCase):
         from equalizer_agent import crawler, fingerprint, mapbuild
         crawl = crawler.CrawlResult()
         crawl.pages["/"] = crawler.Seen(200, "text/html")
+        crawl.assets["/uploads/price-list.csv"] = "text/csv"  # a page of the site links to it
         cur = current()
         cur["assets"] = [{"prefix": "/uploads/", "types": ["image/png"]}]
         job = {"base_url": "http://x.test", "reach": {"mode": "direct", "address": "127.0.0.1:1"},
-               "unmapped": [{"method": "GET", "path": "/uploads/orders.csv", "clients": 1}], "current_map": cur}
+               "unmapped": [{"method": "GET", "path": "/uploads/orders.csv", "clients": 1},
+                            {"method": "GET", "path": "/uploads/price-list.csv", "clients": 1}], "current_map": cur}
         doc, rep, _ = mapbuild.build(job, crawl, fingerprint.Fingerprint())
-        self.assertEqual(rep["files_refused"], [{"path": "/uploads/orders.csv", "clients": 1}])
+        f = rep["files_refused"]
+        # the site's own first, then the suspect ones
+        self.assertEqual([(x["path"], x["verdict"]) for x in f],
+                         [("/uploads/price-list.csv", "site"), ("/uploads/orders.csv", "suspect")])
+        self.assertEqual(f[1]["add"], {"prefix": "/uploads/", "type": "text/csv"})
+        self.assertIn("every text/csv file under /uploads/", f[1]["why"])  # what a click would open
         self.assertEqual(next(a for a in doc["assets"] if a["prefix"] == "/uploads/")["types"], ["image/png"])
 
 

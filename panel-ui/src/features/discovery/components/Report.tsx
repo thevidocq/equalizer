@@ -2,6 +2,7 @@ import { useParams } from "react-router";
 import { Notice, Spinner } from "@/shared/ui";
 import { STILL_OPEN } from "@/features/maps";
 import { DraftNotice } from "./DraftNotice";
+import { VisitorRequests } from "./VisitorRequests";
 import type { Discovery } from "../hooks/useDiscovery";
 
 type R = Record<string, any>; // eslint-disable-line @typescript-eslint/no-explicit-any
@@ -30,7 +31,7 @@ function List({ title, items, render }: { title: string; items?: R[]; render: (i
 const LOGIN: Record<string, string> = { ok: "logged in", failed: "login failed", no_login_form: "no login form found" };
 
 /** What a finished discovery found and proposes. */
-export function Report({ d }: { d: Discovery }) {
+export function Report({ d, canAdd }: { d: Discovery; canAdd: boolean }) {
   const { app = "" } = useParams();
   const r = (d.report ?? {}) as R;
   if (d.status === "failed") return <Notice tone="error">The discovery failed: {d.error}</Notice>;
@@ -71,10 +72,7 @@ export function Report({ d }: { d: Discovery }) {
         <List title="Not opened by the agent (still served, by the site area)" items={r.excluded} render={(i) => `${i.path}  ${i.reason}`} />
       )}
       <List title="Asked by visitors, still missing" items={r.visitors_missing} render={(i) => `${i.path}  (${i.clients} visitors)`} />
-      <List title="Files visitors asked for that the map refuses (never added on their word: add the type if they are the site's)"
-        items={r.files_refused} render={(i) => `${i.path}  (${i.clients} visitors)`} />
-      <List title="Page options visitors use that the map drops (never added on their word: add them to the route if the site uses them)"
-        items={r.query_dropped} render={(i) => `${i.route}  ?${i.key}=  (${i.clients} visitors)`} />
+      <VisitorRequests app={app} discovery={d.id} report={r} canAdd={canAdd} />
       <List title="Served by the site area, without typed checks" items={r.open ? [] : r.not_supported} render={(i) => `${i.path}  ${i.reason}`} />
       <List title="In the map, not seen any more" items={(r.not_seen_anymore ?? []).map((p: string) => ({ p }))} render={(i) => i.p} />
       <List title="Components" items={r.components} render={(i) => `${i.name}${i.version ? " " + i.version : ""}`} />

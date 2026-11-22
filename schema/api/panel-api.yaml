@@ -1081,6 +1081,38 @@ paths:
             application/json:
               schema: { $ref: "#/components/schemas/Discovery" }
         "404": { $ref: "#/components/responses/Error" }
+  /apps/{app}/discoveries/{id}/adopt:
+    post:
+      tags: [discovery]
+      summary: >-
+        Adds to the map one thing visitors asked for that the discovery listed (a file type under an asset
+        prefix, a query key on a route): never added by the agent, decided by a person in one click. The
+        panel takes the change from the discovery's report, not from the request, and writes a new draft
+        on top of the discovery's draft (still a draft) or of the published map; the draft goes through
+        the usual checks and is published as any other.
+      parameters: [{ $ref: "#/components/parameters/app" }, { $ref: "#/components/parameters/id" }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [kind]
+              properties:
+                kind: { enum: [file, key] }
+                path: { type: string, maxLength: 512, description: "kind file: the file's path, as in report.files_refused" }
+                route: { type: string, maxLength: 512, description: "kind key: the route's path, as in report.query_dropped" }
+                key: { type: string, maxLength: 64, description: "kind key: the query key" }
+      responses:
+        "201":
+          description: Draft created
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/MapVersion" }
+        "404": { $ref: "#/components/responses/Error" }
+        "409": { $ref: "#/components/responses/Error" }
+        "422": { $ref: "#/components/responses/Error" }
   /internal/discoveries/claim:
     post:
       tags: [internal]

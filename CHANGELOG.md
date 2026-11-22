@@ -19,7 +19,8 @@ Add a section at the top of "Entries" for every commit:
 
 ## Current project status
 
-Latest release: **0.2.8** (`docs/releases/0.2.8.md`); before it 0.2.7
+Latest release: **0.2.9** (`docs/releases/0.2.9.md`); before it 0.2.8
+(`docs/releases/0.2.8.md`), 0.2.7
 (`docs/releases/0.2.7.md`), 0.2.6
 (`docs/releases/0.2.6.md`), 0.2.5 (`docs/releases/0.2.5.md`), 0.2.4 (`docs/releases/0.2.4.md`), 0.2.3 (`docs/releases/0.2.3.md`) and 0.2.2
 (`docs/releases/0.2.2.md`); 0.2.0 was for the first installations; before
@@ -40,6 +41,17 @@ it, 0.1.0 (`docs/releases/0.1.0.md`, tag on the merge of #39).
 | tools (eqtool) | Map signing keys, form key, relay token, connector registration, map signing |
 
 ## Entries
+
+### 2026-11-22 — Release 0.2.9
+
+- **Branch:** chore/release-0.2.9
+- **What:** `VERSION`, agent version, `INSTALL.md`, `README.md`,
+  `deploy/compose/.env.example` point to 0.2.9; release notes
+  `docs/releases/0.2.9.md`.
+- **Why:** release the agent's full file study (#80, #81).
+- **Status:** documents only. Tag `v0.2.9` on the merge commit publishes the
+  images.
+- **Next steps:** resume strict mode (`feat/strict-mode`).
 
 ### 2026-11-22 — The agent studies every file the site loads
 

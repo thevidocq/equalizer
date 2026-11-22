@@ -19,7 +19,8 @@ Add a section at the top of "Entries" for every commit:
 
 ## Current project status
 
-Latest release: **0.2.10** (`docs/releases/0.2.10.md`); before it 0.2.9
+Latest release: **0.2.11** (`docs/releases/0.2.11.md`); before it 0.2.10
+(`docs/releases/0.2.10.md`), 0.2.9
 (`docs/releases/0.2.9.md`), 0.2.8
 (`docs/releases/0.2.8.md`), 0.2.7
 (`docs/releases/0.2.7.md`), 0.2.6
@@ -42,6 +43,25 @@ it, 0.1.0 (`docs/releases/0.1.0.md`, tag on the merge of #39).
 | tools (eqtool) | Map signing keys, form key, relay token, connector registration, map signing |
 
 ## Entries
+
+### 2026-11-22 — Second review of visitor requests
+
+- **Branch:** feat/visitor-requests-actionable
+- **What:** agent `visitors.py`: a key is tried on up to 3 pages of its
+  route (out of 6 read), those offering the key first (`/{slug}/` covers
+  the shop and the cart); the baseline is the page with an unknown key
+  (`?eqprobe=`), so a page cache does not make noise look like a change;
+  file paths are encoded before opening; whether the prefix lists the type
+  is judged on the type the site sends. `discovery.py`: the check runs
+  after the AI review, so the route ids in the report are the final
+  draft's. Gateway: the visitor key also covers the path (no linking one
+  visitor across paths). panel-api: a nil key list stores `{}`. Docs:
+  `docs/agent.md`, `gateway/README.md`.
+- **Why:** a second independent review: WooCommerce's sort on `/{slug}/`
+  was tried on the cart and hidden; an AI rename left buttons that fail;
+  page caches; spaces in names; `.wav` listed as `audio/wav`.
+- **Status:** gateway, panel-api and agent tests pass (73 agent tests).
+- **Next steps:** release 0.2.11.
 
 ### 2026-11-22 — Fix the review of visitor requests
 

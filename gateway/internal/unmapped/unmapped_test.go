@@ -83,12 +83,15 @@ func TestVisitorKeys(t *testing.T) {
 	}
 	// the panel's token alone cannot recompute a key: the secret is the gateway's
 	sameToken := &Reporter{Token: "tok", Key: []byte("another-secret")}
-	if a, b := r.visitor("203.0.113.7"), sameToken.visitor("203.0.113.7"); a == b {
+	if a, b := r.visitor("/a.pdf", "203.0.113.7"), sameToken.visitor("/a.pdf", "203.0.113.7"); a == b {
 		t.Error("the key depends on the token, not on the gateway's secret")
 	}
 	random := &Reporter{Token: "tok"}
-	if a, b := r.visitor("203.0.113.7"), random.visitor("203.0.113.7"); a == b || random.visitor("203.0.113.7") != b {
+	if a, b := r.visitor("/a.pdf", "203.0.113.7"), random.visitor("/a.pdf", "203.0.113.7"); a == b || random.visitor("/a.pdf", "203.0.113.7") != b {
 		t.Error("without a key: a random one, stable in the process")
+	}
+	if r.visitor("/a.pdf", "203.0.113.7") == r.visitor("/b.pdf", "203.0.113.7") {
+		t.Error("one visitor's key links its requests across paths")
 	}
 	for i := 0; i < 40; i++ {
 		r.Record("blog", "GET", "/b.pdf", "198.51.100."+itoa(i))

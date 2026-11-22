@@ -96,10 +96,6 @@ def run(job: dict, cfg, panel, log) -> None:
         return
     doc, report, samples = mapbuild.build(job, result, fp)
     try:
-        visitors.confirm(report, doc, job.get("unmapped", []), result, f, fp.cms)
-    except ReachError:
-        pass  # the lists stay empty: the study itself is done
-    try:
         llm = provider(job.get("llm"), cfg.allow_private_llm)
     except LLMError as e:
         llm, report["ai"] = None, {"used": False, "error": str(e)}
@@ -108,6 +104,10 @@ def run(job: dict, cfg, panel, log) -> None:
         report["coverage_note"] = "after AI review"
     elif "ai" not in report:
         report["ai"] = {"used": False, "reason": "no AI model configured for this tenant" if not job.get("llm") else "off"}
+    try:  # after the AI review: the route ids a click names are those of the final draft
+        visitors.confirm(report, doc, job.get("unmapped", []), result, f, fp.cms)
+    except ReachError:
+        pass  # the lists stay empty: the study itself is done
     log.info("discovery finished", discovery=jid, app=job["app"], pages=report["pages_found"],
              coverage=report["coverage"], routes_added=len(report["routes_added"]), ai=report["ai"].get("used"))
     panel.result(jid, report=report, document=doc)

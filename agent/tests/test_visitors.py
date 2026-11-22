@@ -3,6 +3,7 @@ take, after the agent has checked it on the site (docs/agent.md, "Visitor
 requests"): never a scanner's guess, never a single visitor, never a file
 that is not there or a key that changes nothing."""
 import os
+import re
 import sys
 import unittest
 
@@ -25,6 +26,8 @@ class FakeSite:
 
     def request(self, method: str, path_query: str, **_):
         self.asked.append((method, path_query, dict(self.cookies)))
+        # a key no site knows (the agent's baseline) is ignored, as sites do
+        path_query = re.sub(r"[?&]eqprobe=[0-9a-f]+$", "", path_query)
         r = self.table.get(path_query)
         if callable(r):
             r = r()
@@ -100,6 +103,16 @@ class FilesTest(unittest.TestCase):
                           ("/uploads/font.woff2", "font/woff2")])
         self.assertTrue(all("prefix_types" not in i["add"] for i in report["files_refused"]))
 
+    def test_spaces_and_types_known_under_another_name(self):
+        wav = Response(200, {"content-type": "audio/x-wav"}, b"RIFF....WAVE", "")
+        d = doc()
+        d["assets"][0]["types"].append("audio/wav")  # listed, yet the site sends audio/x-wav
+        site = FakeSite({"/uploads/my%20song.wav": wav})
+        report = {}
+        visitors.confirm(report, d, [get("/uploads/my song.wav")], crawl(), site)
+        self.assertEqual([(i["path"], i["add"]["type"]) for i in report["files_refused"]],
+                         [("/uploads/my song.wav", "audio/x-wav")])
+
     def test_session_given_back_after_a_failure(self):
         from equalizer_agent.fetch import ReachError
 
@@ -162,6 +175,32 @@ class KeysTest(unittest.TestCase):
         site = FakeSite({"/shop/": noisy, "/shop/?orderby=price": noisy, "/shop/?orderby=date": noisy})
         report = {}
         visitors.confirm(report, doc(), [get("/shop/?orderby=", 5)], crawl(), site)
+        self.assertEqual(report["query_dropped"], [])
+
+    def test_the_page_that_offers_the_key(self):
+        # /{slug}/ covers the cart and the shop: the shop offers ?orderby= and sorts
+        d = doc()
+        d["routes"].append({"id": "page", "path": "/{slug}/", "method": "GET", "params": {"slug": {"type": "slug"}},
+                            "legacy_request": {"method": "GET", "path": "/{{params.slug}}/"}})
+        c = crawler.CrawlResult()
+        for pq in ("/cart/", "/about/", "/shop/"):
+            c.pages[pq] = crawler.Seen(200, "text/html", seen_by={"anonymous"})
+        shop = '<select name="orderby"></select> apple banana cherry'
+        site = FakeSite({"/cart/": page("Cart empty"), "/about/": page("About us"), "/shop/": page(shop),
+                         "/shop/?orderby=price": page('<select name="orderby"></select> cherry banana apple')})
+        report = {}
+        visitors.confirm(report, d, [get("/{slug}/?orderby=", 3)], c, site)
+        self.assertEqual([(i["route"], i["page"]) for i in report["query_dropped"]], [("/{slug}/", "/shop/")])
+
+    def test_a_page_cache_is_not_a_change(self):
+        # the plain page comes from a cache; any page with a query is built, with a random widget
+        n = iter(range(1000))
+        words = " ".join("word%d" % i for i in range(200))
+        site = FakeSite({"/shop/": page(words)})
+        real = site.request
+        site.request = lambda m, p, **k: page(words + " random%d" % next(n)) if "?" in p else real(m, p, **k)
+        report = {}
+        visitors.confirm(report, doc(), [get("/shop/?view=", 5)], crawl(), site)
         self.assertEqual(report["query_dropped"], [])
 
     def test_a_sort_on_a_long_stable_page_is_a_change(self):

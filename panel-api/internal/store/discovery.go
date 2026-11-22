@@ -272,11 +272,11 @@ func (s *Store) AddUnmapped(ctx context.Context, items []Unmapped) error {
 	for _, u := range items {
 		_, err := s.DB.ExecContext(ctx, `
 			INSERT INTO unmapped_hits (app_id, method, path, hits, clients, visitors)
-			SELECT $1, $2, $3, $4, $5, $6::text[] WHERE EXISTS (SELECT 1 FROM apps WHERE id = $1)
+			SELECT $1, $2, $3, $4, $5, coalesce($6::text[], '{}') WHERE EXISTS (SELECT 1 FROM apps WHERE id = $1)
 			ON CONFLICT (app_id, method, path) DO UPDATE SET hits = unmapped_hits.hits + $4,
 				clients = unmapped_hits.clients + $5, last_seen = now(),
 				visitors = (SELECT coalesce(array_agg(v), '{}') FROM (SELECT DISTINCT v FROM
-					unnest(unmapped_hits.visitors || $6::text[]) v ORDER BY v LIMIT $7) x)`,
+					unnest(unmapped_hits.visitors || coalesce($6::text[], '{}')) v ORDER BY v LIMIT $7) x)`,
 			u.App, u.Method, u.Path, u.Hits, u.Clients, pq.Array(u.Visitors), maxVisitors)
 		if err != nil {
 			return err

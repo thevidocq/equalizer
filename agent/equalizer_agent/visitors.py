@@ -15,8 +15,8 @@ there is something to do about it, after checking it on the site itself:
   route; a name the map can take on that route; a presentation key (a
   sort, an order, a page number, a filter, a language: PRESENTATION), since
   the agent opens the page with it and a GET may act (?add-to-cart=,
-  ?doing_wp_cron=); and the page, answering 200 as without it, shows other
-  text with it. A key the site ignores (?test=1) changes nothing, a key
+  ?doing_wp_cron=); and a page of the route (one that offers the key
+  first), answering 200 as without it, shows other text with it. A key the site ignores (?test=1) changes nothing, a key
   that only redirects or errors (?author=1) is not a page option: both are
   left out.
 
@@ -26,6 +26,7 @@ refused request. Each item carries add, the panel's one-click change."""
 
 import difflib
 import re
+import secrets
 import urllib.parse
 
 from . import assettypes, cluster, rules, verify, verifyassets
@@ -35,7 +36,9 @@ from .mapbuild import _is_dropped_key, _prefix_of, matches
 
 MIN_VISITORS = 2  # distinct visitors (the gateway sends keyed hashes, never addresses)
 MAX_FILES = 20  # files opened per discovery
-MAX_KEYS = 10  # keys tried per discovery (three page loads each)
+MAX_KEYS = 10  # keys tried per discovery (on up to MAX_PAGES pages of the route each)
+MAX_PAGES = 3  # pages of a route a key is tried on
+MAX_SCAN = 6  # pages of a route read to find those that use the key
 MAX_LISTED = 50
 
 # Keys that change how a page presents what it shows, with values to try
@@ -73,7 +76,8 @@ def files(doc: dict, unmapped: list, crawl) -> list:
         a = _prefix_of(doc, p)
         name = p.rsplit("/", 1)[-1]
         kind = ASSET_EXT.get("." + name.rsplit(".", 1)[-1].lower(), "") if "." in name else ""
-        if a is None or not assettypes.passive(kind, loaded=False) or kind in a.get("types", []):
+        # a type the prefix lists may still be refused: the site sends it under another name
+        if a is None or not assettypes.passive(kind, loaded=False):
             continue
         out.append({"path": p, "clients": u["clients"], "type": kind,
                     "add": {"prefix": a["prefix"], "type": kind, "prefix_types": list(a.get("types", []))}})
@@ -98,11 +102,18 @@ def keys(doc: dict, unmapped: list) -> list:
     return sorted(out, key=lambda x: (-x["clients"], x["route"], x["key"]))
 
 
+def _quoted(path: str) -> str:
+    """The path as it goes on the wire: the gateway reports it decoded
+    (spaces, accents)."""
+    return urllib.parse.quote(path, safe="/%:@!$&'()*+,;=-._~")
+
+
 def _served(f, path: str) -> str:
     """The type the site serves path as, "" when it does not serve it: HEAD
     first, the file itself when HEAD is not answered with the file (405,
     403 from a firewall) or for a font, judged by its first bytes as the
     gateway does (servers send fonts as application/octet-stream)."""
+    path = _quoted(path)
     try:
         r = f.request("HEAD", path)
         font = r.content_type.startswith("font/") or "font" in r.content_type or path.lower().endswith(
@@ -127,12 +138,20 @@ def _kin(served: str, kind: str) -> bool:
         served.split("/")[0] == kind.split("/")[0] in ("image", "audio", "video") and "xml" not in served)
 
 
-def _page_for(crawl, route: str) -> str:
-    """A studied page of the route, opened anonymously: the shortest."""
-    pages = [pq for pq, s in crawl.pages.items()
-             if "anonymous" in s.seen_by and s.status == 200 and s.ctype == "text/html"
+def _pages_for(crawl, route: str) -> list:
+    """Studied pages of the route, opened anonymously, shortest first: a
+    pattern such as /{slug}/ covers the shop and the cart alike."""
+    pages = [pq for pq, st in crawl.pages.items()
+             if "anonymous" in st.seen_by and st.status == 200 and st.ctype == "text/html"
              and matches(route, pq.partition("?")[0])]
-    return min(pages, key=lambda pq: ("?" in pq, len(pq), pq), default="")
+    return sorted(pages, key=lambda pq: ("?" in pq, len(pq), pq))[:MAX_SCAN]
+
+
+def _uses(r, key: str) -> bool:
+    """Whether a page offers key itself: a field (WooCommerce's <select
+    name="orderby">) or a link with it."""
+    text = r.body.decode("utf-8", "replace")
+    return bool(re.search(r"""name=["']?%s["'\s>]|[?&;]%s=""" % (re.escape(key), re.escape(key)), text))
 
 
 def _values(crawl, key: str) -> list:
@@ -157,33 +176,55 @@ def _apart(a, b) -> float:
     return 1 - difflib.SequenceMatcher(None, wa, wb, autojunk=False).ratio()
 
 
-def _changes(f, page: str, key: str, values: list, cms=None) -> bool:
+def _page_ok(r) -> bool:
+    return r.status == 200 and r.content_type == "text/html"
+
+
+def _changes(f, page: str, a1, key: str, values: list, cms=None) -> bool:
     """Whether the page shows other text with key. Every answer must be the
     page itself (200, HTML): a redirect or an error is not a page option
-    (?author=1 redirects to the author's page). The page is loaded twice
-    for its own noise (dates, counters, rotating posts): with a stable page
-    any other word is a change (a sort only reorders), with a noisy one the
-    change must be well beyond what two loads differ by."""
-    def page_ok(r):
-        return r.status == 200 and r.content_type == "text/html"
+    (?author=1 redirects to the author's page). The baseline is the page
+    and the page with a key no site knows: a page cache serves the plain
+    page and builds any page with a query, and the noise (dates, counters,
+    rotating posts) is measured between the two. With no noise any other
+    word is a change (a sort only reorders); with noise the change must be
+    well beyond it."""
+    sep = "&" if "?" in page else "?"
     try:
-        a1, a2 = f.get(page), f.get(page)
-        if not (page_ok(a1) and page_ok(a2)):
+        a2 = f.get(page + sep + "eqprobe=" + secrets.token_hex(4))
+        if not (_page_ok(a1) and _page_ok(a2)):
             return False
         noise = _apart(a1, a2)
         for v in values:
-            url = page + ("&" if "?" in page else "?") + urllib.parse.urlencode({key: v})
+            url = page + sep + urllib.parse.urlencode({key: v})
             if rules.is_action(url) or rules.excluded(url, cms):
                 return False
             b = f.get(url)
-            if not page_ok(b):
+            if not _page_ok(b):
                 continue
-            d = min(_apart(a1, b), _apart(a2, b))
+            d = _apart(a2, b)  # both built for a query: the cache does not stand between them
             if (noise == 0 and d > 0) or (noise > 0 and d > max(2 * noise, 1 - verify.TEXT_SIMILAR)):
                 return True
     except (ReachError, OSError, ValueError):
         return False
     return False
+
+
+def _key_changes(f, crawl, item: dict, cms=None) -> str:
+    """The page of the route that changes with the key, or "": pages that
+    offer the key themselves first, then the others, up to MAX_PAGES."""
+    loaded = []
+    for pq in _pages_for(crawl, item["route"]):
+        try:
+            loaded.append((pq, f.get(pq)))
+        except (ReachError, OSError, ValueError):
+            continue
+    loaded.sort(key=lambda x: not _uses(x[1], item["key"]))
+    values = _values(crawl, item["key"])
+    for pq, a1 in loaded[:MAX_PAGES]:
+        if _changes(f, pq, a1, item["key"], values, cms):
+            return pq
+    return ""
 
 
 def confirm(report: dict, doc: dict, unmapped: list, crawl, f, cms=None) -> None:
@@ -214,11 +255,11 @@ def confirm(report: dict, doc: dict, unmapped: list, crawl, f, cms=None) -> None
         for item in keys(doc, unmapped):
             if tried == MAX_KEYS or len(listed) == MAX_LISTED:
                 break
-            page = _page_for(crawl, item["route"])
-            if not page:
+            if not _pages_for(crawl, item["route"]):
                 continue
             tried += 1
-            if not _changes(f, page, item["key"], _values(crawl, item["key"]), cms):
+            page = _key_changes(f, crawl, item, cms)
+            if not page:
                 continue
             item["page"] = page
             item["why"] = "%d visitors used it; %s shows other content with it, and the map drops it" % (

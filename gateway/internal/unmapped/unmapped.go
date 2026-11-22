@@ -77,7 +77,7 @@ func (r *Reporter) Record(app, method, path, clientIP string) {
 	}
 	e.hits++
 	if len(e.clients) < maxClientKeys {
-		e.clients[r.visitor(clientIP)] = struct{}{}
+		e.clients[r.visitor(path, clientIP)] = struct{}{}
 	}
 }
 
@@ -90,9 +90,10 @@ type item struct {
 	ClientKeys []string `json:"client_keys"`
 }
 
-// visitor is the key of a client address: keyed, so that it cannot be
-// turned back into the address by trying them all.
-func (r *Reporter) visitor(clientIP string) [8]byte {
+// visitor is the key of a client address on one path: keyed, so that it
+// cannot be turned back into the address by trying them all, and per path,
+// so that the panel cannot link one visitor's requests across paths.
+func (r *Reporter) visitor(path, clientIP string) [8]byte {
 	r.keyOnce.Do(func() {
 		if len(r.Key) == 0 {
 			r.Key = make([]byte, 32)
@@ -100,7 +101,7 @@ func (r *Reporter) visitor(clientIP string) [8]byte {
 		}
 	})
 	m := hmac.New(sha256.New, r.Key)
-	m.Write([]byte("equalizer-visitor\x00" + clientIP)) // apart from the key's other use (form tokens)
+	m.Write([]byte("equalizer-visitor\x00" + path + "\x00" + clientIP)) // apart from the key's other use (form tokens)
 	var h [8]byte
 	copy(h[:], m.Sum(nil))
 	return h

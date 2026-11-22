@@ -117,10 +117,10 @@ The gateway reports what it refused visitors: paths not in the map, files
 an asset prefix refused, query keys a route dropped (the route's pattern
 and the key's name, never a value). Each report counts **distinct
 visitors**: the gateway turns each client address into a short key (an
-HMAC of the address with a secret only the gateway holds, derived from its
-form key, 8 bytes) and sends up to 16 keys per path, never an address; the
-panel, which does not know that secret, cannot turn a key back into an
-address. It keeps up to 16 keys per path, so one visitor coming back every
+HMAC of the path and the address with a secret only the gateway holds,
+its form key, 8 bytes) and sends up to 16 keys per path, never an address;
+the panel, which does not know that secret, cannot turn a key back into an
+address nor link one visitor's requests across paths. It keeps up to 16 keys per path, so one visitor coming back every
 minute is still one visitor. Counts recorded before 0.2.11 summed every
 gateway batch: they count as one visitor until new keys arrive. The job
 carries the 200 refused paths with the most visitors (last 30 days).
@@ -134,9 +134,9 @@ and the report lists one **only when there is something to do about it**
 
 - **A file** (`files_refused`) is listed when all of these hold: at least
   **2 distinct visitors** asked for it; it is under an asset prefix of the
-  map; its type (by extension) is **passive** (`assettypes.py`: images,
-  fonts, audio, video, stylesheets, PDF and office documents) and the
-  prefix does not list it yet; no page of the site names it (a file the
+  map; its type (by extension, then as the site sends it) is **passive**
+  (`assettypes.py`: images, fonts, audio, video, stylesheets, PDF and
+  office documents) and the prefix does not list it yet; no page of the site names it (a file the
   site's own pages use is the agent's job: it is studied, checked through
   the gateway and mended by the verification, never left to a person); and
   the agent, opening it anonymously on the site, gets a 200 **of that
@@ -145,9 +145,11 @@ and the report lists one **only when there is something to do about it**
   gateway does, since servers send fonts as `application/octet-stream`).
   The click adds **the type the site sends** (`image/vnd.microsoft.icon`
   for a `.ico`, `audio/x-wav` for a `.wav`), since that is what the
-  gateway compares; a type the prefix already lists is not offered (the
-  file is then refused for its size or content, and adding changes
-  nothing). A scanner's guess does not exist (404) or is a script, a page
+  gateway compares, so a `.wav` is offered even when the prefix lists
+  `audio/wav`; a type the site sends that the prefix already lists is not
+  offered (the file is then refused for its size or content, and adding
+  changes nothing). A path with spaces or accents is opened encoded, as a
+  browser sends it. A scanner's guess does not exist (404) or is a script, a page
   or a configuration file: none of them passes. Names that are actions or
   sensitive files (`rules.py`) are never opened. Up to 20 files are opened
   per discovery.
@@ -160,23 +162,30 @@ and the report lists one **only when there is something to do about it**
   as `filter_*`, `pa_*`, `min_price`), because the agent opens the page with
   it and a GET can act (`?add-to-cart=`, `?doing_wp_cron=`): any other key
   is never opened nor listed; and **the page shows other content with
-  it**. The agent loads a studied page of the route twice (its own noise:
-  dates, counters, rotating posts) and then with the key, with the values
-  the site's links give it or typical ones (`orderby=price`, `paged=2`).
+  it**. A pattern such as `/{slug}/` covers the shop and the cart alike,
+  so the agent reads up to 6 studied pages of the route and tries the key
+  on up to 3, those that offer it themselves first (WooCommerce's `<select
+  name="orderby">`, a link with the key). On each it loads the page and
+  the page with a key no site knows (`?eqprobe=…`): a page cache serves the
+  plain page and builds any page with a query, so the noise (dates,
+  counters, rotating posts) is measured between the two, and the page with
+  the key is compared with the built one. Values: those the site's links
+  give the key, or typical ones (`orderby=price`, `paged=2`).
   Every answer must be the page itself (200, HTML): a redirect or an error
   is not a page option (`?author=1` redirects to the author's page, a
-  firewall answers 403). On a page that is the same on both loads any
-  other word is a change (a sort only reorders); on a noisy page the text
-  must move well beyond what two loads differ by (twice that, and at least
-  `1 - TEXT_SIMILAR`). A key the site ignores (`?test=1`) changes nothing
+  firewall answers 403). Without noise any other word is a change (a sort
+  only reorders); with noise the text must move well beyond it (twice it,
+  and at least `1 - TEXT_SIMILAR`). A key the site ignores (`?test=1`) changes nothing
   and is left out; a page that changes on every load tells nothing.
   Action-like and excluded URLs (`rules.py`) are never opened. Up to 10
-  keys are tried per discovery (two to four page loads each).
+  keys are tried per discovery.
 
 Everything else — a single visitor, scanners, files that are not there,
 types that are not passive, scripts, keys that change nothing — stays out
 of the report; the gateway's logs keep every refused request. Everything
 is opened anonymously: a test account's session is set aside meanwhile.
+The check runs after the AI review, so the route a click names is the one
+in the final draft.
 
 Each listed item carries `why` (what was asked and what the agent found)
 and `add`, the change the panel makes when an administrator clicks **Add

@@ -259,7 +259,12 @@ type or size limit they need — where an attack
 gets through it narrows what the values it saw allow, and it verifies
 again; it keeps a change only if no page that worked breaks. The result is
 a new draft, "Corrected by the agent from version N", with the list of
-changes and why; the version it came from keeps its own measure.
+changes and why; the version it came from keeps its own measure. After a
+discovery you review **one draft**, the agent's last: while the agent is
+still checking and correcting, the discovery page says so; then it shows
+the draft to review with its measure and the corrections, and the first
+draft is retired. When you ask for a verification yourself, both versions
+stay.
 Publishing stays a person's decision.
 
 **Verify** on a version (administrators) does it again,

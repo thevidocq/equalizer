@@ -267,7 +267,11 @@ without approval.
   page breaks and more inputs refuse every attack. The panel signs each
   corrected version for tries (`/internal/verifications/{id}/try-map`, the
   same checks as any draft); the result is a new draft with the changes
-  and their reasons.
+  and their reasons, carrying its own measure and the corrections. After a
+  discovery the person reviews one draft: the panel retires the first one
+  (unsigned, never published, so never a rollback target) and the
+  discovery proposes the corrected version (`Store.Supersede`, audit
+  `map.superseded`). A verification asked by a person keeps both versions.
 
 In the lab, with the editor as test administrator: pages identical
 12/12 (WordPress), 155/155 (Joomla, administration included), 154/154

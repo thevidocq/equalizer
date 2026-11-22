@@ -61,13 +61,14 @@ const actions: Record<string, Say> = {
   "map.rollback": (t, d) => `went back to ${version(d)}${t}`,
   "map.verify": (t, d) => `asked to check ${version(d)}${t}`,
   "map.corrected": (t, d) => `corrected version ${String(d.from)} of the map of ${t} into version ${String(d.version)}`,
+  "map.superseded": (t, d) => `replaced draft ${String(d.from)} of the map of ${t} by its corrected version ${String(d.version)}`,
   "logs.export": (t) => (t ? `exported the logs of ${t}` : "exported the logs"),
   "settings.alerts": (_, d) => (d.enabled ? "turned alert emails on or changed who gets them" : "turned alert emails off"),
   "alert.sent": (_, d) => alertSentence(d),
 };
 
 /** Actions Equalizer takes by itself; the others without a person were done by the agent. */
-const byEqualizer = new Set(["alert.sent", "site.exposure", "map.corrected"]);
+const byEqualizer = new Set(["alert.sent", "site.exposure", "map.corrected", "map.superseded"]);
 const byAgent = new Set(["discovery.finish", "discovery.start", "map.verify"]);
 
 const weekdays = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];

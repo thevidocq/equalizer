@@ -18,6 +18,9 @@ func TestCheckAsset(t *testing.T) {
 		{"avif", "image/avif", "\x00\x00\x00\x1cftypavif\x00\x00\x00\x00", "", ""},
 		{"avif that is a script", "image/avif", "<script>alert(1)</script>", "", "asset_content_mismatch"},
 		{"png that is html", "image/png", "<html>", "", "asset_content_mismatch"},
+		{"declared font that is html", "font/woff", "<html><script>", "", "asset_content_mismatch"},
+		{"declared font, signature of another font", "font/woff", "wOF2\x00\x01", "", "asset_content_mismatch"},
+		{"declared font", "font/woff", "wOFF\x00\x01", "", ""},
 	}
 	for _, c := range cases {
 		served, reason := checkAsset(asset, c.ct, &legacyclient.Response{Body: []byte(c.body)}, 100)

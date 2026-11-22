@@ -1,5 +1,6 @@
 """One discovery, from the job to the result."""
 
+import re
 import urllib.parse
 
 from . import browser, crawler, fingerprint, mapbuild, rules
@@ -17,12 +18,27 @@ def seeds(job: dict, cms: str | None) -> list:
                 out.append(p)
     for u in job.get("unmapped", []):
         p = u.get("path", "")
-        # a file (a font, a video) the gateway refused: one visitor is enough,
-        # the crawler studies it only if the site really serves it
-        least = 1 if crawler.Crawler._static(p) else 2
-        if u.get("method") == "GET" and u.get("clients", 0) >= least and p.startswith("/") and not rules.excluded(p, cms):
+        # What visitors asked for is a page to look at, never evidence: a file
+        # or a query key they name is listed in the report, not opened (a
+        # reported file or key would let anyone widen the map).
+        if "?" in p or crawler.Crawler._static(p) or _secret_like(p):
+            continue
+        if u.get("method") == "GET" and u.get("clients", 0) >= 2 and p.startswith("/") and not rules.excluded(p, cms):
             out.append(p)
     return list(dict.fromkeys(out))
+
+
+_TOKEN = re.compile(r"^[A-Za-z0-9_]{16,}$")
+_UUID = re.compile(r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$", re.I)
+
+
+def _secret_like(path: str) -> bool:
+    """A path holding a long random-looking segment (a download or reset
+    token in a capability URL): a visitor's private link, never opened."""
+    for seg in path.split("/"):
+        if _UUID.match(seg) or (_TOKEN.match(seg) and sum(c.isdigit() for c in seg) >= 4 and sum(c.isalpha() for c in seg) >= 4):
+            return True
+    return False
 
 
 def accounts(job: dict) -> list:

@@ -42,7 +42,8 @@ SENSITIVE = (
 )
 
 # Links that change something, whatever the application: never followed.
-ACTIONS = re.compile(r"(logout|log-out|signout|sign-out|delete|remove|destroy|unsubscribe|reset|drop|purge|"
+ACTIONS = re.compile(r"(logout|log[-_]?out|log[-_]?off|sign[-_]?out|sign[-_]?off|delete|remove|destroy|unsubscribe|"
+                     r"reset|drop|purge|"
                      r"action=(del|delete|remove|logout|edit|update))", re.I)
 # More of them, as whole words (a slug such as /running-tips/ is not "run").
 ACTION_WORDS = re.compile(
@@ -58,16 +59,23 @@ TOKENS = re.compile(r"[?&](_wpnonce|nonce|_nonce|token|_token|csrf|csrf_token|fo
 
 _SLUG_WORD = re.compile(r"^[A-Za-z0-9]+$")
 # Never part of an innocent slug: a segment holding one is always an action.
-STRONG = re.compile(r"(logout|log-out|logoff|signout|sign-out|unsubscribe|destroy|delete|purge|impersonate)", re.I)
+STRONG = re.compile(r"(log[-_]?out|log[-_]?off|sign[-_]?out|sign[-_]?off|unsubscribe|destroy|delete|purge|impersonate)", re.I)
+
+
+def _is_action_word(word: str) -> bool:
+    return bool(ACTIONS.search(word) or ACTION_WORDS.search(word))
 
 
 def _content_slug(segment: str) -> bool:
-    """A segment that names content: three words or more joined by - or _,
-    not starting with an action ("how-to-remove-stains", "big-product-update";
-    not "remove-item" nor "delete-account-now")."""
+    """A segment that names content: a title of four words or more joined by
+    - or _, with at most one action word and never at either end
+    ("how-to-remove-stains", "big-product-update-2024"; not "item-12-remove",
+    "my-plan-cancel", "account-disable-now", "reset-your-mind-today")."""
     words = re.split(r"[-_]", segment)
-    return len(words) >= 3 and all(_SLUG_WORD.match(w) for w in words) and not STRONG.search(segment) and \
-        not (ACTIONS.match(words[0]) or ACTION_WORDS.match(words[0]))
+    if len(words) < 4 or not all(_SLUG_WORD.match(w) for w in words) or STRONG.search(segment):
+        return False
+    acts = [i for i, w in enumerate(words) if _is_action_word(w)]
+    return len(acts) <= 1 and not any(i in (0, len(words) - 1) for i in acts)
 
 
 def is_action(path_query: str) -> bool:

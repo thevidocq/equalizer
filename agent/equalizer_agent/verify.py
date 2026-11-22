@@ -214,7 +214,7 @@ class Run:
             self._routes(gw, doc, m, pages, jar)
             self._forms(gw, doc, m, rendered)
             self.f.cookies = {}
-        verifyassets.check(gw, self.f, doc, m, m.files)  # public files, as an anonymous visitor
+        verifyassets.check(gw, self.f, doc, m, m.files, self.job.get("kind"))  # public files, as an anonymous visitor
         return m
 
     # --- 1. the site still works -------------------------------------------

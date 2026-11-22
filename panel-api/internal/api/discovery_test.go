@@ -5,6 +5,7 @@ import (
 	"crypto/ed25519"
 	"encoding/base64"
 	"encoding/json"
+	"errors"
 	"net/http"
 	"strings"
 	"testing"
@@ -246,5 +247,22 @@ func TestDiscovery(t *testing.T) {
 	if at := site.DiscoveryAt; at.Hour != 4 || at.Weekday != 2 || at.Zone != "UTC" || at.Next == nil ||
 		at.Next.UTC().Hour() != 4 || at.Next.UTC().Weekday() != time.Tuesday {
 		t.Fatalf("discovery time: %+v", at)
+	}
+
+	// A draft a person took on meanwhile (submitted, approved, published
+	// over) is never superseded: it stays, and so does the discovery's link.
+	var appID string
+	_ = e.st.DB.QueryRowContext(context.Background(), `SELECT app_id FROM map_versions WHERE version = 2`).Scan(&appID)
+	if _, err := e.st.DB.ExecContext(context.Background(), `UPDATE map_versions SET status = 'in_review' WHERE app_id = $1 AND version = 2`, appID); err != nil {
+		t.Fatal(err)
+	}
+	if err := e.st.Supersede(context.Background(), appID, 2, 1); !errors.Is(err, store.ErrNotDraft) {
+		t.Fatalf("supersede a version in review: %v", err)
+	}
+	var st2 string
+	_ = e.st.DB.QueryRowContext(context.Background(), `SELECT status FROM map_versions WHERE app_id = $1 AND version = 2`, appID).Scan(&st2)
+	boss.must(200, "GET", "/v1/apps/blog/discoveries/"+itoa(d.ID), nil, &after)
+	if st2 != "in_review" || after.DraftVersion == nil || *after.DraftVersion != 2 {
+		t.Fatalf("after a refused supersede: status %q, discovery proposes %v", st2, after.DraftVersion)
 	}
 }

@@ -92,3 +92,56 @@ class BrowserGuardTest(unittest.TestCase):
         g = browser._Guard(f, "shop.test", browser.Seen(), lambda pq: True)
         self.assertEqual(g.target("https://www.shop.test/a?b=1"), "/a?b=1")
         self.assertEqual(g.target("https://cdn.elsewhere.test/a"), "")
+
+
+class SitemapEscapingTest(unittest.TestCase):
+    def test_entities_and_cdata(self):
+        from equalizer_agent import extract
+        xml = ("<urlset><url><loc>http://s.test/c.php?cat=1&amp;lang=en</loc></url>"
+               "<url><loc><![CDATA[http://s.test/d?x=1&y=2]]></loc></url></urlset>")
+        self.assertEqual(extract.sitemap_urls(xml), ["http://s.test/c.php?cat=1&lang=en", "http://s.test/d?x=1&y=2"])
+
+
+class MalformedAnswerTest(unittest.TestCase):
+    def test_a_broken_answer_is_a_reach_error(self):
+        """An IncompleteRead on one stylesheet is one file lost, not the study."""
+        import http.client
+        from equalizer_agent.fetch import ReachError
+        f = Fetcher("http://s.test", {"mode": "direct", "address": "127.0.0.1:1", "allow": ["127.0.0.1:1"]},
+                    "acme", "", "", {"127.0.0.1:1"}, 0)
+
+        def broken(req, path_query):
+            raise http.client.IncompleteRead(b"x")
+        f._send = broken
+        with self.assertRaises(ReachError):
+            f.get("/a.css")
+
+
+class MapbuildGuardsTest(unittest.TestCase):
+    def test_no_asset_prefix_over_what_the_study_knows_and_the_right_route(self):
+        from equalizer_agent import crawler, fingerprint, mapbuild
+        crawl = crawler.CrawlResult()
+        crawl.pages["/"] = crawler.Seen(200, "text/html")
+        crawl.pages["/search?q=shoes"] = crawler.Seen(200, "text/html")
+        crawl.assets["/members/avatar.png"] = "image/png"
+        crawl.skipped_actions.add("/members/logout")
+        crawl.assets["/app/logo.png"] = "image/png"
+        crawl.script_refused.add(("POST", "/app/save"))
+        crawl.assets["/files/a.png"] = "image/png"
+        current = {"meta": {"version": 1}, "legacy": {}, "roles": {"anonymous": "guest"},
+                   "routes": [{"id": "page", "path": "/{slug}", "method": "GET", "roles": ["guest"],
+                               "legacy_request": {"method": "GET", "path": "/{{params.slug}}"},
+                               "params": {"slug": {"type": "string", "max_length": 100, "required": True}}},
+                              {"id": "search", "path": "/search", "method": "GET", "roles": ["guest"],
+                               "legacy_request": {"method": "GET", "path": "/search"}}]}
+        job = {"base_url": "http://x.test", "reach": {"mode": "direct", "address": "127.0.0.1:1"},
+               "unmapped": [], "current_map": current}
+        doc, rep, _ = mapbuild.build(job, crawl, fingerprint.Fingerprint())
+        prefixes = {a["prefix"] for a in doc.get("assets", [])}
+        self.assertNotIn("/members/", prefixes)  # over a link it skipped
+        self.assertNotIn("/app/", prefixes)  # over a script's refused POST
+        self.assertIn("/files/", prefixes)
+        search = next(r for r in doc["routes"] if r["id"] == "search")
+        page = next(r for r in doc["routes"] if r["id"] == "page")
+        self.assertIn("q", search.get("query", {}))  # the route the gateway serves /search with
+        self.assertNotIn("q", page.get("query", {}))

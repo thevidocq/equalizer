@@ -256,6 +256,14 @@ func (s *Server) verificationResult(w http.ResponseWriter, r *http.Request) {
 		res.Failure = &msg
 	}
 	corrected := len(in.Document) > 0 && string(in.Document) != "null"
+	if corrected && v.RequestedBy == nil {
+		// after a discovery: a draft a person has since submitted, approved
+		// or replaced by publishing is theirs now; its measure is kept, no
+		// correction is proposed on top of it
+		if cur, err := s.Store.Version(r.Context(), a.ID, v.Version); err != nil || cur.Status != "draft" {
+			corrected = false
+		}
+	}
 	if res.Failure == nil && corrected && v.Correct && v.AuthorID != nil {
 		doc, failure := s.checkProposal(r.Context(), a, in.Document, fmt.Sprintf("agent:verification-%d", v.ID))
 		if failure != "" {

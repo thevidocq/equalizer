@@ -88,14 +88,14 @@ when it is stale, so it never says more than the code does.
   copies, each `srcset` candidate, a video's `poster`, `<style>` blocks and
   `style=""` attributes, and the stylesheets themselves (up to 60 per
   study, `@import` followed) for their fonts and background images. A
-  prefix already in the map gets the new types (a video under a prefix that
-  listed only images); a file the gateway refused for its type or size is
-  reported like an unmapped page and studied at the next discovery, one
-  visitor is enough, only if the site really serves it. For such a file the
-  type the site sends is kept when it is an image, audio or video type of
-  the extension's family (`audio/x-wav` for a `.wav`), and a file larger
-  than the gateway's default limit raises its prefix's `max_size_kb` (size
-  plus 10%, up to 4 GiB). `srcset` is split as the HTML standard says, so a
+  prefix already in the map gets the new types, **passive types only**
+  (`equalizer_agent/assettypes.py`: images, fonts, audio, video,
+  stylesheets, PDF and office documents; scripts only when a page loads
+  them): a type opens every file of that type under the prefix, linked or
+  not, so text, CSV, archives, SQL, JSON, HTML and XML are never added by
+  the agent. What visitors ask for is never evidence: a file the gateway
+  refused them is listed in the report (`files_refused`) for the person,
+  not opened and not added (anyone can ask for any file). `srcset` is split as the HTML standard says, so a
   CDN URL with commas stays whole. Documents (`.pdf`, `.docx`, `.xlsx`,
   `.odt`, `.csv`, …) are files too; archives, logs and dumps never are
   (they are not studied at all). No asset prefix is proposed over a folder
@@ -116,17 +116,17 @@ when it is stale, so it never says more than the code does.
 Deterministic, no AI needed:
 
 - **Routes**: varying path segments become typed parameters (`{id}` integer,
-  `{slug}`), as today. A route already in the map gets the query keys it
-  lacked (a GET route whose legacy request is a GET, keys a map can hold):
-  the gateway drops undeclared keys, so an unseen sort or filter would
-  change the page in silence. A key seen with at least three integer
-  values is an integer; any other starts as text up to 1000 characters
-  without markup or template code, narrowed by verification from the
-  values it sees. The gateway reports the names of the keys it dropped
-  (never their values, nor tracking keys such as `utm_*`, `fbclid`,
-  `gclid`), like an unmapped page (`/shop/?orderby=`); the next discovery
-  opens the page with the key and adds it. The report lists them under
-  `query_added`.
+  `{slug}`), as today. A route already in the map gets the query keys the
+  site's own links use and it lacked (the route the gateway would pick:
+  `/search` before `/{slug}`; a GET route whose legacy request is a GET;
+  keys a map can hold; only keys seen with a value), typed from those
+  values as for a new route (`query_added` in the report): the gateway
+  drops undeclared keys, so a sort or a filter would change the page in
+  silence. The gateway also reports the names of the keys it dropped for
+  visitors, with the route's pattern (`/permits/{id}?orderby=`; never a
+  value, nor tracking keys such as `utm_*`, `fbclid`, `gclid`): they are
+  listed in the report (`query_dropped`) for the person, never added, since
+  any visitor can send any key.
 - **Values**: every parameter gets the narrowest type that fits all the
   values seen and the form's own attributes: an integer with its range, a
   list of values (`enum`) when the site offers a closed set (a `<select>`,
@@ -189,12 +189,14 @@ entry (or gives it back to the area) and checks again.
 refused. Every file the public pages name (in their HTML, their links and
 their stylesheets, up to 200 files and 30 stylesheets) that an asset prefix
 of the draft serves is opened directly and asked through the gateway
-(preview with `HEAD`: the verdict, not the body). A file the site serves
-and the gateway refuses is a broken page; the correction adds the type the
-site sends (never a generic one such as `application/octet-stream`) or the
-`max_size_kb` the file needs (size plus 10%, up to 4 GiB). A page (not a
-file) refused by an asset prefix means the prefix covers pages: the prefix
-is removed and the site area serves that folder.
+(preview with `HEAD`: the verdict, not the body). Sensitive files and action
+links are never opened, as in the study; a page answering under a prefix
+is left to the page comparison. A file the site serves and the gateway
+refuses is a broken page; the correction adds the type the site sends if
+it is passive (as in discovery: scripts only when a page loads them), or
+the `max_size_kb` the file needs (size plus 10%, up to 4 GiB; a prefix
+with videos never goes below their 512 MiB). A prefix is never removed:
+a page it refuses stays broken, for the person to decide.
 
 ### 5. Check that attacks are refused
 
@@ -271,7 +273,9 @@ without approval.
   discovery the person reviews one draft: the panel retires the first one
   (unsigned, never published, so never a rollback target) and the
   discovery proposes the corrected version (`Store.Supersede`, audit
-  `map.superseded`). A verification asked by a person keeps both versions.
+  `map.superseded`). A verification asked by a person keeps both versions,
+and a draft a person has submitted, approved or published over meanwhile
+is never corrected nor superseded: its measure is kept.
 
 In the lab, with the editor as test administrator: pages identical
 12/12 (WordPress), 155/155 (Joomla, administration included), 154/154

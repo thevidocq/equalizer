@@ -14,7 +14,11 @@ class ActionsTest(unittest.TestCase):
         for u in ("/logout", "/user/delete/5", "/cart/remove-item?id=3", "/remove/x", "/delete-account-now/",
                   "/user-logout-now/", "/account-delete-confirm/", "/?action=delete&id=1",
                   "/wp-login.php?action=logout", "/x?_wpnonce=1", "/blog/reset-your-mind-today/",
-                  "/page?do=remove-all-items-now"):
+                  "/page?do=remove-all-items-now",
+                  # titles end with nouns, actions end with verbs: short or verb-ended segments are actions
+                  "/cart/item-12-remove", "/wishlist/item-5-remove/", "/subscription/my-plan-cancel",
+                  "/user/42/account-disable-now", "/orders/12/order-cancel-confirm", "/posts/7/do-publish-now",
+                  "/comments/42/mark-as-spam", "/Account/LogOff", "/users/sign_out", "/x/log_out", "/x/log-off"):
             self.assertTrue(is_action(u), u)
 
     def test_content_slugs(self):

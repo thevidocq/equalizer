@@ -42,6 +42,80 @@ it, 0.1.0 (`docs/releases/0.1.0.md`, tag on the merge of #39).
 
 ## Entries
 
+### 2026-11-22 — Independent review: visitors are never evidence; media, fonts, verification
+
+- **Branch:** fix/independent-review
+- **What:** fixes for the findings four independent reviewers confirmed
+  with reproducing tests on the changes since 0.2.8 (gateway, discovery,
+  verification and panel, adversarial).
+  - **Principle (agent):** what visitors ask for is never evidence. Reported
+    files and query keys are no longer opened nor added: `discovery.seeds`
+    skips reported files, `path?key=` and capability-like paths (long
+    random segments, UUIDs); `mapbuild` lists them for the person
+    (`files_refused`, `query_dropped`); `_reported_keys` and `WIDE_QUERY`
+    are gone. `_merge_query` adds only keys the site's own links use with a
+    value, typed as for a new route, to the route the gateway would pick
+    (`gateway_route`: literal before `/{slug}`); `covered()` checks public
+    names.
+  - **Passive types only (agent, new `assettypes.py`):** discovery and
+    verification add to an existing prefix only images, fonts, audio,
+    video, stylesheets, PDF and office documents, and scripts a page loads;
+    never text, CSV, archives, SQL, JSON, HTML or XML, and never a type the
+    schema rejects.
+  - **Verification (agent `verifyassets.py`):** applies the crawler's rules
+    (no sensitive file, no action link), skips pages answering under a
+    prefix, checks each file once, never removes a prefix, and a prefix
+    with videos never drops below their 512 MiB (`mapbuild.size_limit`).
+  - **Discovery (agent):** `is_action` treats as content only 4+-word
+    titles with the action word inside (`/cart/item-12-remove`,
+    `/my-plan-cancel`, `/Account/LogOff`, `sign_out`, `log_out` are actions
+    again; regression from #85); no new asset prefix over skipped actions,
+    excluded paths, script requests or any non-file URL seen; a file's
+    type sent by the site is never overwritten by a guess; a page answering
+    for a file name is not that file; sitemap `<loc>` unescaped (`&amp;`)
+    and CDATA read; `http.client.HTTPException` becomes `ReachError` (one
+    broken answer no longer aborts a discovery).
+  - **Gateway media (`assetmedia.go`):** the legacy budget slot is released
+    once the response is checked, not after the client read it (paused
+    players took the site down); a stalled client is dropped after 60 s;
+    the signature is checked whatever range is asked (a separate
+    `bytes=0-11` probe for mid-file ranges); a 206 nobody asked for or
+    without `Content-Range` is refused; a 416 only for a file the map would
+    serve, with security headers and an event; a body over `max_size_kb`
+    the legacy server did not announce is aborted, never served short.
+  - **Gateway assets (`asset.go`):** a declared font type must match the
+    signature; the response carries the one checked `Content-Type`; HTML
+    and XML types get the CSP sandbox. `dropped.go`: the route's pattern is
+    reported, never the request path (it held visitors' values), after
+    authorisation.
+  - **Panel:** `store.Supersede` locks the draft and does nothing if a
+    person has taken it on (`ErrNotDraft`); an automatic verification of a
+    version no longer a draft creates no corrected draft. `DraftNotice`
+    says when the agent could not verify its draft. The report shows the
+    files and page options visitors asked for that the map refuses.
+  - Tests: gateway `TestMediaPausedPlayersKeepTheSiteUp`,
+    `TestMediaRangeKeepsTheSignatureCheck`, `TestMedia416OnlyForServedFiles`,
+    `TestMediaUnannouncedSizeAborted`, `TestCheckAsset` (fonts),
+    `TestDroppedQueryKeysReported` (pattern); agent `test_verify_assets.py`,
+    `test_query_merge.py`, `test_assets_study.py`, `test_actions.py`,
+    `test_crawl_sources.py` (sitemaps, malformed answers, prefix guards,
+    route choice); panel-api `TestDiscovery` (no supersede once in review).
+  - Docs: `docs/agent.md`, `docs/map-format.md`, tenant manual and in-app
+    help.
+- **Why:** #80–#86 let anonymous visitors widen the map (expose CSV/log
+  files, push query keys to the legacy app, open capability URLs), let a
+  few paused videos take a site down, let a chosen range skip the media
+  check, and reintroduced crawling of action links.
+- **Status:** gateway (race), panel-api, agent (57) tests and
+  `check:help` green. Not yet run against the real sites.
+- **Next steps:**
+  1. Independent re-review of this PR, then discovery on metaliquid and the
+     WordPress site before releasing 0.2.10.
+  2. The unmapped reporter counts one IP once per minute, so one client
+     can look like many (thresholds for page seeds): count distinct
+     clients on the panel side.
+  3. Resume strict mode (`feat/strict-mode`).
+
 ### 2026-11-22 — After a discovery, one draft to review
 
 - **Branch:** fix/one-draft

@@ -9,6 +9,7 @@ import (
 	"slices"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/thevidocq/equalizer/gateway/internal/legacyclient"
 	"github.com/thevidocq/equalizer/gateway/internal/mapmodel"
@@ -40,38 +41,60 @@ func streamsMedia(asset *mapmodel.Asset, file string) bool {
 
 // serveMediaAsset streams an audio or video asset, with byte ranges so that
 // players can seek. The declared type must be allowed, the size within the
-// limit and, when the response starts at the first byte, the signature that
-// of a media container.
+// limit and the file must begin with a media container signature, whatever
+// range is asked. The legacy budget slot is held while the response is
+// checked, not while a (possibly paused) player reads it.
 func (p *Public) serveMediaAsset(w http.ResponseWriter, r *http.Request, st *site.Site, m router.Match, asset *mapmodel.Asset, file string) {
 	ss := sessionOf(r)
-	req, err := st.Legacy.Build(r.Context(), mapmodel.LegacyRequest{Method: http.MethodGet, Path: asset.Prefix + file}, nil)
+	lreq := mapmodel.LegacyRequest{Method: http.MethodGet, Path: asset.Prefix + file}
+	req, err := st.Legacy.Build(r.Context(), lreq, nil)
 	if err != nil {
 		p.block(w, r, st, http.StatusNotFound, "asset_name_rejected")
 		return
 	}
-	if v := r.Header.Get("Range"); mediaRange.MatchString(v) {
-		req.Header.Set("Range", v) // checked, then written again: never a list or junk
+	asked := r.Header.Get("Range")
+	if !mediaRange.MatchString(asked) {
+		asked = ""
+	}
+	if asked != "" {
+		req.Header.Set("Range", asked) // checked, then written again: never a list or junk
 	}
 	p.prepare(req, r, st, ss)
 	if !p.acquireLegacy(r, st, m.Entry.ID) {
 		writePage(w, http.StatusServiceUnavailable, pageUnavailable)
 		return
 	}
+	held := true
+	release := func() {
+		if held {
+			held = false
+			st.Budget.Release()
+		}
+	}
 	resp, err := st.Legacy.Open(req)
 	if err != nil {
-		st.Budget.Release()
+		release()
 		p.legacyFailure(w, r, st, m.Entry.ID, err)
 		return
 	}
-	defer func() { resp.Close(); st.Budget.Release() }()
+	defer func() { resp.Close(); release() }()
 
+	ct := resp.Header.Get("Content-Type")
 	switch resp.Status {
 	case http.StatusOK, http.StatusPartialContent:
 	case http.StatusRequestedRangeNotSatisfiable:
-		if cr := resp.Header.Get("Content-Range"); cr != "" {
+		// Only for a file the map would serve: otherwise the 416 would tell
+		// the size of any file under the prefix.
+		if asked == "" || p.probeMedia(r, st, ss, lreq, asset) != "" {
+			writePage(w, http.StatusNotFound, pageNotFound)
+			return
+		}
+		if cr := resp.Header.Get("Content-Range"); totalSize.MatchString(cr) && strings.HasPrefix(cr, "bytes */") {
 			w.Header().Set("Content-Range", cr)
 		}
+		securityHeaders(w.Header())
 		w.WriteHeader(http.StatusRequestedRangeNotSatisfiable)
+		p.Events.Emit(p.event(r, st, "request.served", "", http.StatusRequestedRangeNotSatisfiable, telemetry.Ptr(m.Entry.ID)))
 		return
 	default:
 		writePage(w, http.StatusNotFound, pageNotFound)
@@ -83,12 +106,15 @@ func (p *Public) serveMediaAsset(w http.ResponseWriter, r *http.Request, st *sit
 		maxKB = defaultMediaMaxKB
 	}
 	limit := int64(maxKB) << 10
-	ct := resp.Header.Get("Content-Type")
-	head, reason := checkMedia(asset, ct, resp, limit)
+	head, reason := checkMedia(asset, ct, resp, limit, asked != "")
+	if reason == "" && head == nil { // a range in the middle: read the file's first bytes apart
+		reason = p.probeMedia(r, st, ss, lreq, asset)
+	}
 	if reason != "" {
 		p.refuseAsset(w, r, st, asset, reason, ct)
 		return
 	}
+	release() // checked: a slow reader no longer holds the site's legacy budget
 
 	h := w.Header()
 	for _, k := range mediaHeaders {
@@ -99,25 +125,64 @@ func (p *Public) serveMediaAsset(w http.ResponseWriter, r *http.Request, st *sit
 	securityHeaders(h)
 	w.WriteHeader(resp.Status)
 	if r.Method != http.MethodHead {
-		_, _ = io.Copy(w, io.MultiReader(bytes.NewReader(head), io.LimitReader(resp.Body, limit-int64(len(head)))))
+		copyMedia(w, io.MultiReader(bytes.NewReader(head), resp.Body), limit)
 	}
 	p.Events.Emit(p.event(r, st, "request.served", "", resp.Status, telemetry.Ptr(m.Entry.ID)))
 }
 
-// checkMedia checks a streamed media response and returns the bytes it read
-// to do so, or the rejection reason.
-func checkMedia(asset *mapmodel.Asset, contentType string, resp *legacyclient.Stream, limit int64) ([]byte, string) {
+// mediaWriteTimeout drops a client that has not taken a chunk for this long.
+const mediaWriteTimeout = 60 * time.Second
+
+// copyMedia sends a media body. A stalled client is dropped; a body longer
+// than limit (a size the legacy server did not announce) is aborted, so the
+// client sees a failure, never a short file taken as whole.
+func copyMedia(w http.ResponseWriter, body io.Reader, limit int64) {
+	rc := http.NewResponseController(w)
+	buf := make([]byte, 32<<10)
+	var sent int64
+	for {
+		n, rerr := body.Read(buf)
+		if n > 0 {
+			sent += int64(n)
+			if sent > limit {
+				panic(http.ErrAbortHandler)
+			}
+			_ = rc.SetWriteDeadline(time.Now().Add(mediaWriteTimeout))
+			if _, err := w.Write(buf[:n]); err != nil {
+				return
+			}
+		}
+		if rerr != nil {
+			return
+		}
+	}
+}
+
+// mediaTypeAllowed reports whether a declared type is an audio or video type
+// of the prefix.
+func mediaTypeAllowed(asset *mapmodel.Asset, contentType string) bool {
 	mediaType, _, err := mime.ParseMediaType(contentType)
-	if err != nil || !mediasig.Type(mediaType) || !slices.Contains(asset.Types, mediaType) {
+	return err == nil && mediasig.Type(mediaType) && slices.Contains(asset.Types, mediaType)
+}
+
+// checkMedia checks a streamed media response and returns the bytes it read
+// to do so, or the rejection reason. A 206 that does not start at the first
+// byte returns neither: its signature must be read apart (probeMedia).
+func checkMedia(asset *mapmodel.Asset, contentType string, resp *legacyclient.Stream, limit int64, ranged bool) ([]byte, string) {
+	if !mediaTypeAllowed(asset, contentType) {
 		return nil, "asset_type_not_allowed"
 	}
 	if size := fullSize(resp); size > limit {
 		return nil, "asset_too_large"
 	}
-	// A range in the middle of the file has no signature to read: its type is
-	// still checked, and the browser never runs it (nosniff).
-	if resp.Status == http.StatusPartialContent && !strings.HasPrefix(resp.Header.Get("Content-Range"), "bytes 0-") {
-		return nil, ""
+	cr := resp.Header.Get("Content-Range")
+	if resp.Status == http.StatusPartialContent {
+		if !ranged || !strings.HasPrefix(cr, "bytes ") {
+			return nil, "asset_content_mismatch" // a range nobody asked for, or one it does not describe
+		}
+		if !strings.HasPrefix(cr, "bytes 0-") {
+			return nil, ""
+		}
 	}
 	head := make([]byte, mediasig.HeadSize)
 	n, _ := io.ReadFull(resp.Body, head)
@@ -126,6 +191,36 @@ func checkMedia(asset *mapmodel.Asset, contentType string, resp *legacyclient.St
 		return nil, "asset_content_mismatch"
 	}
 	return head, ""
+}
+
+// probeMedia reads the type and the first bytes of a media file with a
+// request of its own: for a range that starts in the middle, and before a
+// 416, so that the range a client chooses never skips the checks nor tells
+// the size of a file the map would not serve.
+func (p *Public) probeMedia(r *http.Request, st *site.Site, ss *sessionState, lreq mapmodel.LegacyRequest, asset *mapmodel.Asset) string {
+	req, err := st.Legacy.Build(r.Context(), lreq, nil)
+	if err != nil {
+		return "asset_content_mismatch"
+	}
+	req.Header.Set("Range", "bytes=0-"+strconv.Itoa(mediasig.HeadSize-1))
+	p.prepare(req, r, st, ss)
+	resp, err := st.Legacy.Open(req)
+	if err != nil {
+		return "asset_content_mismatch"
+	}
+	defer resp.Close()
+	if resp.Status != http.StatusOK && resp.Status != http.StatusPartialContent {
+		return "asset_content_mismatch"
+	}
+	if !mediaTypeAllowed(asset, resp.Header.Get("Content-Type")) {
+		return "asset_type_not_allowed"
+	}
+	head := make([]byte, mediasig.HeadSize)
+	n, _ := io.ReadFull(resp.Body, head)
+	if !mediasig.Match(head[:n]) {
+		return "asset_content_mismatch"
+	}
+	return ""
 }
 
 // fullSize is the size of the whole file, or 0 if the legacy server does not say.

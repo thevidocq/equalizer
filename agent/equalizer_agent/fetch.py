@@ -228,6 +228,12 @@ class Fetcher:
             target = f"{self.base.scheme}://{self.base.netloc}{path_query}"
         req = urllib.request.Request(target, data=data, method=method, headers=headers)
         try:
+            return self._send(req, path_query)
+        except http.client.HTTPException as e:  # a broken answer (IncompleteRead, BadStatusLine…): one page, not the study
+            raise ReachError("malformed answer: " + type(e).__name__) from e
+
+    def _send(self, req, path_query: str) -> "Response":
+        try:
             resp = self.opener.open(req, timeout=TIMEOUT)
         except urllib.error.HTTPError as e:
             resp = e

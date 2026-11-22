@@ -42,8 +42,8 @@ func streamsMedia(asset *mapmodel.Asset, file string) bool {
 // serveMediaAsset streams an audio or video asset, with byte ranges so that
 // players can seek. The declared type must be allowed, the size within the
 // limit and the file must begin with a media container signature, whatever
-// range is asked. The legacy budget slot is held while the response is
-// checked, not while a (possibly paused) player reads it.
+// range is asked. A stream holds its legacy budget slot while it is read,
+// within the site's media share and two streams per visitor.
 func (p *Public) serveMediaAsset(w http.ResponseWriter, r *http.Request, st *site.Site, m router.Match, asset *mapmodel.Asset, file string) {
 	ss := sessionOf(r)
 	lreq := mapmodel.LegacyRequest{Method: http.MethodGet, Path: asset.Prefix + file}
@@ -60,24 +60,30 @@ func (p *Public) serveMediaAsset(w http.ResponseWriter, r *http.Request, st *sit
 		req.Header.Set("Range", asked) // checked, then written again: never a list or junk
 	}
 	p.prepare(req, r, st, ss)
+	// A stream holds a legacy worker as long as the player reads, so streams
+	// are bounded twice: half the site's budget at most, two per visitor.
+	ip := p.IPs.IP(r)
+	if !p.media.take(st.Model.Meta.App, ip) {
+		writePage(w, http.StatusServiceUnavailable, pageUnavailable)
+		return
+	}
+	defer p.media.give(st.Model.Meta.App, ip)
+	if !st.Media.Acquire(r.Context()) {
+		writePage(w, http.StatusServiceUnavailable, pageUnavailable)
+		return
+	}
+	defer st.Media.Release()
 	if !p.acquireLegacy(r, st, m.Entry.ID) {
 		writePage(w, http.StatusServiceUnavailable, pageUnavailable)
 		return
 	}
-	held := true
-	release := func() {
-		if held {
-			held = false
-			st.Budget.Release()
-		}
-	}
 	resp, err := st.Legacy.Open(req)
 	if err != nil {
-		release()
+		st.Budget.Release()
 		p.legacyFailure(w, r, st, m.Entry.ID, err)
 		return
 	}
-	defer func() { resp.Close(); release() }()
+	defer func() { resp.Close(); st.Budget.Release() }()
 
 	ct := resp.Header.Get("Content-Type")
 	switch resp.Status {
@@ -107,14 +113,13 @@ func (p *Public) serveMediaAsset(w http.ResponseWriter, r *http.Request, st *sit
 	}
 	limit := int64(maxKB) << 10
 	head, reason := checkMedia(asset, ct, resp, limit, asked != "")
-	if reason == "" && head == nil { // a range in the middle: read the file's first bytes apart
+	if (reason == "" && head == nil) || reason == "probe" { // a range in the middle or too short: read the start apart
 		reason = p.probeMedia(r, st, ss, lreq, asset)
 	}
 	if reason != "" {
 		p.refuseAsset(w, r, st, asset, reason, ct)
 		return
 	}
-	release() // checked: a slow reader no longer holds the site's legacy budget
 
 	h := w.Header()
 	for _, k := range mediaHeaders {
@@ -124,8 +129,12 @@ func (p *Public) serveMediaAsset(w http.ResponseWriter, r *http.Request, st *sit
 	}
 	securityHeaders(h)
 	w.WriteHeader(resp.Status)
-	if r.Method != http.MethodHead {
-		copyMedia(w, io.MultiReader(bytes.NewReader(head), resp.Body), limit)
+	if r.Method != http.MethodHead && !copyMedia(w, io.MultiReader(bytes.NewReader(head), resp.Body), limit) {
+		p.Events.Emit(p.event(r, st, "request.blocked", "asset_too_large", resp.Status, telemetry.Ptr(m.Entry.ID)))
+		if _, try := r.Context().Value(tryCaptureKey{}).(*tryCapture); try {
+			return // a preview gets its verdict; the real client gets a failure, never a short file
+		}
+		panic(http.ErrAbortHandler)
 	}
 	p.Events.Emit(p.event(r, st, "request.served", "", resp.Status, telemetry.Ptr(m.Entry.ID)))
 }
@@ -133,10 +142,10 @@ func (p *Public) serveMediaAsset(w http.ResponseWriter, r *http.Request, st *sit
 // mediaWriteTimeout drops a client that has not taken a chunk for this long.
 const mediaWriteTimeout = 60 * time.Second
 
-// copyMedia sends a media body. A stalled client is dropped; a body longer
-// than limit (a size the legacy server did not announce) is aborted, so the
-// client sees a failure, never a short file taken as whole.
-func copyMedia(w http.ResponseWriter, body io.Reader, limit int64) {
+// copyMedia sends a media body and reports whether it fitted limit. A
+// stalled client is dropped; a body longer than limit (a size the legacy
+// server did not announce) stops there, and the caller aborts the response.
+func copyMedia(w http.ResponseWriter, body io.Reader, limit int64) bool {
 	rc := http.NewResponseController(w)
 	buf := make([]byte, 32<<10)
 	var sent int64
@@ -145,15 +154,15 @@ func copyMedia(w http.ResponseWriter, body io.Reader, limit int64) {
 		if n > 0 {
 			sent += int64(n)
 			if sent > limit {
-				panic(http.ErrAbortHandler)
+				return false
 			}
 			_ = rc.SetWriteDeadline(time.Now().Add(mediaWriteTimeout))
 			if _, err := w.Write(buf[:n]); err != nil {
-				return
+				return true
 			}
 		}
 		if rerr != nil {
-			return
+			return true
 		}
 	}
 }
@@ -187,6 +196,9 @@ func checkMedia(asset *mapmodel.Asset, contentType string, resp *legacyclient.St
 	head := make([]byte, mediasig.HeadSize)
 	n, _ := io.ReadFull(resp.Body, head)
 	head = head[:n]
+	if n < mediasig.HeadSize && resp.Status == http.StatusPartialContent {
+		return head, "probe" // a first range shorter than the signature (bytes=0-1): read it apart
+	}
 	if !mediasig.Match(head) {
 		return nil, "asset_content_mismatch"
 	}

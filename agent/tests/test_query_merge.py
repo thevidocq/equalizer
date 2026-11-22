@@ -33,7 +33,8 @@ class QueryMergeTest(unittest.TestCase):
                "unmapped": [{"method": "GET", "path": "/shop/?orderby=", "clients": 2},
                             # the gateway reports a route's pattern, never a visitor's value
                             {"method": "GET", "path": "/items/{id}?sort=", "clients": 2},
-                            {"method": "GET", "path": "/items/{id}?once=", "clients": 1}], "current_map": current()}
+                            {"method": "GET", "path": "/items/{id}?once=", "clients": 1},
+                            {"method": "GET", "path": "/shop/?view=", "clients": 3}], "current_map": current()}
         doc, rep, _ = mapbuild.build(job, crawl, fingerprint.Fingerprint())
         shop = next(r for r in doc["routes"] if r["id"] == "shop")
         self.assertEqual(shop["legacy_request"]["query"], {"page": "{{query.page}}", "orderby": "{{query.orderby}}"})
@@ -48,9 +49,46 @@ class QueryMergeTest(unittest.TestCase):
         self.assertNotIn("query", item)
         self.assertIn({"route": "/items/{id}", "key": "sort", "clients": 2}, rep["query_dropped"])
         self.assertFalse([v for v in rep["visitors_missing"] if v["path"].startswith("/items/{id}")])
+        # on a literal route too, and never as a missing page
+        self.assertIn({"route": "/shop/", "key": "view", "clients": 3}, rep["query_dropped"])
+        self.assertFalse([v for v in rep["visitors_missing"] if v["path"] == "/shop/?view="])
         send = next(r for r in doc["routes"] if r["id"] == "send")
         self.assertNotIn("query", send)  # a route posting to the site is not the agent's to change
         self.assertNotIn("empty", shop["legacy_request"]["query"])  # seen without a value: no evidence
+
+
+class SeedsTest(unittest.TestCase):
+    """What visitors asked for is a page to look at, never evidence."""
+
+    def test_seeds(self):
+        from equalizer_agent import discovery
+        job = {"unmapped": [
+            {"method": "GET", "path": "/about-us/", "clients": 2},
+            {"method": "GET", "path": "/one-visitor/", "clients": 1},
+            {"method": "GET", "path": "/uploads/orders.csv", "clients": 9},  # a file: listed, not opened
+            {"method": "GET", "path": "/shop/?sort=", "clients": 9},  # a key: listed, not opened
+            {"method": "GET", "path": "/download/8f3a9c2e7b1d4e6fa1/invoice", "clients": 9},  # a capability URL
+            {"method": "GET", "path": "/o/123e4567-e89b-12d3-a456-426614174000", "clients": 9},
+            {"method": "GET", "path": "/products/iphone_15_pro_max_256gb/", "clients": 2},  # a title
+            {"method": "POST", "path": "/contact/", "clients": 9}]}
+        got = discovery.seeds(job, None)
+        self.assertIn("/about-us/", got)
+        self.assertIn("/products/iphone_15_pro_max_256gb/", got)
+        for p in ("/one-visitor/", "/uploads/orders.csv", "/shop/?sort=", "/download/8f3a9c2e7b1d4e6fa1/invoice",
+                  "/o/123e4567-e89b-12d3-a456-426614174000", "/contact/"):
+            self.assertNotIn(p, got)
+
+    def test_files_refused_are_listed(self):
+        from equalizer_agent import crawler, fingerprint, mapbuild
+        crawl = crawler.CrawlResult()
+        crawl.pages["/"] = crawler.Seen(200, "text/html")
+        cur = current()
+        cur["assets"] = [{"prefix": "/uploads/", "types": ["image/png"]}]
+        job = {"base_url": "http://x.test", "reach": {"mode": "direct", "address": "127.0.0.1:1"},
+               "unmapped": [{"method": "GET", "path": "/uploads/orders.csv", "clients": 1}], "current_map": cur}
+        doc, rep, _ = mapbuild.build(job, crawl, fingerprint.Fingerprint())
+        self.assertEqual(rep["files_refused"], [{"path": "/uploads/orders.csv", "clients": 1}])
+        self.assertEqual(next(a for a in doc["assets"] if a["prefix"] == "/uploads/")["types"], ["image/png"])
 
 
 if __name__ == "__main__":

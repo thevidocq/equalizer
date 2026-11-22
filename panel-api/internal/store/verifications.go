@@ -168,6 +168,13 @@ func (s *Store) RecordVerification(ctx context.Context, app string, version int,
 	return err
 }
 
+// RetireDraft retires a draft nobody will review (a correction withdrawn).
+func (s *Store) RetireDraft(ctx context.Context, app string, version int) error {
+	_, err := s.DB.ExecContext(ctx, `UPDATE map_versions SET status = 'retired'
+		WHERE app_id = $1 AND version = $2 AND status = 'draft'`, app, version)
+	return err
+}
+
 // ErrNotDraft: the version is no longer a draft.
 var ErrNotDraft = errors.New("not a draft")
 

@@ -23,7 +23,10 @@ class ActionsTest(unittest.TestCase):
 
     def test_content_slugs(self):
         for u in ("/blog/how-to-remove-stains/", "/news/big-product-update-2024/",
-                  "/shop/oak-drop-leaf-table/", "/guides/how-to-export-wine/"):
+                  "/shop/oak-drop-leaf-table/", "/guides/how-to-export-wine/",
+                  # log-off / sign-out spellings are whole words only
+                  "/blog-offers/", "/catalog-offers/", "/design-office/", "/blog-offline-mode/",
+                  "/sign-off-letter-examples/", "/blog/how-to-sign-off-an-email/"):
             self.assertFalse(is_action(u), u)
 
 

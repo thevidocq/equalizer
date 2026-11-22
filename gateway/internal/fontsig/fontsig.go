@@ -15,6 +15,7 @@ const (
 	WOFF2 = "font/woff2"
 	TTF   = "font/ttf"
 	OTF   = "font/otf"
+	TTC   = "font/collection"
 	EOT   = "application/vnd.ms-fontobject"
 )
 
@@ -37,6 +38,7 @@ var aliases = map[string]string{
 	"application/x-font-otf":        OTF,
 	"application/x-font-opentype":   OTF,
 	"application/vnd.ms-fontobject": EOT,
+	"font/collection":               TTC,
 }
 
 // generic are the types a server sends when it does not know the file.
@@ -61,6 +63,8 @@ func Sniff(body []byte) string {
 		return TTF
 	case bytes.HasPrefix(body, []byte("OTTO")):
 		return OTF
+	case bytes.HasPrefix(body, []byte("ttcf")):
+		return TTC
 	case eot(body):
 		return EOT
 	}
@@ -70,6 +74,14 @@ func Sniff(body []byte) string {
 // eot: the magic number 0x504C sits at offset 34 of an Embedded OpenType file.
 func eot(body []byte) bool {
 	return len(body) >= 36 && body[34] == 0x4C && body[35] == 0x50
+}
+
+// Same reports whether two canonical types are the same font format, the
+// sfnt ones (TrueType, OpenType, collections) counting as one: servers name
+// them loosely (an OpenType file as font/ttf or application/font-sfnt).
+func Same(a, b string) bool {
+	sfnt := func(t string) bool { return t == TTF || t == OTF || t == TTC }
+	return a == b || (sfnt(a) && sfnt(b))
 }
 
 // Resolve decides whether a legacy response is a font the map allows.
@@ -82,11 +94,11 @@ func Resolve(declared string, body []byte, allowed []string) string {
 	if sniffed == "" {
 		return ""
 	}
-	if c := Canonical(declared); c != sniffed && !generic[declared] {
+	if c := Canonical(declared); !Same(c, sniffed) && !generic[declared] {
 		return ""
 	}
 	for _, a := range allowed {
-		if Canonical(a) == sniffed {
+		if Same(Canonical(a), sniffed) {
 			return sniffed
 		}
 	}

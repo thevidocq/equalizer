@@ -13,7 +13,7 @@ a page an asset prefix refuses stays broken, for a person to decide."""
 
 import urllib.parse
 
-from . import assettypes, css, extract, mapbuild, rules
+from . import assettypes, crawler, css, extract, mapbuild, rules
 from .fetch import ReachError
 from .gateway import TryError
 
@@ -58,7 +58,9 @@ def check(gw, f, doc: dict, m, files, cms=None) -> None:
         i += 1
         a = _prefix(doc, path)
         # the crawler's rules hold here too: never an action, never a sensitive file
-        if a is None or path in already or rules.excluded(path, cms) or rules.is_action(path):
+        # (a file's name such as reset.css or delete-icon.svg is not an action, as in the crawl)
+        if a is None or path in already or rules.excluded(path, cms) or \
+                (not crawler.Crawler._static(path) and rules.is_action(path)):
             continue
         try:
             direct = f.get(path)

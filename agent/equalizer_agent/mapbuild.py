@@ -82,13 +82,15 @@ def covered(doc: dict, path: str) -> bool:
 
 def gateway_route(doc: dict, path: str):
     """The route the gateway would serve path with: a route whose pattern is
-    path itself, else the one that fits with the fewest parameters (a
+    path itself, else the one that matches with the fewest parameters (a
     literal /search before /{slug})."""
     routes = [r for r in doc.get("routes", []) if r.get("method", "GET") == "GET"]
     same = next((r for r in routes if r.get("path") == path), None)
     if same is not None:
         return same
-    fit = [r for r in routes if fits(doc, r, path)]
+    # as the gateway's router: by structure, fewest parameters, then map order
+    # (it checks the values after choosing)
+    fit = [r for r in routes if matches(r.get("path", ""), path)]
     return min(fit, key=lambda r: r.get("path", "").count("{"), default=None)
 
 
@@ -129,6 +131,13 @@ def _merge_query(e: dict, r: cluster.Route) -> list:
     return added
 
 
+def _is_dropped_key(doc: dict, p: str) -> bool:
+    """A report of a key a route dropped: the route's own path (pattern or
+    literal), then ?key= with no value."""
+    path, _, q = p.partition("?")
+    return bool(q) and q.endswith("=") and "&" not in q and any(e.get("path") == path for e in doc.get("routes", []))
+
+
 def _dropped_keys(doc: dict, unmapped: list) -> list:
     """Query keys the gateway dropped on a route (reported with the route's
     pattern, /permits/{id}?orderby=, never a value): listed for the person,
@@ -136,8 +145,7 @@ def _dropped_keys(doc: dict, unmapped: list) -> list:
     out = []
     for u in unmapped:
         path, _, q = u.get("path", "").partition("?")
-        if u.get("method") == "GET" and "{" in path and q.endswith("=") and \
-                any(e.get("path") == path for e in doc.get("routes", [])):
+        if u.get("method") == "GET" and _is_dropped_key(doc, u.get("path", "")):
             out.append({"route": path, "key": q[:-1], "clients": u.get("clients", 0)})
     return sorted(out, key=lambda x: -x["clients"])[:50]
 
@@ -359,6 +367,7 @@ def build(job: dict, crawl, fp) -> tuple:
 
     after = sum(1 for p in paths if covered(doc, p))
     visitors = [u for u in job.get("unmapped", []) if u.get("method") == "GET" and "{" not in u.get("path", "")
+                and not _is_dropped_key(doc, u.get("path", ""))
                 and not covered(doc, u.get("path", ""))
                 and not rules.excluded(u.get("path", ""), fp.cms)]
     stale = [r["path"] for r in (job.get("current_map") or {}).get("routes", []) if not any(matches(r["path"], p) for p in paths)]

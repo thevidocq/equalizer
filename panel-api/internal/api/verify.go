@@ -279,8 +279,14 @@ func (s *Server) verificationResult(w http.ResponseWriter, r *http.Request) {
 			_ = s.Store.Record(r.Context(), nil, &a.Tenant, "map.corrected", a.ID, map[string]any{"from": v.Version, "version": nv})
 			if v.RequestedBy == nil {
 				// after a discovery: one draft to review, the corrected one
-				if err := s.Store.Supersede(r.Context(), a.ID, v.Version, nv); err == nil {
+				switch err := s.Store.Supersede(r.Context(), a.ID, v.Version, nv); {
+				case err == nil:
 					_ = s.Store.Record(r.Context(), nil, &a.Tenant, "map.superseded", a.ID, map[string]any{"from": v.Version, "version": nv})
+				case errors.Is(err, store.ErrNotDraft):
+					// a person took the draft on while the agent corrected it:
+					// theirs stands, the correction is withdrawn
+					_ = s.Store.RetireDraft(r.Context(), a.ID, nv)
+					res = store.VerificationResult{Score: in.Before, Corrections: in.Corrections, Before: in.Before}
 				}
 			}
 		}

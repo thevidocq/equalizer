@@ -30,8 +30,9 @@ func mediaSite(t *testing.T, legacy http.Handler, maxKB, concurrency int) http.H
 
 var mp4Head = []byte("\x00\x00\x00\x18ftypmp42")
 
-// Paused players must not hold the site's legacy budget: with two slots and
-// two videos nobody reads, the home page still answers.
+// Paused players never hold more than half the legacy budget (two streams
+// per visitor at most): with four slots and two videos nobody reads, a third
+// stream is refused and the home page still answers.
 func TestMediaPausedPlayersKeepTheSiteUp(t *testing.T) {
 	big := append(append([]byte{}, mp4Head...), bytes.Repeat([]byte{7}, 64<<20)...)
 	h := mediaSite(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -42,19 +43,26 @@ func TestMediaPausedPlayersKeepTheSiteUp(t *testing.T) {
 		}
 		w.Header().Set("Content-Type", "text/html")
 		_, _ = w.Write([]byte("<html><body>home</body></html>"))
-	}), 0, 2)
+	}), 0, 4)
 	srv := httptest.NewServer(h)
 	defer srv.Close()
-	for i := 0; i < 2; i++ { // two players that never read
+	open := func() string {
 		c, err := net.Dial("tcp", srv.Listener.Addr().String())
 		if err != nil {
 			t.Fatal(err)
 		}
-		defer c.Close()
+		t.Cleanup(func() { c.Close() })
 		fmt.Fprintf(c, "GET /media/v.mp4 HTTP/1.1\r\nHost: %s\r\n\r\n", srv.Listener.Addr())
-		if line, err := bufio.NewReader(c).ReadString('\n'); err != nil || !strings.Contains(line, "200") {
-			t.Fatalf("video: %q %v", line, err)
+		line, _ := bufio.NewReader(c).ReadString('\n')
+		return line
+	}
+	for i := 0; i < 2; i++ { // two players that never read
+		if line := open(); !strings.Contains(line, "200") {
+			t.Fatalf("video %d: %q", i, line)
 		}
+	}
+	if line := open(); !strings.Contains(line, "503") {
+		t.Fatalf("a third stream must wait: %q", line)
 	}
 	resp, err := http.Get(srv.URL + "/")
 	if err != nil {
@@ -137,5 +145,18 @@ func TestMediaUnannouncedSizeAborted(t *testing.T) {
 	n, err := io.Copy(io.Discard, resp.Body)
 	if err == nil {
 		t.Fatalf("a %d-byte body over a 1 KiB limit ended as if complete", n)
+	}
+}
+
+// Safari asks for bytes=0-1 first: shorter than the signature, read apart.
+func TestMediaShortFirstRange(t *testing.T) {
+	good := append(append([]byte{}, mp4Head...), bytes.Repeat([]byte{7}, 4096)...)
+	h := mediaSite(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "video/mp4")
+		http.ServeContent(w, r, "good.mp4", time.Time{}, bytes.NewReader(good))
+	}), 0, 0)
+	rec := get(h, "GET", "/media/good.mp4", http.Header{"Range": {"bytes=0-1"}})
+	if rec.Code != http.StatusPartialContent || rec.Body.Len() != 2 {
+		t.Errorf("bytes=0-1: %d, %d bytes", rec.Code, rec.Body.Len())
 	}
 }

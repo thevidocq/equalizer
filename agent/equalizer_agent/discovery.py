@@ -28,7 +28,7 @@ def seeds(job: dict, cms: str | None) -> list:
     return list(dict.fromkeys(out))
 
 
-_TOKEN = re.compile(r"^[A-Za-z0-9_]{16,}$")
+_TOKEN = re.compile(r"^[A-Za-z0-9]{16,}$")  # no separator: words joined by _ or - are a title
 _UUID = re.compile(r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$", re.I)
 
 

@@ -275,7 +275,8 @@ without approval.
   discovery proposes the corrected version (`Store.Supersede`, audit
   `map.superseded`). A verification asked by a person keeps both versions,
 and a draft a person has submitted, approved or published over meanwhile
-is never corrected nor superseded: its measure is kept.
+is never corrected nor superseded: its measure is kept (a correction made
+while the person took the draft on is withdrawn, its version retired).
 
 In the lab, with the editor as test administrator: pages identical
 12/12 (WordPress), 155/155 (Joomla, administration included), 154/154
@@ -307,10 +308,12 @@ The agent never changes the legacy site. Three layers:
    Joomla's form token) and a fixed list of pages that run something when
    opened (scheduled jobs, installers, updates, exports, "add new" screens
    that save a draft). They are listed in the report. In the path, a
-   segment that names content (three words or more joined by `-` or `_`,
-   not starting with such a verb: `how-to-remove-stains`) is a page, unless
-   it holds `logout`, `delete`, `unsubscribe`, `destroy`, `purge` or
-   `impersonate`; the query is always read in full.
+   segment that names content (a title of four words or more joined by `-`
+   or `_`, with at most one such verb and never at either end:
+   `how-to-remove-stains`; not `item-12-remove` nor `my-plan-cancel`) is a
+   page, unless it holds `logout`, `delete`, `unsubscribe`, `destroy`,
+   `purge` or `impersonate`; `log-off`, `log_out`, `sign_out` count as whole
+   words only (`/blog-offers/` is a page); the query is always read in full.
 3. **Checks stop at the gateway.** Preview only serves `GET` and `HEAD`;
    everything else is dry-run and never forwarded.
 

@@ -19,7 +19,8 @@ func TestCheckAsset(t *testing.T) {
 		{"avif that is a script", "image/avif", "<script>alert(1)</script>", "", "asset_content_mismatch"},
 		{"png that is html", "image/png", "<html>", "", "asset_content_mismatch"},
 		{"declared font that is html", "font/woff", "<html><script>", "", "asset_content_mismatch"},
-		{"declared font, signature of another font", "font/woff", "wOF2\x00\x01", "", "asset_content_mismatch"},
+		{"declared font, another font format", "font/woff", "wOF2\x00\x01", "font/woff2", ""},
+		{"OpenType declared font/ttf", "font/woff", "OTTO\x00\x01", "font/otf", ""},
 		{"declared font", "font/woff", "wOFF\x00\x01", "", ""},
 	}
 	for _, c := range cases {

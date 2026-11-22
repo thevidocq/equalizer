@@ -145,11 +145,15 @@ their real content. Fonts
 are the exception: many servers send them as `application/octet-stream`,
 with no type at all, or with an old name (`application/x-font-woff`). A font is then served when its
 signature (`wOFF`, `wOF2`, TrueType, `OTTO`, EOT) is a type the prefix allows,
-with the canonical `Content-Type` (`font/woff`, ...); a font whose
-signature is not the one its declared type names is refused, whether the
-declared type is in `types` or not. Asset responses carry the one type
-that was checked; HTML and XML types (`text/html`, `image/svg+xml`,
-`application/xhtml+xml`, `text/xml`, …) get a CSP sandbox. Audio and video (`.mp4`,
+with the canonical `Content-Type` (`font/woff`, ...). A body declared as a
+font that is no font at all is refused, whether the declared type is in
+`types` or not; a font of another format than its declared type (WOFF2
+sent as `application/font-woff`) is served under its real type. TrueType,
+OpenType and collections (`ttcf`) count as one format, since servers name
+them loosely. Asset responses carry the one type
+that was checked; HTML and XML documents (`text/html`, `image/svg+xml`,
+`application/xhtml+xml`, `text/xml`, `application/xml`, any `+xml`) get a
+CSP sandbox. Audio and video (`.mp4`,
 `.webm`, `.mp3`, ... under a prefix whose `types` include an `audio/` or
 `video/` type) are streamed instead of buffered, with one byte range passed
 on so that players can seek (`bytes=a-b`, `bytes=a-`, `bytes=-n`; a list of
@@ -160,9 +164,13 @@ first bytes with a request of its own. A `416` is answered only for a file
 the map would serve (otherwise the size of any file would leak). The whole
 file must fit `max_size_kb` (default 512 MiB for media, 10 MiB for other
 assets); a body longer than the limit that the legacy server did not
-announce is aborted, never served short. The legacy budget slot is held
-while the response is checked, not while the client reads it, and a client
-that takes no data for 60 s is dropped. The
+announce is aborted, never served short (a preview gets the verdict
+`asset_too_large`). A stream holds its legacy budget slot while it is read,
+so streams are bounded: at most half the site's `max_concurrency` (at least
+one) and two per visitor, beyond which the gateway answers 503; pages keep
+the rest. A client that takes no data for 60 s is dropped. A first range
+shorter than the signature (`bytes=0-1`, as Safari asks) is checked by
+reading the start apart. The
 asset query string is never sent to the legacy application.
 
 ## Forms

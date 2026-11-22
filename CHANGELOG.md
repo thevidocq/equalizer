@@ -42,6 +42,47 @@ it, 0.1.0 (`docs/releases/0.1.0.md`, tag on the merge of #39).
 
 ## Entries
 
+### 2026-11-22 — Re-review of the review fixes
+
+- **Branch:** fix/independent-review
+- **What:** a fifth reviewer, independent of the first four, re-checked the
+  fixes above and confirmed regressions in them; all fixed:
+  - gateway media: releasing the budget early only moved the outage to the
+    legacy server's workers. Streams now hold their slot while read, within
+    a media share of half the budget (`site.Media`, `mediaSlots`) and two
+    streams per visitor (`mediaClients`); 503 beyond. A first range shorter
+    than the signature (`bytes=0-1`, Safari) is probed instead of refused.
+    An oversized unannounced stream in a preview gives the verdict
+    `asset_too_large` instead of dropping the admin connection
+    (`copyMedia` reports, the caller aborts only real clients).
+  - gateway fonts: a declared font of another format is served under its
+    real type instead of refused; TrueType/OpenType/collections are one
+    format (`fontsig.Same`, `ttcf` → `font/collection`). CSP sandbox only
+    for HTML and XML documents (`text/xml`, `application/xml`, `+xml`), not
+    office types containing "xml".
+  - agent: `log-off`/`log_out`/`sign_out` match whole words only
+    (`/blog-offers/`, `/sign-off-letter-examples/` are pages again);
+    verification no longer skips files named like actions (`reset.css`,
+    `delete-icon.svg`), as the crawl; `query_dropped` covers literal routes
+    and keeps them out of `visitors_missing`; `_secret_like` no longer takes
+    `iphone_15_pro_max_256gb` for a token; `gateway_route` chooses by
+    structure like the router.
+  - panel-api: if a person takes the draft on while the agent corrects it,
+    the correction is withdrawn (`RetireDraft`) and the draft keeps no link
+    to it, so the discovery page never points at an orphan.
+  - Tests: gateway `TestMediaPausedPlayersKeepTheSiteUp` (media share),
+    `TestMediaShortFirstRange`, `TestTryAssetHead` (preview of an oversized
+    stream), `TestCheckAsset`, `fontsig.TestSfntFamily`; agent
+    `test_actions.py`, `test_query_merge.py` (`SeedsTest`, files refused,
+    literal routes), `test_verify_assets.py`. Docs: `docs/map-format.md`,
+    `docs/agent.md`.
+- **Why:** the re-review verdict was "do not ship".
+- **Status:** gateway (race), panel-api, agent (62) green. Not covered by
+  tests: the withdrawal of a correction in panel-api (store path only) and
+  the panel-ui states (no `node_modules` here; CI type-checks).
+- **Next steps:** discovery on metaliquid and the WordPress site, then
+  release 0.2.10; distinct-client counting on the panel side.
+
 ### 2026-11-22 — Independent review: visitors are never evidence; media, fonts, verification
 
 - **Branch:** fix/independent-review
@@ -106,8 +147,8 @@ it, 0.1.0 (`docs/releases/0.1.0.md`, tag on the merge of #39).
   files, push query keys to the legacy app, open capability URLs), let a
   few paused videos take a site down, let a chosen range skip the media
   check, and reintroduced crawling of action links.
-- **Status:** gateway (race), panel-api, agent (57) tests and
-  `check:help` green. Not yet run against the real sites.
+- **Status:** gateway (race), panel-api, agent tests and `check:help`
+  green. Not yet run against the real sites.
 - **Next steps:**
   1. Independent re-review of this PR, then discovery on metaliquid and the
      WordPress site before releasing 0.2.10.

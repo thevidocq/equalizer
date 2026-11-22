@@ -96,7 +96,8 @@ func (p *Public) serveAsset(w http.ResponseWriter, r *http.Request, st *site.Sit
 	securityHeaders(h)
 	// The media type as checkAsset read it: "Text/HTML" is HTML too. Any
 	// HTML or XML document (XHTML, MathML, plain XML) can carry script.
-	if mt, _, _ := mime.ParseMediaType(ct); served == "" && (strings.Contains(mt, "html") || strings.Contains(mt, "xml")) {
+	if mt, _, _ := mime.ParseMediaType(ct); served == "" && (strings.Contains(mt, "html") ||
+		mt == "text/xml" || mt == "application/xml" || strings.HasSuffix(mt, "+xml")) {
 		// An SVG, or an HTML fragment a page's scripts load as a template
 		// (Magento's /static/…/*.html), opened directly must not be able to
 		// run scripts.
@@ -158,9 +159,17 @@ func checkAsset(asset *mapmodel.Asset, contentType string, resp *legacyclient.Re
 		}
 		return "", "asset_type_not_allowed"
 	}
-	// A font is what its signature says, also when its declared type is allowed.
-	if font := fontsig.Canonical(mediaType); font != "" && fontsig.Sniff(resp.Body) != font {
-		return "", "asset_content_mismatch"
+	// A font is what its signature says, also when its declared type is
+	// allowed: not a font at all is refused; another font format (WOFF2 sent
+	// as application/font-woff) is served under its real type.
+	if font := fontsig.Canonical(mediaType); font != "" {
+		real := fontsig.Sniff(resp.Body)
+		if real == "" {
+			return "", "asset_content_mismatch"
+		}
+		if !fontsig.Same(real, font) {
+			return real, ""
+		}
 	}
 	if strings.HasPrefix(mediaType, "image/") && mediaType != "image/svg+xml" && mediaType != "image/x-icon" &&
 		mediaType != "image/vnd.microsoft.icon" && !isRaster(resp.Body) {

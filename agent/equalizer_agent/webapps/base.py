@@ -8,6 +8,7 @@ only opened. Most of a profile is data; code only where an application
 behaves differently (Joomla's administration has a login of its own)."""
 
 import re
+import unicodedata
 import urllib.parse
 from dataclasses import dataclass
 
@@ -43,22 +44,36 @@ SENSITIVE = (
 )
 
 # Links that change something, whatever the application: never followed.
-# Ending the session (log out, log off, sign out, sign off) is judged on each
+# Ending the session (log out, log off, sign out, sign off, end session,
+# disconnect, and the same in a few languages) is judged on each
 # piece of the URL normalised: decoded, lower case, without separators
 # (- _ . + spaces), so no spelling escapes (/WebLogOff.aspx, /log%2Dout,
 # /Account/DoLog_Off, /log.out). The only exceptions are decided by what
-# follows: offer(s), offset, office, offline (catalog-offers, analog-offset,
+# follows: offer(s) (not error), offset (not setup), office, offline (catalog-offers, analog-offset,
 # design-office, blog-offline). A page that merely talks about signing off is not studied:
 # safer than a test account logged out.
-_SESSION_END = re.compile(r"logout|signout|(?:log|sign)off(?!ers?|set|ice|line)")
+_SESSION_END = re.compile(
+    r"logout|signout|logmeout|signmeout|(?:log|sign)off(?!er(?!r)|set(?!up)|ice|line)|endsession|"
+    r"disconnect|deconnexion|deconnecter|abmelden|ausloggen|uitloggen|afmelden|loggaut|loggut|"
+    r"cerrarsesion|encerrarsessao|disconnetti|esci$|exit$|quit$|wyloguj|odhlasit")
+_SESSION_PATH = re.compile(r"sessions?/(?:end|kill|close|terminate|stop)(?:/|$)")
 _PIECES = re.compile(r"[/?&=;#]")
 _SEPARATORS = re.compile(r"[^a-z0-9]")
 
 
 def ends_session(path_query: str) -> bool:
     """Whether a URL would end the session, however it is spelled."""
-    text = urllib.parse.unquote_plus(urllib.parse.unquote_plus(path_query)).lower()
-    return any(_SESSION_END.search(_SEPARATORS.sub("", piece)) for piece in _PIECES.split(text))
+    text = urllib.parse.unquote_plus(urllib.parse.unquote_plus(path_query))
+    # NFKC and case folding: fullwidth letters and ſ read as the server would
+    text = unicodedata.normalize("NFKD", unicodedata.normalize("NFKC", text).casefold())
+    text = "".join(c for c in text if not unicodedata.combining(c))  # déconnexion → deconnexion
+    pieces = [_SEPARATORS.sub("", p) for p in _PIECES.split(text)]
+    # a file name is a piece of its own with its extension dropped: /logout.png
+    # is the logout route on servers with formats (Rails), /exit.php an exit
+    pieces += [_SEPARATORS.sub("", p.rsplit(".", 1)[0]) for p in _PIECES.split(text) if "." in p]
+    if any(_SESSION_END.search(p) for p in pieces if p):
+        return True
+    return bool(_SESSION_PATH.search("/".join(pieces)))  # /session/end, /sessions/kill
 
 
 ACTIONS = re.compile(r"(logout|signout|"

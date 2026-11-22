@@ -116,7 +116,11 @@ class Crawler(LoginMixin):
             return False
         last = pq.split("?")[0].rsplit("/", 1)[-1]
         static = "." in last and "." + last.rsplit(".", 1)[-1].lower() in ASSET_EXT
-        if not static and rules.is_action(pq):  # a script file named block-library/… acts on nothing
+        # a script file named block-library/… acts on nothing; but a file
+        # that ends the session (/logout.png on Rails) or sits in such a
+        # folder is never opened
+        if (static and (webapps.ends_session(pq) or webapps.STRONG.search(pq.rsplit("/", 1)[0] + "/"))) or \
+                (not static and rules.is_action(pq)):
             self.r.skipped_actions.add(pq)
             return False
         return True

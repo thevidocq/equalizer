@@ -34,6 +34,12 @@ class ActionsTest(unittest.TestCase):
                   "/x/log.out", "/sign.out", "/log%2Dout", "/log%5Fout", "/log%252Dout", "?a=log+out",
                   "/log-outnow", "/sign-outall", "/account/sign-off-all-devices", "/my-account-sign-off-now",
                   "/x;jsessionid=1/logout",
+                  # other words for it, other languages, lookalikes, file names
+                  "/connect/endsession", "/end_session", "/session/end", "/logmeout", "/log-me-out", "/sign_me_out",
+                  "/exit", "/quit", "/disconnect", "/session/kill", "/abmelden", "/uitloggen", "/logga-ut",
+                  "/deconnexion", "/d%C3%A9connexion", "/cerrar-sesion", "/esci", "/disconnetti",
+                  "/%C5%BFignoff", "/%EF%BD%8C%EF%BD%8F%EF%BD%87%EF%BD%8F%EF%BD%95%EF%BD%94",
+                  "/Account/LogOffError", "/logoffSetup", "/logout.png", "/logout;.png", "/users/sign_out.txt",
                   # a page about signing off is not studied: safer than a session ended
                   "/sign-off-letter-examples/", "/blog/how-to-sign-off-an-email/"):
             self.assertTrue(is_action(u), u)
@@ -45,7 +51,9 @@ class ActionsTest(unittest.TestCase):
                   "/blog-offers/", "/catalog-offers/", "/design-office/", "/blog-offline-mode/",
                   # logoff/signoff never inside a word
                   "/catalogoffers/", "/designoffice/", "/blog/designoffers-2024", "/shop/analogoffset-printing",
-                  "/changelogoffset", "/backlogoffice", "/prologoffer", "/vlogoffers", "/resignoffer", "/assignoffice"):
+                  "/changelogoffset", "/backlogoffice", "/prologoffer", "/vlogoffers", "/resignoffer", "/assignoffice",
+                  "/blog-offline-mode/", "/exit-strategy-guide/", "/blog/how-to-quit-smoking/", "/exits/", "/esempio/",
+                  "/sessions/list/"):
             self.assertFalse(is_action(u), u)
 
 

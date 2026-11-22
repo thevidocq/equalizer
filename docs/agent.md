@@ -317,11 +317,16 @@ The agent never changes the legacy site. Three layers:
    page, unless it holds `logout`, `delete`, `unsubscribe`, `destroy`,
    `purge` or `impersonate`; the query is always read in full. Ending the
    session is judged apart (`ends_session`), on each piece of the URL
-   decoded, in lower case and without separators, so no spelling escapes
-   (`/WebLogOff.aspx`, `/Account/DoLog_Off`, `/log%2Dout`, `/log.out`):
-   log out, log off, sign out, sign off anywhere, except when followed by
-   offer(s), offset, office or offline (catalog-offers, analog-offset,
-   design-office, blog-offline). A page that only talks about signing off
+   decoded, folded (NFKC, case, accents) and without separators, so no
+   spelling escapes (`/WebLogOff.aspx`, `/Account/DoLog_Off`, `/log%2Dout`,
+   `/log.out`, `ſignoff`): log out, log off, sign out, sign off, log me
+   out, end session (`/connect/endsession`, `/session/end`), disconnect,
+   and the usual words in German, Dutch, Swedish, French, Spanish,
+   Portuguese, Italian, Polish and Czech, anywhere, except log/sign off
+   followed by offer(s), offset, office or offline (catalog-offers,
+   analog-offset, design-office, blog-offline). A file name is read without
+   its extension too (`/logout.png` is the logout route on Rails), in the
+   browser pass and in verification. A page that only talks about signing off
    is not studied: safer than a test account logged out. The cases the
    reviews found are kept as a regression corpus in
    `agent/tests/test_actions.py`.

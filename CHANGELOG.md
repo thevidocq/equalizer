@@ -42,6 +42,26 @@ it, 0.1.0 (`docs/releases/0.1.0.md`, tag on the merge of #39).
 
 ## Entries
 
+### 2026-11-22 — Sixth re-review: other words for ending a session
+
+- **Branch:** fix/independent-review
+- **What:** a tenth independent reviewer confirmed the normalised rule
+  holds for every spelling of log out / sign off, and found logouts with
+  other words (`/connect/endsession`, `/abmelden`, `/deconnexion`,
+  `/session/end`) and logout routes with a file extension (`/logout.png`
+  on Rails, `/logout;.png` on Tomcat) opened by the browser pass and by
+  verification. `ends_session` now knows end session, log me out,
+  disconnect and the usual words in nine languages, `/session(s)/end|kill…`,
+  folds text with NFKC, case folding and accents, reads a file name
+  without its extension, and narrows the exceptions (offer but not error,
+  offset but not setup). `Crawler._allowed_quiet` and verification's `_acts`
+  apply it to files. Every case is in `test_actions.py`.
+- **Status:** agent green. A list of words cannot be complete: see the
+  next step.
+- **Next steps:** detect a lost session during the logged-in passes (the
+  agent's login cookie no longer valid) and log in again, so an unknown
+  logout word costs a re-login, not the rest of the pass.
+
 ### 2026-11-22 — Fifth re-review: session end judged on normalised URLs
 
 - **Branch:** fix/independent-review

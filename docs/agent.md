@@ -95,7 +95,13 @@ when it is stale, so it never says more than the code does.
   not, so text, CSV, archives, SQL, JSON, HTML and XML are never added by
   the agent. What visitors ask for is never evidence: a file the gateway
   refused them is listed in the report (`files_refused`) for the person,
-  not opened and not added (anyone can ask for any file). `srcset` is split as the HTML standard says, so a
+  not opened and not added (anyone can ask for any file). Each item (and
+  each of `query_dropped`) carries `verdict` (`site` when a studied page,
+  stylesheet or link names it, else `suspect`), `why` (with what adding it
+  would open) and `add`, the change the panel makes when the person clicks
+  **Add to a new draft** (`POST /v1/apps/{app}/discoveries/{id}/adopt`: the
+  panel takes the change from the report, never from the request, onto
+  the discovery's draft or the published map). `srcset` is split as the HTML standard says, so a
   CDN URL with commas stays whole. Documents (`.pdf`, `.docx`, `.xlsx`,
   `.odt`, `.csv`, …) are files too; archives, logs and dumps never are
   (they are not studied at all). No asset prefix is proposed over a folder

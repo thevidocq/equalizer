@@ -62,6 +62,8 @@ const actions: Record<string, Say> = {
   "map.verify": (t, d) => `asked to check ${version(d)}${t}`,
   "map.corrected": (t, d) => `corrected version ${String(d.from)} of the map of ${t} into version ${String(d.version)}`,
   "map.superseded": (t, d) => `replaced draft ${String(d.from)} of the map of ${t} by its corrected version ${String(d.version)}`,
+  "map.adopted": (t, d) =>
+    `added to the map of ${t}, in version ${String(d.version)}, a ${String(d.kind)} visitors asked for (discovery #${String(d.discovery)})`,
   "map.correction_withdrawn": (t, d) =>
     `withdrew its correction ${String(d.version)} of the map of ${t}: version ${String(d.from)} was taken on by a person`,
   "logs.export": (t) => (t ? `exported the logs of ${t}` : "exported the logs"),

@@ -42,6 +42,78 @@ it, 0.1.0 (`docs/releases/0.1.0.md`, tag on the merge of #39).
 
 ## Entries
 
+### 2026-11-22 — One-click adoption: chain on the published map too
+
+- **Branch:** feat/report-actions
+- **What:** a second review found the chaining only worked on the
+  discovery's own draft. When the base is the published map (the
+  discovery's draft published, retired, or none proposed — the usual
+  scheduled discovery on an unchanged site), the new draft now also takes
+  the discovery's place (`Store.PointDiscovery`, conditional on the
+  discovery still proposing what it proposed; otherwise 409
+  `draft_taken` and the new draft is retired). The automatic verification
+  is queued before the discovery shows its draft, so a click never lands
+  on a draft whose check has not started. Test `TestAdoptAfterPublish`.
+- **Status:** panel-api green.
+- **Next steps:** merge after #88.
+
+### 2026-11-22 — Review of the one-click adoption
+
+- **Branch:** feat/report-actions
+- **What:** an independent reviewer found four problems; fixed:
+  - panel-api `adopt.go`: each click built on the same base, so two clicks
+    gave two drafts each missing the other's change. The new draft now
+    supersedes the discovery's draft (`Store.Supersede`), so the next click
+    adds to it; 409 while the agent still checks that draft (`checking`),
+    when the draft is under review (`in_review`), when nothing would change
+    (`already_there`), when the map no longer has the prefix or route
+    (`not_in_map`), when the draft was taken on meanwhile (`draft_taken`).
+    A key is never declared over a path parameter or a legacy query name
+    already mapped (`adoptKey`).
+  - agent: a script only visitors asked for is never offered (`add` none);
+    a non-passive type's warning is always shown (`passive(…,
+    loaded=False)`); keys that are path parameters or already mapped
+    legacy names are not offered; the GET route is chosen when a POST
+    route shares the path, in the report and when merging the site's own
+    keys (`_merge_query` picked the POST route).
+  - panel-ui: buttons wait for the agent's check; after a click the
+    discovery and the maps are read again.
+  - Tests: `TestAdoptFromTheReport` (checking, chain of drafts, already
+    there, path parameter), agent `test_query_merge.py` (script, path
+    parameter, declared key, POST route first). Docs: tenant manual/help.
+- **Status:** agent, panel-api green.
+- **Next steps:** merge after #88.
+
+### 2026-11-22 — Visitors' requests: the agent judges, a person adds in one click
+
+- **Branch:** feat/report-actions (on top of fix/independent-review, #88)
+- **What:**
+  - agent `mapbuild._files_refused` / `_dropped_keys`: each item has
+    `verdict` (`site` if a studied page, stylesheet or link names it, else
+    `suspect`), `why` (what adding it would open: "every text/csv file under
+    /uploads/") and `add` (the change, or none when the map cannot take
+    it); the site's own first. Nothing is opened for them, nothing added.
+    Keys the draft already declares are no longer listed.
+  - contract `schema/api/panel-api.yaml`: `POST
+    /apps/{app}/discoveries/{id}/adopt` (`kind` file|key and the item's
+    path or route and key); panel-ui `schema.d.ts` updated by hand to the
+    generator's shape (no `node_modules` here: CI's `check:api` compares).
+  - panel-api `internal/api/adopt.go`: an administrator adds one listed
+    item; the change comes from the report, never the request; it goes on
+    the discovery's draft (while it is one) or the published map, through
+    the schema and gateway checks, into a new draft; audit `map.adopted`.
+    Test `TestAdoptFromTheReport` (file, key, unlisted or change-less items
+    refused, no type from the request).
+  - panel-ui `features/discovery/components/VisitorRequests.tsx` and
+    `hooks/useAdopt.ts`: the site's items with **Add to a new draft**, the
+    suspect ones folded with why; a link to the new version.
+  - Docs: tenant manual and in-app help (Discovery), `docs/agent.md`.
+- **Why:** the customer never edits the map by hand: what only visitors
+  asked for needs a person's decision, made in one click with the agent's
+  judgement next to it.
+- **Status:** agent, panel-api green. panel-ui not type-checked here.
+- **Next steps:** independent review; then merge after #88.
+
 ### 2026-11-22 — Sixth re-review: other words for ending a session
 
 - **Branch:** fix/independent-review

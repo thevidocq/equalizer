@@ -69,13 +69,18 @@ class SeedsTest(unittest.TestCase):
             {"method": "GET", "path": "/shop/?sort=", "clients": 9},  # a key: listed, not opened
             {"method": "GET", "path": "/download/8f3a9c2e7b1d4e6fa1/invoice", "clients": 9},  # a capability URL
             {"method": "GET", "path": "/o/123e4567-e89b-12d3-a456-426614174000", "clients": 9},
+            {"method": "GET", "path": "/dl/aB3dE5gH7jK9mN1p_q", "clients": 9},
+            {"method": "GET", "path": "/invite/Zk8_Qm2Lx9Pw4Rt7Vn3B", "clients": 9},
+            {"method": "GET", "path": "/category/electronics2024", "clients": 2},
             {"method": "GET", "path": "/products/iphone_15_pro_max_256gb/", "clients": 2},  # a title
             {"method": "POST", "path": "/contact/", "clients": 9}]}
         got = discovery.seeds(job, None)
         self.assertIn("/about-us/", got)
         self.assertIn("/products/iphone_15_pro_max_256gb/", got)
+        self.assertIn("/category/electronics2024", got)
         for p in ("/one-visitor/", "/uploads/orders.csv", "/shop/?sort=", "/download/8f3a9c2e7b1d4e6fa1/invoice",
-                  "/o/123e4567-e89b-12d3-a456-426614174000", "/contact/"):
+                  "/o/123e4567-e89b-12d3-a456-426614174000", "/contact/", "/dl/aB3dE5gH7jK9mN1p_q",
+                  "/invite/Zk8_Qm2Lx9Pw4Rt7Vn3B"):
             self.assertNotIn(p, got)
 
     def test_files_refused_are_listed(self):

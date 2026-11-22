@@ -148,9 +148,10 @@ signature (`wOFF`, `wOF2`, TrueType, `OTTO`, EOT) is a type the prefix allows,
 with the canonical `Content-Type` (`font/woff`, ...). A body declared as a
 font that is no font at all is refused, whether the declared type is in
 `types` or not; a font of another format than its declared type (WOFF2
-sent as `application/font-woff`) is served under its real type. TrueType,
-OpenType and collections (`ttcf`) count as one format, since servers name
-them loosely. Asset responses carry the one type
+sent as `application/font-woff`) is served under its real type when
+`types` allows that format too, refused otherwise. TrueType, OpenType and
+collections (`ttcf`) count as one format, since servers name them loosely.
+An EOT file is recognised by its magic number and its version. Asset responses carry the one type
 that was checked; HTML and XML documents (`text/html`, `image/svg+xml`,
 `application/xhtml+xml`, `text/xml`, `application/xml`, any `+xml`) get a
 CSP sandbox. Audio and video (`.mp4`,
@@ -166,9 +167,11 @@ file must fit `max_size_kb` (default 512 MiB for media, 10 MiB for other
 assets); a body longer than the limit that the legacy server did not
 announce is aborted, never served short (a preview gets the verdict
 `asset_too_large`). A stream holds its legacy budget slot while it is read,
-so streams are bounded: at most half the site's `max_concurrency` (at least
-one) and two per visitor, beyond which the gateway answers 503; pages keep
-the rest. A client that takes no data for 60 s is dropped. A first range
+so streams are bounded: at most half the site's `max_concurrency` and two
+per visitor, beyond which the gateway answers 503; pages keep the rest.
+With `max_concurrency: 1`, one stream at a time, which holds no budget
+slot (the page keeps it). A stream the legacy server cuts is a failed
+transfer for the client, never a whole file. A client that takes no data for 60 s is dropped. A first range
 shorter than the signature (`bytes=0-1`, as Safari asks) is checked by
 reading the start apart. The
 asset query string is never sent to the legacy application.

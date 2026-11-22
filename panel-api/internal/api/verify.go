@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log/slog"
 	"net/http"
 	"strconv"
 	"strings"
@@ -285,7 +286,11 @@ func (s *Server) verificationResult(w http.ResponseWriter, r *http.Request) {
 				case errors.Is(err, store.ErrNotDraft):
 					// a person took the draft on while the agent corrected it:
 					// theirs stands, the correction is withdrawn
-					_ = s.Store.RetireDraft(r.Context(), a.ID, nv)
+					if err := s.Store.RetireDraft(r.Context(), a.ID, nv); err != nil {
+						s.Log.ErrorContext(r.Context(), "correction not withdrawn", slog.Group("detail",
+							slog.String("app", a.ID), slog.Int("version", nv), slog.String("error", err.Error())))
+					}
+					_ = s.Store.Record(r.Context(), nil, &a.Tenant, "map.correction_withdrawn", a.ID, map[string]any{"from": v.Version, "version": nv})
 					res = store.VerificationResult{Score: in.Before, Corrections: in.Corrections, Before: in.Before}
 				}
 			}

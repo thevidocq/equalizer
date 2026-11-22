@@ -31,6 +31,12 @@ def names(body: bytes, url: str) -> list:
     return [(u, True) for u in page.assets + page.scripts] + [(u, False) for u in page.links]
 
 
+def _actionable(path: str) -> str:
+    """What the action rule reads: a file's folders, not its name (reset.css,
+    delete-icon.svg are files; /account/logout/bye.png still is an action)."""
+    return path.rsplit("/", 1)[0] + "/" if crawler.Crawler._static(path) else path
+
+
 def _prefix(doc: dict, path: str):
     best = None
     for a in doc.get("assets", []):
@@ -59,8 +65,7 @@ def check(gw, f, doc: dict, m, files, cms=None) -> None:
         a = _prefix(doc, path)
         # the crawler's rules hold here too: never an action, never a sensitive file
         # (a file's name such as reset.css or delete-icon.svg is not an action, as in the crawl)
-        if a is None or path in already or rules.excluded(path, cms) or \
-                (not crawler.Crawler._static(path) and rules.is_action(path)):
+        if a is None or path in already or rules.excluded(path, cms) or rules.is_action(_actionable(path)):
             continue
         try:
             direct = f.get(path)

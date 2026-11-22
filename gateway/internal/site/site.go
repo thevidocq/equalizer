@@ -48,9 +48,10 @@ type Options struct {
 // How long to wait when the legacy application is saturated.
 const budgetWait = 2 * time.Second
 
-// mediaSlots is how many audio or video streams may hold the legacy budget
-// at once: half of it (at least one), so that paused players never take all
-// the legacy workers; no budget, no limit.
+// mediaSlots is how many audio or video streams may run at once: half the
+// legacy budget, so that paused players never take all the legacy workers;
+// one with a budget of one (that stream then holds no budget slot: the page
+// keeps it); no budget, no limit.
 func mediaSlots(budget int) int {
 	if budget <= 0 {
 		return 0

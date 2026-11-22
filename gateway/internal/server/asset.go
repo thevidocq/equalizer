@@ -161,13 +161,17 @@ func checkAsset(asset *mapmodel.Asset, contentType string, resp *legacyclient.Re
 	}
 	// A font is what its signature says, also when its declared type is
 	// allowed: not a font at all is refused; another font format (WOFF2 sent
-	// as application/font-woff) is served under its real type.
+	// as application/font-woff) is served under its real type if the map
+	// allows that format too.
 	if font := fontsig.Canonical(mediaType); font != "" {
 		real := fontsig.Sniff(resp.Body)
 		if real == "" {
 			return "", "asset_content_mismatch"
 		}
 		if !fontsig.Same(real, font) {
+			if !fontsig.Allowed(real, asset.Types) {
+				return "", "asset_type_not_allowed" // a format the map does not list: deny by default
+			}
 			return real, ""
 		}
 	}

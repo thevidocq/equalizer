@@ -42,6 +42,34 @@ it, 0.1.0 (`docs/releases/0.1.0.md`, tag on the merge of #39).
 
 ## Entries
 
+### 2026-11-22 — Second re-review of the review fixes
+
+- **Branch:** fix/independent-review
+- **What:** a sixth independent reviewer found regressions in the previous
+  fixes; all fixed, each with a test:
+  - gateway fonts: a font of another format is served only if `types`
+    allows that format (`fontsig.Allowed`), otherwise refused; EOT needs its
+    version field, so 34 bytes + `LP` + HTML is no font
+    (`TestEOTNeedsItsVersion`, `TestCheckAsset`).
+  - gateway media: a stream the legacy server cuts is aborted, never served
+    as whole (`copyMedia` reports `mediaCut`; `TestMediaCutStreamFails`);
+    with `max_concurrency: 1` a stream holds no budget slot
+    (`TestMediaBudgetOfOne`); per-visitor cap tested apart
+    (`TestMediaStreamsPerVisitor`).
+  - agent: `logoff`/`signoff` actions anywhere again (`/doLogoff`,
+    `/SignOff.aspx`), separated spellings as whole words; verification
+    reads a file's folders for the action rule (`/account/logout/bye.png`
+    not opened, `reset.css` checked); `_secret_like` finds random tokens by
+    letter/digit alternation in each part (`aB3dE5gH7…_q` skipped,
+    `iphone_15_pro_max_256gb` and `electronics2024` kept).
+  - panel-api: a withdrawn correction logs a failed retirement and is
+    audited (`map.correction_withdrawn`, described in the panel);
+    `TestNoCorrectionOverAPersonsDraft`.
+  - Docs: `docs/map-format.md`, `docs/agent.md`.
+- **Why:** re-review verdict "do not ship".
+- **Status:** gateway (race), panel-api, agent green.
+- **Next steps:** as above.
+
 ### 2026-11-22 — Re-review of the review fixes
 
 - **Branch:** fix/independent-review

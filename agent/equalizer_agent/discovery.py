@@ -28,15 +28,24 @@ def seeds(job: dict, cms: str | None) -> list:
     return list(dict.fromkeys(out))
 
 
-_TOKEN = re.compile(r"^[A-Za-z0-9]{16,}$")  # no separator: words joined by _ or - are a title
 _UUID = re.compile(r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$", re.I)
 
 
+def _random(part: str) -> bool:
+    """A random token: eight characters or more that switch between letters
+    and digits at least three times (8f3a9c2e…, aB3dE5gH7…), unlike a word
+    or a model name (electronics2024, 256gb)."""
+    if len(part) < 8 or not part.isalnum():
+        return False
+    kinds = ["d" if c.isdigit() else "a" for c in part]
+    return sum(1 for x, y in zip(kinds, kinds[1:]) if x != y) >= 3
+
+
 def _secret_like(path: str) -> bool:
-    """A path holding a long random-looking segment (a download or reset
-    token in a capability URL): a visitor's private link, never opened."""
+    """A path holding a random-looking segment (a download or reset token in
+    a capability URL): a visitor's private link, never opened."""
     for seg in path.split("/"):
-        if _UUID.match(seg) or (_TOKEN.match(seg) and sum(c.isdigit() for c in seg) >= 4 and sum(c.isalpha() for c in seg) >= 4):
+        if _UUID.match(seg) or any(_random(part) for part in re.split(r"[-_.]", seg)):
             return True
     return False
 

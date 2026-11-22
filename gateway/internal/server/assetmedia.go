@@ -73,17 +73,25 @@ func (p *Public) serveMediaAsset(w http.ResponseWriter, r *http.Request, st *sit
 		return
 	}
 	defer st.Media.Release()
-	if !p.acquireLegacy(r, st, m.Entry.ID) {
+	// With a budget of one slot a stream would hold the whole site: it takes
+	// none (the media share, one stream, bounds the legacy server's load).
+	holds := st.Model.Defaults.LegacyBudget.MaxConcurrency != 1
+	if holds && !p.acquireLegacy(r, st, m.Entry.ID) || !holds && !p.legacyRateAllowed(r, st, m.Entry.ID) {
 		writePage(w, http.StatusServiceUnavailable, pageUnavailable)
 		return
 	}
+	release := func() {
+		if holds {
+			st.Budget.Release()
+		}
+	}
 	resp, err := st.Legacy.Open(req)
 	if err != nil {
-		st.Budget.Release()
+		release()
 		p.legacyFailure(w, r, st, m.Entry.ID, err)
 		return
 	}
-	defer func() { resp.Close(); st.Budget.Release() }()
+	defer func() { resp.Close(); release() }()
 
 	ct := resp.Header.Get("Content-Type")
 	switch resp.Status {
@@ -129,12 +137,17 @@ func (p *Public) serveMediaAsset(w http.ResponseWriter, r *http.Request, st *sit
 	}
 	securityHeaders(h)
 	w.WriteHeader(resp.Status)
-	if r.Method != http.MethodHead && !copyMedia(w, io.MultiReader(bytes.NewReader(head), resp.Body), limit) {
-		p.Events.Emit(p.event(r, st, "request.blocked", "asset_too_large", resp.Status, telemetry.Ptr(m.Entry.ID)))
-		if _, try := r.Context().Value(tryCaptureKey{}).(*tryCapture); try {
-			return // a preview gets its verdict; the real client gets a failure, never a short file
+	if r.Method != http.MethodHead {
+		switch copyMedia(w, io.MultiReader(bytes.NewReader(head), resp.Body), limit) {
+		case mediaTooLong:
+			p.Events.Emit(p.event(r, st, "request.blocked", "asset_too_large", resp.Status, telemetry.Ptr(m.Entry.ID)))
+			p.abortStream(r)
+			return
+		case mediaCut:
+			p.Events.Emit(p.event(r, st, "legacy.error", "stream_cut", http.StatusBadGateway, telemetry.Ptr(m.Entry.ID)))
+			p.abortStream(r)
+			return
 		}
-		panic(http.ErrAbortHandler)
 	}
 	p.Events.Emit(p.event(r, st, "request.served", "", resp.Status, telemetry.Ptr(m.Entry.ID)))
 }
@@ -142,10 +155,17 @@ func (p *Public) serveMediaAsset(w http.ResponseWriter, r *http.Request, st *sit
 // mediaWriteTimeout drops a client that has not taken a chunk for this long.
 const mediaWriteTimeout = 60 * time.Second
 
-// copyMedia sends a media body and reports whether it fitted limit. A
-// stalled client is dropped; a body longer than limit (a size the legacy
-// server did not announce) stops there, and the caller aborts the response.
-func copyMedia(w http.ResponseWriter, body io.Reader, limit int64) bool {
+// How a media body went.
+const (
+	mediaSent    = iota // whole, or the client went away
+	mediaTooLong        // longer than the limit, which the legacy server had not announced
+	mediaCut            // the legacy server stopped before the end
+)
+
+// copyMedia sends a media body. A stalled client is dropped; a body longer
+// than limit, or one the legacy server cut, is reported so the caller fails
+// the response: never a short file taken as whole.
+func copyMedia(w http.ResponseWriter, body io.Reader, limit int64) int {
 	rc := http.NewResponseController(w)
 	buf := make([]byte, 32<<10)
 	var sent int64
@@ -154,17 +174,29 @@ func copyMedia(w http.ResponseWriter, body io.Reader, limit int64) bool {
 		if n > 0 {
 			sent += int64(n)
 			if sent > limit {
-				return false
+				return mediaTooLong
 			}
 			_ = rc.SetWriteDeadline(time.Now().Add(mediaWriteTimeout))
 			if _, err := w.Write(buf[:n]); err != nil {
-				return true
+				return mediaSent
 			}
 		}
-		if rerr != nil {
-			return true
+		switch {
+		case rerr == io.EOF:
+			return mediaSent
+		case rerr != nil:
+			return mediaCut
 		}
 	}
+}
+
+// abortStream fails a response already started: the client sees a broken
+// transfer. A preview keeps its verdict from the event instead.
+func (p *Public) abortStream(r *http.Request) {
+	if _, try := r.Context().Value(tryCaptureKey{}).(*tryCapture); try {
+		return
+	}
+	panic(http.ErrAbortHandler)
 }
 
 // mediaTypeAllowed reports whether a declared type is an audio or video type

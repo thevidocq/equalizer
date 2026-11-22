@@ -56,3 +56,16 @@ func TestSfntFamily(t *testing.T) {
 		}
 	}
 }
+
+func TestEOTNeedsItsVersion(t *testing.T) {
+	forged := append(make([]byte, 34), []byte("LP<html>")...)
+	if Sniff(forged) != "" {
+		t.Error("34 bytes and LP are no EOT")
+	}
+	real := make([]byte, 40)
+	real[8], real[9], real[10], real[11] = 0x01, 0x00, 0x02, 0x00 // 0x00020001
+	real[34], real[35] = 0x4C, 0x50
+	if Sniff(real) != EOT {
+		t.Error("a real EOT header")
+	}
+}

@@ -160,3 +160,87 @@ func TestMediaShortFirstRange(t *testing.T) {
 		t.Errorf("bytes=0-1: %d, %d bytes", rec.Code, rec.Body.Len())
 	}
 }
+
+// Two streams per visitor, whatever the media share: another visitor still plays.
+func TestMediaStreamsPerVisitor(t *testing.T) {
+	big := append(append([]byte{}, mp4Head...), bytes.Repeat([]byte{7}, 64<<20)...)
+	h := mediaSite(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "video/mp4")
+		http.ServeContent(w, r, "v.mp4", time.Time{}, bytes.NewReader(big))
+	}), 0, 16)
+	srv := httptest.NewServer(h)
+	defer srv.Close()
+	open := func(ip string) string {
+		c, err := net.Dial("tcp", srv.Listener.Addr().String())
+		if err != nil {
+			t.Fatal(err)
+		}
+		t.Cleanup(func() { c.Close() })
+		fmt.Fprintf(c, "GET /media/v.mp4 HTTP/1.1\r\nHost: %s\r\nX-Forwarded-For: %s\r\n\r\n", srv.Listener.Addr(), ip)
+		line, _ := bufio.NewReader(c).ReadString('\n')
+		return line
+	}
+	for i := 0; i < 2; i++ {
+		if line := open("198.51.100.7"); !strings.Contains(line, "200") {
+			t.Fatalf("stream %d: %q", i, line)
+		}
+	}
+	if line := open("198.51.100.7"); !strings.Contains(line, "503") {
+		t.Errorf("a third stream for one visitor: %q", line)
+	}
+}
+
+// With a budget of one slot, a paused player never takes the page's slot.
+func TestMediaBudgetOfOne(t *testing.T) {
+	big := append(append([]byte{}, mp4Head...), bytes.Repeat([]byte{7}, 64<<20)...)
+	h := mediaSite(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/media/v.mp4" {
+			w.Header().Set("Content-Type", "video/mp4")
+			http.ServeContent(w, r, "v.mp4", time.Time{}, bytes.NewReader(big))
+			return
+		}
+		w.Header().Set("Content-Type", "text/html")
+		_, _ = w.Write([]byte("<html><body>home</body></html>"))
+	}), 0, 1)
+	srv := httptest.NewServer(h)
+	defer srv.Close()
+	c, err := net.Dial("tcp", srv.Listener.Addr().String())
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer c.Close()
+	fmt.Fprintf(c, "GET /media/v.mp4 HTTP/1.1\r\nHost: %s\r\n\r\n", srv.Listener.Addr())
+	if line, _ := bufio.NewReader(c).ReadString('\n'); !strings.Contains(line, "200") {
+		t.Fatalf("video: %q", line)
+	}
+	resp, err := http.Get(srv.URL + "/")
+	if err != nil {
+		t.Fatal(err)
+	}
+	resp.Body.Close()
+	if resp.StatusCode != 200 {
+		t.Fatalf("home page with one budget slot and a paused video: %d", resp.StatusCode)
+	}
+}
+
+// A stream the legacy server cuts is a failure for the client, never a whole file.
+func TestMediaCutStreamFails(t *testing.T) {
+	h := mediaSite(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "video/mp4")
+		_, _ = w.Write(mp4Head)
+		_, _ = w.Write(make([]byte, 100000))
+		w.(http.Flusher).Flush()
+		conn, _, _ := http.NewResponseController(w).Hijack() // drop with no final chunk
+		conn.Close()
+	}), 0, 0)
+	srv := httptest.NewServer(h)
+	defer srv.Close()
+	resp, err := http.Get(srv.URL + "/media/cut.mp4")
+	if err != nil {
+		return
+	}
+	defer resp.Body.Close()
+	if _, err := io.Copy(io.Discard, resp.Body); err == nil {
+		t.Fatal("a cut stream reached the client as a complete file")
+	}
+}

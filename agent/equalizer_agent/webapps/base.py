@@ -42,9 +42,10 @@ SENSITIVE = (
 )
 
 # Links that change something, whatever the application: never followed.
-# logout/signout as before; the spellings with a separator or "off" only as
-# whole words (/blog-offers/, /sign-off-letter-examples/ are content).
-ACTIONS = re.compile(r"(logout|signout|(?<![a-z])(log[-_]?out|log[-_]?off|sign[-_]?out)(?![a-z])|"
+# logout, signout, logoff, signoff anywhere (/doLogoff, /UserLogOff.aspx);
+# the spellings with a separator as whole words only (/blog-offers/ is
+# content; /sign-off-letter-examples/ is a title, see _content_slug).
+ACTIONS = re.compile(r"(logout|signout|logoff|signoff|(?<![a-z])(log[-_]out|log[-_]off|sign[-_]out|sign[-_]off)(?![a-z])|"
                      r"delete|remove|destroy|unsubscribe|reset|drop|purge|"
                      r"action=(del|delete|remove|logout|edit|update))", re.I)
 # More of them, as whole words (a slug such as /running-tips/ is not "run").
@@ -61,8 +62,8 @@ TOKENS = re.compile(r"[?&](_wpnonce|nonce|_nonce|token|_token|csrf|csrf_token|fo
 
 _SLUG_WORD = re.compile(r"^[A-Za-z0-9]+$")
 # Never part of an innocent slug: a segment holding one is always an action.
-STRONG = re.compile(r"(logout|signout|(?<![a-z])(log[-_]?out|log[-_]?off|sign[-_]?out)(?![a-z])|unsubscribe|destroy|delete|"
-                    r"purge|impersonate)", re.I)
+STRONG = re.compile(r"(logout|signout|logoff|signoff|(?<![a-z])(log[-_]out|log[-_]off|sign[-_]out)(?![a-z])|"
+                    r"unsubscribe|destroy|delete|purge|impersonate)", re.I)
 
 
 def _is_action_word(word: str) -> bool:

@@ -190,7 +190,9 @@ refused. Every file the public pages name (in their HTML, their links and
 their stylesheets, up to 200 files and 30 stylesheets) that an asset prefix
 of the draft serves is opened directly and asked through the gateway
 (preview with `HEAD`: the verdict, not the body). Sensitive files and action
-links are never opened, as in the study; a page answering under a prefix
+links are never opened, as in the study (for a file, its folders are read,
+not its name: `reset.css` is a file, `/account/logout/bye.png` is not
+opened); a page answering under a prefix
 is left to the page comparison. A file the site serves and the gateway
 refuses is a broken page; the correction adds the type the site sends if
 it is passive (as in discovery: scripts only when a page loads them), or
@@ -312,8 +314,10 @@ The agent never changes the legacy site. Three layers:
    or `_`, with at most one such verb and never at either end:
    `how-to-remove-stains`; not `item-12-remove` nor `my-plan-cancel`) is a
    page, unless it holds `logout`, `delete`, `unsubscribe`, `destroy`,
-   `purge` or `impersonate`; `log-off`, `log_out`, `sign_out` count as whole
-   words only (`/blog-offers/` is a page); the query is always read in full.
+   `purge` or `impersonate`; `logout`, `logoff`, `signout`, `signoff` are
+   actions anywhere (`/doLogoff`), their spellings with a separator
+   (`log-off`, `sign_out`) as whole words (`/blog-offers/` is a page); the
+   query is always read in full.
 3. **Checks stop at the gateway.** Preview only serves `GET` and `HEAD`;
    everything else is dry-run and never forwarded.
 

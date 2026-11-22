@@ -42,6 +42,18 @@ it, 0.1.0 (`docs/releases/0.1.0.md`, tag on the merge of #39).
 
 ## Entries
 
+### 2026-11-22 — One-click adoption: last review
+
+- **Branch:** feat/report-actions
+- **What:** the last review's verdict was "ship"; its two remarks are
+  fixed: if the discovery ended otherwise while its result was being saved,
+  its draft is retired, so the verification queued for it corrects nothing
+  (panel-api `agent.go`); a draft a person made from the report, which the
+  agent does not verify, is shown as a draft to review instead of "the
+  agent could not verify it" (`DraftNotice.tsx`).
+- **Status:** panel-api green.
+- **Next steps:** merge after #88.
+
 ### 2026-11-22 — One-click adoption: chain on the published map too
 
 - **Branch:** feat/report-actions

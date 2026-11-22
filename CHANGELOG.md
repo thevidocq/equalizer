@@ -42,6 +42,20 @@ it, 0.1.0 (`docs/releases/0.1.0.md`, tag on the merge of #39).
 
 ## Entries
 
+### 2026-11-22 — Multipart: refuse field names with a backslash
+
+- **Branch:** fix/route-building
+- **What:** `gateway/internal/rebuild/formats.go` (`Multipart`): a part
+  whose name contains `\` is refused as malformed. Regression seed
+  `internal/rebuild/testdata/fuzz/FuzzMultipart/backslash-name`. Doc
+  `docs/map-format.md` (rebuilding).
+- **Why:** CI's `FuzzMultipart` found that a part named `\` was rebuilt as
+  `name="\"`, which Go (and some legacy servers) read as an escaped quote:
+  the field reached the legacy application with another name (empty).
+  Browsers never send a backslash in a field name.
+- **Status:** `go test ./internal/rebuild` green; 40 s of fuzzing clean.
+- **Next steps:** release 0.2.10.
+
 ### 2026-11-22 — Routes learn the query keys they lacked
 
 - **Branch:** fix/route-building

@@ -186,7 +186,10 @@ func Multipart(dst io.Writer, src io.Reader, boundary, cs string) (string, error
 			return "", malformed(err)
 		}
 		name := part.FormName()
-		if name == "" {
+		// A backslash in a name is read as an escape by some servers and
+		// not by others: the rebuilt name could reach the legacy
+		// application as another field. Browsers never send one.
+		if name == "" || strings.Contains(name, `\`) {
 			return "", refuse(ReasonMalformed)
 		}
 		key, err := toLegacy(name, cs)

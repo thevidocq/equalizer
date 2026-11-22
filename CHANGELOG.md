@@ -42,6 +42,34 @@ it, 0.1.0 (`docs/releases/0.1.0.md`, tag on the merge of #39).
 
 ## Entries
 
+### 2026-11-22 — Crawler: sitemaps by any name, the site's other names, slugs
+
+- **Branch:** fix/crawler-sources
+- **What:**
+  - `crawler._crawl`: `/robots.txt` is read again (since `.txt` became a
+    file type it was treated as a file and its `Sitemap:` lines ignored);
+    any XML answer that is a sitemap or sitemap index is read
+    (`extract.is_sitemap`), not only paths starting with `/sitemap`
+    (WordPress's `/wp-sitemap.xml` was skipped).
+  - `crawler._known_file`: the crawler's rules are applied before the file
+    is opened (a visitor's `/backup/…pdf` was fetched, then dropped).
+  - `fetch.Fetcher.add_hosts` / `same_site`: the site's public domain,
+    aliases and the `www.`/bare twin of each are the site's own; discovery,
+    verification and the browser guard use them (absolute links and sitemap
+    entries with the public name were dropped as other sites).
+  - `webapps.base.is_action`: a path segment that is a content slug (3+
+    words, not starting with an action verb, no `logout`/`delete`/…) is not
+    an action (`/blog/how-to-remove-stains/` was skipped and reported as a
+    link that changes something).
+  - Tests: `agent/tests/test_crawl_sources.py`, `test_actions.py`.
+    Doc `docs/agent.md` (Seeds, read-only rule 2).
+- **Why:** study coverage: whole sitemaps, absolute links and blog posts
+  were lost; a safety rule was applied too late.
+- **Status:** agent unittests (56) green.
+- **Next steps:**
+  1. Release 0.2.10 (#83, #84 and this).
+  2. Resume strict mode (`feat/strict-mode`).
+
 ### 2026-11-22 — Verification checks the files; no asset prefix over pages
 
 - **Branch:** feat/study-depth

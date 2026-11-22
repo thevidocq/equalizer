@@ -52,6 +52,8 @@ def run(job: dict, cfg, panel, log) -> None:
     except ReachError as e:
         panel.result(jid, error=str(e))
         return
+    meta = (job.get("current_map") or {}).get("meta") or {}
+    f.add_hosts([f.base.netloc, job.get("domain"), meta.get("public_domain"), *(meta.get("aliases") or [])])
     cms = job.get("kind") if job.get("kind") not in (None, "generic") else None
     c = crawler.Crawler(f, cms, int(job.get("max_pages", 500)), log, progress=lambda p: panel.progress(jid, p))
     if use_browser(cfg, log):

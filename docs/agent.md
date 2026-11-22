@@ -65,7 +65,12 @@ when it is stale, so it never says more than the code does.
 
 - **Seeds**: `/`, `robots.txt`, `sitemap.xml`, the template's pages, the
   paths real visitors asked for (reported by the gateway, as today), the
-  APIs the site declares.
+  APIs the site declares. Every XML answer that is a sitemap or a sitemap
+  index is read, whatever its name (`/wp-sitemap.xml`, those `robots.txt`
+  lists). Links and sitemap entries written with another name of the site
+  (its public domain, its aliases, the `www.` / bare twin of each) are the
+  site's own, and are fetched by their path like the others; the browser
+  pass follows the same names.
 - **Browser**: headless Chromium (Playwright) inside the agent opens the
   pages each pass found (up to 40 per pass), so their scripts run. Every
   request it makes is intercepted and answered by the agent's own fetcher,
@@ -283,7 +288,11 @@ The agent never changes the legacy site. Three layers:
    `layout=edit`, links carrying a one-time token such as `_wpnonce` or
    Joomla's form token) and a fixed list of pages that run something when
    opened (scheduled jobs, installers, updates, exports, "add new" screens
-   that save a draft). They are listed in the report.
+   that save a draft). They are listed in the report. In the path, a
+   segment that names content (three words or more joined by `-` or `_`,
+   not starting with such a verb: `how-to-remove-stains`) is a page, unless
+   it holds `logout`, `delete`, `unsubscribe`, `destroy`, `purge` or
+   `impersonate`; the query is always read in full.
 3. **Checks stop at the gateway.** Preview only serves `GET` and `HEAD`;
    everything else is dry-run and never forwarded.
 

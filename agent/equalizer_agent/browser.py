@@ -53,8 +53,8 @@ class _Guard:
 
     def target(self, url: str) -> str:
         u = urllib.parse.urlsplit(url)
-        if u.scheme not in ("http", "https") or u.netloc.lower() != self.host:
-            return ""
+        if u.scheme not in ("http", "https") or not self.f.same_site(url):
+            return ""  # another site; the site's own other names (www., public domain) are its own
         return (u.path or "/") + ("?" + u.query if u.query else "")
 
     def __call__(self, route):

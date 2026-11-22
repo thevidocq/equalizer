@@ -178,7 +178,7 @@ class Crawler(LoginMixin):
             if pq in visited:
                 continue
             visited.add(pq)
-            if self._static(pq):
+            if self._static(pq) and pq.split("?")[0] != "/robots.txt":
                 self._known_file(pq)
                 continue
             if not self._allowed(pq):
@@ -202,7 +202,9 @@ class Crawler(LoginMixin):
                 continue
             if resp.status != 200:
                 continue
-            if pq.startswith("/sitemap") and "xml" in resp.content_type:
+            if "xml" in resp.content_type and extract.is_sitemap(resp.body):
+                # whatever its name: /sitemap.xml, WordPress's /wp-sitemap.xml,
+                # those robots.txt and sitemap indexes list
                 for loc in extract.sitemap_urls(resp.body.decode("utf-8", "replace")):
                     self._enqueue(queue, loc)
                 continue
@@ -285,7 +287,11 @@ class Crawler(LoginMixin):
 
     def _known_file(self, pq: str):
         """A file named outside any page (a visitor asked for it and the
-        gateway refused it): studied only if the site really serves it."""
+        gateway refused it): studied only if the site really serves it, and
+        never opened when the crawler's rules keep it out."""
+        if rules.excluded(pq, self.cms, logged_in=getattr(self, "logged_pass", False)):
+            self.r.excluded.setdefault(pq, "never")
+            return
         try:
             resp = self.f.get(pq.split("?")[0])
         except (ReachError, OSError, ValueError, http.client.HTTPException):

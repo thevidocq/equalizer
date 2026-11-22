@@ -42,6 +42,17 @@ it, 0.1.0 (`docs/releases/0.1.0.md`, tag on the merge of #39).
 
 ## Entries
 
+### 2026-11-22 — CLAUDE.md: definition of done
+
+- **Branch:** chore/release-0.2.9
+- **What:** `CLAUDE.md` gets a *Definition of done*: tests and checks, every
+  describing document (manuals, in-app help, map format, agent, architecture,
+  install) updated in the same PR, changelog, and no manual step for the
+  customer except publishing a map.
+- **Why:** the tenant manual was updated only after the owner asked.
+- **Status:** documentation only.
+- **Next steps:** resume strict mode (`feat/strict-mode`).
+
 ### 2026-11-22 — Tenant manual: discovery finds every file
 
 - **Branch:** chore/release-0.2.9

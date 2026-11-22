@@ -1271,7 +1271,14 @@ paths:
                       method: { type: string }
                       path: { type: string, maxLength: 512 }
                       hits: { type: integer, minimum: 1 }
-                      clients: { type: integer, minimum: 1, description: Distinct client addresses (counted, never sent) }
+                      clients: { type: integer, minimum: 1, description: "Distinct client addresses in this report (counted, never sent)" }
+                      client_keys:
+                        type: array
+                        maxItems: 16
+                        description: >-
+                          Visitor keys (an HMAC of the address with a secret only the gateway holds, 8 bytes in hex)
+                          so that the panel counts distinct visitors across reports; never an address
+                        items: { type: string, pattern: "^[0-9a-f]{16}$" }
       responses:
         "204": { description: Saved }
   /tenants/{tenant}/connectors:

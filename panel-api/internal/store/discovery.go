@@ -4,6 +4,8 @@ import (
 	"context"
 	"encoding/json"
 	"time"
+
+	"github.com/lib/pq"
 )
 
 // LLM is a tenant's AI model; Key is sealed.
@@ -256,16 +258,26 @@ type Unmapped struct {
 	Path    string `json:"path"`
 	Hits    int64  `json:"hits"`
 	Clients int64  `json:"clients"`
+	// Visitors are the gateway's visitor keys (never addresses); in
+	// UnmappedOf, Clients counts them when the gateway sent any.
+	Visitors []string `json:"client_keys,omitempty"`
 }
+
+// maxVisitors is how many visitor keys a path keeps: enough to tell one
+// visitor from several, never a census.
+const maxVisitors = 16
 
 // AddUnmapped adds the gateway's counts; unknown sites are skipped.
 func (s *Store) AddUnmapped(ctx context.Context, items []Unmapped) error {
 	for _, u := range items {
 		_, err := s.DB.ExecContext(ctx, `
-			INSERT INTO unmapped_hits (app_id, method, path, hits, clients)
-			SELECT $1, $2, $3, $4, $5 WHERE EXISTS (SELECT 1 FROM apps WHERE id = $1)
+			INSERT INTO unmapped_hits (app_id, method, path, hits, clients, visitors)
+			SELECT $1, $2, $3, $4, $5, coalesce($6::text[], '{}') WHERE EXISTS (SELECT 1 FROM apps WHERE id = $1)
 			ON CONFLICT (app_id, method, path) DO UPDATE SET hits = unmapped_hits.hits + $4,
-				clients = unmapped_hits.clients + $5, last_seen = now()`, u.App, u.Method, u.Path, u.Hits, u.Clients)
+				clients = unmapped_hits.clients + $5, last_seen = now(),
+				visitors = (SELECT coalesce(array_agg(v), '{}') FROM (SELECT DISTINCT v FROM
+					unnest(unmapped_hits.visitors || coalesce($6::text[], '{}')) v ORDER BY v LIMIT $7) x)`,
+			u.App, u.Method, u.Path, u.Hits, u.Clients, pq.Array(u.Visitors), maxVisitors)
 		if err != nil {
 			return err
 		}
@@ -276,8 +288,10 @@ func (s *Store) AddUnmapped(ctx context.Context, items []Unmapped) error {
 // UnmappedOf returns the most requested refused paths of a site.
 func (s *Store) UnmappedOf(ctx context.Context, app string, limit int) ([]Unmapped, error) {
 	rows, err := s.DB.QueryContext(ctx, `
-		SELECT method, path, hits, clients FROM unmapped_hits WHERE app_id = $1
-		AND last_seen > now() - interval '30 days' ORDER BY clients DESC, hits DESC LIMIT $2`, app, limit)
+		SELECT method, path, hits, c FROM (
+			SELECT method, path, hits, CASE WHEN cardinality(visitors) > 0 THEN cardinality(visitors) ELSE clients END c
+			FROM unmapped_hits WHERE app_id = $1 AND last_seen > now() - interval '30 days') u
+		ORDER BY c DESC, hits DESC, path LIMIT $2`, app, limit)
 	if err != nil {
 		return nil, err
 	}

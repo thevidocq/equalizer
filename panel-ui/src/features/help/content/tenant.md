@@ -226,20 +226,41 @@ sort, a filter: `?orderby=`), and proposes them in the map. To a folder
 already in the map it only ever adds passive types (images, fonts, audio,
 video, stylesheets, PDF and office documents; scripts a page loads): never
 text, CSV, archives, HTML or XML, which would open every such file in the
-folder. What visitors ask for and the map refuses — a file, a page option —
-is listed in the discovery report for you to judge, never added on its
-own: anyone can ask for anything, so a visitor's request is not proof that
-the site uses it. For each item the agent says whether a page or a link of
-the site uses it (listed first) or not (folded away: probably a leftover
-file or someone trying addresses), and what adding it would do — for a
-type such as `text/csv`, that every such file in the folder would be
-served. **Add to a new draft** makes the change in one click, in a new
-draft you review and publish as any other; the change is the one the
-report proposes, nothing else. Each click adds to the same draft (the new
-one replaces the discovery's), so one draft holds every change; the buttons
-wait until the agent has checked its draft. A script no page of the site
-loads is never offered, nor a key that would take the place of a path
-parameter or of a key the site already gets.
+folder.
+
+**What visitors asked for.** Equalizer notes what it refused visitors: a
+file, a page option (a sort, a filter: `?orderby=`). A visitor's request is
+not proof of anything — anyone can ask for anything, and scanners try
+thousands of addresses — so the agent never adds one on its own, and the
+report shows one **only when you can act on it**, with the button **Add to
+a new draft**. The agent first checks it:
+
+- a **file** is shown when at least two different visitors asked for it,
+  it is of a harmless type (image, font, audio, video, stylesheet, PDF or
+  office document) in a folder the map already serves, and the agent finds
+  it on the site, of that type. The button adds the type the site really
+  sends for it. Files the site's own pages use are not shown: the agent
+  handles them itself.
+- a **page option** is shown when at least two different visitors used it,
+  it is an option that changes how a page presents its content (a sort, an
+  order, a page number, a view, a language, a search, a shop filter), and
+  the page really shows something else with it: the agent opens the page
+  with and without it. An option the site ignores (`?test=1`), one that
+  only redirects or errors, and any other kind of key (which could make the
+  site do something, such as adding to a cart) are not shown — and the
+  agent never opens the latter.
+
+Scanners, a single visitor, files that do not exist, scripts and options
+that change nothing never appear (they stay in the logs). One visitor
+coming back many times still counts as one: Equalizer counts visitors by a
+key made from their address with a secret only the gateway knows, never
+storing the address itself. **Add to a
+new draft** makes the change in one click, in a new draft you review and
+publish as any other; the change is the one the report proposes, nothing
+else. Adding a file type serves every file of that type in that folder.
+Each click adds to the same draft (the new one replaces the discovery's),
+so one draft holds every change; the buttons wait until the agent has
+checked its draft.
 
 ![Discovery](/help-img/discovery.png)
 
@@ -248,7 +269,7 @@ shows what was found, which pages got precise entries, how each test
 account logged in, what is **still open** with its reason (pages not
 opened and still served by the area, links that change something, fields
 that must still accept SQL characters such as a search or a message), what
-visitors asked for that the map lacks, and the protection against IDOR it proposes for JSON APIs (a list
+visitors asked for that you can add in one click, and the protection against IDOR it proposes for JSON APIs (a list
 and a detail with the same id). If the map should change, a draft is
 proposed: review it and publish it. **Continuous discovery** explores
 again every day or every week, at the hour (and day) you choose in your

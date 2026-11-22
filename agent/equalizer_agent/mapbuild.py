@@ -7,7 +7,6 @@ import re
 import urllib.parse
 
 from . import assettypes, cluster, fields as fieldspec, idor, rules
-from .crawler import ASSET_EXT
 
 COMMON_DENY = ["admin", "administrator", "wp-admin", "wp-login", "phpmyadmin", "pma", "cpanel", "plesk", "webmail",
                "server-status", "server-info", "cgi-bin", "install", "setup", "backup", "backups", "config",
@@ -146,74 +145,6 @@ def _prefix_of(doc: dict, path: str):
         if path.startswith(p) and (best is None or len(p) > len(best.get("prefix", ""))):
             best = a
     return best
-
-
-def _dropped_keys(doc: dict, unmapped: list, crawl) -> list:
-    """Query keys the gateway dropped on a route (reported with the route's
-    pattern, /permits/{id}?orderby=, never a value), for the person: never
-    added by the agent. Each says whether the site's own links use the key
-    on that route, and what adding it would do (add: the panel's one-click
-    change, or None when the map cannot take it)."""
-    used = {}
-    for pq in crawl.pages:
-        path, _, q = pq.partition("?")
-        for k, _ in urllib.parse.parse_qsl(q, keep_blank_values=True):
-            used.setdefault(k, set()).add(path)
-    out = []
-    for u in unmapped:
-        path, _, q = u.get("path", "").partition("?")
-        if u.get("method") != "GET" or not _is_dropped_key(doc, u.get("path", "")):
-            continue
-        key = q[:-1]
-        e = next((r for r in doc.get("routes", []) if r.get("path") == path and r.get("method", "GET") == "GET"), None)
-        if e is None or key in (e.get("query") or {}):
-            continue  # no GET route there, or this draft declares it already (the site's links use it)
-        site = any(matches(path, p) for p in used.get(key, ()))
-        lr = e.get("legacy_request") or {}
-        item = {"route": path, "route_id": e.get("id"), "key": key, "clients": u.get("clients", 0),
-                "verdict": "site" if site else "suspect", "add": None}
-        if lr.get("method", "GET") != "GET" or not cluster.IDENT.match(key) or \
-                key in (e.get("params") or {}) or key in (lr.get("query") or {}):
-            item["why"] = "the map cannot take this key on this route (a path parameter, a key the site already " \
-                          "gets under this name, or a route that posts to the site)"
-        else:
-            item["add"] = {"route_id": e.get("id"), "key": key}
-            item["why"] = ("a link of the site uses it on this page" if site else
-                           "no link of the site uses it: perhaps someone trying parameters; adding it lets its "
-                           "value reach the site, checked as text without markup")
-        out.append(item)
-    return sorted(out, key=lambda x: (x["verdict"] != "site", -x["clients"]))[:50]
-
-
-def _files_refused(doc: dict, unmapped: list, crawl) -> list:
-    """Files under an asset prefix the gateway refused visitors, for the
-    person: never added by the agent (anyone can ask for any file) and never
-    opened for them. Each says whether a page of the site names the file,
-    and what adding it would do (add: the panel's one-click change)."""
-    named = set(crawl.assets) | {urllib.parse.urlsplit(u).path for u in crawl.urls}
-    out = []
-    for u in unmapped:
-        p = u.get("path", "")
-        a = _prefix_of(doc, p) if u.get("method") == "GET" and "?" not in p and "{" not in p else None
-        if a is None:
-            continue
-        site = p in named
-        ext = "." + p.rsplit(".", 1)[-1].lower() if "." in p.rsplit("/", 1)[-1] else ""
-        kind = crawl.assets.get(p) or ASSET_EXT.get(ext, "")
-        item = {"path": p, "clients": u.get("clients", 0), "verdict": "site" if site else "suspect", "add": None}
-        if not assettypes.VALID.match(kind) or kind in a.get("types", []):
-            item["why"] = "its type is unknown, or already allowed (then the file is refused for its size or content)"
-        elif kind in assettypes.SCRIPTS:
-            item["why"] = "a script no page of the site loads: never added on a visitor's request"
-        else:
-            item["add"] = {"prefix": a["prefix"], "type": kind}
-            why = "a page of the site links to it" if site else \
-                "no page of the site links to it: perhaps a leftover file, or someone trying addresses"
-            if not assettypes.passive(kind, loaded=False):
-                why += "; adding %s serves every %s file under %s" % (kind, kind, a["prefix"])
-            item["why"] = why
-        out.append(item)
-    return sorted(out, key=lambda x: (x["verdict"] != "site", -x["clients"]))[:50]
 
 
 def _route_entry(r: cluster.Route, anon: str, taken: set) -> dict:
@@ -420,10 +351,6 @@ def build(job: dict, crawl, fp) -> tuple:
     area = ensure_site_area(doc)
 
     after = sum(1 for p in paths if covered(doc, p))
-    visitors = [u for u in job.get("unmapped", []) if u.get("method") == "GET" and "{" not in u.get("path", "")
-                and not _is_dropped_key(doc, u.get("path", ""))
-                and not covered(doc, u.get("path", ""))
-                and not rules.excluded(u.get("path", ""), fp.cms)]
     stale = [r["path"] for r in (job.get("current_map") or {}).get("routes", []) if not any(matches(r["path"], p) for p in paths)]
     report = {
         **fp.as_report(_advisories()),
@@ -436,9 +363,8 @@ def build(job: dict, crawl, fp) -> tuple:
         "excluded": [{"path": p.split("?")[0], "reason": r} for p, r in sorted(crawl.excluded.items())][:200],
         "skipped_actions": len(crawl.skipped_actions), "not_supported": not_supported,
         "query_added": query_added,
-        "query_dropped": _dropped_keys(doc, job.get("unmapped", []), crawl),
-        "files_refused": _files_refused(doc, job.get("unmapped", []), crawl),
-        "visitors_missing": [{"path": u["path"], "clients": u.get("clients", 0)} for u in visitors][:50],
+        # filled by visitors.confirm, which checks them on the site
+        "query_dropped": [], "files_refused": [],
         "not_seen_anymore": stale[:100], "login": crawl.login or None, "errors": crawl.errors,
         "accounts": [{"label": k, "login": v} for k, v in crawl.logins.items()],
         "pages": [pq for pq, s in crawl.pages.items()

@@ -83,7 +83,7 @@ internal/server/      public and admin handlers
 | `EQ_MAP_PUBKEY` or `EQ_MAP_PUBKEY_FILE` | — | Ed25519 public key in base64 (required) |
 | `EQ_MAP_KEY_ID` | — | Expected key id (optional) |
 | `EQ_TRUSTED_PROXIES` | — | CIDR networks from which the client IP in headers is accepted |
-| `EQ_FORM_KEY` or `EQ_FORM_KEY_FILE` | random | Gateway secret (32 bytes, base64): seals form tokens and, through a derived key, sessions; must be the same on every replica |
+| `EQ_FORM_KEY` or `EQ_FORM_KEY_FILE` | random | Gateway secret (32 bytes, base64): seals form tokens and, through a derived key, sessions; keys the visitor keys sent to the panel (never the addresses); must be the same on every replica |
 | `EQ_RELAY_URL` | — | tunnel-relay internal address (e.g. `http://tunnel-relay:8082`); without it connector mode answers 502 |
 | `EQ_RELAY_TOKEN` or `EQ_RELAY_TOKEN_FILE` | — | Token presented to the relay (at least 32 characters) |
 | `EQ_REDIS_URL` | — | Sessions and rate-limit counters, e.g. `redis://redis:6379/0`; without it both live in memory (single replica only) |

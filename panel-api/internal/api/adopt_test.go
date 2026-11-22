@@ -24,14 +24,17 @@ func TestAdoptFromTheReport(t *testing.T) {
 	}
 	report := map[string]any{
 		"files_refused": []map[string]any{
-			{"path": "/wp-content/uploads/price-list.csv", "clients": 3, "verdict": "site", "why": "linked",
+			{"path": "/wp-content/uploads/price-list.csv", "clients": 3, "why": "linked",
 				"add": map[string]any{"prefix": "/wp-content/uploads/", "type": "text/csv"}},
-			{"path": "/wp-content/uploads/x.bin", "clients": 1, "verdict": "suspect", "why": "unknown", "add": nil}},
+			{"path": "/wp-content/uploads/x.bin", "clients": 1, "why": "unknown", "add": nil},
+			// an agent before 0.2.11 listed requests unchecked, with a verdict: never added
+			{"path": "/wp-content/uploads/old.csv", "clients": 1, "verdict": "suspect", "why": "x",
+				"add": map[string]any{"prefix": "/wp-content/uploads/", "type": "text/csv"}}},
 		"query_dropped": []map[string]any{
-			{"route": "/{slug}/", "route_id": "page", "key": "orderby", "clients": 2, "verdict": "site", "why": "linked",
+			{"route": "/{slug}/", "route_id": "page", "key": "orderby", "clients": 2, "why": "linked",
 				"add": map[string]any{"route_id": "page", "key": "orderby"}},
 			// a report that would add a key over a path parameter: the panel refuses it too
-			{"route": "/{slug}/", "route_id": "page", "key": "slug", "clients": 2, "verdict": "suspect", "why": "x",
+			{"route": "/{slug}/", "route_id": "page", "key": "slug", "clients": 2, "why": "x",
 				"add": map[string]any{"route_id": "page", "key": "slug"}}},
 	}
 	if code := internalPost(t, e, "/v1/internal/discoveries/"+itoa(d.ID)+"/result", map[string]any{"report": report, "document": job.Template}, nil); code != 204 {
@@ -114,6 +117,7 @@ func TestAdoptFromTheReport(t *testing.T) {
 
 	// Only what the report proposes, never what the request says.
 	boss.must(422, "POST", adopt, map[string]any{"kind": "file", "path": "/wp-content/uploads/x.bin"}, nil)
+	boss.must(422, "POST", adopt, map[string]any{"kind": "file", "path": "/wp-content/uploads/old.csv"}, nil)
 	boss.must(422, "POST", adopt, map[string]any{"kind": "file", "path": "/wp-content/uploads/other.sql"}, nil)
 	boss.must(422, "POST", adopt, map[string]any{"kind": "key", "route": "/{slug}/", "key": "redirect_to"}, nil)
 	boss.must(400, "POST", adopt, map[string]any{"kind": "file", "path": "/wp-content/uploads/price-list.csv", "type": "text/html"}, nil) // no type from the request
@@ -136,10 +140,10 @@ func TestAdoptAfterPublish(t *testing.T) {
 		t.Fatalf("claim: %d", code)
 	}
 	report := map[string]any{
-		"files_refused": []map[string]any{{"path": "/wp-content/uploads/a.csv", "clients": 3, "verdict": "site", "why": "x",
+		"files_refused": []map[string]any{{"path": "/wp-content/uploads/a.csv", "clients": 3, "why": "x",
 			"add": map[string]any{"prefix": "/wp-content/uploads/", "type": "text/csv"}}},
 		"query_dropped": []map[string]any{{"route": "/{slug}/", "route_id": "page", "key": "orderby", "clients": 2,
-			"verdict": "site", "why": "x", "add": map[string]any{"route_id": "page", "key": "orderby"}}},
+			"why": "x", "add": map[string]any{"route_id": "page", "key": "orderby"}}},
 	}
 	if code := internalPost(t, e, "/v1/internal/discoveries/"+itoa(d.ID)+"/result", map[string]any{"report": report, "document": job.Template}, nil); code != 204 {
 		t.Fatalf("result: %d", code)

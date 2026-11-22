@@ -19,7 +19,8 @@ Add a section at the top of "Entries" for every commit:
 
 ## Current project status
 
-Latest release: **0.2.10** (`docs/releases/0.2.10.md`); before it 0.2.9
+Latest release: **0.2.11** (`docs/releases/0.2.11.md`); before it 0.2.10
+(`docs/releases/0.2.10.md`), 0.2.9
 (`docs/releases/0.2.9.md`), 0.2.8
 (`docs/releases/0.2.8.md`), 0.2.7
 (`docs/releases/0.2.7.md`), 0.2.6
@@ -42,6 +43,109 @@ it, 0.1.0 (`docs/releases/0.1.0.md`, tag on the merge of #39).
 | tools (eqtool) | Map signing keys, form key, relay token, connector registration, map signing |
 
 ## Entries
+
+### 2026-11-22 — Release 0.2.11
+
+- **Branch:** feat/visitor-requests-actionable
+- **What:** `VERSION`, `agent/equalizer_agent/__init__.py`,
+  `agent/pyproject.toml`, `deploy/compose/.env.example`, `INSTALL.md` and
+  `README.md` point to 0.2.11; release notes `docs/releases/0.2.11.md`.
+- **Why:** visitors' requests only as actions checked on the site, distinct
+  visitors counted once (two independent reviews, findings fixed).
+- **Status:** documents only. Tag `v0.2.11` on the merge commit publishes
+  the images.
+- **Next steps:**
+  1. Discovery on metreta and metaliquid with 0.2.11; check the report.
+  2. Lost-session detection and re-login in the logged-in passes.
+  3. Directory listings classified as kept out.
+
+### 2026-11-22 — Second review of visitor requests
+
+- **Branch:** feat/visitor-requests-actionable
+- **What:** agent `visitors.py`: a key is tried on up to 3 pages of its
+  route (out of 6 read), those offering the key first (`/{slug}/` covers
+  the shop and the cart); the baseline is the page with an unknown key
+  (`?eqprobe=`), so a page cache does not make noise look like a change;
+  file paths are encoded before opening; whether the prefix lists the type
+  is judged on the type the site sends. `discovery.py`: the check runs
+  after the AI review, so the route ids in the report are the final
+  draft's. Gateway: the visitor key also covers the path (no linking one
+  visitor across paths). panel-api: a nil key list stores `{}`. Docs:
+  `docs/agent.md`, `gateway/README.md`.
+- **Why:** a second independent review: WooCommerce's sort on `/{slug}/`
+  was tried on the cart and hidden; an AI rename left buttons that fail;
+  page caches; spaces in names; `.wav` listed as `audio/wav`.
+- **Status:** gateway, panel-api and agent tests pass (73 agent tests).
+- **Next steps:** release 0.2.11.
+
+### 2026-11-22 — Fix the review of visitor requests
+
+- **Branch:** feat/visitor-requests-actionable
+- **What:**
+  - agent `visitors.py`: a query key is tried only if it is a presentation
+    key (`PRESENTATION`: sort, order, page, view, language, search, shop
+    filters…), never `rules.excluded` or action-like URLs; only a 200 HTML
+    page with other text counts as a change (a redirect or an error does
+    not: `?author=1`); a stable page counts any other word, a noisy one must
+    move beyond twice its noise; typical values tried (`orderby=price`).
+    A file is opened with HEAD, then GET when HEAD is not answered with it
+    or for a font (judged by its first bytes); the click adds the type the
+    site sends; budgets count only what is opened.
+  - gateway `unmapped`: visitor keys use a secret only the gateway holds
+    (its form key, never shared with the panel), not the panel token.
+  - panel-api: migration 0025 caps old summed counts at one visitor;
+    `adopt` refuses report items with a `verdict` (agents before 0.2.11).
+  - panel-ui: items with a `verdict` are not shown.
+  - docs: `docs/agent.md`, `docs/manual/tenant.md` and help,
+    `docs/architecture.md`, `INSTALL.md`.
+- **Why:** an independent review found that `?author=1` (a redirect) would
+  be offered, that a GET key could act on the site (`?add-to-cart=`), that
+  the button added the type of the extension instead of the one the gateway
+  compares, that fonts never passed, and that the panel could recompute the
+  visitor keys.
+- **Status:** gateway, panel-api and agent tests pass; panel-ui checks in CI.
+- **Next steps:** release 0.2.11.
+
+### 2026-11-22 — Visitor requests only as actions, checked on the site
+
+- **Branch:** feat/visitor-requests-actionable
+- **What:**
+  - gateway `internal/unmapped`: each client address becomes a visitor key
+    (HMAC-SHA256 of the address with the gateway's token, 8 bytes, hex);
+    up to 16 keys per path go to the panel with the counts, never an address.
+  - contract `schema/api/panel-api.yaml` (`/internal/unmapped`:
+    `client_keys`; the `clients` description was cut by an unquoted comma).
+  - panel-api: migration `0025_unmapped_visitors.sql` (`unmapped_hits.visitors`,
+    up to 16 keys per path); `AddUnmapped` merges keys; `UnmappedOf` counts
+    distinct visitors from the keys (the old summed count only for reports
+    of older gateways); malformed keys are dropped. Test
+    `unmapped_visitors_test.go`.
+  - agent: new `equalizer_agent/visitors.py`, called by the discovery after
+    `mapbuild.build`. A refused file is listed only if 2+ distinct visitors
+    asked for it, it is of a passive type under an asset prefix that lacks
+    it, no page of the site names it, and the site serves it as that type
+    (HEAD, anonymous). A dropped query key is listed only if 2+ distinct
+    visitors used it, the route can take it, and the page changes with it
+    beyond two plain loads' own noise. `mapbuild` no longer lists
+    `files_refused`/`query_dropped` unchecked, nor `visitors_missing`.
+    Tests `tests/test_visitors.py`.
+  - panel-ui: `VisitorRequests` shows only items with **Add to a new draft**
+    (reports of older agents filtered); the list "Asked by visitors, still
+    missing" is gone.
+  - docs: `docs/agent.md` (new "Visitor requests"), `docs/manual/tenant.md`
+    and in-app help, `docs/architecture.md`.
+- **Why:** on metreta.thevidocq.com the report listed 13 refused files and 11
+  missing paths, none with anything to do (scanners, scripts, types already
+  allowed), while a key tried by one visitor was lost among them. The rule
+  now: a visitor's request is shown only with a button, after the agent has
+  checked it on the site; everything else stays in the logs. The previous
+  visitor count summed every gateway batch, so one visitor over five
+  minutes counted five.
+- **Status:** gateway, panel-api and agent tests pass; panel-ui `tsc`/`test`
+  and `check:api` run in CI (no node_modules here; `schema.d.ts` edited by
+  hand to match). Supersedes the closed PR #92.
+- **Next steps:** lost-session detection and re-login; directory listings
+  classified as kept out; strict mode.
 
 ### 2026-11-22 — Release 0.2.10
 

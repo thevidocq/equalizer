@@ -19,7 +19,8 @@ Add a section at the top of "Entries" for every commit:
 
 ## Current project status
 
-Latest release: **0.2.9** (`docs/releases/0.2.9.md`); before it 0.2.8
+Latest release: **0.2.10** (`docs/releases/0.2.10.md`); before it 0.2.9
+(`docs/releases/0.2.9.md`), 0.2.8
 (`docs/releases/0.2.8.md`), 0.2.7
 (`docs/releases/0.2.7.md`), 0.2.6
 (`docs/releases/0.2.6.md`), 0.2.5 (`docs/releases/0.2.5.md`), 0.2.4 (`docs/releases/0.2.4.md`), 0.2.3 (`docs/releases/0.2.3.md`) and 0.2.2
@@ -41,6 +42,22 @@ it, 0.1.0 (`docs/releases/0.1.0.md`, tag on the merge of #39).
 | tools (eqtool) | Map signing keys, form key, relay token, connector registration, map signing |
 
 ## Entries
+
+### 2026-11-22 — Release 0.2.10
+
+- **Branch:** chore/release-0.2.10
+- **What:** `VERSION`, agent version, `INSTALL.md`, `README.md`,
+  `deploy/compose/.env.example` point to 0.2.10; release notes
+  `docs/releases/0.2.10.md` (#83–#90).
+- **Why:** release the stability fixes, the independent review's fixes and
+  the one-click adoption.
+- **Status:** documents only. Tag `v0.2.10` on the merge commit publishes
+  the images.
+- **Next steps:**
+  1. Discovery on metaliquid and the WordPress site with 0.2.10.
+  2. Detect a lost session in the logged-in passes and log in again.
+  3. Count distinct clients on the panel side for unmapped reports.
+  4. Resume strict mode (`feat/strict-mode`).
 
 ### 2026-11-22 — One-click adoption: last review
 

@@ -156,6 +156,28 @@ def _widen_assets(doc: dict, assets: dict) -> list:
     return [{"prefix": p, "types": t, "widened": True} for p, t in sorted(added.items())]
 
 
+# The gateway's default size limits (gateway/internal/server/asset*.go).
+ASSET_MAX_KB, MEDIA_MAX_KB, SIZE_CEILING_KB = 10 << 10, 512 << 10, 4 << 20
+
+
+def _fit_sizes(doc: dict, sizes: dict) -> list:
+    """Raises an asset prefix's max_size_kb to fit the largest file the site
+    serves under it (with 10% room), up to 4 GiB. Returns the changes."""
+    out = {}
+    entries = sorted(doc.get("assets", []), key=lambda a: len(a.get("prefix", "")), reverse=True)
+    for path, size in sizes.items():
+        a = next((a for a in entries if path.startswith(a.get("prefix", "\0"))), None)
+        if a is None:
+            continue
+        media = any(t.startswith(("audio/", "video/")) for t in a.get("types", []))
+        limit = a.get("max_size_kb") or (MEDIA_MAX_KB if media else ASSET_MAX_KB)
+        need = -(-size * 11 // 10240)  # ceil(size * 1.1 / 1024)
+        if limit < need <= SIZE_CEILING_KB:
+            a["max_size_kb"] = need
+            out[a["prefix"]] = need
+    return [{"prefix": p, "max_size_kb": kb, "widened": True} for p, kb in sorted(out.items())]
+
+
 def build(job: dict, crawl, fp) -> tuple:
     """Returns (document, report, samples): samples are the query values
     seen per (route id, key), to check what the AI suggests."""
@@ -218,6 +240,7 @@ def build(job: dict, crawl, fp) -> tuple:
             continue
         doc.setdefault("assets", []).append({"prefix": prefix, "types": types})
         added_assets.append({"prefix": prefix, "types": types})
+    added_assets += _fit_sizes(doc, getattr(crawl, "sizes", {}))
     if not doc.get("forms"):
         doc.pop("forms", None)
     issues = idor.propose(doc)

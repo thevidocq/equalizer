@@ -140,9 +140,10 @@ bypassed this way: it answers every request that matches its path, and
 refuses what does not fit, so that `/permits/5abc` or a junk query key
 cannot reach object 5 through the area.
 Assets are served only if the legacy `Content-Type` is among the prefix's
-`types`; raster images are also checked against their real content. Fonts
-are the exception: many servers send them as `application/octet-stream` or
-with an old name (`application/x-font-woff`). A font is then served when its
+`types`; raster images (AVIF and HEIF included) are also checked against
+their real content. Fonts
+are the exception: many servers send them as `application/octet-stream`,
+with no type at all, or with an old name (`application/x-font-woff`). A font is then served when its
 signature (`wOFF`, `wOF2`, TrueType, `OTTO`, EOT) is a type the prefix allows,
 with the canonical `Content-Type` (`font/woff`, ...); a declared font type
 that disagrees with the signature is refused. Audio and video (`.mp4`,

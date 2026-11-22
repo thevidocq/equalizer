@@ -3,6 +3,7 @@ account if there is one. Admin areas, sensitive files and links that change
 something are recorded, never opened."""
 
 import re
+import http.client
 import urllib.parse
 from collections import deque
 from dataclasses import dataclass, field
@@ -16,7 +17,8 @@ ASSET_EXT = {".css": "text/css", ".js": "application/javascript", ".png": "image
              ".ico": "image/x-icon", ".woff": "font/woff", ".woff2": "font/woff2", ".ttf": "font/ttf",
              ".otf": "font/otf", ".pdf": "application/pdf", ".mp4": "video/mp4", ".m4v": "video/mp4",
              ".webm": "video/webm", ".ogv": "video/ogg", ".mp3": "audio/mpeg", ".m4a": "audio/mp4",
-             ".ogg": "audio/ogg", ".wav": "audio/wav"}
+             ".ogg": "audio/ogg", ".wav": "audio/wav", ".avif": "image/avif", ".bmp": "image/bmp",
+             ".mov": "video/quicktime", ".flac": "audio/flac", ".aac": "audio/aac", ".opus": "audio/ogg"}
 PER_SHAPE = 20  # a calendar or a search must not eat the whole budget
 MAX_SCRIPTS = 30
 MAX_STYLESHEETS = 60  # read for the fonts and images they name
@@ -37,6 +39,7 @@ class CrawlResult:
     pages: dict = field(default_factory=dict)  # path?query -> Seen
     forms: list = field(default_factory=list)  # extract.Form (same site)
     assets: dict = field(default_factory=dict)  # path -> content type
+    sizes: dict = field(default_factory=dict)  # path -> bytes, for the files the agent opened
     excluded: dict = field(default_factory=dict)  # path?query -> reason
     skipped_actions: set = field(default_factory=set)
     generator: str = ""
@@ -247,13 +250,20 @@ class Crawler(LoginMixin):
         else:
             queue.append(pq)
 
-    def _asset(self, url):
+    def _asset(self, url, served: str = ""):
+        """served is the type the site sent, when the agent opened the file:
+        an image, audio or video type of the same family as the extension's
+        is kept (audio/x-wav for a .wav), since the gateway checks the type
+        the site sends. Fonts need no such care: the gateway reads them."""
         if not self.f.same_site(url):
             return
         self.r.urls.append(url)
         path = urllib.parse.urlsplit(url).path
         ext = "." + path.rsplit(".", 1)[-1].lower() if "." in path.rsplit("/", 1)[-1] else ""
         kind = "text/html" if self._fragment(path) else ASSET_EXT.get(ext)
+        family = (kind or "").split("/")[0]
+        if kind and family in ("image", "audio", "video") and served.startswith(family + "/"):
+            kind = served
         if kind and not rules.excluded(path, self.cms):
             self.r.assets[path] = kind
             if kind == "text/css":
@@ -269,10 +279,14 @@ class Crawler(LoginMixin):
         gateway refused it): studied only if the site really serves it."""
         try:
             resp = self.f.get(pq.split("?")[0])
-        except (ReachError, OSError, ValueError):
+        except (ReachError, OSError, ValueError, http.client.HTTPException):
             return
         if resp.status == 200:
-            self._asset(self.f.base_url.rstrip("/") + pq.split("?")[0])
+            path = pq.split("?")[0]
+            self._asset(self.f.base_url.rstrip("/") + path, served=resp.content_type)
+            size = resp.headers.get("content-length", "")
+            if path in self.r.assets and size.isdigit():
+                self.r.sizes[path] = int(size)  # a file too large for the gateway's default limit
 
     def _stylesheets(self):
         """Reads the stylesheets found so far, and those they import, for the

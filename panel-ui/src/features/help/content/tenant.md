@@ -224,7 +224,8 @@ fonts, videos), including those named only in stylesheets, lazy-loaded
 images and video posters, and proposes their types in the map: you never
 add a type by hand. When the gateway refuses a file a visitor asked for
 (a type or a size the map does not allow yet), the next discovery checks it
-on the site and proposes it if the site really serves it.
+on the site and proposes it if the site really serves it, with the type
+the site sends and, for a large file, the size limit it needs.
 
 ![Discovery](/help-img/discovery.png)
 

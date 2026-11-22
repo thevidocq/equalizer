@@ -86,7 +86,12 @@ when it is stale, so it never says more than the code does.
   prefix already in the map gets the new types (a video under a prefix that
   listed only images); a file the gateway refused for its type or size is
   reported like an unmapped page and studied at the next discovery, one
-  visitor is enough, only if the site really serves it.
+  visitor is enough, only if the site really serves it. For such a file the
+  type the site sends is kept when it is an image, audio or video type of
+  the extension's family (`audio/x-wav` for a `.wav`), and a file larger
+  than the gateway's default limit raises its prefix's `max_size_kb` (size
+  plus 10%, up to 4 GiB). `srcset` is split as the HTML standard says, so a
+  CDN URL with commas stays whole.
 - **Passes**: one anonymous, then one per test account. Each pass records
   the pages, the requests the scripts make (with their parameters), the
   forms and their fields, and the links.

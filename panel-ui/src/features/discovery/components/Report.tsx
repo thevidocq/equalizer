@@ -72,7 +72,7 @@ export function Report({ d, canAdd }: { d: Discovery; canAdd: boolean }) {
         <List title="Not opened by the agent (still served, by the site area)" items={r.excluded} render={(i) => `${i.path}  ${i.reason}`} />
       )}
       <List title="Asked by visitors, still missing" items={r.visitors_missing} render={(i) => `${i.path}  (${i.clients} visitors)`} />
-      <VisitorRequests app={app} discovery={d.id} report={r} canAdd={canAdd} />
+      <VisitorRequests app={app} discovery={d.id} draft={d.draft_version ?? null} report={r} canAdd={canAdd} />
       <List title="Served by the site area, without typed checks" items={r.open ? [] : r.not_supported} render={(i) => `${i.path}  ${i.reason}`} />
       <List title="In the map, not seen any more" items={(r.not_seen_anymore ?? []).map((p: string) => ({ p }))} render={(i) => i.p} />
       <List title="Components" items={r.components} render={(i) => `${i.name}${i.version ? " " + i.version : ""}`} />

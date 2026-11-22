@@ -235,7 +235,11 @@ file or someone trying addresses), and what adding it would do — for a
 type such as `text/csv`, that every such file in the folder would be
 served. **Add to a new draft** makes the change in one click, in a new
 draft you review and publish as any other; the change is the one the
-report proposes, nothing else.
+report proposes, nothing else. Each click adds to the same draft (the new
+one replaces the discovery's), so one draft holds every change; the buttons
+wait until the agent has checked its draft. A script no page of the site
+loads is never offered, nor a key that would take the place of a path
+parameter or of a key the site already gets.
 
 ![Discovery](/help-img/discovery.png)
 

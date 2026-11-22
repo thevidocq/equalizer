@@ -41,11 +41,6 @@ type adoptReport struct {
 	} `json:"query_dropped"`
 }
 
-// A key a visitor asked for, added by a person: text without markup or
-// template code; verification narrows it from the values it sees.
-var adoptedKey = map[string]any{"type": "string", "max_length": 200, "required": false,
-	"rules": []any{"no_html", "no_template_meta"}}
-
 var adoptName = regexp.MustCompile(`^[a-z][a-z0-9_]{0,63}$`)
 
 var errNotListed = errors.New("not listed")
@@ -80,9 +75,9 @@ func (s *Server) adoptDiscovery(w http.ResponseWriter, r *http.Request, u *auth.
 		fail(w, http.StatusNotFound, "not_found", "this discovery has no report")
 		return
 	}
-	base, err := s.adoptBase(r, a.ID, d)
-	if err != nil {
-		fail(w, http.StatusConflict, "no_base", "no draft of this discovery nor published map to add it to")
+	base, fromDraft, code := s.adoptBase(r, a.ID, d)
+	if code != "" {
+		fail(w, http.StatusConflict, code, adoptConflicts[code])
 		return
 	}
 	var doc map[string]any
@@ -90,9 +85,16 @@ func (s *Server) adoptDiscovery(w http.ResponseWriter, r *http.Request, u *auth.
 		s.storeError(w, r, err)
 		return
 	}
-	note, err := adoptApply(doc, rep, in)
-	if err != nil {
+	note, changed, err := adoptApply(doc, rep, in)
+	switch {
+	case errors.Is(err, errNotListed):
 		fail(w, http.StatusUnprocessableEntity, "not_listed", "this item is not one the discovery listed with a change to add")
+		return
+	case err != nil:
+		fail(w, http.StatusConflict, "not_in_map", err.Error())
+		return
+	case !changed:
+		fail(w, http.StatusConflict, "already_there", "version "+strconv.Itoa(base.Version)+" already has it")
 		return
 	}
 	raw, _ := json.Marshal(doc)
@@ -122,24 +124,55 @@ func (s *Server) adoptDiscovery(w http.ResponseWriter, r *http.Request, u *auth.
 		s.storeError(w, r, err)
 		return
 	}
+	if fromDraft {
+		// the new draft takes the discovery's place: the next click adds to it,
+		// and the person reviews one draft with every change
+		if err := s.Store.Supersede(r.Context(), a.ID, base.Version, version); err != nil {
+			_ = s.Store.RetireDraft(r.Context(), a.ID, version)
+			fail(w, http.StatusConflict, "draft_taken", adoptConflicts["draft_taken"])
+			return
+		}
+	}
 	_ = s.Store.Record(r.Context(), &u.ID, &a.Tenant, "map.adopted", a.ID,
 		map[string]any{"version": version, "from": base.Version, "discovery": d.ID, "kind": in.Kind})
 	writeJSON(w, http.StatusCreated, map[string]any{"app": a.ID, "version": version, "status": "draft"})
 }
 
-// adoptBase is the version the change goes on: the discovery's draft while
-// it is one, else the published map.
-func (s *Server) adoptBase(r *http.Request, app string, d store.Discovery) (store.MapVersion, error) {
-	if d.DraftVersion != nil {
-		if v, err := s.Store.Version(r.Context(), app, *d.DraftVersion); err == nil && v.Status == "draft" {
-			return v, nil
-		}
-	}
-	return s.Store.Published(r.Context(), app)
+var adoptConflicts = map[string]string{
+	"checking":    "the agent is still checking and correcting its draft: add it once the draft to review is shown",
+	"in_review":   "the discovery's draft is under review: add it once the review is decided",
+	"no_base":     "no draft of this discovery nor published map to add it to",
+	"draft_taken": "the draft was taken on meanwhile (submitted or replaced): open the discovery again",
 }
 
-// adoptApply changes doc as the report's item says; the note describes it.
-func adoptApply(doc map[string]any, rep adoptReport, in adoptIn) (string, error) {
+// adoptBase is the version the change goes on: the discovery's draft while
+// it is one (fromDraft), else the published map; or a conflict code.
+func (s *Server) adoptBase(r *http.Request, app string, d store.Discovery) (store.MapVersion, bool, string) {
+	if d.DraftVersion != nil {
+		if v, err := s.Store.Version(r.Context(), app, *d.DraftVersion); err == nil {
+			switch v.Status {
+			case "draft":
+				if vf, err := s.Store.LatestVerification(r.Context(), app, v.Version); err == nil &&
+					(vf.Status == "queued" || vf.Status == "running") {
+					return v, false, "checking"
+				}
+				return v, true, ""
+			case "in_review", "approved":
+				return v, false, "in_review"
+			}
+		}
+	}
+	v, err := s.Store.Published(r.Context(), app)
+	if err != nil {
+		return v, false, "no_base"
+	}
+	return v, false, ""
+}
+
+// adoptApply changes doc as the report's item says: the note describing it,
+// whether anything changed, errNotListed for an item the report does not
+// propose, another error when the map no longer has its prefix or route.
+func adoptApply(doc map[string]any, rep adoptReport, in adoptIn) (string, bool, error) {
 	switch in.Kind {
 	case "file":
 		for _, f := range rep.Files {
@@ -153,11 +186,13 @@ func adoptApply(doc map[string]any, rep adoptReport, in adoptIn) (string, error)
 					continue
 				}
 				types, _ := asset["types"].([]any)
-				if !slices.Contains(types, any(f.Add.Type)) {
-					asset["types"] = append(types, f.Add.Type)
+				if slices.Contains(types, any(f.Add.Type)) {
+					return "", false, nil
 				}
-				return fmt.Sprintf("%s added to %s, for %s (asked by visitors)", f.Add.Type, f.Add.Prefix, f.Path), nil
+				asset["types"] = append(types, f.Add.Type)
+				return fmt.Sprintf("%s added to %s, for %s (asked by visitors)", f.Add.Type, f.Add.Prefix, f.Path), true, nil
 			}
+			return "", false, fmt.Errorf("the map no longer has the asset prefix %s", f.Add.Prefix)
 		}
 	case "key":
 		for _, k := range rep.Keys {
@@ -170,27 +205,41 @@ func adoptApply(doc map[string]any, rep adoptReport, in adoptIn) (string, error)
 				if route == nil || route["id"] != k.Add.RouteID {
 					continue
 				}
-				lr, _ := route["legacy_request"].(map[string]any)
-				if lr == nil || (route["method"] != nil && route["method"] != "GET") || (lr["method"] != nil && lr["method"] != "GET") {
-					break
-				}
-				q, _ := route["query"].(map[string]any)
-				if q == nil {
-					q = map[string]any{}
-				}
-				if _, taken := q[k.Add.Key]; !taken {
-					q[k.Add.Key] = adoptedKey
-				}
-				route["query"] = q
-				lq, _ := lr["query"].(map[string]any)
-				if lq == nil {
-					lq = map[string]any{}
-				}
-				lq[k.Add.Key] = "{{query." + k.Add.Key + "}}"
-				lr["query"] = lq
-				return fmt.Sprintf("query key %s added to route %s (asked by visitors)", k.Add.Key, k.Add.RouteID), nil
+				return adoptKey(route, k.Add.Key)
 			}
+			return "", false, fmt.Errorf("the map no longer has the route %s", k.Add.RouteID)
 		}
 	}
-	return "", errNotListed
+	return "", false, errNotListed
+}
+
+// adoptKey declares key on a GET route whose legacy request is a GET; never
+// over a path parameter nor a legacy query name already mapped.
+func adoptKey(route map[string]any, key string) (string, bool, error) {
+	lr, _ := route["legacy_request"].(map[string]any)
+	if lr == nil || (route["method"] != nil && route["method"] != "GET") || (lr["method"] != nil && lr["method"] != "GET") {
+		return "", false, fmt.Errorf("route %v does not take query keys", route["id"])
+	}
+	q, _ := route["query"].(map[string]any)
+	params, _ := route["params"].(map[string]any)
+	lq, _ := lr["query"].(map[string]any)
+	if _, ok := q[key]; ok {
+		return "", false, nil
+	}
+	if _, ok := params[key]; ok {
+		return "", false, fmt.Errorf("%s is a path parameter of route %v", key, route["id"])
+	}
+	if _, ok := lq[key]; ok {
+		return "", false, fmt.Errorf("the site already gets a %s query key on route %v", key, route["id"])
+	}
+	if q == nil {
+		q = map[string]any{}
+	}
+	if lq == nil {
+		lq = map[string]any{}
+	}
+	q[key] = map[string]any{"type": "string", "max_length": 200, "required": false, "rules": []any{"no_html", "no_template_meta"}}
+	lq[key] = "{{query." + key + "}}"
+	route["query"], lr["query"] = q, lq
+	return fmt.Sprintf("query key %s added to route %v (asked by visitors)", key, route["id"]), true, nil
 }

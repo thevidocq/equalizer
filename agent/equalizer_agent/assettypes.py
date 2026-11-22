@@ -26,7 +26,7 @@ _DOCUMENTS = {
     "application/vnd.oasis.opendocument.presentation", "application/font-woff", "application/x-font-woff",
     "application/manifest+json", "text/css",
 }
-_SCRIPTS = {"application/javascript", "text/javascript", "application/x-javascript", "application/ecmascript",
+SCRIPTS = {"application/javascript", "text/javascript", "application/x-javascript", "application/ecmascript",
             "text/ecmascript", "application/wasm"}
 
 
@@ -37,6 +37,6 @@ def passive(kind: str, loaded: bool = True) -> bool:
         return False
     if kind.split("/")[0] in ("image", "font", "audio", "video"):
         return "xml" not in kind or kind == "image/svg+xml"  # SVG: sandboxed by the gateway
-    if kind in _SCRIPTS:
+    if kind in SCRIPTS:
         return loaded
     return kind in _DOCUMENTS

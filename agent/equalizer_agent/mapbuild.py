@@ -165,15 +165,17 @@ def _dropped_keys(doc: dict, unmapped: list, crawl) -> list:
         if u.get("method") != "GET" or not _is_dropped_key(doc, u.get("path", "")):
             continue
         key = q[:-1]
-        e = next(r for r in doc.get("routes", []) if r.get("path") == path)
-        if key in (e.get("query") or {}):
-            continue  # this draft declares it already: the site's links use it
+        e = next((r for r in doc.get("routes", []) if r.get("path") == path and r.get("method", "GET") == "GET"), None)
+        if e is None or key in (e.get("query") or {}):
+            continue  # no GET route there, or this draft declares it already (the site's links use it)
         site = any(matches(path, p) for p in used.get(key, ()))
         lr = e.get("legacy_request") or {}
         item = {"route": path, "route_id": e.get("id"), "key": key, "clients": u.get("clients", 0),
                 "verdict": "site" if site else "suspect", "add": None}
-        if e.get("method", "GET") != "GET" or lr.get("method", "GET") != "GET" or not cluster.IDENT.match(key):
-            item["why"] = "the map cannot take this key on this route"
+        if lr.get("method", "GET") != "GET" or not cluster.IDENT.match(key) or \
+                key in (e.get("params") or {}) or key in (lr.get("query") or {}):
+            item["why"] = "the map cannot take this key on this route (a path parameter, a key the site already " \
+                          "gets under this name, or a route that posts to the site)"
         else:
             item["add"] = {"route_id": e.get("id"), "key": key}
             item["why"] = ("a link of the site uses it on this page" if site else
@@ -201,11 +203,13 @@ def _files_refused(doc: dict, unmapped: list, crawl) -> list:
         item = {"path": p, "clients": u.get("clients", 0), "verdict": "site" if site else "suspect", "add": None}
         if not assettypes.VALID.match(kind) or kind in a.get("types", []):
             item["why"] = "its type is unknown, or already allowed (then the file is refused for its size or content)"
+        elif kind in assettypes.SCRIPTS:
+            item["why"] = "a script no page of the site loads: never added on a visitor's request"
         else:
             item["add"] = {"prefix": a["prefix"], "type": kind}
             why = "a page of the site links to it" if site else \
                 "no page of the site links to it: perhaps a leftover file, or someone trying addresses"
-            if not assettypes.passive(kind):
+            if not assettypes.passive(kind, loaded=False):
                 why += "; adding %s serves every %s file under %s" % (kind, kind, a["prefix"])
             item["why"] = why
         out.append(item)
@@ -356,7 +360,8 @@ def build(job: dict, crawl, fp) -> tuple:
         # one route per shape: the gateway refuses two that differ only by
         # their parameters' names; the one already there wins, and gets the
         # query keys it lacked (the gateway drops undeclared ones silently)
-        there = next((e for e in doc.get("routes", []) if _shape(e.get("path", "")) == _shape(r.path)), None)
+        there = next((e for e in doc.get("routes", []) if _shape(e.get("path", "")) == _shape(r.path)
+                      and e.get("method", "GET") == "GET"), None)
         if there is None and "{" not in r.path:
             there = gateway_route(doc, r.path)
         if there is not None:

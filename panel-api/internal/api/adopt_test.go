@@ -29,12 +29,26 @@ func TestAdoptFromTheReport(t *testing.T) {
 			{"path": "/wp-content/uploads/x.bin", "clients": 1, "verdict": "suspect", "why": "unknown", "add": nil}},
 		"query_dropped": []map[string]any{
 			{"route": "/{slug}/", "route_id": "page", "key": "orderby", "clients": 2, "verdict": "site", "why": "linked",
-				"add": map[string]any{"route_id": "page", "key": "orderby"}}},
+				"add": map[string]any{"route_id": "page", "key": "orderby"}},
+			// a report that would add a key over a path parameter: the panel refuses it too
+			{"route": "/{slug}/", "route_id": "page", "key": "slug", "clients": 2, "verdict": "suspect", "why": "x",
+				"add": map[string]any{"route_id": "page", "key": "slug"}}},
 	}
 	if code := internalPost(t, e, "/v1/internal/discoveries/"+itoa(d.ID)+"/result", map[string]any{"report": report, "document": job.Template}, nil); code != 204 {
 		t.Fatalf("result: %d", code)
 	}
 	adopt := "/v1/apps/blog/discoveries/" + itoa(d.ID) + "/adopt"
+
+	// While the agent still checks its draft, nothing is added on top of it.
+	boss.must(409, "POST", adopt, map[string]any{"kind": "file", "path": "/wp-content/uploads/price-list.csv"}, nil)
+	var vjob struct{ ID int64 }
+	if code := internalPost(t, e, "/v1/internal/verifications/claim", nil, &vjob); code != 200 {
+		t.Fatalf("verification claim: %d", code)
+	}
+	score := map[string]any{"functions_total": 1, "functions_identical": 1, "inputs_total": 0, "inputs_protected": 0, "area_percent": 0}
+	if code := internalPost(t, e, "/v1/internal/verifications/"+itoa(vjob.ID)+"/result", map[string]any{"score": score}, nil); code != 204 {
+		t.Fatalf("verification result: %d", code)
+	}
 
 	var v struct{ Version int }
 	boss.must(201, "POST", adopt, map[string]any{"kind": "file", "path": "/wp-content/uploads/price-list.csv"}, &v)
@@ -67,19 +81,36 @@ func TestAdoptFromTheReport(t *testing.T) {
 		t.Fatalf("file adopted: version %d, %+v", v.Version, m.Document.Assets)
 	}
 
-	// On top of the discovery's draft, still a draft: the key goes on version 1 again.
+	// The new draft takes the discovery's place: the next click adds to it,
+	// so one draft holds every change.
+	var disc struct {
+		DraftVersion *int `json:"draft_version"`
+	}
+	boss.must(200, "GET", "/v1/apps/blog/discoveries/"+itoa(d.ID), nil, &disc)
+	if disc.DraftVersion == nil || *disc.DraftVersion != 2 {
+		t.Fatalf("discovery proposes %v after the first click", disc.DraftVersion)
+	}
 	boss.must(201, "POST", adopt, map[string]any{"kind": "key", "route": "/{slug}/", "key": "orderby"}, &v)
 	boss.must(200, "GET", "/v1/apps/blog/maps/"+itoa(int64(v.Version)), nil, &m)
-	found := false
+	found, csv := false, false
 	for _, r := range m.Document.Routes {
 		if r.ID == "page" {
 			spec, _ := json.Marshal(r.Query["orderby"])
 			found = r.LegacyRequest.Query["orderby"] == "{{query.orderby}}" && string(spec) != "null"
 		}
 	}
-	if !found {
-		t.Fatalf("key adopted: %+v", m.Document.Routes)
+	for _, a := range m.Document.Assets {
+		for _, ty := range a.Types {
+			csv = csv || (a.Prefix == "/wp-content/uploads/" && ty == "text/csv")
+		}
 	}
+	if v.Version != 3 || !found || !csv {
+		t.Fatalf("second click: version %d, key %v, file of the first click kept %v", v.Version, found, csv)
+	}
+	// A click on what the draft has already changes nothing.
+	boss.must(409, "POST", adopt, map[string]any{"kind": "file", "path": "/wp-content/uploads/price-list.csv"}, nil)
+	// Never a key over a path parameter.
+	boss.must(409, "POST", adopt, map[string]any{"kind": "key", "route": "/{slug}/", "key": "slug"}, nil)
 
 	// Only what the report proposes, never what the request says.
 	boss.must(422, "POST", adopt, map[string]any{"kind": "file", "path": "/wp-content/uploads/x.bin"}, nil)

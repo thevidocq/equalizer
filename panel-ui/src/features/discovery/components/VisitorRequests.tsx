@@ -1,6 +1,7 @@
 import { Link } from "react-router";
 import { Button, Notice } from "@/shared/ui";
 import { describeError } from "@/shared/api/errors";
+import { useVerification } from "@/features/maps";
 import { useAdopt, type AdoptItem } from "../hooks/useAdopt";
 
 type Item = { label: string; clients: number; verdict: "site" | "suspect"; why: string; adopt: AdoptItem | null };
@@ -50,8 +51,13 @@ function Group({ title, items, canAdd, onAdd, busy }: { title: string; items: It
  * (anyone can ask for anything). The agent says whether the site itself uses
  * it; a person adds it in one click, into a new draft to review and publish.
  */
-export function VisitorRequests({ app, discovery, report, canAdd }: { app: string; discovery: number; report: R; canAdd: boolean }) {
+export function VisitorRequests({ app, discovery, draft, report, canAdd }: {
+  app: string; discovery: number; draft: number | null; report: R; canAdd: boolean;
+}) {
   const adopt = useAdopt(app, discovery);
+  const check = useVerification(app, draft ?? 0, draft != null);
+  // while the agent checks its draft, a change would land on a version about to be replaced
+  const checking = draft != null && (check.isPending || ["queued", "running"].includes(check.data?.status ?? ""));
   const files: Item[] = (report.files_refused ?? []).map((f: R) => ({
     label: f.path, clients: f.clients, verdict: f.verdict, why: f.why ?? "",
     adopt: f.add ? { kind: "file", path: f.path } : null,
@@ -70,9 +76,10 @@ export function VisitorRequests({ app, discovery, report, canAdd }: { app: strin
         </Notice>
       ) : null}
       {adopt.isError ? <Notice tone="error">{describeError(adopt.error)}</Notice> : null}
-      <Group title="Files visitors asked for that the map refuses" items={files} canAdd={canAdd}
+      {canAdd && checking ? <p className="text-xs text-ink-soft">You can add these once the agent has checked its draft.</p> : null}
+      <Group title="Files visitors asked for that the map refuses" items={files} canAdd={canAdd && !checking}
         onAdd={(a) => adopt.mutate(a)} busy={adopt.isPending} />
-      <Group title="Page options visitors use that the map drops" items={keys} canAdd={canAdd}
+      <Group title="Page options visitors use that the map drops" items={keys} canAdd={canAdd && !checking}
         onAdd={(a) => adopt.mutate(a)} busy={adopt.isPending} />
     </div>
   );

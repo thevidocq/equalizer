@@ -42,6 +42,33 @@ it, 0.1.0 (`docs/releases/0.1.0.md`, tag on the merge of #39).
 
 ## Entries
 
+### 2026-11-22 — Review of the one-click adoption
+
+- **Branch:** feat/report-actions
+- **What:** an independent reviewer found four problems; fixed:
+  - panel-api `adopt.go`: each click built on the same base, so two clicks
+    gave two drafts each missing the other's change. The new draft now
+    supersedes the discovery's draft (`Store.Supersede`), so the next click
+    adds to it; 409 while the agent still checks that draft (`checking`),
+    when the draft is under review (`in_review`), when nothing would change
+    (`already_there`), when the map no longer has the prefix or route
+    (`not_in_map`), when the draft was taken on meanwhile (`draft_taken`).
+    A key is never declared over a path parameter or a legacy query name
+    already mapped (`adoptKey`).
+  - agent: a script only visitors asked for is never offered (`add` none);
+    a non-passive type's warning is always shown (`passive(…,
+    loaded=False)`); keys that are path parameters or already mapped
+    legacy names are not offered; the GET route is chosen when a POST
+    route shares the path, in the report and when merging the site's own
+    keys (`_merge_query` picked the POST route).
+  - panel-ui: buttons wait for the agent's check; after a click the
+    discovery and the maps are read again.
+  - Tests: `TestAdoptFromTheReport` (checking, chain of drafts, already
+    there, path parameter), agent `test_query_merge.py` (script, path
+    parameter, declared key, POST route first). Docs: tenant manual/help.
+- **Status:** agent, panel-api green.
+- **Next steps:** merge after #88.
+
 ### 2026-11-22 — Visitors' requests: the agent judges, a person adds in one click
 
 - **Branch:** feat/report-actions (on top of fix/independent-review, #88)

@@ -9,6 +9,11 @@ export function useAdopt(app: string, discovery: number) {
   return useMutation({
     mutationFn: (body: AdoptItem) =>
       unwrap(api.POST("/apps/{app}/discoveries/{id}/adopt", { params: { path: { app, id: String(discovery) } }, body })),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["maps", app] }),
+    onSuccess: () => {
+      // the new draft takes the discovery's place: the next click adds to it
+      void qc.invalidateQueries({ queryKey: ["maps", app] });
+      void qc.invalidateQueries({ queryKey: ["discovery", app, discovery] });
+      void qc.invalidateQueries({ queryKey: ["discoveries", app] });
+    },
   });
 }

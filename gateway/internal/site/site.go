@@ -48,6 +48,17 @@ type Options struct {
 // How long to wait when the legacy application is saturated.
 const budgetWait = 2 * time.Second
 
+// mediaSlots is how many audio or video streams may run at once: half the
+// legacy budget, so that paused players never take all the legacy workers;
+// one with a budget of one (that stream then holds no budget slot: the page
+// keeps it); no budget, no limit.
+func mediaSlots(budget int) int {
+	if budget <= 0 {
+		return 0
+	}
+	return max(1, budget/2)
+}
+
 // Site is a compiled map ready to serve requests.
 type Site struct {
 	Model     *mapmodel.Model
@@ -55,6 +66,7 @@ type Site struct {
 	Validator *validate.Validator
 	Legacy    *legacyclient.Client
 	Budget    *budget.Limiter
+	Media     *budget.Limiter // streams of audio and video: at most half the budget, so pages keep the rest
 	URLs      *legacyurl.Rewriter
 	Origin    *origin.Rewriter // legacy origin → public one in text bodies; nil: nothing to do
 	Inbound   *origin.Rewriter // public origin → legacy one in area queries and bodies
@@ -205,6 +217,7 @@ func BuildWith(m *mapmodel.Model, opts Options) (*Site, error) {
 		Validator: v,
 		Legacy:    lc,
 		Budget:    budget.New(m.Defaults.LegacyBudget.MaxConcurrency, budgetWait),
+		Media:     budget.New(mediaSlots(m.Defaults.LegacyBudget.MaxConcurrency), 0),
 		URLs:      urls,
 		Origin:    origin.New(lc.Base(), m.Meta.Scheme(), m.Meta.PublicDomain),
 		Inbound:   origin.NewReverse(lc.Base(), m.Meta.Scheme(), m.Meta.PublicDomain),

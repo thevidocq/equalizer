@@ -1,5 +1,6 @@
 """What a page tells: links, forms, scripts, assets and generator."""
 
+import html
 import re
 import urllib.parse
 from dataclasses import dataclass, field
@@ -188,7 +189,7 @@ def script_urls(js: str, base: str) -> list:
     return [urllib.parse.urljoin(base, m) for m in SCRIPT_URL.findall(js)]
 
 
-SITEMAP_LOC = re.compile(r"<loc>\s*([^<\s]+)\s*</loc>", re.I)
+SITEMAP_LOC = re.compile(r"<loc>\s*(?:<!\[CDATA\[\s*([^<\s\]]+)\s*\]\]>|([^<\s]+))\s*</loc>", re.I)
 
 
 def is_sitemap(body: bytes) -> bool:
@@ -198,4 +199,5 @@ def is_sitemap(body: bytes) -> bool:
 
 
 def sitemap_urls(xml: str) -> list:
-    return SITEMAP_LOC.findall(xml)[:2000]
+    """Sitemap locations, unescaped (a sitemap writes & as &amp;), CDATA too."""
+    return [html.unescape(a or b) for a, b in SITEMAP_LOC.findall(xml)[:2000]]

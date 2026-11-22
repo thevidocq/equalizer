@@ -1,5 +1,6 @@
 """One discovery, from the job to the result."""
 
+import re
 import urllib.parse
 
 from . import browser, crawler, fingerprint, mapbuild, rules
@@ -17,12 +18,36 @@ def seeds(job: dict, cms: str | None) -> list:
                 out.append(p)
     for u in job.get("unmapped", []):
         p = u.get("path", "")
-        # a file (a font, a video) the gateway refused: one visitor is enough,
-        # the crawler studies it only if the site really serves it
-        least = 1 if crawler.Crawler._static(p) else 2
-        if u.get("method") == "GET" and u.get("clients", 0) >= least and p.startswith("/") and not rules.excluded(p, cms):
+        # What visitors asked for is a page to look at, never evidence: a file
+        # or a query key they name is listed in the report, not opened (a
+        # reported file or key would let anyone widen the map).
+        if "?" in p or crawler.Crawler._static(p) or _secret_like(p):
+            continue
+        if u.get("method") == "GET" and u.get("clients", 0) >= 2 and p.startswith("/") and not rules.excluded(p, cms):
             out.append(p)
     return list(dict.fromkeys(out))
+
+
+_UUID = re.compile(r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$", re.I)
+
+
+def _random(part: str) -> bool:
+    """A random token: eight characters or more that switch between letters
+    and digits at least three times (8f3a9c2e…, aB3dE5gH7…), unlike a word
+    or a model name (electronics2024, 256gb)."""
+    if len(part) < 8 or not part.isalnum():
+        return False
+    kinds = ["d" if c.isdigit() else "a" for c in part]
+    return sum(1 for x, y in zip(kinds, kinds[1:]) if x != y) >= 3
+
+
+def _secret_like(path: str) -> bool:
+    """A path holding a random-looking segment (a download or reset token in
+    a capability URL): a visitor's private link, never opened."""
+    for seg in path.split("/"):
+        if _UUID.match(seg) or any(_random(part) for part in re.split(r"[-_.]", seg)):
+            return True
+    return False
 
 
 def accounts(job: dict) -> list:

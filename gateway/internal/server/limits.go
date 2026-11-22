@@ -100,6 +100,18 @@ func (p *Public) acquireLegacy(r *http.Request, st *site.Site, entry string) boo
 	return true
 }
 
+// legacyRateAllowed applies the legacy requests-per-second limit alone.
+func (p *Public) legacyRateAllowed(r *http.Request, st *site.Site, entry string) bool {
+	ok, err := st.Limits.LegacyAllowed(r.Context())
+	if err != nil {
+		p.storeError(r, err)
+	}
+	if !ok {
+		p.Log.WarnContext(r.Context(), "legacy requests per second exhausted", slog.Group("detail", slog.String("route", entry)))
+	}
+	return ok
+}
+
 func (p *Public) storeError(r *http.Request, err error) {
 	now := time.Now().UnixNano()
 	last := lastStoreError.Load()

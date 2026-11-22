@@ -49,6 +49,7 @@ class CrawlResult:
     forms: list = field(default_factory=list)  # extract.Form (same site)
     assets: dict = field(default_factory=dict)  # path -> content type
     sizes: dict = field(default_factory=dict)  # path -> bytes, for the files the agent opened
+    served: set = field(default_factory=set)  # paths whose type is the one the site sent: never guessed over
     excluded: dict = field(default_factory=dict)  # path?query -> reason
     skipped_actions: set = field(default_factory=set)
     generator: str = ""
@@ -115,7 +116,11 @@ class Crawler(LoginMixin):
             return False
         last = pq.split("?")[0].rsplit("/", 1)[-1]
         static = "." in last and "." + last.rsplit(".", 1)[-1].lower() in ASSET_EXT
-        if not static and rules.is_action(pq):  # a script file named block-library/… acts on nothing
+        # a script file named block-library/… acts on nothing; but a file
+        # that ends the session (/logout.png on Rails) or sits in such a
+        # folder is never opened
+        if (static and (webapps.ends_session(pq) or webapps.STRONG.search(pq.rsplit("/", 1)[0] + "/"))) or \
+                (not static and rules.is_action(pq)):
             self.r.skipped_actions.add(pq)
             return False
         return True
@@ -273,10 +278,15 @@ class Crawler(LoginMixin):
         ext = "." + path.rsplit(".", 1)[-1].lower() if "." in path.rsplit("/", 1)[-1] else ""
         kind = "text/html" if self._fragment(path) else ASSET_EXT.get(ext)
         family = (kind or "").split("/")[0]
-        if kind and family in ("image", "audio", "video") and served.startswith(family + "/"):
+        exact = bool(kind and family in ("image", "audio", "video") and served.startswith(family + "/"))
+        if exact:
             kind = served
+        elif path in self.r.served:
+            return  # the type the site sent stays: a later link guesses nothing over it
         if kind and not rules.excluded(path, self.cms):
             self.r.assets[path] = kind
+            if exact:
+                self.r.served.add(path)
             if kind == "text/css":
                 self.sheets.setdefault(path, False)
 
@@ -285,18 +295,37 @@ class Crawler(LoginMixin):
         last = pq.split("?")[0].rsplit("/", 1)[-1]
         return "." in last and "." + last.rsplit(".", 1)[-1].lower() in ASSET_EXT
 
+    GENERIC = ("", "application/octet-stream", "binary/octet-stream", "application/unknown")
+
+    def _fits_extension(self, path: str, served: str) -> bool:
+        """Whether what the site sent can be the file its name says: a page
+        (a front controller, a soft 404) answering /members/x.png is not an
+        image, and must not make /members/ an asset prefix."""
+        ext = "." + path.rsplit(".", 1)[-1].lower() if "." in path.rsplit("/", 1)[-1] else ""
+        kind = ASSET_EXT.get(ext, "")
+        if not kind or self._fragment(path):
+            return bool(kind)
+        if served == kind or served in self.GENERIC:
+            return True
+        family = kind.split("/")[0]
+        if family in ("image", "audio", "video"):
+            return served.startswith(family + "/")
+        if family == "font" or "font" in served:
+            return "font" in served
+        return served == kind or (served.split("/")[0] == family and "html" not in served)
+
     def _known_file(self, pq: str):
         """A file named outside any page (a visitor asked for it and the
         gateway refused it): studied only if the site really serves it, and
         never opened when the crawler's rules keep it out."""
-        if rules.excluded(pq, self.cms, logged_in=getattr(self, "logged_pass", False)):
+        if rules.excluded(pq, self.cms, logged_in=getattr(self, "logged_pass", False)) or rules.is_action(pq):
             self.r.excluded.setdefault(pq, "never")
             return
         try:
             resp = self.f.get(pq.split("?")[0])
         except (ReachError, OSError, ValueError, http.client.HTTPException):
             return
-        if resp.status == 200:
+        if resp.status == 200 and self._fits_extension(pq.split("?")[0], resp.content_type):
             path = pq.split("?")[0]
             self._asset(self.f.base_url.rstrip("/") + path, served=resp.content_type)
             size = resp.headers.get("content-length", "")

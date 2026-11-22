@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
+	"errors"
 	"time"
 
 	"github.com/lib/pq"
@@ -167,6 +168,23 @@ func (s *Store) RecordVerification(ctx context.Context, app string, version int,
 	return err
 }
 
+// RetireDraft retires a draft nobody will review (a correction withdrawn).
+// ErrNotDraft when it is no longer a draft (a person took it on too).
+func (s *Store) RetireDraft(ctx context.Context, app string, version int) error {
+	res, err := s.DB.ExecContext(ctx, `UPDATE map_versions SET status = 'retired'
+		WHERE app_id = $1 AND version = $2 AND status = 'draft'`, app, version)
+	if err != nil {
+		return err
+	}
+	if n, err := res.RowsAffected(); err != nil || n != 1 {
+		return ErrNotDraft
+	}
+	return nil
+}
+
+// ErrNotDraft: the version is no longer a draft.
+var ErrNotDraft = errors.New("not a draft")
+
 // Supersede replaces a draft by the version the agent corrected it into:
 // the draft is retired (unsigned, so it can never be rolled back to) and
 // the discovery that proposed it proposes the corrected one. The person
@@ -177,8 +195,16 @@ func (s *Store) Supersede(ctx context.Context, app string, from, to int) error {
 		return err
 	}
 	defer tx.Rollback() //nolint:errcheck
+	var status string
+	if err := tx.QueryRowContext(ctx, `SELECT status FROM map_versions WHERE app_id = $1 AND version = $2 FOR UPDATE`,
+		app, from).Scan(&status); err != nil {
+		return err
+	}
+	if status != "draft" {
+		return ErrNotDraft // a person took it on meanwhile: it stays, and so does the discovery's link
+	}
 	if _, err := tx.ExecContext(ctx, `UPDATE map_versions SET status = 'retired'
-		WHERE app_id = $1 AND version = $2 AND status = 'draft'`, app, from); err != nil {
+		WHERE app_id = $1 AND version = $2`, app, from); err != nil {
 		return err
 	}
 	if _, err := tx.ExecContext(ctx, `UPDATE discoveries SET draft_version = $3

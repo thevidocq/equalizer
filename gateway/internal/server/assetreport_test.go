@@ -86,7 +86,7 @@ func TestDroppedQueryKeysReported(t *testing.T) {
 	if err := rep.Flush(context.Background()); err != nil {
 		t.Fatal(err)
 	}
-	if len(got) != 1 || got[0] != "/permits/5?orderby=" {
-		t.Errorf("reported %v, want only /permits/5?orderby=", got)
+	if len(got) != 1 || got[0] != "/permits/{id}?orderby=" {
+		t.Errorf("reported %v, want only /permits/{id}?orderby=: the pattern, never the value", got)
 	}
 }

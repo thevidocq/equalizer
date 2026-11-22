@@ -145,15 +145,36 @@ their real content. Fonts
 are the exception: many servers send them as `application/octet-stream`,
 with no type at all, or with an old name (`application/x-font-woff`). A font is then served when its
 signature (`wOFF`, `wOF2`, TrueType, `OTTO`, EOT) is a type the prefix allows,
-with the canonical `Content-Type` (`font/woff`, ...); a declared font type
-that disagrees with the signature is refused. Audio and video (`.mp4`,
+with the canonical `Content-Type` (`font/woff`, ...). A body declared as a
+font that is no font at all is refused, whether the declared type is in
+`types` or not; a font of another format than its declared type (WOFF2
+sent as `application/font-woff`) is served under its real type when
+`types` allows that format too, refused otherwise. TrueType, OpenType and
+collections (`ttcf`) count as one format, since servers name them loosely.
+An EOT file is recognised by its magic number and its version. Asset responses carry the one type
+that was checked; HTML and XML documents (`text/html`, `image/svg+xml`,
+`application/xhtml+xml`, `text/xml`, `application/xml`, any `+xml`) get a
+CSP sandbox. Audio and video (`.mp4`,
 `.webm`, `.mp3`, ... under a prefix whose `types` include an `audio/` or
 `video/` type) are streamed instead of buffered, with one byte range passed
 on so that players can seek (`bytes=a-b`, `bytes=a-`, `bytes=-n`; a list of
-ranges is dropped). The declared type must be in `types`, a response that
-starts at the first byte must begin with a media container signature (MP4,
-WebM, Ogg, MP3, WAV, FLAC), and the whole file must fit `max_size_kb`
-(default 512 MiB for media, 10 MiB for other assets). The
+ranges is dropped). The declared type must be in `types` and the file must
+begin with a media container signature (MP4, WebM, Ogg, MP3, WAV, FLAC)
+whatever range is asked: for a range in the middle the gateway reads the
+first bytes with a request of its own. A `416` is answered only for a file
+the map would serve (otherwise the size of any file would leak). The whole
+file must fit `max_size_kb` (default 512 MiB for media, 10 MiB for other
+assets); a body longer than the limit that the legacy server did not
+announce is aborted, never served short (a preview gets the verdict
+`asset_too_large`). A stream holds its legacy budget slot while it is read,
+so streams are bounded: at most half the site's `max_concurrency` and two
+per visitor, beyond which the gateway answers 503; pages keep the rest.
+With `max_concurrency: 1`, one stream at a time, which holds no budget
+slot (the page keeps it). A stream the legacy server cuts is a failed
+transfer for the client, never a whole file; a visitor who closes or seeks
+is not a legacy error. A client that takes no data for 60 s is dropped. A first range
+shorter than the signature (`bytes=0-1`, as Safari asks) is checked by
+reading the start apart. The
 asset query string is never sent to the legacy application.
 
 ## Forms
@@ -658,10 +679,10 @@ case): `slug: { base: string, pattern: "^[a-z0-9-]+$", deny: [wp-admin, admin] }
 | `no_template_meta` | `<?`, `?>`, `<%`, `%>`, `${`, `#{`, `{{`, `}}` |
 
 An unknown rule makes the map impossible to load. Undeclared query
-parameters are dropped (their names, never their values, are reported to
-discovery, which adds them to the route; tracking keys such as `utm_*`,
-`fbclid` and `gclid` are dropped without a report); repeated ones are
-rejected. Without
+parameters are dropped (their names with the route's pattern, never their
+values, are reported to discovery, which lists them for the person;
+tracking keys such as `utm_*`, `fbclid` and `gclid` are dropped without a
+report); repeated ones are rejected. Without
 `roles.anonymous` no page is public.
 
 ## Lifecycle

@@ -114,20 +114,19 @@ class StudyTest(unittest.TestCase):
         doc = panel.results[0]["document"]
         types = {t for a in doc["assets"] if a["prefix"] == "/site/templates/" for t in a["types"]}
         # fonts from a stylesheet another stylesheet imports, images from CSS,
-        # the video and its poster, the file a visitor asked for
-        for t in ("text/css", "font/woff", "font/woff2", "image/svg+xml", "image/webp", "image/jpeg",
-                  "video/mp4", "video/webm"):
+        # the video and its poster
+        for t in ("text/css", "font/woff", "font/woff2", "image/svg+xml", "image/webp", "image/jpeg", "video/mp4"):
             self.assertIn(t, types)
-        self.assertIn("audio/x-wav", types)  # the type the site sends, which the gateway checks
+        # files only visitors asked for are never evidence: not opened, not added
+        self.assertNotIn("video/webm", types)
+        self.assertNotIn("audio/x-wav", types)
         self.assertNotIn("audio/wav", types)
-        self.assertNotIn("video/ogg", types)  # the site does not serve it
         files = next(a for a in doc["assets"] if a["prefix"] == "/site/assets/")
-        self.assertIn("application/pdf", files["types"])
         self.assertIn("application/vnd.openxmlformats-officedocument.wordprocessingml.document", files["types"])
+        self.assertNotIn("application/pdf", files["types"])
+        self.assertNotIn("max_size_kb", files)
         # images next to pages: no asset prefix over the pages, the area serves both
         self.assertNotIn("/blog/2024/", {a["prefix"] for a in doc["assets"]})
-        self.assertEqual(files["max_size_kb"], -(-(30 << 20) * 11 // 10240))  # 30 MiB + 10%
-
 
 if __name__ == "__main__":
     unittest.main()

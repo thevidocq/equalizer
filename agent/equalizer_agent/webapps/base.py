@@ -8,6 +8,8 @@ only opened. Most of a profile is data; code only where an application
 behaves differently (Joomla's administration has a login of its own)."""
 
 import re
+import unicodedata
+import urllib.parse
 from dataclasses import dataclass
 
 
@@ -42,7 +44,40 @@ SENSITIVE = (
 )
 
 # Links that change something, whatever the application: never followed.
-ACTIONS = re.compile(r"(logout|log-out|signout|sign-out|delete|remove|destroy|unsubscribe|reset|drop|purge|"
+# Ending the session (log out, log off, sign out, sign off, end session,
+# disconnect, and the same in a few languages) is judged on each
+# piece of the URL normalised: decoded, lower case, without separators
+# (- _ . + spaces), so no spelling escapes (/WebLogOff.aspx, /log%2Dout,
+# /Account/DoLog_Off, /log.out). The only exceptions are decided by what
+# follows: offer(s) (not error), offset (not setup), office, offline (catalog-offers, analog-offset,
+# design-office, blog-offline). A page that merely talks about signing off is not studied:
+# safer than a test account logged out.
+_SESSION_END = re.compile(
+    r"logout|signout|logmeout|signmeout|(?:log|sign)off(?!er(?!r)|set(?!up)|ice|line)|endsession|"
+    r"disconnect|deconnexion|deconnecter|abmelden|ausloggen|uitloggen|afmelden|loggaut|loggut|"
+    r"cerrarsesion|encerrarsessao|disconnetti|esci$|exit$|quit$|wyloguj|odhlasit")
+_SESSION_PATH = re.compile(r"sessions?/(?:end|kill|close|terminate|stop)(?:/|$)")
+_PIECES = re.compile(r"[/?&=;#]")
+_SEPARATORS = re.compile(r"[^a-z0-9]")
+
+
+def ends_session(path_query: str) -> bool:
+    """Whether a URL would end the session, however it is spelled."""
+    text = urllib.parse.unquote_plus(urllib.parse.unquote_plus(path_query))
+    # NFKC and case folding: fullwidth letters and ſ read as the server would
+    text = unicodedata.normalize("NFKD", unicodedata.normalize("NFKC", text).casefold())
+    text = "".join(c for c in text if not unicodedata.combining(c))  # déconnexion → deconnexion
+    pieces = [_SEPARATORS.sub("", p) for p in _PIECES.split(text)]
+    # a file name is a piece of its own with its extension dropped: /logout.png
+    # is the logout route on servers with formats (Rails), /exit.php an exit
+    pieces += [_SEPARATORS.sub("", p.rsplit(".", 1)[0]) for p in _PIECES.split(text) if "." in p]
+    if any(_SESSION_END.search(p) for p in pieces if p):
+        return True
+    return bool(_SESSION_PATH.search("/".join(pieces)))  # /session/end, /sessions/kill
+
+
+ACTIONS = re.compile(r"(logout|signout|"
+                     r"delete|remove|destroy|unsubscribe|reset|drop|purge|"
                      r"action=(del|delete|remove|logout|edit|update))", re.I)
 # More of them, as whole words (a slug such as /running-tips/ is not "run").
 ACTION_WORDS = re.compile(
@@ -58,23 +93,30 @@ TOKENS = re.compile(r"[?&](_wpnonce|nonce|_nonce|token|_token|csrf|csrf_token|fo
 
 _SLUG_WORD = re.compile(r"^[A-Za-z0-9]+$")
 # Never part of an innocent slug: a segment holding one is always an action.
-STRONG = re.compile(r"(logout|log-out|logoff|signout|sign-out|unsubscribe|destroy|delete|purge|impersonate)", re.I)
+STRONG = re.compile(r"(logout|signout|unsubscribe|destroy|delete|purge|impersonate)", re.I)
+
+
+def _is_action_word(word: str) -> bool:
+    return bool(ACTIONS.search(word) or ACTION_WORDS.search(word))
 
 
 def _content_slug(segment: str) -> bool:
-    """A segment that names content: three words or more joined by - or _,
-    not starting with an action ("how-to-remove-stains", "big-product-update";
-    not "remove-item" nor "delete-account-now")."""
+    """A segment that names content: a title of four words or more joined by
+    - or _, with at most one action word and never at either end
+    ("how-to-remove-stains", "big-product-update-2024"; not "item-12-remove",
+    "my-plan-cancel", "account-disable-now", "reset-your-mind-today")."""
     words = re.split(r"[-_]", segment)
-    return len(words) >= 3 and all(_SLUG_WORD.match(w) for w in words) and not STRONG.search(segment) and \
-        not (ACTIONS.match(words[0]) or ACTION_WORDS.match(words[0]))
+    if len(words) < 4 or not all(_SLUG_WORD.match(w) for w in words) or STRONG.search(segment):
+        return False
+    acts = [i for i, w in enumerate(words) if _is_action_word(w)]
+    return len(acts) <= 1 and not any(i in (0, len(words) - 1) for i in acts)
 
 
 def is_action(path_query: str) -> bool:
     """A link that changes something. The query is always read in full; in
     the path, a segment that is a content slug is not an action whatever
     words it holds."""
-    if TOKENS.search(path_query):
+    if TOKENS.search(path_query) or ends_session(path_query):
         return True
     path, sep, query = path_query.partition("?")
     kept = "/".join("" if _content_slug(s) else s for s in path.split("/")) + sep + query

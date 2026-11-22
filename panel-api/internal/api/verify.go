@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log/slog"
 	"net/http"
 	"strconv"
 	"strings"
@@ -256,6 +257,14 @@ func (s *Server) verificationResult(w http.ResponseWriter, r *http.Request) {
 		res.Failure = &msg
 	}
 	corrected := len(in.Document) > 0 && string(in.Document) != "null"
+	if corrected && v.RequestedBy == nil {
+		// after a discovery: a draft a person has since submitted, approved
+		// or replaced by publishing is theirs now; its measure is kept, no
+		// correction is proposed on top of it
+		if cur, err := s.Store.Version(r.Context(), a.ID, v.Version); err != nil || cur.Status != "draft" {
+			corrected = false
+		}
+	}
 	if res.Failure == nil && corrected && v.Correct && v.AuthorID != nil {
 		doc, failure := s.checkProposal(r.Context(), a, in.Document, fmt.Sprintf("agent:verification-%d", v.ID))
 		if failure != "" {
@@ -271,8 +280,19 @@ func (s *Server) verificationResult(w http.ResponseWriter, r *http.Request) {
 			_ = s.Store.Record(r.Context(), nil, &a.Tenant, "map.corrected", a.ID, map[string]any{"from": v.Version, "version": nv})
 			if v.RequestedBy == nil {
 				// after a discovery: one draft to review, the corrected one
-				if err := s.Store.Supersede(r.Context(), a.ID, v.Version, nv); err == nil {
+				switch err := s.Store.Supersede(r.Context(), a.ID, v.Version, nv); {
+				case err == nil:
 					_ = s.Store.Record(r.Context(), nil, &a.Tenant, "map.superseded", a.ID, map[string]any{"from": v.Version, "version": nv})
+				case errors.Is(err, store.ErrNotDraft):
+					// a person took the draft on while the agent corrected it:
+					// theirs stands, the correction is withdrawn
+					if err := s.Store.RetireDraft(r.Context(), a.ID, nv); err != nil {
+						s.Log.ErrorContext(r.Context(), "correction not withdrawn", slog.Group("detail",
+							slog.String("app", a.ID), slog.Int("version", nv), slog.String("error", err.Error())))
+					} else {
+						_ = s.Store.Record(r.Context(), nil, &a.Tenant, "map.correction_withdrawn", a.ID, map[string]any{"from": v.Version, "version": nv})
+					}
+					res = store.VerificationResult{Score: in.Before, Corrections: in.Corrections, Before: in.Before}
 				}
 			}
 		}

@@ -42,6 +42,225 @@ it, 0.1.0 (`docs/releases/0.1.0.md`, tag on the merge of #39).
 
 ## Entries
 
+### 2026-11-22 — Sixth re-review: other words for ending a session
+
+- **Branch:** fix/independent-review
+- **What:** a tenth independent reviewer confirmed the normalised rule
+  holds for every spelling of log out / sign off, and found logouts with
+  other words (`/connect/endsession`, `/abmelden`, `/deconnexion`,
+  `/session/end`) and logout routes with a file extension (`/logout.png`
+  on Rails, `/logout;.png` on Tomcat) opened by the browser pass and by
+  verification. `ends_session` now knows end session, log me out,
+  disconnect and the usual words in nine languages, `/session(s)/end|kill…`,
+  folds text with NFKC, case folding and accents, reads a file name
+  without its extension, and narrows the exceptions (offer but not error,
+  offset but not setup). `Crawler._allowed_quiet` and verification's `_acts`
+  apply it to files. Every case is in `test_actions.py`.
+- **Status:** agent green. A list of words cannot be complete: see the
+  next step.
+- **Next steps:** detect a lost session during the logged-in passes (the
+  agent's login cookie no longer valid) and log in again, so an unknown
+  logout word costs a re-login, not the rest of the pass.
+
+### 2026-11-22 — Fifth re-review: session end judged on normalised URLs
+
+- **Branch:** fix/independent-review
+- **What:** a ninth independent reviewer found that the exceptions decided
+  by what precedes the word hid real logout links (`/WebLogOff.aspx`,
+  `/codeSignOff`) and that separated camelCase spellings were missed
+  (`/Account/DoLog_Off`). The regular expressions on the raw URL are gone:
+  `webapps.base.ends_session` decodes each piece of the URL, lowers it and
+  drops separators, then looks for log out / log off / sign out / sign off
+  anywhere, with exceptions decided only by what follows (offer(s), offset,
+  office, offline). `is_action` and verification's folder check use it.
+  Every case from the five reviews is in `test_actions.py`; pages about
+  signing off are no longer studied (safety first).
+- **Status:** agent green.
+- **Next steps:** as above.
+
+### 2026-11-22 — Fourth re-review: log off and sign off, safety first
+
+- **Branch:** fix/independent-review
+- **What:** an eighth independent reviewer found that the word-boundary
+  rule for log off / sign off let real logout links through (`/dologoff`,
+  `/doLOGOFF`, `?cmd=dologoff`, `/sessions/log-out-all-devices`) and that
+  separated spellings had left `STRONG`. `webapps/base.py` now treats
+  `logout`, `logoff`, `signout`, `signoff` as actions anywhere, with an
+  explicit list of the words that hold them by chance (catalog-offers,
+  analog-offset, blog-offers, dialog-off…, design-office), and the
+  separated spellings (`log-out`, `sign_out`, `log-off`) as strong words, so
+  no title rescues them (`sign-off` stays content). Every case found in the
+  four reviews is a test (`test_actions.py`, `test_verify_assets.py`).
+  panel-api `RetireDraft` answers `ErrNotDraft` when nothing was retired,
+  so no withdrawal is audited that did not happen.
+- **Status:** agent, panel-api green.
+- **Next steps:** as above.
+
+### 2026-11-22 — Third re-review of the review fixes
+
+- **Branch:** fix/independent-review
+- **What:** a seventh independent reviewer found four problems; fixed:
+  - gateway: a visitor closing or seeking a video was reported as
+    `legacy.error stream_cut` (the legacy read stops with the request's
+    context), which turns a site's health Degraded; `copyMedia` now treats
+    a read error after the client left as a normal end
+    (`TestMediaClientGoneIsNoLegacyError`, which fails without the fix).
+  - agent: log off / sign off match as a word of their own or a camelCase
+    step, never inside a word (`/catalogoffers/`, `/designoffice/` are
+    pages; `/doLogoff`, `/SignOff.aspx`, `/Home/LogOffUser` actions);
+    verification judges a file's folders against the strong words only
+    (`/lib/dropzone/…js`, `/assets/update/x.png` checked again).
+  - panel-api: the withdrawal of a correction is now tested on its real
+    path (a trigger takes the draft on mid-correction:
+    `TestCorrectionWithdrawnWhenTakenOnMidway`), and audited only when the
+    retirement succeeded.
+  - Docs: `docs/agent.md`, `docs/map-format.md`.
+- **Status:** gateway (race), panel-api, agent green.
+- **Next steps:** as above.
+
+### 2026-11-22 — Second re-review of the review fixes
+
+- **Branch:** fix/independent-review
+- **What:** a sixth independent reviewer found regressions in the previous
+  fixes; all fixed, each with a test:
+  - gateway fonts: a font of another format is served only if `types`
+    allows that format (`fontsig.Allowed`), otherwise refused; EOT needs its
+    version field, so 34 bytes + `LP` + HTML is no font
+    (`TestEOTNeedsItsVersion`, `TestCheckAsset`).
+  - gateway media: a stream the legacy server cuts is aborted, never served
+    as whole (`copyMedia` reports `mediaCut`; `TestMediaCutStreamFails`);
+    with `max_concurrency: 1` a stream holds no budget slot
+    (`TestMediaBudgetOfOne`); per-visitor cap tested apart
+    (`TestMediaStreamsPerVisitor`).
+  - agent: `logoff`/`signoff` actions anywhere again (`/doLogoff`,
+    `/SignOff.aspx`), separated spellings as whole words; verification
+    reads a file's folders for the action rule (`/account/logout/bye.png`
+    not opened, `reset.css` checked); `_secret_like` finds random tokens by
+    letter/digit alternation in each part (`aB3dE5gH7…_q` skipped,
+    `iphone_15_pro_max_256gb` and `electronics2024` kept).
+  - panel-api: a withdrawn correction logs a failed retirement and is
+    audited (`map.correction_withdrawn`, described in the panel);
+    `TestNoCorrectionOverAPersonsDraft`.
+  - Docs: `docs/map-format.md`, `docs/agent.md`.
+- **Why:** re-review verdict "do not ship".
+- **Status:** gateway (race), panel-api, agent green.
+- **Next steps:** as above.
+
+### 2026-11-22 — Re-review of the review fixes
+
+- **Branch:** fix/independent-review
+- **What:** a fifth reviewer, independent of the first four, re-checked the
+  fixes above and confirmed regressions in them; all fixed:
+  - gateway media: releasing the budget early only moved the outage to the
+    legacy server's workers. Streams now hold their slot while read, within
+    a media share of half the budget (`site.Media`, `mediaSlots`) and two
+    streams per visitor (`mediaClients`); 503 beyond. A first range shorter
+    than the signature (`bytes=0-1`, Safari) is probed instead of refused.
+    An oversized unannounced stream in a preview gives the verdict
+    `asset_too_large` instead of dropping the admin connection
+    (`copyMedia` reports, the caller aborts only real clients).
+  - gateway fonts: a declared font of another format is served under its
+    real type instead of refused; TrueType/OpenType/collections are one
+    format (`fontsig.Same`, `ttcf` → `font/collection`). CSP sandbox only
+    for HTML and XML documents (`text/xml`, `application/xml`, `+xml`), not
+    office types containing "xml".
+  - agent: `log-off`/`log_out`/`sign_out` match whole words only
+    (`/blog-offers/`, `/sign-off-letter-examples/` are pages again);
+    verification no longer skips files named like actions (`reset.css`,
+    `delete-icon.svg`), as the crawl; `query_dropped` covers literal routes
+    and keeps them out of `visitors_missing`; `_secret_like` no longer takes
+    `iphone_15_pro_max_256gb` for a token; `gateway_route` chooses by
+    structure like the router.
+  - panel-api: if a person takes the draft on while the agent corrects it,
+    the correction is withdrawn (`RetireDraft`) and the draft keeps no link
+    to it, so the discovery page never points at an orphan.
+  - Tests: gateway `TestMediaPausedPlayersKeepTheSiteUp` (media share),
+    `TestMediaShortFirstRange`, `TestTryAssetHead` (preview of an oversized
+    stream), `TestCheckAsset`, `fontsig.TestSfntFamily`; agent
+    `test_actions.py`, `test_query_merge.py` (`SeedsTest`, files refused,
+    literal routes), `test_verify_assets.py`. Docs: `docs/map-format.md`,
+    `docs/agent.md`.
+- **Why:** the re-review verdict was "do not ship".
+- **Status:** gateway (race), panel-api, agent (62) green. Not covered by
+  tests: the withdrawal of a correction in panel-api (store path only) and
+  the panel-ui states (no `node_modules` here; CI type-checks).
+- **Next steps:** discovery on metaliquid and the WordPress site, then
+  release 0.2.10; distinct-client counting on the panel side.
+
+### 2026-11-22 — Independent review: visitors are never evidence; media, fonts, verification
+
+- **Branch:** fix/independent-review
+- **What:** fixes for the findings four independent reviewers confirmed
+  with reproducing tests on the changes since 0.2.8 (gateway, discovery,
+  verification and panel, adversarial).
+  - **Principle (agent):** what visitors ask for is never evidence. Reported
+    files and query keys are no longer opened nor added: `discovery.seeds`
+    skips reported files, `path?key=` and capability-like paths (long
+    random segments, UUIDs); `mapbuild` lists them for the person
+    (`files_refused`, `query_dropped`); `_reported_keys` and `WIDE_QUERY`
+    are gone. `_merge_query` adds only keys the site's own links use with a
+    value, typed as for a new route, to the route the gateway would pick
+    (`gateway_route`: literal before `/{slug}`); `covered()` checks public
+    names.
+  - **Passive types only (agent, new `assettypes.py`):** discovery and
+    verification add to an existing prefix only images, fonts, audio,
+    video, stylesheets, PDF and office documents, and scripts a page loads;
+    never text, CSV, archives, SQL, JSON, HTML or XML, and never a type the
+    schema rejects.
+  - **Verification (agent `verifyassets.py`):** applies the crawler's rules
+    (no sensitive file, no action link), skips pages answering under a
+    prefix, checks each file once, never removes a prefix, and a prefix
+    with videos never drops below their 512 MiB (`mapbuild.size_limit`).
+  - **Discovery (agent):** `is_action` treats as content only 4+-word
+    titles with the action word inside (`/cart/item-12-remove`,
+    `/my-plan-cancel`, `/Account/LogOff`, `sign_out`, `log_out` are actions
+    again; regression from #85); no new asset prefix over skipped actions,
+    excluded paths, script requests or any non-file URL seen; a file's
+    type sent by the site is never overwritten by a guess; a page answering
+    for a file name is not that file; sitemap `<loc>` unescaped (`&amp;`)
+    and CDATA read; `http.client.HTTPException` becomes `ReachError` (one
+    broken answer no longer aborts a discovery).
+  - **Gateway media (`assetmedia.go`):** the legacy budget slot is released
+    once the response is checked, not after the client read it (paused
+    players took the site down); a stalled client is dropped after 60 s;
+    the signature is checked whatever range is asked (a separate
+    `bytes=0-11` probe for mid-file ranges); a 206 nobody asked for or
+    without `Content-Range` is refused; a 416 only for a file the map would
+    serve, with security headers and an event; a body over `max_size_kb`
+    the legacy server did not announce is aborted, never served short.
+  - **Gateway assets (`asset.go`):** a declared font type must match the
+    signature; the response carries the one checked `Content-Type`; HTML
+    and XML types get the CSP sandbox. `dropped.go`: the route's pattern is
+    reported, never the request path (it held visitors' values), after
+    authorisation.
+  - **Panel:** `store.Supersede` locks the draft and does nothing if a
+    person has taken it on (`ErrNotDraft`); an automatic verification of a
+    version no longer a draft creates no corrected draft. `DraftNotice`
+    says when the agent could not verify its draft. The report shows the
+    files and page options visitors asked for that the map refuses.
+  - Tests: gateway `TestMediaPausedPlayersKeepTheSiteUp`,
+    `TestMediaRangeKeepsTheSignatureCheck`, `TestMedia416OnlyForServedFiles`,
+    `TestMediaUnannouncedSizeAborted`, `TestCheckAsset` (fonts),
+    `TestDroppedQueryKeysReported` (pattern); agent `test_verify_assets.py`,
+    `test_query_merge.py`, `test_assets_study.py`, `test_actions.py`,
+    `test_crawl_sources.py` (sitemaps, malformed answers, prefix guards,
+    route choice); panel-api `TestDiscovery` (no supersede once in review).
+  - Docs: `docs/agent.md`, `docs/map-format.md`, tenant manual and in-app
+    help.
+- **Why:** #80–#86 let anonymous visitors widen the map (expose CSV/log
+  files, push query keys to the legacy app, open capability URLs), let a
+  few paused videos take a site down, let a chosen range skip the media
+  check, and reintroduced crawling of action links.
+- **Status:** gateway (race), panel-api, agent tests and `check:help`
+  green. Not yet run against the real sites.
+- **Next steps:**
+  1. Independent re-review of this PR, then discovery on metaliquid and the
+     WordPress site before releasing 0.2.10.
+  2. The unmapped reporter counts one IP once per minute, so one client
+     can look like many (thresholds for page seeds): count distinct
+     clients on the panel side.
+  3. Resume strict mode (`feat/strict-mode`).
+
 ### 2026-11-22 — After a discovery, one draft to review
 
 - **Branch:** fix/one-draft

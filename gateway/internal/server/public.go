@@ -27,6 +27,7 @@ type MapSource interface {
 // towards the legacy application and returns the response. APIs are not
 // served yet (see CHANGELOG).
 type Public struct {
+	media    mediaClients // audio and video streams per visitor
 	Maps     MapSource
 	IPs      *clientip.Resolver
 	Log      *slog.Logger

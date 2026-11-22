@@ -25,10 +25,14 @@ var tracking = map[string]bool{"fbclid": true, "gclid": true, "dclid": true, "ms
 // map does not declare them: a sort or a filter the study never saw, which
 // would otherwise change the page in silence. Only the key's name is sent,
 // never its value (/shop/?orderby=).
-func (p *Public) reportDropped(r *http.Request, st *site.Site, declared map[string]mapmodel.FieldSpec, query url.Values) {
+//
+// The route's path pattern is sent, not the request's path: /users/{name}
+// never carries a visitor's name, and one route is one report.
+func (p *Public) reportDropped(r *http.Request, st *site.Site, route *mapmodel.Route, query url.Values) {
 	if p.Unmapped == nil || len(query) == 0 {
 		return
 	}
+	declared := route.Query
 	keys := make([]string, 0, len(query))
 	for k := range query {
 		if _, ok := declared[k]; ok || tracking[k] || strings.HasPrefix(k, "utm_") || !droppedKey.MatchString(k) {
@@ -41,6 +45,6 @@ func (p *Public) reportDropped(r *http.Request, st *site.Site, declared map[stri
 		keys = keys[:maxDropped]
 	}
 	for _, k := range keys {
-		p.Unmapped.Record(st.Model.Meta.App, http.MethodGet, r.URL.Path+"?"+k+"=", p.IPs.IP(r))
+		p.Unmapped.Record(st.Model.Meta.App, http.MethodGet, route.Path+"?"+k+"=", p.IPs.IP(r))
 	}
 }

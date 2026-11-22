@@ -220,15 +220,16 @@ pattern. Free-text fields refuse HTML and template code; fields holding a
 name or a code also refuse SQL delimiters.
 
 It also finds every file the pages load (stylesheets, scripts, images,
-fonts, videos), including those named only in stylesheets, lazy-loaded
-images and video posters, and proposes their types in the map: you never
-add a type by hand. When the gateway refuses a file a visitor asked for
-(a type or a size the map does not allow yet), the next discovery checks it
-on the site and proposes it if the site really serves it, with the type
-the site sends and, for a large file, the size limit it needs. The same holds for
-the options of a page (a sort, a filter: `?orderby=`) that visitors use and
-the map does not declare yet: the gateway tells discovery their names,
-never their values, and the next discovery adds them.
+fonts, videos, documents), including those named only in stylesheets,
+lazy-loaded images and video posters, and the options their links use (a
+sort, a filter: `?orderby=`), and proposes them in the map. To a folder
+already in the map it only ever adds passive types (images, fonts, audio,
+video, stylesheets, PDF and office documents; scripts a page loads): never
+text, CSV, archives, HTML or XML, which would open every such file in the
+folder. What visitors ask for and the map refuses — a file, a page option —
+is listed in the discovery report for you to judge, never added on its
+own: anyone can ask for anything, so a visitor's request is not proof that
+the site uses it.
 
 ![Discovery](/help-img/discovery.png)
 
@@ -264,7 +265,8 @@ discovery you review **one draft**, the agent's last: while the agent is
 still checking and correcting, the discovery page says so; then it shows
 the draft to review with its measure and the corrections, and the first
 draft is retired. When you ask for a verification yourself, both versions
-stay.
+stay, and a draft you have already submitted or approved is never replaced.
+If the agent could not verify its draft, the discovery page says so.
 Publishing stays a person's decision.
 
 **Verify** on a version (administrators) does it again,

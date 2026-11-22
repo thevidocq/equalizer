@@ -19,12 +19,18 @@ export function DraftNotice({ app, draft }: { app: string; draft: number }) {
       </Notice>
     );
   }
+  const verified = v.data?.status === "done";
+  const link = <Link className="font-semibold text-signal hover:underline" to={`../maps/${shown}`}>version {shown}</Link>;
   return (
     <>
-      <Notice tone="info">
-        Draft to review: <Link className="font-semibold text-signal hover:underline" to={`../maps/${shown}`}>version {shown}</Link>,
-        verified by the agent. Review it and publish it.
-      </Notice>
+      {verified ? (
+        <Notice tone="info">Draft to review: {link}, verified by the agent. Review it and publish it.</Notice>
+      ) : (
+        <Notice tone="error">
+          Draft to review: {link}. The agent could not verify it on the gateway; check it with care, or verify it
+          again from its page before publishing it.
+        </Notice>
+      )}
       <VerificationPanel app={app} version={shown} canVerify={false} versionLink={(n) => `../maps/${n}`} />
     </>
   );

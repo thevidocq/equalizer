@@ -6,7 +6,7 @@ import copy
 import re
 import urllib.parse
 
-from . import cluster, fields as fieldspec, idor, rules
+from . import assettypes, cluster, fields as fieldspec, idor, rules
 
 COMMON_DENY = ["admin", "administrator", "wp-admin", "wp-login", "phpmyadmin", "pma", "cpanel", "plesk", "webmail",
                "server-status", "server-info", "cgi-bin", "install", "setup", "backup", "backups", "config",
@@ -75,9 +75,23 @@ def covered(doc: dict, path: str) -> bool:
     path, _, q = path.partition("?")
     if q:
         keys = {k for k, _ in urllib.parse.parse_qsl(q, keep_blank_values=True)}
-        return any(fits(doc, r, path) and keys <= set(((r.get("legacy_request") or {}).get("query") or {}))
-                   for r in doc.get("routes", []))
+        r = gateway_route(doc, path)
+        return r is not None and keys <= set(r.get("query") or {})  # the names a visitor sends
     return _covered(doc, path)
+
+
+def gateway_route(doc: dict, path: str):
+    """The route the gateway would serve path with: a route whose pattern is
+    path itself, else the one that matches with the fewest parameters (a
+    literal /search before /{slug})."""
+    routes = [r for r in doc.get("routes", []) if r.get("method", "GET") == "GET"]
+    same = next((r for r in routes if r.get("path") == path), None)
+    if same is not None:
+        return same
+    # as the gateway's router: by structure, fewest parameters, then map order
+    # (it checks the values after choosing)
+    fit = [r for r in routes if matches(r.get("path", ""), path)]
+    return min(fit, key=lambda r: r.get("path", "").count("{"), default=None)
 
 
 def _covered(doc: dict, path: str) -> bool:
@@ -92,16 +106,12 @@ def _ensure_types(doc: dict):
     t.setdefault("id", {"base": "int", "min": 0, "max": 999999999})
 
 
-# A query key added to a route already in the map: its values were seldom
-# seen (or not at all, when only the gateway reported the key), so it gets
-# a wide text type; verification narrows it from the values it sees.
-WIDE_QUERY = {"type": "string", "max_length": 1000, "required": False, "rules": ["no_html", "no_template_meta"]}
-
-
 def _merge_query(e: dict, r: cluster.Route) -> list:
-    """Adds to route e the query keys of r it does not declare yet (GET
-    routes the agent may change: legacy request by GET). Returns the legacy
-    keys added."""
+    """Adds to route e the query keys of r it does not declare yet: keys the
+    site's own links use, with the values seen there, typed as for a new
+    route. GET routes whose legacy request is a GET only, names a map can
+    hold only, never a key seen without a value (a visitor's report is no
+    evidence). Returns the keys added."""
     lr = e.get("legacy_request") or {}
     if e.get("method", "GET") != "GET" or lr.get("method", "GET") != "GET":
         return []
@@ -111,16 +121,46 @@ def _merge_query(e: dict, r: cluster.Route) -> list:
     for name, key in sorted(r.query_keys.items()):
         if key in have or key in taken or not cluster.IDENT.match(key):
             continue  # a visitor sends the key itself: only a name the map can hold
-        spec = r.query[name]
-        if spec.get("type") != "int" or len([v for v in r.query_samples.get(name, []) if v]) < 3:
-            spec = dict(WIDE_QUERY)
-        pub = key
-        taken.add(pub)
-        e.setdefault("query", {})[pub] = spec
-        lr.setdefault("query", {})[key] = "{{query.%s}}" % pub
+        if not [v for v in r.query_samples.get(name, []) if v]:
+            continue
+        taken.add(key)
+        e.setdefault("query", {})[key] = dict(r.query[name])
+        lr.setdefault("query", {})[key] = "{{query.%s}}" % key
         e["legacy_request"] = lr
         added.append(key)
     return added
+
+
+def _is_dropped_key(doc: dict, p: str) -> bool:
+    """A report of a key a route dropped: the route's own path (pattern or
+    literal), then ?key= with no value."""
+    path, _, q = p.partition("?")
+    return bool(q) and q.endswith("=") and "&" not in q and any(e.get("path") == path for e in doc.get("routes", []))
+
+
+def _dropped_keys(doc: dict, unmapped: list) -> list:
+    """Query keys the gateway dropped on a route (reported with the route's
+    pattern, /permits/{id}?orderby=, never a value): listed for the person,
+    never added. A visitor's request is no evidence of what the site uses."""
+    out = []
+    for u in unmapped:
+        path, _, q = u.get("path", "").partition("?")
+        if u.get("method") == "GET" and _is_dropped_key(doc, u.get("path", "")):
+            out.append({"route": path, "key": q[:-1], "clients": u.get("clients", 0)})
+    return sorted(out, key=lambda x: -x["clients"])[:50]
+
+
+def _files_refused(doc: dict, unmapped: list) -> list:
+    """Files under an asset prefix the gateway refused visitors (a type or
+    a size the prefix does not allow): listed for the person, never added,
+    since anyone can ask for any file."""
+    out = []
+    for u in unmapped:
+        p = u.get("path", "")
+        if u.get("method") == "GET" and "?" not in p and "{" not in p and \
+                any(p.startswith(a.get("prefix", "\0")) for a in doc.get("assets", [])):
+            out.append({"path": p, "clients": u.get("clients", 0)})
+    return sorted(out, key=lambda x: -x["clients"])[:50]
 
 
 def _route_entry(r: cluster.Route, anon: str, taken: set) -> dict:
@@ -191,8 +231,8 @@ def _widen_assets(doc: dict, assets: dict) -> list:
     entries = sorted(doc.get("assets", []), key=lambda a: len(a.get("prefix", "")), reverse=True)
     for path, ctype in sorted(assets.items()):
         a = next((a for a in entries if path.startswith(a.get("prefix", "\0"))), None)
-        if a is None or ctype in a.get("types", []):
-            continue
+        if a is None or ctype in a.get("types", []) or not assettypes.passive(ctype):
+            continue  # only passive types: a prefix opens every file of a type it lists
         a.setdefault("types", []).append(ctype)
         added.setdefault(a["prefix"], []).append(ctype)
     return [{"prefix": p, "types": t, "widened": True} for p, t in sorted(added.items())]
@@ -200,6 +240,27 @@ def _widen_assets(doc: dict, assets: dict) -> list:
 
 # The gateway's default size limits (gateway/internal/server/asset*.go).
 ASSET_MAX_KB, MEDIA_MAX_KB, SIZE_CEILING_KB = 10 << 10, 512 << 10, 4 << 20
+
+
+MEDIA_EXT = (".mp4", ".m4v", ".mov", ".webm", ".ogv", ".mp3", ".m4a", ".aac", ".oga", ".ogg", ".opus", ".wav", ".flac")
+
+
+def size_limit(a: dict, path: str, size: int) -> tuple:
+    """(max_size_kb to set on asset prefix a so that the file at path fits,
+    or 0 if it already does or never may; the limit in force). The gateway
+    streams media files (by extension, under a prefix listing an audio or
+    video type) up to 512 MiB by default, other files 10 MiB; max_size_kb,
+    once set, is the limit of both, so a prefix with media never goes below
+    the media default."""
+    media_prefix = any(t.startswith(("audio/", "video/")) for t in a.get("types", []))
+    media_file = media_prefix and path.lower().endswith(MEDIA_EXT)
+    now = a.get("max_size_kb") or (MEDIA_MAX_KB if media_file else ASSET_MAX_KB)
+    need = -(-size * 11 // 10240)  # ceil(size * 1.1 / 1024)
+    if need <= now or need > SIZE_CEILING_KB:
+        return 0, now
+    if media_prefix:
+        need = max(need, a.get("max_size_kb") or MEDIA_MAX_KB)
+    return need, now
 
 
 def _fit_sizes(doc: dict, sizes: dict) -> list:
@@ -211,10 +272,8 @@ def _fit_sizes(doc: dict, sizes: dict) -> list:
         a = next((a for a in entries if path.startswith(a.get("prefix", "\0"))), None)
         if a is None:
             continue
-        media = any(t.startswith(("audio/", "video/")) for t in a.get("types", []))
-        limit = a.get("max_size_kb") or (MEDIA_MAX_KB if media else ASSET_MAX_KB)
-        need = -(-size * 11 // 10240)  # ceil(size * 1.1 / 1024)
-        if limit < need <= SIZE_CEILING_KB:
+        need, now = size_limit(a, path, size)
+        if need:
             a["max_size_kb"] = need
             out[a["prefix"]] = need
     return [{"prefix": p, "max_size_kb": kb, "widened": True} for p, kb in sorted(out.items())]
@@ -248,8 +307,9 @@ def build(job: dict, crawl, fp) -> tuple:
         # one route per shape: the gateway refuses two that differ only by
         # their parameters' names; the one already there wins, and gets the
         # query keys it lacked (the gateway drops undeclared ones silently)
-        there = next((e for e in doc.get("routes", []) if _shape(e.get("path", "")) == _shape(r.path)
-                      or ("{" not in r.path and fits(doc, e, r.path))), None)
+        there = next((e for e in doc.get("routes", []) if _shape(e.get("path", "")) == _shape(r.path)), None)
+        if there is None and "{" not in r.path:
+            there = gateway_route(doc, r.path)
         if there is not None:
             keys = _merge_query(there, r)
             if keys:
@@ -286,7 +346,12 @@ def build(job: dict, crawl, fp) -> tuple:
     # An asset prefix takes everything under it that no route matches, POSTs
     # included: never one over pages, forms or script requests the study saw
     # (they stay with the site area, files included).
+    # everything the study knows is not a file: pages, forms, script requests,
+    # links it skipped or kept out, same-site URLs it did not get to open
     pages = {pq.split("?")[0] for pq in crawl.pages} | {urllib.parse.urlsplit(f.action).path for f in crawl.forms}
+    pages |= {pq.split("?")[0] for pq in list(crawl.skipped_actions) + list(crawl.excluded) + list(crawl.script_requests)}
+    pages |= {p for _, p in crawl.script_refused}
+    pages |= {urllib.parse.urlsplit(u).path for u in crawl.urls} - set(crawl.assets)
     for prefix, types in cluster.asset_prefixes(crawl.assets).items():
         if any(prefix.startswith(h) for h in have_assets):
             continue
@@ -301,7 +366,9 @@ def build(job: dict, crawl, fp) -> tuple:
     area = ensure_site_area(doc)
 
     after = sum(1 for p in paths if covered(doc, p))
-    visitors = [u for u in job.get("unmapped", []) if u.get("method") == "GET" and not covered(doc, u.get("path", ""))
+    visitors = [u for u in job.get("unmapped", []) if u.get("method") == "GET" and "{" not in u.get("path", "")
+                and not _is_dropped_key(doc, u.get("path", ""))
+                and not covered(doc, u.get("path", ""))
                 and not rules.excluded(u.get("path", ""), fp.cms)]
     stale = [r["path"] for r in (job.get("current_map") or {}).get("routes", []) if not any(matches(r["path"], p) for p in paths)]
     report = {
@@ -315,6 +382,8 @@ def build(job: dict, crawl, fp) -> tuple:
         "excluded": [{"path": p.split("?")[0], "reason": r} for p, r in sorted(crawl.excluded.items())][:200],
         "skipped_actions": len(crawl.skipped_actions), "not_supported": not_supported,
         "query_added": query_added,
+        "query_dropped": _dropped_keys(doc, job.get("unmapped", [])),
+        "files_refused": _files_refused(doc, job.get("unmapped", [])),
         "visitors_missing": [{"path": u["path"], "clients": u.get("clients", 0)} for u in visitors][:50],
         "not_seen_anymore": stale[:100], "login": crawl.login or None, "errors": crawl.errors,
         "accounts": [{"label": k, "login": v} for k, v in crawl.logins.items()],

@@ -1,6 +1,7 @@
 package server
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/thevidocq/equalizer/gateway/internal/legacyclient"
@@ -18,6 +19,11 @@ func TestCheckAsset(t *testing.T) {
 		{"avif", "image/avif", "\x00\x00\x00\x1cftypavif\x00\x00\x00\x00", "", ""},
 		{"avif that is a script", "image/avif", "<script>alert(1)</script>", "", "asset_content_mismatch"},
 		{"png that is html", "image/png", "<html>", "", "asset_content_mismatch"},
+		{"declared font that is html", "font/woff", "<html><script>", "", "asset_content_mismatch"},
+		// the map allows font/woff only: another format is not served, deny by default
+		{"declared font, another font format", "font/woff", "wOF2\x00\x01", "", "asset_type_not_allowed"},
+		{"page passing as EOT", "font/woff", strings.Repeat("A", 34) + "LP<html><script>alert(1)</script>", "", "asset_content_mismatch"},
+		{"declared font", "font/woff", "wOFF\x00\x01", "", ""},
 	}
 	for _, c := range cases {
 		served, reason := checkAsset(asset, c.ct, &legacyclient.Response{Body: []byte(c.body)}, 100)

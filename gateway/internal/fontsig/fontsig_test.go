@@ -42,3 +42,30 @@ func TestResolve(t *testing.T) {
 		}
 	}
 }
+
+func TestSfntFamily(t *testing.T) {
+	allowed := []string{"font/ttf"}
+	for _, c := range []struct{ declared, body, want string }{
+		{"font/ttf", "OTTO\x00\x0c", OTF},
+		{"application/font-sfnt", "ttcf\x00\x02", TTC},
+		{"application/octet-stream", "ttcf\x00\x02", TTC},
+		{"font/ttf", "wOFF\x00\x01", ""}, // a WOFF is not an sfnt font: the map allows only TTF
+	} {
+		if got := Resolve(c.declared, []byte(c.body), allowed); got != c.want {
+			t.Errorf("Resolve(%q, %q) = %q, want %q", c.declared, c.body, got, c.want)
+		}
+	}
+}
+
+func TestEOTNeedsItsVersion(t *testing.T) {
+	forged := append(make([]byte, 34), []byte("LP<html>")...)
+	if Sniff(forged) != "" {
+		t.Error("34 bytes and LP are no EOT")
+	}
+	real := make([]byte, 40)
+	real[8], real[9], real[10], real[11] = 0x01, 0x00, 0x02, 0x00 // 0x00020001
+	real[34], real[35] = 0x4C, 0x50
+	if Sniff(real) != EOT {
+		t.Error("a real EOT header")
+	}
+}

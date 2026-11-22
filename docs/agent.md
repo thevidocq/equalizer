@@ -315,11 +315,14 @@ The agent never changes the legacy site. Three layers:
    or `_`, with at most one such verb and never at either end:
    `how-to-remove-stains`; not `item-12-remove` nor `my-plan-cancel`) is a
    page, unless it holds `logout`, `delete`, `unsubscribe`, `destroy`,
-   `purge` or `impersonate`; `logout` and `signout` are actions anywhere,
-   log off / sign off / log out / sign out (with or without `-` or `_`) as a
-   word of its own: after a non-letter or a camelCase step (`/SignOff.aspx`,
-   `/doLogoff`), never inside a word (`/catalogoffers/`, `/blog-offers/`);
-   the query is always read in full.
+   `purge` or `impersonate`; `logout`, `logoff`, `signout`, `signoff` are
+   actions anywhere (`/dologoff`, `/UserLogOff.aspx`), except inside the few
+   words that hold them by chance (catalog-offers, analog-offset,
+   blog-offers, dialog-off…, design-office); `log-out`, `log_off`,
+   `sign-out`… as words of their own, also inside a title
+   (`/sessions/log-out-all-devices` is an action, `/sign-off-letter-examples/`
+   a page); the query is always read in full. The cases the reviews found
+   are kept as a regression corpus in `agent/tests/test_actions.py`.
 3. **Checks stop at the gateway.** Preview only serves `GET` and `HEAD`;
    everything else is dry-run and never forwarded.
 

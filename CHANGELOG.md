@@ -42,6 +42,24 @@ it, 0.1.0 (`docs/releases/0.1.0.md`, tag on the merge of #39).
 
 ## Entries
 
+### 2026-11-22 — Fourth re-review: log off and sign off, safety first
+
+- **Branch:** fix/independent-review
+- **What:** an eighth independent reviewer found that the word-boundary
+  rule for log off / sign off let real logout links through (`/dologoff`,
+  `/doLOGOFF`, `?cmd=dologoff`, `/sessions/log-out-all-devices`) and that
+  separated spellings had left `STRONG`. `webapps/base.py` now treats
+  `logout`, `logoff`, `signout`, `signoff` as actions anywhere, with an
+  explicit list of the words that hold them by chance (catalog-offers,
+  analog-offset, blog-offers, dialog-off…, design-office), and the
+  separated spellings (`log-out`, `sign_out`, `log-off`) as strong words, so
+  no title rescues them (`sign-off` stays content). Every case found in the
+  four reviews is a test (`test_actions.py`, `test_verify_assets.py`).
+  panel-api `RetireDraft` answers `ErrNotDraft` when nothing was retired,
+  so no withdrawal is audited that did not happen.
+- **Status:** agent, panel-api green.
+- **Next steps:** as above.
+
 ### 2026-11-22 — Third re-review of the review fixes
 
 - **Branch:** fix/independent-review

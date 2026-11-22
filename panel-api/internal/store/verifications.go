@@ -169,10 +169,17 @@ func (s *Store) RecordVerification(ctx context.Context, app string, version int,
 }
 
 // RetireDraft retires a draft nobody will review (a correction withdrawn).
+// ErrNotDraft when it is no longer a draft (a person took it on too).
 func (s *Store) RetireDraft(ctx context.Context, app string, version int) error {
-	_, err := s.DB.ExecContext(ctx, `UPDATE map_versions SET status = 'retired'
+	res, err := s.DB.ExecContext(ctx, `UPDATE map_versions SET status = 'retired'
 		WHERE app_id = $1 AND version = $2 AND status = 'draft'`, app, version)
-	return err
+	if err != nil {
+		return err
+	}
+	if n, err := res.RowsAffected(); err != nil || n != 1 {
+		return ErrNotDraft
+	}
+	return nil
 }
 
 // ErrNotDraft: the version is no longer a draft.

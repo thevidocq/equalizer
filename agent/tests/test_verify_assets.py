@@ -13,7 +13,7 @@ from equalizer_agent.fetch import Response  # noqa: E402
 PAGE = b"""<html><head><link rel=stylesheet href="/t/css/s.css"><script src="/t/js/app.js"></script></head><body>
 <img src="/t/img/a.avif"><video src="/t/video/big.mp4"></video><img src="/up/photo.jpg">
 <a href="/t/news/">a page under the prefix</a><a href="/t/feed.xhtml">xhtml</a><a href="/t/export.csv">csv</a>
-<a href="/t/backup.zip">zip</a><a href="/t/logout">action</a><script src="/t/lib/dropzone/dropzone.min.js"></script><a href="/t/account/logout/bye.png">action folder</a><img src="/t/img/delete-icon.png"><a href="/t/js/linked.js">linked script</a>
+<a href="/t/backup.zip">zip</a><a href="/t/logout">action</a><script src="/t/lib/dropzone/dropzone.min.js"></script><a href="/t/account/logout/bye.png">action folder</a><a href="/t/account/log-out/bye.png">x</a><a href="/t/sign-out/x.png">x</a><img src="/t/img/delete-icon.png"><a href="/t/js/linked.js">linked script</a>
 <img src="https://cdn.elsewhere.test/x.png"></body></html>"""
 FILES = {
     "/t/css/s.css": (200, "text/css", b"@font-face{src:url(../fonts/f.woff)} .x{background:url(/t/img/b.png)}", ""),
@@ -31,6 +31,8 @@ FILES = {
     "/t/logout": (200, "image/png", b"", ""),
     "/t/lib/dropzone/dropzone.min.js": (200, "application/javascript", b"", ""),
     "/t/account/logout/bye.png": (200, "image/png", b"", ""),
+    "/t/account/log-out/bye.png": (200, "image/png", b"", ""),
+    "/t/sign-out/x.png": (200, "image/png", b"", ""),
     "/t/img/delete-icon.png": (200, "image/png", b"", ""),
 }
 
@@ -87,7 +89,8 @@ class VerifyAssetsTest(unittest.TestCase):
         self.assertNotIn("/up/photo.jpg", f.asked)  # the area serves it: nothing to check
         self.assertNotIn("/t/backup.zip", f.asked)  # sensitive: never opened
         self.assertNotIn("/t/logout", f.asked)  # an action: never opened
-        self.assertNotIn("/t/account/logout/bye.png", f.asked)  # a file in an action's folder neither
+        for p in ("/t/account/logout/bye.png", "/t/account/log-out/bye.png", "/t/sign-out/x.png"):
+            self.assertNotIn(p, f.asked)  # a file in an action's folder neither
         self.assertIn("/t/img/delete-icon.png", f.asked)  # a file named delete-icon is no action, as in the crawl
         self.assertIn("/t/lib/dropzone/dropzone.min.js", f.asked)  # nor a folder named dropzone
         self.assertNotIn("/t/news/", [p for _, p in gw.asked])  # a page: verify compares it, not this

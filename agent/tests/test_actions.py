@@ -20,7 +20,13 @@ class ActionsTest(unittest.TestCase):
                   "/user/42/account-disable-now", "/orders/12/order-cancel-confirm", "/posts/7/do-publish-now",
                   "/comments/42/mark-as-spam", "/Account/LogOff", "/users/sign_out", "/x/log_out", "/x/log-off",
                   "/signoff", "/user/signoff", "/SignOff.aspx", "/account/sign-off", "/sign_off", "/doLogoff",
-                  "/UserLogOff.aspx", "/Home/LogOffUser", "/x?action=signoff"):
+                  "/UserLogOff.aspx", "/Home/LogOffUser", "/x?action=signoff",
+                  # all lowercase or uppercase, glued to other words
+                  "/dologoff", "/userlogoff.aspx", "/applogoff.php", "/home/logoffuser", "/logoffnow",
+                  "/doLOGOFF", "/dosignoff", "/index.php?cmd=dologoff",
+                  # a title that ends every session is still an action
+                  "/sessions/log-out-all-devices", "/account/sign-out-all-sessions",
+                  "/account/sign-out-everywhere-now", "/me/log-off-all-devices"):
             self.assertTrue(is_action(u), u)
 
     def test_content_slugs(self):

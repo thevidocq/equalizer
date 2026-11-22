@@ -42,18 +42,16 @@ SENSITIVE = (
 )
 
 # Links that change something, whatever the application: never followed.
-# log off / sign off / log out / sign out, with or without - or _, as a word
-# of its own: after a non-letter (/signoff, /SignOff.aspx, /Home/LogOffUser)
-# or a camelCase step (/doLogoff, /UserLogOff.aspx); never inside a word
-# (/catalogoffers/, /designoffice/, /blog-offers/). logout and signout stay
-# actions anywhere, as always.
-_OFF = (r"(?:(?-i:(?<![a-z]))(?:log|sign)[-_]?(?:off|out)(?-i:(?![a-z]))"
-        r"|(?-i:(?<=[a-z])(?:Log|Sign)[-_]?(?:Off|off|Out|out)(?![a-z])))")
-# The same without a separator: never part of an innocent title
-# (/sign-off-letter-examples/ is one; see _content_slug).
-_OFF_JOINED = (r"(?:(?-i:(?<![a-z]))(?:log|sign)(?:off|out)(?-i:(?![a-z]))"
-               r"|(?-i:(?<=[a-z])(?:Log|Sign)(?:Off|off|Out|out)(?![a-z])))")
-ACTIONS = re.compile(r"(logout|signout|" + _OFF + r"|"
+# Log out / log off / sign out / sign off end the test account's session:
+# without a separator they are actions anywhere (/dologoff, /UserLogOff.aspx,
+# ?cmd=dologoff), except inside the few words that hold them by chance
+# (catalog-offers, analog-offset, blog-offers, dialog-off…, design-office);
+# with a separator (log-out, sign_off) as a word of their own.
+_JOINED = r"(?:logout|signout|(?<!cata)(?<!ana)(?<!dia)(?<!b)logoff|(?<!de)signoff)"
+_SEPARATED = r"(?<![a-z])(?:log[-_]out|log[-_]off|sign[-_]out|sign[-_]off)(?![a-z])"
+# Strong: never part of an innocent title; sign-off is (sign-off letters).
+_SEPARATED_STRONG = r"(?<![a-z])(?:log[-_]out|log[-_]off|sign[-_]out)(?![a-z])"
+ACTIONS = re.compile(r"(" + _JOINED + r"|" + _SEPARATED + r"|"
                      r"delete|remove|destroy|unsubscribe|reset|drop|purge|"
                      r"action=(del|delete|remove|logout|edit|update))", re.I)
 # More of them, as whole words (a slug such as /running-tips/ is not "run").
@@ -70,7 +68,7 @@ TOKENS = re.compile(r"[?&](_wpnonce|nonce|_nonce|token|_token|csrf|csrf_token|fo
 
 _SLUG_WORD = re.compile(r"^[A-Za-z0-9]+$")
 # Never part of an innocent slug: a segment holding one is always an action.
-STRONG = re.compile(r"(logout|signout|" + _OFF_JOINED + r"|unsubscribe|destroy|delete|purge|impersonate)", re.I)
+STRONG = re.compile(r"(" + _JOINED + r"|" + _SEPARATED_STRONG + r"|unsubscribe|destroy|delete|purge|impersonate)", re.I)
 
 
 def _is_action_word(word: str) -> bool:

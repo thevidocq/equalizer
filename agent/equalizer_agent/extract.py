@@ -5,6 +5,8 @@ import urllib.parse
 from dataclasses import dataclass, field
 from html.parser import HTMLParser
 
+from . import css
+
 
 @dataclass
 class Input:
@@ -53,12 +55,27 @@ class _Parser(HTMLParser):
     def __init__(self, base: str):
         super().__init__(convert_charrefs=True)
         self.base, self.page, self.form, self.select, self.in_title, self.in_script = base, Page(), None, None, False, False
+        self.in_style = False
 
     def _abs(self, href: str) -> str:
         return urllib.parse.urljoin(self.base, href.strip())
 
+    def _media(self, a: dict):
+        """Every file an image, a video or an embed may load: its source, its
+        lazy-loading copies, its poster and each candidate of a srcset."""
+        for k in ("src", "data-src", "data-lazy-src", "data-original", "poster", "data-poster", "data"):
+            if a.get(k) and not a[k].startswith("data:"):
+                self.page.assets.append(self._abs(a[k]))
+        for k in ("srcset", "data-srcset"):
+            for cand in a.get(k, "").split(","):
+                url = cand.strip().split(" ")[0]
+                if url and not url.startswith("data:"):
+                    self.page.assets.append(self._abs(url))
+
     def handle_starttag(self, tag, attrs):
         a = {k: (v or "") for k, v in attrs}
+        if a.get("style"):
+            self.page.assets.extend(css.refs(a["style"], self.base))  # style="background:url(…)"
         if tag == "base" and a.get("href"):
             self.base = self._abs(a["href"])
         elif tag in ("a", "area") and a.get("href"):
@@ -66,8 +83,10 @@ class _Parser(HTMLParser):
         elif tag == "link" and a.get("href"):
             rel = a.get("rel", "").lower()
             (self.page.assets if "stylesheet" in rel or "icon" in rel or "preload" in rel else self.page.links).append(self._abs(a["href"]))
-        elif tag in ("img", "source", "video", "audio") and a.get("src"):
-            self.page.assets.append(self._abs(a["src"]))
+        elif tag in ("img", "source", "video", "audio", "track", "embed", "object"):
+            self._media(a)
+        elif tag == "style":
+            self.in_style = True
         elif tag == "script":
             self.in_script = True
             if a.get("src"):
@@ -113,12 +132,16 @@ class _Parser(HTMLParser):
             self.in_title = False
         elif tag == "script":
             self.in_script = False
+        elif tag == "style":
+            self.in_style = False
 
     def handle_data(self, data):
         if self.in_title and len(self.page.title) < 120:
             self.page.title += data.strip()
         elif self.in_script:
             self.page.links.extend(self._abs(m) for m in SCRIPT_URL.findall(data))
+        elif self.in_style:
+            self.page.assets.extend(css.refs(data, self.base))
 
 
 def parse(html: str, base: str) -> Page:

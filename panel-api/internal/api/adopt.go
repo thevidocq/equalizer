@@ -124,14 +124,18 @@ func (s *Server) adoptDiscovery(w http.ResponseWriter, r *http.Request, u *auth.
 		s.storeError(w, r, err)
 		return
 	}
+	// the new draft takes the discovery's place, whatever it was built on:
+	// the next click adds to it, and the person reviews one draft with every change
+	var moved error
 	if fromDraft {
-		// the new draft takes the discovery's place: the next click adds to it,
-		// and the person reviews one draft with every change
-		if err := s.Store.Supersede(r.Context(), a.ID, base.Version, version); err != nil {
-			_ = s.Store.RetireDraft(r.Context(), a.ID, version)
-			fail(w, http.StatusConflict, "draft_taken", adoptConflicts["draft_taken"])
-			return
-		}
+		moved = s.Store.Supersede(r.Context(), a.ID, base.Version, version)
+	} else {
+		moved = s.Store.PointDiscovery(r.Context(), a.ID, d.ID, d.DraftVersion, version)
+	}
+	if moved != nil {
+		_ = s.Store.RetireDraft(r.Context(), a.ID, version)
+		fail(w, http.StatusConflict, "draft_taken", adoptConflicts["draft_taken"])
+		return
 	}
 	_ = s.Store.Record(r.Context(), &u.ID, &a.Tenant, "map.adopted", a.ID,
 		map[string]any{"version": version, "from": base.Version, "discovery": d.ID, "kind": in.Kind})

@@ -189,6 +189,20 @@ func (s *Store) FinishDiscovery(ctx context.Context, id int64, report json.RawMe
 	return affected(res, err)
 }
 
+// PointDiscovery makes a discovery propose version to, if it still proposes
+// from (nil: no draft); ErrNotDraft otherwise (someone moved it meanwhile).
+func (s *Store) PointDiscovery(ctx context.Context, app string, id int64, from *int, to int) error {
+	res, err := s.DB.ExecContext(ctx, `UPDATE discoveries SET draft_version = $4
+		WHERE id = $1 AND app_id = $2 AND draft_version IS NOT DISTINCT FROM $3`, id, app, from, to)
+	if err != nil {
+		return err
+	}
+	if n, err := res.RowsAffected(); err != nil || n != 1 {
+		return ErrNotDraft
+	}
+	return nil
+}
+
 // SetDiscoverySchedule turns continuous discovery on or off and sets when
 // it runs; the owner is the administrator whose rights the scheduled runs use.
 func (s *Store) SetDiscoverySchedule(ctx context.Context, app, schedule string, at DiscoveryTime, owner int64) error {

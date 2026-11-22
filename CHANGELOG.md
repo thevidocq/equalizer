@@ -42,6 +42,21 @@ it, 0.1.0 (`docs/releases/0.1.0.md`, tag on the merge of #39).
 
 ## Entries
 
+### 2026-11-22 — One-click adoption: chain on the published map too
+
+- **Branch:** feat/report-actions
+- **What:** a second review found the chaining only worked on the
+  discovery's own draft. When the base is the published map (the
+  discovery's draft published, retired, or none proposed — the usual
+  scheduled discovery on an unchanged site), the new draft now also takes
+  the discovery's place (`Store.PointDiscovery`, conditional on the
+  discovery still proposing what it proposed; otherwise 409
+  `draft_taken` and the new draft is retired). The automatic verification
+  is queued before the discovery shows its draft, so a click never lands
+  on a draft whose check has not started. Test `TestAdoptAfterPublish`.
+- **Status:** panel-api green.
+- **Next steps:** merge after #88.
+
 ### 2026-11-22 — Review of the one-click adoption
 
 - **Branch:** feat/report-actions

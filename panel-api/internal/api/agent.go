@@ -175,12 +175,14 @@ func (s *Server) discoveryResult(w http.ResponseWriter, r *http.Request) {
 	if c, err := s.Store.DiscoverySecrets(r.Context(), id); draft != nil && err == nil {
 		opts.AccountsSecret, opts.Accounts = s.sealAccounts(a.ID, s.jobAccounts(c))
 	}
+	// queued before the discovery shows its draft: a person adding to the
+	// draft (adopt) always sees the agent's check in progress
+	if draft != nil {
+		_, _ = s.Store.QueueVerification(r.Context(), a.ID, *draft, nil, opts)
+	}
 	if err := s.Store.FinishDiscovery(r.Context(), id, in.Report, draft, fp); err != nil {
 		s.storeError(w, r, err)
 		return
-	}
-	if draft != nil {
-		_, _ = s.Store.QueueVerification(r.Context(), a.ID, *draft, nil, opts)
 	}
 	detail := map[string]any{"id": id, "draft_version": draft}
 	if fp != nil {

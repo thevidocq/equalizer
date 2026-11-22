@@ -41,6 +41,10 @@ func (p *Public) serveAsset(w http.ResponseWriter, r *http.Request, st *site.Sit
 		p.block(w, r, st, http.StatusNotFound, "asset_name_rejected")
 		return
 	}
+	if streamsMedia(asset, file) {
+		p.serveMediaAsset(w, r, st, m, asset, file)
+		return
+	}
 
 	// The client query never reaches the legacy application: an asset is just its path.
 	req, err := st.Legacy.Build(r.Context(), mapmodel.LegacyRequest{Method: http.MethodGet, Path: asset.Prefix + file}, nil)

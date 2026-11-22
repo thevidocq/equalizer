@@ -51,6 +51,7 @@ func testSite(t *testing.T, legacy http.Handler) *site.Site {
 			{Prefix: "/css/", Types: []string{"text/css"}},
 			{Prefix: "/img/", Types: []string{"image/png"}},
 			{Prefix: "/tpl/", Types: []string{"text/html"}},
+			{Prefix: "/fonts/", Types: []string{"font/woff", "font/woff2"}},
 		},
 	}
 	st, err := site.Build(m)
@@ -238,6 +239,15 @@ func TestAssets(t *testing.T) {
 		case "/tpl/upper.html": // the same type in capitals: sandboxed all the same
 			w.Header().Set("Content-Type", "Text/HTML; charset=UTF-8")
 			_, _ = w.Write([]byte(`<script>alert(1)</script>`))
+		case "/fonts/a.woff": // an Apache with no mapping for fonts
+			w.Header().Set("Content-Type", "application/octet-stream")
+			_, _ = w.Write([]byte("wOFF\x00\x01\x00\x00"))
+		case "/fonts/b.woff": // an old name for the same type
+			w.Header().Set("Content-Type", "application/x-font-woff")
+			_, _ = w.Write([]byte("wOFF\x00\x01\x00\x00"))
+		case "/fonts/c.woff": // not a font, whatever the name says
+			w.Header().Set("Content-Type", "application/octet-stream")
+			_, _ = w.Write([]byte("<script>alert(1)</script>"))
 		case "/css/fake.css":
 			w.Header().Set("Content-Type", "application/x-httpd-php")
 			_, _ = w.Write([]byte("<?php ?>"))
@@ -260,7 +270,12 @@ func TestAssets(t *testing.T) {
 		!strings.HasPrefix(rec.Header().Get("Content-Security-Policy"), "sandbox") {
 		t.Errorf("Text/HTML: %d, CSP %q", rec.Code, rec.Header().Get("Content-Security-Policy"))
 	}
-	for _, target := range []string{"/img/shell.png", "/css/fake.css", "/css/../WEB-INF/web.xml", "/css/a//b.css", "/css/%7B%7Bx%7D%7D.css"} {
+	for _, target := range []string{"/fonts/a.woff", "/fonts/b.woff"} {
+		if rec := get(h, "GET", target, nil); rec.Code != 200 || rec.Header().Get("Content-Type") != "font/woff" {
+			t.Errorf("%s: %d, Content-Type %q", target, rec.Code, rec.Header().Get("Content-Type"))
+		}
+	}
+	for _, target := range []string{"/fonts/c.woff", "/img/shell.png", "/css/fake.css", "/css/../WEB-INF/web.xml", "/css/a//b.css", "/css/%7B%7Bx%7D%7D.css"} {
 		if rec := get(h, "GET", target, nil); rec.Code != http.StatusNotFound {
 			t.Errorf("%s: status %d, want 404", target, rec.Code)
 		}

@@ -40,6 +40,31 @@ it, 0.1.0 (`docs/releases/0.1.0.md`, tag on the merge of #39).
 
 ## Entries
 
+### 2026-11-22 — Fonts served with a generic or old media type
+
+- **Branch:** fix/asset-font-types
+- **What:** new package `gateway/internal/fontsig` recognises web fonts by
+  signature (WOFF, WOFF2, TrueType, OpenType, EOT) and maps old names
+  (`application/x-font-woff`, `font/x-woff`, ...) to canonical types.
+  `checkAsset` (`internal/server/asset.go`): when the declared type is not in
+  the prefix's `types`, a font whose signature is an allowed type is served
+  anyway, with the canonical `Content-Type`; a declared font type that
+  disagrees with the signature is still refused. Tests in `fontsig` and
+  `TestAssets`. Map format doc updated.
+- **Why:** on metaliquid.thevidocq.com (ProcessWire, origin meta-liquid.com)
+  every `.woff` under `/site/templates/` was refused with
+  `asset_type_not_allowed` although the map allows `font/woff`: the origin
+  sends fonts with a type the map does not list.
+- **Status:** gateway `gofmt`/`vet`/`test` green. Not yet checked against the
+  live site (the exact type the origin sends is in the gateway WARN log
+  `asset rejected`, field `content_type`).
+- **Next steps:**
+  1. Large media assets: `homepage-video.mp4` fails with
+     `response_too_large` (legacyclient buffers up to 16 MiB). Stream
+     audio/video assets with `Range` support and `video/mp4` in asset types.
+  2. Resume strict mode (`feat/strict-mode`): the branch was never pushed,
+     nothing of it is on `main`.
+
 ### 2026-11-21 — The legacy site is asked for its own name (release 0.2.7)
 
 - **Branch:** feat/legacy-host

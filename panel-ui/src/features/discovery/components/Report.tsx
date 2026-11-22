@@ -1,6 +1,7 @@
-import { Link, useParams } from "react-router";
+import { useParams } from "react-router";
 import { Notice, Spinner } from "@/shared/ui";
-import { STILL_OPEN, VerificationPanel } from "@/features/maps";
+import { STILL_OPEN } from "@/features/maps";
+import { DraftNotice } from "./DraftNotice";
 import type { Discovery } from "../hooks/useDiscovery";
 
 type R = Record<string, any>; // eslint-disable-line @typescript-eslint/no-explicit-any
@@ -44,11 +45,8 @@ export function Report({ d }: { d: Discovery }) {
   const ai = (r.ai ?? {}) as R;
   return (
     <div className="flex flex-col gap-5">
-      {d.draft_version ? (
-        <Notice tone="info">A draft was proposed: <Link className="font-semibold text-signal hover:underline" to={`../maps/${d.draft_version}`}>
-          version {d.draft_version}</Link>. Review it and publish it.</Notice>
-      ) : <Notice tone="info">The map already covers what was found: no draft needed.</Notice>}
-      {d.draft_version ? <VerificationPanel app={app} version={d.draft_version} canVerify={false} versionLink={(v) => `../maps/${v}`} /> : null}
+      {d.draft_version ? <DraftNotice app={app} draft={d.draft_version} />
+        : <Notice tone="info">The map already covers what was found: no draft needed.</Notice>}
       <div className="grid gap-3 sm:grid-cols-4">
         <Stat label="Built with" value={r.cms ? `${r.cms}${r.version ? " " + r.version : ""}` : "Not recognised"} />
         <Stat label="Coverage" value={`${r.coverage ?? 0}%`} />

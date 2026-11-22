@@ -42,6 +42,35 @@ it, 0.1.0 (`docs/releases/0.1.0.md`, tag on the merge of #39).
 
 ## Entries
 
+### 2026-11-22 — After a discovery, one draft to review
+
+- **Branch:** fix/one-draft
+- **What:**
+  - panel-api `store.Supersede`: when the agent corrects the draft a
+    discovery proposed (automatic verification, `requested_by` empty), the
+    first draft is retired (unsigned: never a rollback target) and the
+    discovery's `draft_version` becomes the corrected version; audit
+    `map.superseded`. `RecordVerification` stores the corrections (and the
+    measure before them) on the corrected version. A verification asked by
+    a person keeps both versions.
+  - panel-ui `features/discovery/components/DraftNotice.tsx`: while the
+    agent verifies and corrects, the discovery page says so instead of
+    "review it and publish it"; then it links the draft to review (the
+    corrected one) with its verification. `useVerification` takes
+    `enabled`; audit text for `map.superseded`.
+  - Test: `TestDiscovery` (first draft retired, discovery proposes the
+    corrected version, corrections on it). Docs: `docs/agent.md`, tenant
+    manual and in-app help.
+- **Why:** the discovery page told the person to review and publish the
+  first draft (version 9) while the agent had already corrected it into
+  version 10: publishing as told shipped the uncorrected map.
+- **Status:** panel-api tests green (PostgreSQL), `check:help` green.
+  panel-ui not type-checked in this session (no `node_modules`, network
+  off): CI runs `tsc`, tests and boundaries.
+- **Next steps:**
+  1. Release 0.2.10.
+  2. Resume strict mode (`feat/strict-mode`).
+
 ### 2026-11-22 — Multipart: refuse field names with a backslash
 
 - **Branch:** fix/route-building

@@ -262,10 +262,19 @@ func (s *Server) verificationResult(w http.ResponseWriter, r *http.Request) {
 			res.Failure = &failure
 		} else if nv, err := s.Store.CreateDraft(r.Context(), a.ID, doc,
 			fmt.Sprintf("Corrected by the agent from version %d", v.Version), *v.AuthorID); err == nil {
-			_ = s.Store.RecordVerification(r.Context(), a.ID, nv, v.Accounts, res)
+			// the corrected version carries its measure and the corrections that made it
+			final := res
+			final.Corrections, final.Before = in.Corrections, in.Before
+			_ = s.Store.RecordVerification(r.Context(), a.ID, nv, v.Accounts, final)
 			// this version keeps its own measure, before the corrections
 			res = store.VerificationResult{Score: in.Before, Corrections: in.Corrections, Before: in.Before, CorrectedVersion: &nv}
 			_ = s.Store.Record(r.Context(), nil, &a.Tenant, "map.corrected", a.ID, map[string]any{"from": v.Version, "version": nv})
+			if v.RequestedBy == nil {
+				// after a discovery: one draft to review, the corrected one
+				if err := s.Store.Supersede(r.Context(), a.ID, v.Version, nv); err == nil {
+					_ = s.Store.Record(r.Context(), nil, &a.Tenant, "map.superseded", a.ID, map[string]any{"from": v.Version, "version": nv})
+				}
+			}
 		}
 	}
 	if err := s.Store.FinishVerification(r.Context(), v.ID, res); err != nil {

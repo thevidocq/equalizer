@@ -159,10 +159,33 @@ func (s *Store) RecordVerification(ctx context.Context, app string, version int,
 		accounts = []string{}
 	}
 	_, err := s.DB.ExecContext(ctx, `
-		INSERT INTO map_verifications (app_id, version, status, started_at, finished_at, score, broken, open, accounts)
-		VALUES ($1, $2, 'done', now(), now(), $3, $4, $5, $6)`,
-		app, version, nullJSON(r.Score), orEmpty(r.Broken), orEmpty(r.Open), pq.Array(accounts))
+		INSERT INTO map_verifications (app_id, version, status, started_at, finished_at, score, broken, open, accounts,
+			corrections, before)
+		VALUES ($1, $2, 'done', now(), now(), $3, $4, $5, $6, $7, $8)`,
+		app, version, nullJSON(r.Score), orEmpty(r.Broken), orEmpty(r.Open), pq.Array(accounts),
+		orEmpty(r.Corrections), nullJSON(r.Before))
 	return err
+}
+
+// Supersede replaces a draft by the version the agent corrected it into:
+// the draft is retired (unsigned, so it can never be rolled back to) and
+// the discovery that proposed it proposes the corrected one. The person
+// reviews one draft, the agent's last.
+func (s *Store) Supersede(ctx context.Context, app string, from, to int) error {
+	tx, err := s.DB.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback() //nolint:errcheck
+	if _, err := tx.ExecContext(ctx, `UPDATE map_versions SET status = 'retired'
+		WHERE app_id = $1 AND version = $2 AND status = 'draft'`, app, from); err != nil {
+		return err
+	}
+	if _, err := tx.ExecContext(ctx, `UPDATE discoveries SET draft_version = $3
+		WHERE app_id = $1 AND draft_version = $2`, app, from, to); err != nil {
+		return err
+	}
+	return tx.Commit()
 }
 
 // StudiedPages are the pages the latest finished discovery of a site

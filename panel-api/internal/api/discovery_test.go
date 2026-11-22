@@ -192,6 +192,7 @@ func TestDiscovery(t *testing.T) {
 	var v1, v2 struct {
 		Author       string
 		Note         string
+		Status       string
 		Verification struct {
 			Status           string
 			Score            map[string]float64
@@ -209,8 +210,20 @@ func TestDiscovery(t *testing.T) {
 	}
 	if v2.Author != "boss@acme.test" || !strings.Contains(v2.Note, "Corrected by the agent from version 1") ||
 		v2.Verification.Status != "done" || v2.Verification.Score["functions_identical"] != 9 || len(v2.Verification.Broken) != 1 ||
-		len(v2.Verification.Accounts) != 2 {
+		len(v2.Verification.Accounts) != 2 || len(v2.Verification.Corrections) != 1 || v2.Status != "draft" {
 		t.Fatalf("corrected draft: %+v", v2)
+	}
+	// After a discovery the person reviews one draft, the corrected one: the
+	// first is retired and the discovery proposes the corrected version.
+	if v1.Status != "retired" {
+		t.Fatalf("first draft still %q", v1.Status)
+	}
+	var after struct {
+		DraftVersion *int `json:"draft_version"`
+	}
+	boss.must(200, "GET", "/v1/apps/blog/discoveries/"+itoa(d.ID), nil, &after)
+	if after.DraftVersion == nil || *after.DraftVersion != 2 {
+		t.Fatalf("discovery proposes %v, want version 2", after.DraftVersion)
 	}
 	var kept int
 	_ = e.st.DB.QueryRowContext(context.Background(), `SELECT count(*) FROM map_verifications WHERE accounts_secret IS NOT NULL`).Scan(&kept)

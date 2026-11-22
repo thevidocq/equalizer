@@ -19,7 +19,8 @@ Add a section at the top of "Entries" for every commit:
 
 ## Current project status
 
-Latest release: **0.2.7** (`docs/releases/0.2.7.md`); before it 0.2.6
+Latest release: **0.2.8** (`docs/releases/0.2.8.md`); before it 0.2.7
+(`docs/releases/0.2.7.md`), 0.2.6
 (`docs/releases/0.2.6.md`), 0.2.5 (`docs/releases/0.2.5.md`), 0.2.4 (`docs/releases/0.2.4.md`), 0.2.3 (`docs/releases/0.2.3.md`) and 0.2.2
 (`docs/releases/0.2.2.md`); 0.2.0 was for the first installations; before
 it, 0.1.0 (`docs/releases/0.1.0.md`, tag on the merge of #39).
@@ -39,6 +40,21 @@ it, 0.1.0 (`docs/releases/0.1.0.md`, tag on the merge of #39).
 | tools (eqtool) | Map signing keys, form key, relay token, connector registration, map signing |
 
 ## Entries
+
+### 2026-11-22 — Release 0.2.8
+
+- **Branch:** chore/release-0.2.8 (on top of #77 and #78)
+- **What:** `VERSION`, agent version (`agent/pyproject.toml`,
+  `equalizer_agent/__init__.py`), `INSTALL.md`, `README.md`,
+  `deploy/compose/.env.example` (it still said 0.2.3) point to 0.2.8;
+  release notes `docs/releases/0.2.8.md`.
+- **Why:** release fonts with a generic type (#77) and streamed media (#78).
+- **Status:** documents only. Tag `v0.2.8` on the merge commit publishes the
+  images.
+- **Next steps:**
+  1. Discovery/panel: propose media types for asset prefixes already in the
+     map.
+  2. Resume strict mode (`feat/strict-mode`).
 
 ### 2026-11-22 — Stream audio and video assets with byte ranges
 

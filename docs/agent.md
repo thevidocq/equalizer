@@ -132,7 +132,9 @@ Deterministic, no AI needed:
   visitors, with the route's pattern (`/permits/{id}?orderby=`; never a
   value, nor tracking keys such as `utm_*`, `fbclid`, `gclid`): they are
   listed in the report (`query_dropped`) for the person, never added, since
-  any visitor can send any key.
+  any visitor can send any key. The job carries up to 200 refused paths
+  and, apart from them, up to 100 of these key reports, so the one-off
+  requests of scanners never push a key out.
 - **Values**: every parameter gets the narrowest type that fits all the
   values seen and the form's own attributes: an integer with its range, a
   list of values (`enum`) when the site offers a closed set (a `<select>`,

@@ -43,6 +43,23 @@ it, 0.1.0 (`docs/releases/0.1.0.md`, tag on the merge of #39).
 
 ## Entries
 
+### 2026-11-22 — Keep dropped query keys apart from scanner noise
+
+- **Branch:** fix/dropped-keys-crowded
+- **What:** `panel-api/internal/store/discovery.go` `UnmappedOf` returns up
+  to `limit` refused paths and, in their own share, up to `limit/2` query
+  key reports (paths with `?`); test `internal/api/unmapped_share_test.go`;
+  `docs/agent.md`.
+- **Why:** on metreta.thevidocq.com a key tried by one visitor (`/?prova=1`)
+  never reached the report: the job took the 200 most requested refused
+  paths, and on a public site scanners fill them with one-client requests
+  (`/CFIDE/administrator`, `/crossdomain.xml`…), so a one-client key report
+  fell outside.
+- **Status:** tested with 300 scanner paths and one key report (fails
+  without the fix).
+- **Next steps:** lost-session detection and re-login; distinct client
+  counting on the panel side; directory listings as kept out.
+
 ### 2026-11-22 — Release 0.2.10
 
 - **Branch:** chore/release-0.2.10

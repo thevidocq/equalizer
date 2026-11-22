@@ -273,11 +273,21 @@ func (s *Store) AddUnmapped(ctx context.Context, items []Unmapped) error {
 	return nil
 }
 
-// UnmappedOf returns the most requested refused paths of a site.
+// UnmappedOf returns the most requested refused paths of a site, up to limit,
+// and apart from them up to limit/2 query keys routes dropped (/?orderby=):
+// on a public site scanners fill the paths with one-off requests, and a key a
+// single visitor used must not fall behind them.
 func (s *Store) UnmappedOf(ctx context.Context, app string, limit int) ([]Unmapped, error) {
 	rows, err := s.DB.QueryContext(ctx, `
-		SELECT method, path, hits, clients FROM unmapped_hits WHERE app_id = $1
-		AND last_seen > now() - interval '30 days' ORDER BY clients DESC, hits DESC LIMIT $2`, app, limit)
+		SELECT method, path, hits, clients FROM (
+			(SELECT method, path, hits, clients FROM unmapped_hits WHERE app_id = $1
+			AND last_seen > now() - interval '30 days' AND strpos(path, '?') = 0
+			ORDER BY clients DESC, hits DESC, path LIMIT $2)
+			UNION ALL
+			(SELECT method, path, hits, clients FROM unmapped_hits WHERE app_id = $1
+			AND last_seen > now() - interval '30 days' AND strpos(path, '?') > 0
+			ORDER BY clients DESC, hits DESC, path LIMIT $3)
+		) u ORDER BY clients DESC, hits DESC, path`, app, limit, limit/2)
 	if err != nil {
 		return nil, err
 	}

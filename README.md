@@ -48,6 +48,7 @@ Screenshots use a fictitious company, Acme.
 | [`docs/map-format.md`](docs/map-format.md) | Map format |
 | [`docs/agent.md`](docs/agent.md) | The discovery agent: study, checks, read-only guarantee |
 | [`docs/compatibility.md`](docs/compatibility.md) | Compatibility matrix: what the agent does per web application |
+| [`docs/efficacy.md`](docs/efficacy.md) | Efficacy study: what Equalizer stops on real sites, measured before every release |
 | [`INSTALL.md`](INSTALL.md) | Installation (VPS, connector) |
 | [`docs/manual/admin.md`](docs/manual/admin.md) | Platform administrator manual |
 | [`docs/manual/tenant.md`](docs/manual/tenant.md) | Tenant administrator manual |

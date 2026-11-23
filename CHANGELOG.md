@@ -46,6 +46,38 @@ it, 0.1.0 (`docs/releases/0.1.0.md`, tag on the merge of #39).
 
 ## Entries
 
+### 2026-11-23 — The area keeps the precise checks; efficacy study in the lab
+
+- **Branch:** feat/strict-precise-entries
+- **What:**
+  - gateway: `router.Candidates` returns every entry a path has the shape
+    of, then its asset prefix; the server keeps the first whose values fit
+    (`/wp-includes/js/x.js` is a file, not `/{year}/{month}/{slug}/`).
+    `server/strict.go`: a request going to the area because it does not fit
+    a precise entry exactly still has the entry's declared query keys
+    checked, and its undeclared keys reported to the discovery; a path
+    value with `'"<>`{}|\^` or control characters that fits no entry is
+    refused. Test `strict_test.go`.
+  - agent: `mapbuild.gateway_route` picks only a route whose values fit
+    their types, as the gateway (`/notice.php?id=1` no longer gives `id` to
+    `/{slug}`, which never serves it). Test in `test_query_merge.py`.
+  - WordPress template: the comment form's name and website refuse markup;
+    the website must be an http(s) address.
+  - lab: `lab/e2e/efficacy/` measures, on every site the lab built, what
+    reaches the legacy site (visits, attacks on every input point, attacks
+    on the protocol) and fails when a guarantee breaks.
+  - docs: new `docs/efficacy.md`; `docs/map-format.md` (areas),
+    `docs/agent.md`, `docs/manual/tenant.md` and help, `lab/e2e/README.md`,
+    `README.md`; `CLAUDE.md`: the study before every release.
+- **Why:** the efficacy study on WordPress found that one extra key
+  (`&zz=1`) sent any request to the area, where values are not checked:
+  0 of 125 attacks on typed values blocked that way. Now 520 of 520 on five
+  sites, with every page still the same (159 of 159).
+- **Status:** gateway, panel-api, agent tests pass; study passes on
+  WordPress, Drupal, the intranet, phpBB, MediaWiki. Joomla, OpenCart,
+  PrestaShop, TYPO3, Magento not built here (npm, MariaDB).
+- **Next steps:** release 0.2.14; the AI assistant in the panel (0.2.15).
+
 ### 2026-11-22 — Release 0.2.13
 
 - **Branch:** feat/visitors-into-draft

@@ -219,14 +219,17 @@ Deterministic, no AI needed:
 - **Routes**: varying path segments become typed parameters (`{id}` integer,
   `{slug}`), as today. A route already in the map gets the query keys the
   site's own links use and it lacked (the route the gateway would pick:
-  `/search` before `/{slug}`; a GET route whose legacy request is a GET;
-  keys a map can hold; only keys seen with a value), typed from those
-  values as for a new route (`query_added` in the report): the gateway
-  drops undeclared keys, so a sort or a filter would change the page in
-  silence. The gateway also reports the names of the keys it dropped for
-  visitors, with the route's pattern (`/permits/{id}?orderby=`; never a
-  value, nor tracking keys such as `utm_*`, `fbclid`, `gclid`): never added
-  by the agent, since any visitor can send any key (see [Visitor
+  `/search` before `/{slug}`, and only one whose values fit their types,
+  as the gateway checks: `/notice.php?id=1` is not a page of a `/{slug}`
+  whose type refuses dots, so it gets a route of its own instead of giving
+  its key to one that never serves it; a GET route whose legacy request is
+  a GET; keys a map can hold; only keys seen with a value), typed from
+  those values as for a new route (`query_added` in the report): a request
+  with a key its route does not declare goes to the area, where its
+  values are not checked. The gateway also reports the names of those
+  keys for visitors, with the route's pattern (`/permits/{id}?orderby=`;
+  never a value, nor tracking keys such as `utm_*`, `fbclid`, `gclid`):
+  added only once checked on the site (see [Visitor
   requests](#visitor-requests)).
 - **Values**: every parameter gets the narrowest type that fits all the
   values seen and the form's own attributes: an integer with its range, a

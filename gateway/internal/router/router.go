@@ -87,13 +87,29 @@ func New(entries []Entry) (*Router, error) {
 // Match finds the most specific entry (fewest parameters) for method and
 // path. HEAD uses GET entries. Asset prefixes are tried after routes.
 func (r *Router) Match(method, path string) (Match, error) {
+	c, err := r.Candidates(method, path)
+	if err != nil {
+		return Match{}, err
+	}
+	return c[0], nil
+}
+
+// Candidates returns every entry the path has the shape of for method, the
+// most specific first (fewest parameters), then the asset prefix, if any:
+// /wp-includes/js/x.js has the shape of /{year}/{month}/{slug}/ and is a
+// file of /wp-includes/. The caller keeps the first whose values fit.
+func (r *Router) Candidates(method, path string) ([]Match, error) {
 	if method == http.MethodHead {
 		method = http.MethodGet
 	}
 	parts := split(path)
+	type found struct {
+		m      Match
+		params int
+	}
 	var (
-		best      *compiled
-		bestVals  map[string]string
+		routes    []found
+		out       []Match
 		pathFound bool
 	)
 	for i := range r.entries {
@@ -106,25 +122,31 @@ func (r *Router) Match(method, path string) (Match, error) {
 		if c.entry.Method != method {
 			continue
 		}
-		if best == nil || c.params < best.params {
-			best, bestVals = c, vals
-		}
+		routes = append(routes, found{Match{Entry: c.entry, Params: vals}, c.params})
 	}
-	switch {
-	case best != nil:
-		return Match{Entry: best.entry, Params: bestVals}, nil
-	case pathFound:
-		return Match{}, ErrMethodNotAllowed
+	sort.SliceStable(routes, func(i, j int) bool { return routes[i].params < routes[j].params })
+	for _, f := range routes {
+		out = append(out, f.m)
+	}
+	if len(out) == 0 && pathFound {
+		return nil, ErrMethodNotAllowed
 	}
 	for _, a := range r.assets {
 		if strings.HasPrefix(path, a.Pattern) && len(path) > len(a.Pattern) {
 			if method != http.MethodGet {
-				return Match{}, ErrMethodNotAllowed
+				if len(out) == 0 {
+					return nil, ErrMethodNotAllowed
+				}
+				break
 			}
-			return Match{Entry: a, Params: map[string]string{"file": path[len(a.Pattern):]}}, nil
+			out = append(out, Match{Entry: a, Params: map[string]string{"file": path[len(a.Pattern):]}})
+			break
 		}
 	}
-	return Match{}, ErrNotMapped
+	if len(out) == 0 {
+		return nil, ErrNotMapped
+	}
+	return out, nil
 }
 
 func (c *compiled) match(parts []string) (map[string]string, bool) {

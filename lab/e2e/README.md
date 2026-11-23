@@ -109,6 +109,14 @@ The tests run in order and build on each other:
 `python3 perf.py [--browser] [--load SECONDS]` measures what Equalizer adds
 to a visit on a lab after test 1 (results in `docs/performance.md`).
 
+`python3 efficacy/efficacy.py [site…]` measures how much of what Equalizer
+is meant to stop it stops (`docs/efficacy.md`): for each site the lab has
+built, the real agent makes the map, the gateway of this checkout serves
+it, and the legacy site, served again behind `efficacy/record.php`, logs
+what it receives. It needs only the sites (`wordpress.sh`, `cms.sh`,
+`webapps.sh`), not the platform, and exits 1 when a guarantee breaks.
+Results in `.run/efficacy/`. Run it before every release.
+
 `python3 fidelity.py [host…]` runs the comparison alone (on a lab without
 SSO, such as right after test 2) and writes side-by-side
 images (the site directly on the left, through Equalizer on the right) to

@@ -68,6 +68,10 @@ A change is done only when, in the same PR, without being asked:
 4. Anything the customer would have to do by hand is a bug of the product,
    not an instruction: the agent and the panel do it. The only manual step
    is publishing a map.
+5. Before a release: the efficacy study passes on every kind of site the
+   lab can build, the generic one included
+   (`python3 lab/e2e/efficacy/efficacy.py`), and `docs/efficacy.md` has its
+   numbers.
 
 ## Development environment in Claude sessions
 

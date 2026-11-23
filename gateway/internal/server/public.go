@@ -125,7 +125,8 @@ func (p *Public) handle(w http.ResponseWriter, r *http.Request) string {
 	}
 	// Matched as the legacy server reads the path ("//x", "x;p", "x."),
 	// so that a precise entry or an area with roles cannot be stepped around.
-	m, err := active.Router.Match(r.Method, pathkey.Of(r.URL.Path))
+	cands, err := active.Router.Candidates(r.Method, pathkey.Of(r.URL.Path))
+	m, fits := firstFit(active, cands)
 	if errors.Is(err, router.ErrNotMapped) || errors.Is(err, router.ErrMethodNotAllowed) {
 		if a := active.Model.AreaFor(r.URL.Path); a != nil {
 			// No precise entry: the area serves it as the legacy site would.
@@ -152,9 +153,13 @@ func (p *Public) handle(w http.ResponseWriter, r *http.Request) string {
 
 	// A path that only looks like a precise entry (/{slug}/ against
 	// /wp-login.php), or a query the route does not declare, belongs to the
-	// area: both are part of the match. Values of a real match are still
-	// checked.
-	if a := active.Model.AreaFor(r.URL.Path); a != nil && (!pathFits(active, m) || !queryFits(active, m, r.URL.RawQuery)) {
+	// area: both are part of the match. What the precise entry knows is
+	// still checked on the way (strict.go): a value no page has, the keys
+	// it declares.
+	if a := active.Model.AreaFor(r.URL.Path); a != nil && (!fits || !queryFits(active, m, r.URL.RawQuery)) {
+		if !p.areaKeepsChecks(w, r, active, m, fits) {
+			return m.Entry.ID
+		}
 		if !p.checkLimits(w, r, active, a.ID, false) {
 			return a.ID
 		}

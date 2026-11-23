@@ -10,7 +10,9 @@ type Props = { tenant: string; app: string; messages: Message[]; busy: boolean; 
 /** The questions and answers, the latest kept in view. */
 export function Conversation({ tenant, app, messages, busy, canDraft }: Props) {
   const end = useRef<HTMLDivElement>(null);
-  useEffect(() => end.current?.scrollIntoView?.({ block: "end" }), [messages.length, busy]);
+  // braces: a browser's scrollIntoView may return a Promise, which React would
+  // then call as the effect's cleanup ("is not a function")
+  useEffect(() => { void end.current?.scrollIntoView?.({ block: "end" }); }, [messages.length, busy]);
   return (
     <div className="flex flex-col gap-4" aria-live="polite">
       {messages.map((m, i) => m.role === "user" ? (

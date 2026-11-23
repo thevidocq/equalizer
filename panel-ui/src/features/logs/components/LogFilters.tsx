@@ -18,7 +18,7 @@ type Props = {
 /** Site, period, free search and the event chips with their counts. */
 export function LogFilters({ apps, filter, onChange, on, onToggle, counts }: Props) {
   const [q, setQ] = useState(filter.q);
-  useEffect(() => setQ(filter.q), [filter.q]);
+  useEffect(() => { setQ(filter.q); }, [filter.q]);
   function search(e: FormEvent) {
     e.preventDefault();
     onChange({ ...filter, q: q.trim() });

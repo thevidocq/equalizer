@@ -99,6 +99,18 @@ func TestAssistant(t *testing.T) {
 		t.Fatalf("cards: %+v", withCards)
 	}
 
+	// the site's versions and its status, from the same source the panel uses
+	model.rounds = [][]assistant.Call{{{ID: "v", Name: "list_versions", Input: json.RawMessage(`{}`)}}}
+	viewer.must(200, "POST", "/v1/apps/blog/assistant", ask, &out)
+	if !strings.Contains(out.Text, `"status":"draft"`) || strings.Contains(out.Text, "@") && !strings.Contains(out.Text, "boss@acme.test") {
+		t.Fatalf("versions: %s", out.Text)
+	}
+	model.rounds = [][]assistant.Call{{{ID: "s", Name: "get_site", Input: json.RawMessage(`{}`)}}}
+	viewer.must(200, "POST", "/v1/apps/blog/assistant", ask, &out)
+	if !strings.Contains(out.Text, `"app":"blog"`) {
+		t.Fatalf("status: %s", out.Text)
+	}
+
 	// a script type is refused, whoever asks; a PDF type is proposed
 	model.rounds = [][]assistant.Call{
 		{{ID: "1", Name: "propose_change", Input: json.RawMessage(`{"kind":"add_file_type","prefix":"/wp-content/uploads/","type":"application/x-php","reason":"x"}`)}},

@@ -72,8 +72,9 @@ func (s *Server) askAssistant(w http.ResponseWriter, r *http.Request, u *auth.Us
 	}
 	ctx, cancel := context.WithTimeout(r.Context(), assistantTimeout)
 	defer cancel()
-	src := &siteSource{s: s, a: a, u: u}
-	ans, err := assistant.Run(ctx, model, src, assistant.NewMasker(s.maskKey(a.Tenant)), a.Name, a.PublicDomain,
+	masker := assistant.NewMasker(s.maskKey(a.Tenant))
+	src := &siteSource{s: s, a: a, u: u, m: masker}
+	ans, err := assistant.Run(ctx, model, src, masker, a.Name, a.PublicDomain,
 		time.Now().UTC().Format("2006-01-02"), turns)
 	var pe *assistant.ErrProvider
 	switch {
@@ -167,6 +168,7 @@ type siteSource struct {
 	s *Server
 	a store.App
 	u *auth.User
+	m *assistant.Masker // panel users become codes, as in get_activity
 }
 
 func (src *siteSource) Map(ctx context.Context, version int) (map[string]any, int, string, error) {

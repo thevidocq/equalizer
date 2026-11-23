@@ -19,7 +19,8 @@ Add a section at the top of "Entries" for every commit:
 
 ## Current project status
 
-Latest release: **0.2.22** (`docs/releases/0.2.22.md`); before it 0.2.21
+Latest release: **0.2.23** (`docs/releases/0.2.23.md`); before it 0.2.22
+(`docs/releases/0.2.22.md`), 0.2.21
 (`docs/releases/0.2.21.md`), 0.2.20
 (`docs/releases/0.2.20.md`), 0.2.19
 (`docs/releases/0.2.19.md`), 0.2.18
@@ -54,6 +55,38 @@ it, 0.1.0 (`docs/releases/0.1.0.md`, tag on the merge of #39).
 | tools (eqtool) | Map signing keys, form key, relay token, connector registration, map signing |
 
 ## Entries
+
+### 2026-11-23 — Make the assistant more useful; release 0.2.23
+
+- **Branch:** feat/assistant-useful
+- **What:**
+  - `compactReport` gives the model the report's plain facts first (CMS,
+    version, counts, coverage), then objects, then each list capped at 40
+    items with its length; the page lists stay out. Test
+    `TestReportKeepsFacts`.
+  - New tools (`tools_site.go`, `api/assistant_site.go`): `get_site` (the
+    Status page's evaluation of the site), `list_versions` (authors and
+    approvers as U- codes), `get_check` (a version's verification),
+    `compare_versions` (`review.Compare`), `read_guide` (the tenant guide,
+    embedded from `internal/assistant/guide/tenant.md`, which
+    `panel-ui/scripts/sync-help.mjs` copies from `docs/manual/tenant.md`
+    and checks in CI). MaxSteps 10. System prompt: what each tool is for,
+    look before saying something is missing, help the person act, never
+    claim a CVE.
+  - panel-ui: new example questions. Docs: tenant manual (what it reads,
+    what to ask), architecture, help synced; release notes 0.2.23;
+    versions bumped; efficacy study rerun.
+- **Why:** on metreta the assistant said the WordPress version was not
+  known although the report showed 5.7.22: Go marshals map keys in order,
+  `version` came last and the 16 000-character cut dropped it. The owner
+  asked for an assistant useful for more than the map and the logs.
+- **Status:** Go tests pass; CI runs tsc and vitest. Independent review
+  fixed: the new tools' output is masked like the others (addresses and
+  emails in errors, paths, labels), the legacy address stays out of
+  `compare_versions`, `components` capped at 200 instead of 40, the
+  prompt and the guide name the report's `known_issues`.
+- **Next steps:** merge #103 then this; tag `v0.2.23`. Then the two log
+  fixes seen on the phone (request column, IPv6 /64 filter).
 
 ### 2026-11-23 — Explain the check of a version; release 0.2.22
 

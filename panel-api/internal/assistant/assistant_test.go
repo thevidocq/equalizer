@@ -237,7 +237,7 @@ func TestAnthropicShape(t *testing.T) {
 	}
 	msgs := got["messages"].([]any)
 	last := msgs[2].(map[string]any)["content"].([]any)[0].(map[string]any)
-	if got["system"] != "sys" || last["type"] != "tool_result" || last["tool_use_id"] != "t0" || len(got["tools"].([]any)) != 6 {
+	if got["system"] != "sys" || last["type"] != "tool_result" || last["tool_use_id"] != "t0" || len(got["tools"].([]any)) != len(Tools()) {
 		t.Fatalf("request: %v", got)
 	}
 }

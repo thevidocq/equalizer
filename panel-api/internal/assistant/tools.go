@@ -47,11 +47,12 @@ var ErrNoLogs = errors.New("no log store")
 var logTypes = []string{"request.served", "request.blocked", "field.rejected", "ratelimit.hit", "behavior.alert",
 	"parse.failed", "legacy.error", "connector.down", "exposure.alert"}
 
-// Tools are the assistant's tools: four that read, one that shows a card,
-// one that proposes.
+// Tools are the assistant's tools: those that read (map, report, logs,
+// history, status, versions, checks, comparisons, guide), one that shows a
+// card, one that proposes.
 func Tools() []Tool {
 	str := func(d string) map[string]any { return map[string]any{"type": "string", "description": d} }
-	return []Tool{
+	return append([]Tool{
 		{Name: "get_map", Description: "The site's map: its routes with the checks on each value, forms, file folders and areas. Without version: the published map.",
 			Schema: obj(map[string]any{"version": map[string]any{"type": "integer", "description": "a map version; omit for the published one"}})},
 		{Name: "get_report", Description: "The latest discovery's report: pages found, coverage, what is still open and why, what was kept out, what was added from visitors' requests.",
@@ -78,7 +79,7 @@ func Tools() []Tool {
 				"values": map[string]any{"type": "array", "items": map[string]any{"type": "string"}},
 				"reason": str("why, in one sentence, for the person"),
 			}, "kind", "reason")},
-	}
+	}, siteTools()...)
 }
 
 func obj(props map[string]any, required ...string) map[string]any {
@@ -101,6 +102,9 @@ func Exec(ctx context.Context, src Source, m *Masker, c Call, ans *Answer) strin
 	proposals := &ans.Proposals
 	var in map[string]any
 	_ = json.Unmarshal(c.Input, &in)
+	if out, ok := execSite(ctx, src, m, c, in); ok {
+		return out
+	}
 	switch c.Name {
 	case "get_map":
 		doc, v, status, err := src.Map(ctx, intOf(in["version"], 0))
@@ -196,17 +200,60 @@ func compactMap(doc map[string]any) string {
 	return clip(string(b), 24000)
 }
 
-// compactReport drops the long lists a question rarely needs.
+// compactReport is the report as lines: its plain facts first (the CMS and
+// its version, counts, coverage), then each list capped, so a long list can
+// never push a fact out of what the model reads.
 func compactReport(raw json.RawMessage) string {
-	var r map[string]any
-	if json.Unmarshal(raw, &r) != nil {
+	var top map[string]any
+	if json.Unmarshal(raw, &top) != nil {
 		return "no report"
 	}
-	for _, k := range []string{"pages", "pages_by_account", "samples"} {
-		delete(r, k)
+	rep, _ := top["report"].(map[string]any)
+	if rep == nil {
+		rep = top
 	}
-	b, _ := json.Marshal(r)
-	return clip(string(b), 16000)
+	for _, k := range []string{"pages", "pages_by_account", "samples"} {
+		delete(rep, k)
+	}
+	var facts, objects, lists []string
+	keys := make([]string, 0, len(rep))
+	for k := range rep {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+	for _, k := range keys {
+		switch v := rep[k].(type) {
+		case []any:
+			shown := v
+			more := ""
+			limit := 40
+			if k == "components" { // "is plugin X there?" needs them all (the agent sends 200 at most)
+				limit = 200
+			}
+			if len(v) > limit {
+				shown, more = v[:limit], fmt.Sprintf(" …and %d more", len(v)-limit)
+			}
+			b, _ := json.Marshal(shown)
+			lists = append(lists, fmt.Sprintf("%s (%d): %s%s", k, len(v), clip(string(b), 3000), more))
+		case map[string]any:
+			b, _ := json.Marshal(v)
+			objects = append(objects, k+": "+clip(string(b), 2000))
+		default:
+			b, _ := json.Marshal(v)
+			facts = append(facts, k+": "+string(b))
+		}
+	}
+	var b strings.Builder
+	if about, ok := top["about"]; ok {
+		a, _ := json.Marshal(about)
+		b.WriteString("discovery: " + string(a) + "\n")
+	}
+	for _, part := range [][]string{facts, objects, lists} {
+		for _, l := range part {
+			b.WriteString(l + "\n")
+		}
+	}
+	return clip(b.String(), 20000)
 }
 
 func clip(s string, n int) string {

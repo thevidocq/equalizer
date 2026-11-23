@@ -48,6 +48,15 @@ it, 0.1.0 (`docs/releases/0.1.0.md`, tag on the merge of #39).
 
 ## Entries
 
+### 2026-11-23 — Fix strict index access in the assistant's history test
+
+- **Branch:** feat/assistant
+- **What:** `panel-ui/src/features/assistant/hooks/history.test.ts` reads
+  array items with `?.` (`noUncheckedIndexedAccess`).
+- **Why:** `tsc` in CI (panel-ui job and the image build) refused it.
+- **Status:** the only errors CI reported; the rest of panel-ui compiled.
+- **Next steps:** as in the entry below.
+
 ### 2026-11-23 — Add the site assistant; release 0.2.15
 
 - **Branch:** feat/assistant

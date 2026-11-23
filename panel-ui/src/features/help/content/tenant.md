@@ -282,45 +282,70 @@ model was used; when it was asked but could not answer (no credit left, key
 refused, provider not answering) it says so in plain words, and the draft
 comes from the fixed rules only.
 
-### Verification
+### Check on the site (verification)
 
-Every draft a discovery proposes is **verified** by the agent on the
-gateway, with the discovery's test accounts for the pages behind their
-login (their passwords are kept encrypted until the verification ends),
-and **corrected**: where this version breaks a page the agent widens what
-was refused (or gives the page back to the site area) — the files the
-pages load (fonts, images, videos, documents) are checked too, and get the
-type or size limit they need — where an attack
-gets through it narrows what the values it saw allow, and it verifies
-again; it keeps a change only if no page that worked breaks. The result is
-a new draft, "Corrected by the agent from version N", with the list of
-changes and why; the version it came from keeps its own measure. After a
-discovery you review **one draft**, the agent's last: while the agent is
-still checking and correcting, the discovery page says so; then it shows
-the draft to review with its measure and the corrections, and the first
-draft is retired. When you ask for a verification yourself, both versions
-stay, and a draft you have already submitted or approved is never replaced.
-If the agent could not verify its draft, the discovery page says so.
+**Discovery finds the pages; the check tries a version on them.** A
+discovery explores the site and proposes a map. The check takes one
+version of the map, as it is, and measures on the real site what it would
+do once published. It changes nothing: not the site, not the published
+map, not the version it checks.
+
+What the agent does:
+
+1. It starts a gateway of its own with this version, reaching the site
+   the same way the real gateway does (connector or direct).
+2. It opens every page the discovery found twice, directly and through
+   Equalizer, and compares the two: the answer, where a redirect goes, the
+   visible text, the links, the forms. With test accounts it does the same
+   behind their login (one pass per account; the passwords are kept
+   encrypted and deleted when the check ends). Without them it checks the
+   public pages only.
+3. On every parameter and form field it tries a set of attacks (SQL, HTML
+   and script, template code, paths, shell, values of the wrong type). The
+   gateway only says whether it would let each one through: **no attack is
+   sent to the site**.
+
+What you see, in **Check on the site** on each version:
+
+- **pages identical through Equalizer** (for example 34 / 34): the site
+  works as before. Fewer means a page breaks; **Broken by this version**
+  says which and how (a different answer, missing text, links or forms,
+  refused).
+- **inputs that refuse every attack** (for example 0 / 2): the
+  parameters and fields where every attack is stopped. The others are
+  under **Still open**, each with its reason; usually a value that falls
+  out of its precise entry and is served by the site area, or free text
+  that has to accept what visitors write.
+- **% of the pages served only by the site area**: pages rebuilt and
+  served, but with no precise check of their values. Lower is better.
+
+When it runs:
+
+- **By itself after every discovery**, on the draft the discovery
+  proposes, and the agent **corrects** it: where the draft breaks a page it
+  widens what was refused (or gives the page back to the site area), the
+  files the pages load (fonts, images, videos, documents) included; where
+  an attack gets through it narrows what the values it saw allow, and
+  checks again; it keeps a change only if no page that worked breaks. The
+  result is a new draft, "Corrected by the agent from version N", with the
+  list of changes and why; the version it came from keeps its own measure.
+  After a discovery you review **one draft**, the agent's last: while the
+  agent is still checking, the discovery page says so; then it shows the
+  draft with its measure and the corrections, and the first draft is
+  retired. If the agent could not check its draft, the discovery page says
+  so.
+- **When you ask** (administrators). You rarely need to: a version a
+  discovery made is checked already, and shows only a quiet **Check
+  again** under its result. A version never checked (a draft changed by
+  hand) shows **Check this version on the site** instead. Ask for a check
+  after changing a draft by hand, after the site itself changed without a
+  new discovery (an update of the CMS, a new plugin), or to check the
+  pages behind a login with test accounts the discovery did not have. Tick **let the agent prepare a
+  corrected version** to have the agent fix what it finds into a new
+  draft; without it, it only measures. Both versions stay, and a draft you
+  have already submitted or approved is never replaced.
+
 Publishing stays a person's decision.
-
-**Verify** on a version (administrators) does it again,
-for example after changing a draft by hand: give test accounts to verify
-the pages behind their login too (otherwise only public pages), and tick
-the box to let the agent correct it. Nothing is sent to the site that
-could change it:
-
-- every page the discovery studied is opened directly and through
-  Equalizer with this version, and the two are compared (the answer, where
-  a redirect goes, the visible text, the links, the forms);
-- every parameter and form field gets a set of attacks (SQL, HTML and
-  script, template code, paths, shell, out-of-type values); the gateway
-  only says whether it would let each one through.
-
-The panel shows how many pages stay identical, how many inputs refuse
-every attack, and how much of the site only the generic area serves; then
-the pages this version breaks and what is still open, each with its
-reason. An input "still open" usually means that a value falling out of
-its precise entry is served by the site area.
 
 ![Verification](/help-img/verification.png)
 

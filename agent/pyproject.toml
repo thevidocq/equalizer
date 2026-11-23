@@ -1,6 +1,6 @@
 [project]
 name = "equalizer-agent"
-version = "0.2.21"
+version = "0.2.22"
 description = "Equalizer discovery agent: explores a protected site read-only and proposes a draft map"
 requires-python = ">=3.12"
 dependencies = []

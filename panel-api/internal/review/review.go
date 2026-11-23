@@ -100,8 +100,10 @@ func (c *cmp) legacy(b, n obj) {
 		c.add(Change{"legacy", "legacy.reach", "changed", fmt.Sprintf("%v → %v", br, nr)})
 		c.find("medium", "legacy.reach", "reach_changed", "The gateway will connect somewhere else: check connector, address and allowed destinations.")
 	}
-	if str(nr["mode"]) == "direct" {
-		c.find("high", "legacy.reach", "direct_mode", "Direct mode: the gateway connects itself, without a connector. Only for lab apps allowed by the platform.")
+	// direct mode is a normal choice (a site on a public address that accepts
+	// only Equalizer's): worth a look only when this version switches to it
+	if str(nr["mode"]) == "direct" && str(br["mode"]) != "direct" {
+		c.find("medium", "legacy.reach", "direct_mode", "This version switches to direct mode: the gateway reaches the site at its address, without a connector. Check that the site accepts only Equalizer's addresses (Isolation tab).")
 	}
 	if len(asList(nr["allow"])) > 1 && len(asList(nr["allow"])) > len(asList(br["allow"])) {
 		c.find("medium", "legacy.reach.allow", "allow_widened", "More destinations allowed: each one is reachable through this map.")

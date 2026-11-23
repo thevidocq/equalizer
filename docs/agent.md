@@ -338,7 +338,7 @@ The draft is saved like any draft, with the report:
 - **still open**: every path left to the area and every field that accepts
   part of the attack set, each with its reason.
 
-A person reviews it, may change it in the editor, presses **Verify** to run
+A person reviews it, may change it in the editor, presses **Check this version on the site** to run
 steps 4 and 5 again on their version, and approves. Nothing is ever applied
 without approval.
 
@@ -499,7 +499,7 @@ never sends page contents to a model.
   - `StudyReport` (the `report` of a discovery: score, functions, still
     open);
   - `POST /apps/{app}/maps/{version}/verify` and `MapVersion.verification`
-    (`Verification`): the **Verify** button;
+    (`Verification`): the **Check this version on the site** button;
   - the internal endpoints the agent uses to take and finish a verification.
 - `schema/api/gateway-admin.yaml`: the gateway's admin endpoint (internal
   network only), now documented, with the new `POST /maps/try`:

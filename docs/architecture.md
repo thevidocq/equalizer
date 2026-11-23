@@ -123,7 +123,7 @@ with test accounts), a precise entry for every function it understands, and
 two checks before the draft is handed over: every page compared with and
 without Equalizer, and every parameter and field tried with an attack set on
 the gateway only (`POST /maps/try`, `schema/api/gateway-admin.yaml`). The
-draft comes with a measured score; the **Verify** button runs the checks
+draft comes with a measured score; the **Check this version on the site** button runs the checks
 again on a version changed by hand.
 
 ## Platform and tenants

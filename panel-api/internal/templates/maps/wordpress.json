@@ -292,7 +292,11 @@
     "author": {
      "type": "string",
      "max_length": 100,
-     "required": false
+     "required": false,
+     "rules": [
+      "no_html",
+      "no_template_meta"
+     ]
     },
     "email": {
      "type": "email",
@@ -301,7 +305,12 @@
     "url": {
      "type": "string",
      "max_length": 200,
-     "required": false
+     "required": false,
+     "pattern": "^((?i:https?)://[^\\s<>\"'{}|\\\\^`]*|[^\\s<>\"'{}|\\\\^`:/]+(/[^\\s<>\"'{}|\\\\^`]*)?)?$",
+     "rules": [
+      "no_html",
+      "no_template_meta"
+     ]
     }
    },
    "legacy_request": {

@@ -58,6 +58,29 @@ class QueryMergeTest(unittest.TestCase):
         self.assertNotIn("empty", shop["legacy_request"]["query"])  # seen without a value: no evidence
 
 
+class FitTest(unittest.TestCase):
+    def test_a_route_whose_types_refuse_the_page_does_not_serve_it(self):
+        # the generic template's /{slug} refuses dots: /notice.php?id=1 is not
+        # its page, so its key goes to a route of its own, which the gateway
+        # really serves (efficacy study, 0.2.14), not to /{slug}
+        doc = {"meta": {"version": 1}, "legacy": {}, "roles": {"anonymous": "guest"},
+               "types": {"slug": {"base": "string", "pattern": "^[^/.<>{}\"'\\\\]{1,200}$"}},
+               "routes": [{"id": "page", "path": "/{slug}", "method": "GET", "roles": ["guest"],
+                           "legacy_request": {"method": "GET", "path": "/{{params.slug}}"},
+                           "params": {"slug": {"type": "slug"}}}]}
+        self.assertIsNone(mapbuild.gateway_route(doc, "/notice.php"))
+        self.assertEqual(mapbuild.gateway_route(doc, "/about")["id"], "page")
+        crawl = crawler.CrawlResult()
+        for pq in ("/notice.php?id=1", "/notice.php?id=2", "/about"):
+            crawl.pages[pq] = crawler.Seen(200, "text/html", seen_by={"anonymous"})
+        job = {"id": 1, "domain": "intranet.example", "current_map": doc, "unmapped": []}
+        d, rep, _ = mapbuild.build(job, crawl, fingerprint.Fingerprint())
+        page = next(r for r in d["routes"] if r["id"] == "page")
+        self.assertNotIn("id", page.get("query") or {})
+        notice = next(r for r in d["routes"] if r["path"] == "/notice.php")
+        self.assertEqual(notice["query"]["id"]["type"], "int")
+
+
 class SeedsTest(unittest.TestCase):
     """What visitors asked for is a page to look at, never evidence."""
 

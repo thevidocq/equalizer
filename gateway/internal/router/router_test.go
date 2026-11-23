@@ -99,3 +99,31 @@ func TestNewRejectsConflicts(t *testing.T) {
 		t.Fatal("expected an error for a malformed segment")
 	}
 }
+
+// Candidates: every entry a path has the shape of, fewest parameters first
+// (map order on ties), then its asset prefix; HEAD as GET; 405 when only
+// another method has the path.
+func TestCandidates(t *testing.T) {
+	r, err := New([]Entry{
+		{ID: "dated", Kind: KindRoute, Method: "GET", Pattern: "/{year}/{month}/{slug}/"},
+		{ID: "js", Kind: KindRoute, Method: "GET", Pattern: "/wp-includes/js/{file}"},
+		{ID: "send", Kind: KindForm, Method: "POST", Pattern: "/send"},
+		{ID: "inc", Kind: KindAsset, Pattern: "/wp-includes/"},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	c, err := r.Candidates("HEAD", "/wp-includes/js/x.js")
+	if err != nil || len(c) != 3 || c[0].Entry.ID != "js" || c[1].Entry.ID != "dated" || c[2].Entry.ID != "inc" {
+		t.Fatalf("candidates %+v, %v", c, err)
+	}
+	if _, err := r.Candidates("GET", "/send"); err != ErrMethodNotAllowed {
+		t.Errorf("GET /send: %v", err)
+	}
+	if _, err := r.Candidates("POST", "/wp-includes/css/a.css"); err != ErrMethodNotAllowed {
+		t.Errorf("POST to an asset: %v", err)
+	}
+	if _, err := r.Candidates("GET", "/nothing"); err != ErrNotMapped {
+		t.Errorf("unmapped: %v", err)
+	}
+}

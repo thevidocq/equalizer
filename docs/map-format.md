@@ -130,15 +130,46 @@ application's own value. Multipart fields are not changed.
 
 A route's `path` parameters are match constraints: `/{slug}/` with
 `slug` of a type that refuses dots does not match `/wp-config.php`, which
-goes to the area (or 404 when there is none). URLs in pages are rewritten
+goes to the area (or 404 when there is none). When a path has the shape of
+several entries, the first whose values fit serves it (`/page/abc/` is no
+page number but may be a child page), provided it guards the same way as
+the most specific one (the same roles, no `authz`): otherwise the area
+serves it, as before. An asset prefix serves only a path that has no
+page's shape. URLs in pages are rewritten
 to a route only when the captured values fit its types; a trailing `/` in
 the route's path is kept. The query is part of the match too: a key the
 route does not declare would be dropped and the page would change meaning
 (Joomla's `/?option=com_finder&q=…` is not its home page), so the area
-serves such a request with its whole query. An entry with `authz` is never
-bypassed this way: it answers every request that matches its path, and
-refuses what does not fit, so that `/permits/5abc` or a junk query key
-cannot reach object 5 through the area.
+serves such a request with its whole query.
+
+Stepping aside into the area never steps round what the precise entry
+knows (0.2.14; the efficacy study found `&zz=1` carried any attack past a
+declared key):
+
+- the query keys the route declares are checked as on the route, so
+  `/?p=1' OR '1'='1&zz=1` is refused like `/?p=1' OR '1'='1`; the keys it
+  does not declare go on to the area, and once the area accepts the
+  request their names (never their values) are reported to the discovery
+  with the route's pattern (`/?zz=`), which may add them with the values
+  the site offers (`docs/agent.md`, "Visitor requests");
+- a key the legacy platform would read as a declared one is checked as
+  that one: PHP reads `page.id`, `page id`, ` page_id` and `page_id[]` as
+  `page_id`, and some servers read `P` as `p` (phpBB's own `fid[]=2`
+  passes, `page.id=1' OR 1=1` does not);
+- a path that has an entry's shape but whose values fit none, and that
+  holds a character no page name has (`"`, `<`, `>`, `` ` ``, `{`, `}`,
+  `|`, `\`, `^`, control characters, or `'` anywhere but between two
+  letters, so `/wiki/Don't_Stop` and `/l'evento/` stay pages), is refused
+  (400) instead of reaching the area: `/1'OR'1'='1/` against `/{slug}/`.
+  Other values that fit no entry (`/wp-admin/`, denied by the slug type;
+  `/robots.txt`) still go to the area, and so does a path with no entry's
+  shape at all, whatever it holds: the area's surface is what the map
+  does not know. When the path fits no entry, the route's query keys are
+  not checked either: it is not that route's page.
+
+An entry with `authz` is never bypassed this way: it answers every request
+that matches its path, and refuses what does not fit, so that
+`/permits/5abc` or a junk query key cannot reach object 5 through the area.
 Assets are served only if the legacy `Content-Type` is among the prefix's
 `types`; raster images (AVIF and HEIF included) are also checked against
 their real content. Fonts

@@ -82,15 +82,15 @@ def covered(doc: dict, path: str) -> bool:
 
 def gateway_route(doc: dict, path: str):
     """The route the gateway would serve path with: a route whose pattern is
-    path itself, else the one that matches with the fewest parameters (a
-    literal /search before /{slug})."""
+    path itself, else, as its router, the one with the fewest parameters
+    among those whose values fit their types (a literal /search before
+    /{slug}; /notice.php fits no /{slug} whose type refuses dots, so no
+    route serves it and the area does). None when none fits."""
     routes = [r for r in doc.get("routes", []) if r.get("method", "GET") == "GET"]
     same = next((r for r in routes if r.get("path") == path), None)
     if same is not None:
         return same
-    # as the gateway's router: by structure, fewest parameters, then map order
-    # (it checks the values after choosing)
-    fit = [r for r in routes if matches(r.get("path", ""), path)]
+    fit = [r for r in routes if fits(doc, r, path)]
     return min(fit, key=lambda r: r.get("path", "").count("{"), default=None)
 
 

@@ -1,7 +1,8 @@
 // Enforces the panel-ui rules (CLAUDE.md):
 // - shared/ never imports from features/ or app/;
 // - a feature imports another feature only through its index.ts;
-// - no file over 200 lines.
+// - no file over 200 lines;
+// - effects have a block body (whatever they return is called as cleanup).
 import { readdirSync, readFileSync, statSync } from "node:fs";
 import { join, relative, sep } from "node:path";
 
@@ -20,6 +21,10 @@ function check(file) {
   const rel = relative(root, file).split(sep).join("/");
   const text = readFileSync(file, "utf8");
   const lines = text.split("\n").length;
+  // An effect written as () => expression returns that value, and React calls
+  // whatever an effect returns as its cleanup: a Promise (scrollIntoView in
+  // recent browsers) then crashes the page. Effects take a block body.
+  if (/use(Layout)?Effect\(\s*\(\)\s*=>\s*[^{\s]/.test(text)) errors.push(`${rel}: write the effect as () => { ... }`);
   if (lines > 200) errors.push(`${rel}: ${lines} lines (limit 200)`);
   const feature = rel.startsWith("features/") ? rel.split("/")[1] : null;
   for (const m of text.matchAll(/from\s+"(@\/[^"]+)"/g)) {

@@ -26,7 +26,7 @@ export const initialFilters: Filters = { q: "", range: "7d", fromDay: "", toDay:
 /** Free search and the period, preset or from one day to another. */
 export function AuditFilters({ value, onChange }: { value: Filters; onChange: (f: Filters) => void }) {
   const [q, setQ] = useState(value.q);
-  useEffect(() => setQ(value.q), [value.q]);
+  useEffect(() => { setQ(value.q); }, [value.q]);
   const search = (e: FormEvent) => { e.preventDefault(); onChange({ ...value, q: q.trim() }); };
   return (
     <section aria-label="Filters" className="flex flex-wrap items-end gap-3 rounded-[var(--radius-panel)] border border-rule-soft bg-surface px-4 py-3.5">

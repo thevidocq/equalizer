@@ -19,7 +19,8 @@ Add a section at the top of "Entries" for every commit:
 
 ## Current project status
 
-Latest release: **0.2.19** (`docs/releases/0.2.19.md`); before it 0.2.18
+Latest release: **0.2.20** (`docs/releases/0.2.20.md`); before it 0.2.19
+(`docs/releases/0.2.19.md`), 0.2.18
 (`docs/releases/0.2.18.md`), 0.2.17
 (`docs/releases/0.2.17.md`), 0.2.16
 (`docs/releases/0.2.16.md`), 0.2.15
@@ -51,6 +52,23 @@ it, 0.1.0 (`docs/releases/0.1.0.md`, tag on the merge of #39).
 | tools (eqtool) | Map signing keys, form key, relay token, connector registration, map signing |
 
 ## Entries
+
+### 2026-11-23 — Fix History and New crashing the page; release 0.2.20
+
+- **Branch:** fix/assistant-effect-cleanup
+- **What:** `Conversation.tsx` scrolls in an effect with a block body;
+  the three other effects written `() => expression` (Shell, AuditFilters,
+  LogFilters) too; `scripts/check-boundaries.mjs` refuses an effect
+  without a block body; release notes 0.2.20, versions bumped; efficacy
+  study rerun.
+- **Why:** on the owner's browser (Edge) History and New showed
+  "Unexpected Application Error! l is not a function". Both unmount the
+  conversation; its effect returned what `scrollIntoView` returned, a
+  Promise in recent Chromium, and React 19 calls an effect's return value
+  as its cleanup.
+- **Status:** boundaries check passes; CI runs tsc and vitest.
+- **Next steps:** tag `v0.2.20`, update, try History and New. Later: a
+  route error page in the panel instead of React Router's default.
 
 ### 2026-11-23 — Say why the AI did not answer; release 0.2.19
 

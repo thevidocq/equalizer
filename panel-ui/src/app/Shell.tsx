@@ -21,7 +21,7 @@ export function Shell() {
   const tenant = me?.tenant ?? "";
   setTimeZone(me?.time_zone ?? "UTC"); // before the pages render their dates
   const { pathname } = useLocation();
-  useEffect(() => setOpen(false), [pathname]);
+  useEffect(() => { setOpen(false); }, [pathname]);
   useEffect(() => {
     if (!open) return;
     const close = (e: KeyboardEvent) => { if (e.key === "Escape") setOpen(false); };

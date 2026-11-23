@@ -19,7 +19,8 @@ Add a section at the top of "Entries" for every commit:
 
 ## Current project status
 
-Latest release: **0.2.18** (`docs/releases/0.2.18.md`); before it 0.2.17
+Latest release: **0.2.19** (`docs/releases/0.2.19.md`); before it 0.2.18
+(`docs/releases/0.2.18.md`), 0.2.17
 (`docs/releases/0.2.17.md`), 0.2.16
 (`docs/releases/0.2.16.md`), 0.2.15
 (`docs/releases/0.2.15.md`), 0.2.14
@@ -50,6 +51,23 @@ it, 0.1.0 (`docs/releases/0.1.0.md`, tag on the merge of #39).
 | tools (eqtool) | Map signing keys, form key, relay token, connector registration, map signing |
 
 ## Entries
+
+### 2026-11-23 — Say why the AI did not answer; release 0.2.19
+
+- **Branch:** fix/assistant-provider-error
+- **What:** `panel-api/internal/api/assistant.go` answers a provider's
+  refusal with 424 `ai_failed` (was 502), contract and `schema.d.ts`
+  follow; `panel-ui/src/shared/api/errors.ts` never returns an empty
+  sentence (server words, then words per code, then the status) with
+  `errors.test.ts`; API test `TestAssistantProviderRefusal`; release
+  notes 0.2.19, versions bumped; efficacy study rerun.
+- **Why:** on metaliquid the provider refused the tenant's key (POST 502
+  in 200 ms) and the panel showed an empty answer: the error's words were
+  lost and `describeError` fell back to an empty status text.
+- **Status:** Go tests pass; vitest in CI. `schema.d.ts` lists responses
+  in numeric order (JavaScript orders numeric keys), so 424 before 429.
+- **Next steps:** tag `v0.2.19`, update; fix the tenant's key in
+  Settings → AI and ask again.
 
 ### 2026-11-23 — Keep each person's assistant conversations; release 0.2.18
 

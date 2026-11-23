@@ -1089,7 +1089,7 @@ paths:
         Ask the assistant about the site (administrators and viewers). The tenant's AI model (Settings → AI)
         answers with tools that read the site's map, latest discovery report, security logs and history, and
         may propose changes to the map, which only an administrator turns into a draft. Visitors' addresses
-        reach the model as codes, never as addresses. 409 no_ai without a model, 502 ai_failed when the
+        reach the model as codes, never as addresses. 409 no_ai without a model, 424 ai_failed when the
         provider refuses, 429 after 20 questions in 10 minutes
       parameters: [{ $ref: "#/components/parameters/app" }]
       requestBody:
@@ -1105,8 +1105,8 @@ paths:
               schema: { $ref: "#/components/schemas/AssistantAnswer" }
         "409": { $ref: "#/components/responses/Error" }
         "422": { $ref: "#/components/responses/Error" }
+        "424": { $ref: "#/components/responses/Error" }
         "429": { $ref: "#/components/responses/Error" }
-        "502": { $ref: "#/components/responses/Error" }
   /apps/{app}/assistant/proposals/{proposal}/draft:
     post:
       tags: [assistant]

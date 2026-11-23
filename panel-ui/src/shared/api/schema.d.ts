@@ -2395,7 +2395,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Ask the assistant about the site (administrators and viewers). The tenant's AI model (Settings → AI) answers with tools that read the site's map, latest discovery report, security logs and history, and may propose changes to the map, which only an administrator turns into a draft. Visitors' addresses reach the model as codes, never as addresses. 409 no_ai without a model, 502 ai_failed when the provider refuses, 429 after 20 questions in 10 minutes */
+        /** Ask the assistant about the site (administrators and viewers). The tenant's AI model (Settings → AI) answers with tools that read the site's map, latest discovery report, security logs and history, and may propose changes to the map, which only an administrator turns into a draft. Visitors' addresses reach the model as codes, never as addresses. 409 no_ai without a model, 424 ai_failed when the provider refuses, 429 after 20 questions in 10 minutes */
         post: {
             parameters: {
                 query?: never;
@@ -2422,8 +2422,8 @@ export interface paths {
                 };
                 409: components["responses"]["Error"];
                 422: components["responses"]["Error"];
+                424: components["responses"]["Error"];
                 429: components["responses"]["Error"];
-                502: components["responses"]["Error"];
             };
         };
         delete?: never;

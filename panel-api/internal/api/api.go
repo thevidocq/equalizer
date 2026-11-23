@@ -13,6 +13,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/thevidocq/equalizer/panel-api/internal/assistant"
 	"github.com/thevidocq/equalizer/panel-api/internal/auth"
 	"github.com/thevidocq/equalizer/panel-api/internal/exposure"
 	"github.com/thevidocq/equalizer/panel-api/internal/health"
@@ -62,6 +63,9 @@ type Server struct {
 	Logs               *logsearch.Loki   // nil: the Logs page answers 503
 	Health             *health.Probe     // nil: connectors and services shown as unknown
 	MapCheck           *mapcheck.Checker // nil: maps are checked against the schema only
+	AssistantThrottle  *auth.Throttle    // questions to the assistant per user; nil: no limit
+	// AssistantModel replaces the tenant's AI provider (tests); nil: assistant.New.
+	AssistantModel func(assistant.Config) (assistant.Model, error)
 }
 
 type userKey struct{}
@@ -120,6 +124,8 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("PUT /v1/tenants/{tenant}/llm", s.authed(s.putLLM))
 	mux.HandleFunc("DELETE /v1/tenants/{tenant}/llm", s.authed(s.deleteLLM))
 	mux.HandleFunc("POST /v1/tenants/{tenant}/llm/models", s.authed(s.llmModels))
+	mux.HandleFunc("POST /v1/apps/{app}/assistant", s.authed(s.askAssistant))
+	mux.HandleFunc("POST /v1/apps/{app}/assistant/proposals/{proposal}/draft", s.authed(s.draftProposal))
 	mux.HandleFunc("GET /v1/apps/{app}/discoveries", s.authed(s.listDiscoveries))
 	mux.HandleFunc("POST /v1/apps/{app}/discoveries", s.authed(s.startDiscovery))
 	mux.HandleFunc("GET /v1/apps/{app}/discoveries/{id}", s.authed(s.getDiscovery))

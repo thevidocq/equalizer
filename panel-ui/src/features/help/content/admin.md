@@ -113,7 +113,12 @@ logs) for 30 days. Useful queries:
 ### Tenants' logs
 
 Each tenant reads its own security events in the panel (**Logs**); the
-platform does not read them in the panel.
+platform does not read them in the panel. Each site's assistant reads them
+too, through panel-api, so it needs Loki like the Logs page; without it the
+assistant answers from the map, the report and the activity. The assistant
+uses the tenant's own AI model: panel-api must reach the provider (or the
+tenant's own https server) on port 443, as the agent does. Conversations
+are not stored anywhere on the platform.
 
 ## Settings
 

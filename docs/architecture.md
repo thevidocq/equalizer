@@ -37,6 +37,7 @@ Internet ──► gateway ──► tunnel-relay ◄══ outbound tunnel ═�
                ▲  (only exposed)   ▲
                │ signed map        │ crawl
             panel-api ◄── proposals ── agent ──► LLM provider
+               │  └──── assistant (tenant's model) ──────► LLM provider
                ▲    │                 CONTROL PLANE
           panel-ui  └──► PostgreSQL
                orchestrator ──► Docker / Kubernetes
@@ -50,7 +51,7 @@ Internet ──► gateway ──► tunnel-relay ◄══ outbound tunnel ═�
 | `tunnel-relay` | Go | Terminates connector tunnels, routes requests | `schema/tunnel/tunnel.md` |
 | `connector` | Go | Next to the legacy app; outbound tunnel; allowed destinations only | `schema/tunnel/tunnel.md` |
 | `orchestrator` | Go | Applies the configured capacity (replicas, autoscaling, pools) | Desired state from panel-api |
-| `panel-api` | Go | Tenants, email invitations, users, sites, connectors, maps with approval, signing and rollback, templates, discovery jobs, review aid, tenant AI settings, exposure checks, status, logs (from Loki), audit, platform/tenant privacy (done); capacity, metrics, SIEM (planned) | `schema/api/panel-api.yaml` |
+| `panel-api` | Go | Tenants, email invitations, users, sites, connectors, maps with approval, signing and rollback, templates, discovery jobs, review aid, tenant AI settings, site assistant, exposure checks, status, logs (from Loki), audit, platform/tenant privacy (done); capacity, metrics, SIEM (planned) | `schema/api/panel-api.yaml` |
 | `panel-ui` | TypeScript, React | Panel | Client generated from OpenAPI |
 | `agent` | Python | Read-only discovery through the connector (anonymous and logged in), CMS fingerprint, map proposals, IDOR proposals for JSON APIs, optional AI with the tenant's model, review summaries | OpenAPI, `LLMProvider` interface |
 | `postgres` | — | Control-plane data | Versioned migrations |
@@ -186,6 +187,39 @@ in the vault, write-only. Page content is passed to the model as data, the
 output must validate against the map schema, the model has no tools that
 write, and every proposal that widens the surface needs human approval.
 
+### The assistant
+
+panel-api also talks to the tenant's model, for the assistant of a site
+(`panel-api/internal/assistant`, `POST /v1/apps/{app}/assistant`). The
+model gets five tools, scoped to that one site and to what the person
+asking may read: `get_map`, `get_report` (latest discovery),
+`search_logs` (Loki, up to 500 events summarised by type, reason, entry
+and path), `get_activity` (audit) and `propose_change`. At most 8 rounds of
+tools, then words only; 100 seconds in all.
+
+- **No writes.** `propose_change` stores a change in
+  `assistant_proposals` after checking it on the map it would go on; only
+  three kinds exist (a file type for a folder, a query key with an int,
+  date, enum or markup-free string check, more values for an enum), and
+  types that can run code are refused. An administrator's click
+  (`POST …/assistant/proposals/{id}/draft`) checks it again, makes a draft
+  and queues the agent's verification; publishing stays a separate,
+  human step. Drafts from proposals are made one at a time per site (a
+  PostgreSQL advisory lock), on the newest draft or the published map,
+  never beside a version under review.
+- **Masking.** Client IPs, in the logs or typed in a question, become
+  HMAC codes (`V-…`) under a key that lives only in the panel-api
+  process; emails in paths and questions are hidden, panel users become `U-…` codes that only the
+  answer shown to the person turns back into emails.
+- **Data, not instructions.** Tool results are wrapped in a random-tagged
+  fence the content cannot close; the system prompt says what is inside
+  is data.
+- **Outbound.** The same rule as the agent: public addresses only, no
+  redirects, https for a tenant's own server.
+- **Trace.** Activity records `assistant.asked` (tools used, number of
+  proposals) and `assistant.draft`; never the question or the answer.
+  20 questions per person every 10 minutes.
+
 ## Connector and tunnel
 
 - The connector always opens the connection to the relay: HTTPS on 443
@@ -291,8 +325,9 @@ wire.
 - Writes need the `X-Eq-Panel` header (no cross-site forms), bodies are at
   most 4 MB, and the server gives a client a minute to send a request and
   two to read the answer.
-- The agent calls a tenant's model server without following redirects and
-  only if the address it connected to is public (no way into the
+- The agent, and panel-api for the assistant, call a tenant's model
+  server without following redirects and only if the address they
+  connected to is public (no way into the
   platform's networks by a redirect or a changing DNS answer).
 
 The lab's `test_03c_relay_panel.py` tries these on the relay and the

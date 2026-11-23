@@ -11,6 +11,12 @@ describe("describeEntry", () => {
     expect(describeEntry({ id: 3, ts: "", action: "user.invite", target: "ed@acme.test", user: "boss@acme.test" }))
       .toBe("boss@acme.test invited ed@acme.test");
   });
+  it("tells the assistant's questions and drafts, never their text", () => {
+    expect(describeEntry({ id: 20, ts: "", action: "assistant.asked", target: "shop", user: "a@acme.test", detail: { tools: ["search_logs"], proposals: 1 } }))
+      .toBe("a@acme.test asked the assistant about shop (1 change proposed)");
+    expect(describeEntry({ id: 21, ts: "", action: "assistant.draft", target: "shop", user: "a@acme.test", detail: { version: 6, from: 5 } }))
+      .toBe("a@acme.test made a change proposed by the assistant into version 6 of the map of shop");
+  });
   it("names the agent and Equalizer, and never shows raw action names", () => {
     expect(describeEntry({ id: 4, ts: "", action: "discovery.finish", target: "shop", user: null, detail: { draft_version: 5 } }))
       .toBe("The agent finished the discovery of shop: draft version 5 is ready to review");

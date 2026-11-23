@@ -42,6 +42,10 @@ every site the lab can build.
 
 ## Results (0.2.14)
 
+Run again for 0.2.15 (23 Nov 2026): the same numbers on every line, all
+guarantees hold (0.2.15 adds the panel's assistant and does not change
+the gateway or the agent's maps).
+
 Five sites: WordPress 6.9, Drupal 11.4, the custom intranet (generic
 profile), phpBB 3.3, MediaWiki 1.43. Joomla, OpenCart, PrestaShop, TYPO3
 and Magento need a build (npm) or MariaDB the study's machine did not

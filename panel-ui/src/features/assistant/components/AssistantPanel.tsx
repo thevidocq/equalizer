@@ -1,0 +1,70 @@
+import { useEffect } from "react";
+import { Button } from "@/shared/ui";
+import { useAssistant } from "../hooks/useAssistant";
+import { Composer } from "./Composer";
+import { Conversation } from "./Conversation";
+import { Suggestions } from "./Suggestions";
+
+type Props = {
+  tenant: string;
+  app: string;
+  siteName: string;
+  mapVersion: number | null;
+  canDraft: boolean;
+  open: boolean;
+  onClose: () => void;
+};
+
+/**
+ * The assistant of one site, on the right of the page on wide screens and
+ * over the whole page on phones. Closing it keeps the conversation while
+ * the person stays on the site.
+ */
+export function AssistantPanel({ tenant, app, siteName, mapVersion, canDraft, open, onClose }: Props) {
+  const { messages, ask, clear } = useAssistant(app);
+  useEffect(() => {
+    // the page makes room for the panel on wide screens (see Shell)
+    document.documentElement.style.setProperty("--assistant-width", open ? "26rem" : "0px");
+    if (!open) return;
+    const esc = (e: KeyboardEvent) => {
+      // a dialog open over the page (Delete site…) takes its own Escape
+      if (e.key === "Escape" && !document.querySelector('[role="dialog"], [role="alertdialog"]')) onClose();
+    };
+    window.addEventListener("keydown", esc);
+    return () => {
+      window.removeEventListener("keydown", esc);
+      document.documentElement.style.setProperty("--assistant-width", "0px");
+    };
+  }, [open, onClose]);
+  if (!open) return null;
+  return (
+    <aside id="assistant-panel" aria-label={`Assistant for ${siteName}`}
+      className="fixed inset-0 z-40 flex flex-col bg-surface lg:inset-y-0 lg:left-auto lg:right-0 lg:z-20 lg:w-[26rem] lg:border-l lg:border-rule">
+      <header className="flex items-start justify-between gap-3 border-b border-rule-soft px-4 py-3">
+        <div>
+          <h2 className="font-semibold text-ink">Assistant · {siteName}</h2>
+          <p className="mt-1 flex flex-wrap gap-1.5 text-xs text-ink-soft">
+            <span className="rounded-full bg-paper px-2 py-0.5">{mapVersion ? `Map v${mapVersion}` : "No published map"}</span>
+            <span className="rounded-full bg-paper px-2 py-0.5">Report · logs · history</span>
+            <span className="rounded-full bg-paper px-2 py-0.5">AI of Settings → AI</span>
+          </p>
+        </div>
+        <div className="flex items-center gap-2">
+          {messages.length ? <Button variant="quiet" onClick={clear}>New</Button> : null}
+          <Button variant="secondary" onClick={onClose} aria-label="Close the assistant">Close</Button>
+        </div>
+      </header>
+      <div className="flex-1 overflow-y-auto px-4 py-4">
+        {messages.length
+          ? <Conversation tenant={tenant} app={app} messages={messages} busy={ask.isPending} canDraft={canDraft} />
+          : <Suggestions onPick={(q) => ask.mutate(q)} />}
+      </div>
+      <footer className="border-t border-rule-soft px-4 py-3">
+        <Composer busy={ask.isPending} onSend={(q) => ask.mutate(q)} />
+        <p className="mt-2 text-xs text-ink-soft">
+          Visitor addresses reach the AI as codes (V-…), never as IPs. The AI can be wrong: check before you publish.
+        </p>
+      </footer>
+    </aside>
+  );
+}

@@ -64,7 +64,8 @@ it, 0.1.0 (`docs/releases/0.1.0.md`, tag on the merge of #39).
 - **Why:** on metaliquid the provider refused the tenant's key (POST 502
   in 200 ms) and the panel showed an empty answer: the error's words were
   lost and `describeError` fell back to an empty status text.
-- **Status:** Go tests pass; vitest in CI.
+- **Status:** Go tests pass; vitest in CI. `schema.d.ts` lists responses
+  in numeric order (JavaScript orders numeric keys), so 424 before 429.
 - **Next steps:** tag `v0.2.19`, update; fix the tenant's key in
   Settings → AI and ask again.
 

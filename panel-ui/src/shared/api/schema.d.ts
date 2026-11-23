@@ -2422,8 +2422,8 @@ export interface paths {
                 };
                 409: components["responses"]["Error"];
                 422: components["responses"]["Error"];
-                429: components["responses"]["Error"];
                 424: components["responses"]["Error"];
+                429: components["responses"]["Error"];
             };
         };
         delete?: never;

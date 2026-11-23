@@ -1105,8 +1105,8 @@ paths:
               schema: { $ref: "#/components/schemas/AssistantAnswer" }
         "409": { $ref: "#/components/responses/Error" }
         "422": { $ref: "#/components/responses/Error" }
-        "429": { $ref: "#/components/responses/Error" }
         "424": { $ref: "#/components/responses/Error" }
+        "429": { $ref: "#/components/responses/Error" }
   /apps/{app}/assistant/proposals/{proposal}/draft:
     post:
       tags: [assistant]

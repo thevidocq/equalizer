@@ -21,7 +21,7 @@ type Props = {
  * the person stays on the site.
  */
 export function AssistantPanel({ tenant, app, siteName, mapVersion, canDraft, open, onClose }: Props) {
-  const { messages, ask, clear } = useAssistant(app);
+  const { messages, send, busy, clear } = useAssistant(app);
   useEffect(() => {
     // the page makes room for the panel on wide screens (see Shell)
     document.documentElement.style.setProperty("--assistant-width", open ? "26rem" : "0px");
@@ -56,11 +56,11 @@ export function AssistantPanel({ tenant, app, siteName, mapVersion, canDraft, op
       </header>
       <div className="flex-1 overflow-y-auto px-4 py-4">
         {messages.length
-          ? <Conversation tenant={tenant} app={app} messages={messages} busy={ask.isPending} canDraft={canDraft} />
-          : <Suggestions onPick={(q) => ask.mutate(q)} />}
+          ? <Conversation tenant={tenant} app={app} messages={messages} busy={busy} canDraft={canDraft} />
+          : <Suggestions onPick={send} />}
       </div>
       <footer className="border-t border-rule-soft px-4 py-3">
-        <Composer busy={ask.isPending} onSend={(q) => ask.mutate(q)} />
+        <Composer busy={busy} onSend={send} />
         <p className="mt-2 text-xs text-ink-soft">
           Visitor addresses reach the AI as codes (V-…), never as IPs. The AI can be wrong: check before you publish.
         </p>

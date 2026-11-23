@@ -19,7 +19,8 @@ Add a section at the top of "Entries" for every commit:
 
 ## Current project status
 
-Latest release: **0.2.15** (`docs/releases/0.2.15.md`); before it 0.2.14
+Latest release: **0.2.16** (`docs/releases/0.2.16.md`); before it 0.2.15
+(`docs/releases/0.2.15.md`), 0.2.14
 (`docs/releases/0.2.14.md`), 0.2.13
 (`docs/releases/0.2.13.md`), 0.2.12
 (tagged on the code of 0.2.11, `docs/releases/0.2.11.md`), 0.2.11
@@ -47,6 +48,41 @@ it, 0.1.0 (`docs/releases/0.1.0.md`, tag on the merge of #39).
 | tools (eqtool) | Map signing keys, form key, relay token, connector registration, map signing |
 
 ## Entries
+
+### 2026-11-23 — Show cards and Markdown in the assistant; release 0.2.16
+
+- **Branch:** feat/assistant-cards
+- **What:**
+  - `panel-api/internal/assistant/cards.go`: tool `show_card` (event by
+    request ID from Loki, refusals of a period by type and reason with
+    distinct visitors, an entry's checks in words from the map, named
+    types and form fields included); at most 4 per answer; answers carry
+    `cards`; `search_logs` lines give the request ID; the system prompt
+    asks for Markdown without links, images or HTML.
+  - Contract: `AssistantCard` (event, refusals, route), `cards` required
+    in `AssistantAnswer`, `show_card` in `used`; `schema.d.ts` by hand.
+  - panel-ui: `features/assistant/markdown` (parser to data, React
+    renderer: paragraphs, headings as bold lines, lists, tables, code,
+    bold/italic, links only to `/t/…`), `features/assistant/cards`
+    (EventCard with Open in Logs, RefusalsCard, RouteCard); Logs page
+    reads `app`, `q`, `since` from the URL; logs exports `kindOf`,
+    `reasonText`.
+  - Docs: tenant manual ("What an answer looks like", Logs link),
+    architecture, help synced, release notes 0.2.16, versions bumped.
+- **Why:** the mockup's log card and table; the AI chooses, the panel
+  shows the real numbers.
+- **Status:** Go tests pass (cards unit test, API test with a route
+  card). panel-ui checks run in CI (no node_modules here); the parser
+  was also exercised with tsx. Efficacy study rerun: same numbers, all
+  guarantees hold. Independent review fixed: the parser could loop
+  forever on a heading with a lone `\r` or U+2028 (now every line break
+  is normalised and a paragraph always takes its first line); `..` in
+  panel links refused; Open in Logs opens a new tab so the conversation
+  stays; an invalid period is named as such.
+- **Next steps:**
+  1. Merge, tag `v0.2.14`, `v0.2.15` and `v0.2.16` if not done (the remote
+     has tags up to `v0.2.13`).
+  2. Screenshot of the assistant for the manual.
 
 ### 2026-11-23 — Fix strict index access in the assistant's history test
 

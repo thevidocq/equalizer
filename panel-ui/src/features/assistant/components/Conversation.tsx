@@ -1,7 +1,8 @@
 import { useEffect, useRef } from "react";
 import { Spinner } from "@/shared/ui";
 import type { Message } from "../hooks/useAssistant";
-import { RichText } from "./RichText";
+import { Markdown } from "../markdown/Markdown";
+import { Card } from "../cards/Card";
 import { ProposalCard } from "./ProposalCard";
 
 type Props = { tenant: string; app: string; messages: Message[]; busy: boolean; canDraft: boolean };
@@ -18,7 +19,8 @@ export function Conversation({ tenant, app, messages, busy, canDraft }: Props) {
         </div>
       ) : (
         <div key={i} className="flex flex-col gap-3 text-sm text-ink">
-          {m.failed ? <p role="alert" className="text-state-rejected">{m.text}</p> : <RichText text={m.text} />}
+          {m.failed ? <p role="alert" className="text-state-rejected">{m.text}</p> : <Markdown text={m.text} />}
+          {m.cards?.map((c, j) => <Card key={`c${j}`} tenant={tenant} app={app} card={c} />)}
           {m.proposals?.map((p) => <ProposalCard key={p.id} tenant={tenant} app={app} proposal={p} canDraft={canDraft} />)}
         </div>
       ))}

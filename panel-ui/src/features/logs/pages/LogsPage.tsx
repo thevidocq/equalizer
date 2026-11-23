@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { useParams } from "react-router";
+import { useParams, useSearchParams } from "react-router";
 import { hasRole, useMe } from "@/features/auth";
 import { useApps } from "@/features/sites";
 import { describeError } from "@/shared/api/errors";
@@ -11,13 +11,18 @@ import { EventTable } from "../components/EventTable";
 import { EventDetail } from "../components/EventDetail";
 import { useLogExport, useLogStats, useLogs, useRestartLogs, type LogFilter } from "../hooks/useLogs";
 
+const periodOf = (v: string | null): LogFilter["since"] => (v === "1h" || v === "7d" || v === "30d" ? v : "24h");
+
 /** What the gateway served and refused on the tenant's sites. */
 export function LogsPage() {
   const tenant = useParams().tenant ?? "";
   const me = useMe().data;
   const apps = useApps(tenant).data ?? [];
-  const [on, setOn] = useState<string[]>(defaultKinds);
-  const [base, setBase] = useState<Omit<LogFilter, "types">>({ app: "", q: "", since: "24h" });
+  const [params] = useSearchParams(); // a link from elsewhere (the assistant) opens on its event
+  const [on, setOn] = useState<string[]>(() => (params.get("q") ? kinds.map((k) => k.id) : defaultKinds));
+  const [base, setBase] = useState<Omit<LogFilter, "types">>(() => ({
+    app: params.get("app") ?? "", q: params.get("q") ?? "", since: periodOf(params.get("since")),
+  }));
   const [live, setLive] = useState(true);
   const [selected, setSelected] = useState<string | null>(null);
   const filter: LogFilter = useMemo(

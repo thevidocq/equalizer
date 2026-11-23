@@ -82,6 +82,23 @@ func TestAssistant(t *testing.T) {
 		t.Fatalf("report: %s", out.Text)
 	}
 
+	// a card of an entry, built from the map; none from logs the platform does not keep
+	model.rounds = [][]assistant.Call{{
+		{ID: "c1", Name: "show_card", Input: json.RawMessage(`{"kind":"route","route_id":"home","version":1}`)},
+		{ID: "c2", Name: "show_card", Input: json.RawMessage(`{"kind":"refusals"}`)},
+	}}
+	var withCards struct {
+		Cards []struct {
+			Kind   string
+			ID     string
+			Checks []struct{ Name, Where, Rule string }
+		}
+	}
+	viewer.must(200, "POST", "/v1/apps/blog/assistant", ask, &withCards)
+	if len(withCards.Cards) != 1 || withCards.Cards[0].Kind != "route" || len(withCards.Cards[0].Checks) == 0 {
+		t.Fatalf("cards: %+v", withCards)
+	}
+
 	// a script type is refused, whoever asks; a PDF type is proposed
 	model.rounds = [][]assistant.Call{
 		{{ID: "1", Name: "propose_change", Input: json.RawMessage(`{"kind":"add_file_type","prefix":"/wp-content/uploads/","type":"application/x-php","reason":"x"}`)}},

@@ -1792,14 +1792,15 @@ components:
               text: { type: string, minLength: 1, maxLength: 4000 }
     AssistantAnswer:
       type: object
-      required: [text, proposals, used]
+      required: [text, proposals, cards, used]
       properties:
-        text: { type: string, description: "Plain text: paragraphs, - bullets, `code`" }
+        text: { type: string, description: "Markdown without links, images or HTML" }
         proposals: { type: array, items: { $ref: "#/components/schemas/AssistantProposal" } }
+        cards: { type: array, items: { $ref: "#/components/schemas/AssistantCard" } }
         used:
           type: array
           description: The tools the model called
-          items: { type: string, enum: [get_map, get_report, search_logs, get_activity, propose_change] }
+          items: { type: string, enum: [get_map, get_report, search_logs, get_activity, show_card, propose_change] }
     AssistantProposal:
       type: object
       required: [id, summary, reason]
@@ -1807,6 +1808,63 @@ components:
         id: { type: string }
         summary: { type: string, description: "What the change does, e.g. text/csv added to the folder /files/" }
         reason: { type: string }
+    AssistantCard:
+      description: Built by the panel from the logs or the map; the model only chose which
+      oneOf:
+        - { $ref: "#/components/schemas/AssistantEventCard" }
+        - { $ref: "#/components/schemas/AssistantRefusalsCard" }
+        - { $ref: "#/components/schemas/AssistantRouteCard" }
+    AssistantEventCard:
+      type: object
+      required: [kind, ts, type, reason, status, method, path, route, field, request_id, visitor]
+      properties:
+        kind: { type: string, enum: [event] }
+        ts: { type: string, format: date-time }
+        type: { type: string }
+        reason: { type: string }
+        status: { type: integer }
+        method: { type: string }
+        path: { type: string }
+        route: { type: string }
+        field: { type: string }
+        request_id: { type: string }
+        visitor: { type: string, description: "The visitor's code (V-…), as in the answer" }
+    AssistantRefusalsCard:
+      type: object
+      required: [kind, since, total, partial, rows]
+      properties:
+        kind: { type: string, enum: [refusals] }
+        since: { type: string, enum: ["1h", "24h", "7d", "30d"] }
+        total: { type: integer }
+        partial: { type: boolean, description: "More events than the 500 read" }
+        rows:
+          type: array
+          items:
+            type: object
+            required: [type, reason, requests, visitors]
+            properties:
+              type: { type: string }
+              reason: { type: string }
+              requests: { type: integer }
+              visitors: { type: integer }
+    AssistantRouteCard:
+      type: object
+      required: [kind, version, id, method, path, checks]
+      properties:
+        kind: { type: string, enum: [route] }
+        version: { type: integer }
+        id: { type: string }
+        method: { type: string }
+        path: { type: string }
+        checks:
+          type: array
+          items:
+            type: object
+            required: [name, where, rule]
+            properties:
+              name: { type: string }
+              where: { type: string, description: "path, query, or form <id>" }
+              rule: { type: string }
     AssistantDraft:
       type: object
       required: [app, version, status]

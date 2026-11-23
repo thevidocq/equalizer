@@ -12,15 +12,16 @@ import (
 
 // Event is what the assistant sees of a security event: no field values.
 type Event struct {
-	TS     time.Time
-	Type   string
-	Reason string
-	Route  string
-	Method string
-	Path   string
-	Status int
-	Field  string
-	IP     string
+	TS        time.Time
+	Type      string
+	Reason    string
+	Route     string
+	Method    string
+	Path      string
+	Status    int
+	Field     string
+	IP        string
+	RequestID string
 }
 
 // Activity is one action in the site's history.
@@ -46,7 +47,8 @@ var ErrNoLogs = errors.New("no log store")
 var logTypes = []string{"request.served", "request.blocked", "field.rejected", "ratelimit.hit", "behavior.alert",
 	"parse.failed", "legacy.error", "connector.down", "exposure.alert"}
 
-// Tools are the assistant's tools: four that read, one that proposes.
+// Tools are the assistant's tools: four that read, one that shows a card,
+// one that proposes.
 func Tools() []Tool {
 	str := func(d string) map[string]any { return map[string]any{"type": "string", "description": d} }
 	return []Tool{
@@ -63,6 +65,7 @@ func Tools() []Tool {
 			})},
 		{Name: "get_activity", Description: "The site's history: discoveries, drafts, publications, alerts, who did what and when.",
 			Schema: obj(map[string]any{"limit": map[string]any{"type": "integer", "description": "1 to 30, default 15"}})},
+		cardTool(),
 		{Name: "propose_change", Description: "Proposes ONE change to the map, which an administrator may turn into a draft with a click; it changes nothing by itself. Kinds: add_file_type (prefix, type: the media type the site sends), add_query_key (route_id, key, spec: {type: int|date|enum|string, values for enum, min/max for int}; prefer enum with the values the site offers), add_enum_values (route_id, key, values).",
 			Schema: obj(map[string]any{
 				"kind":   map[string]any{"type": "string", "enum": []string{"add_file_type", "add_query_key", "add_enum_values"}},
@@ -94,7 +97,8 @@ type Proposal struct {
 }
 
 // Exec runs one tool call for the model; its answer is text, an error too.
-func Exec(ctx context.Context, src Source, m *Masker, c Call, proposals *[]Proposal) string {
+func Exec(ctx context.Context, src Source, m *Masker, c Call, ans *Answer) string {
+	proposals := &ans.Proposals
 	var in map[string]any
 	_ = json.Unmarshal(c.Input, &in)
 	switch c.Name {
@@ -141,6 +145,16 @@ func Exec(ctx context.Context, src Source, m *Masker, c Call, proposals *[]Propo
 			fmt.Fprintf(&b, "%s %s by %s %s\n", a.TS.UTC().Format(time.RFC3339), a.Action, or(m.User(a.User), "the platform"), m.Text(string(d)))
 		}
 		return fence(b.String())
+	case "show_card":
+		if len(ans.Cards) >= MaxCards {
+			return "error: four cards already in this answer"
+		}
+		cd, what, err := card(ctx, src, m, in)
+		if err != nil {
+			return "not shown: " + err.Error()
+		}
+		ans.Cards = append(ans.Cards, cd)
+		return "shown to the person: " + what + ". Do not repeat its details; say what it means."
 	case "propose_change":
 		var ch Change
 		_ = json.Unmarshal(c.Input, &ch)
@@ -236,8 +250,8 @@ func summarizeLogs(evs []Event, m *Masker, limit int, since string) string {
 		if i == limit {
 			break
 		}
-		fmt.Fprintf(&b, "%s %s %s %s %d visitor=%s entry=%s reason=%s field=%s\n", e.TS.UTC().Format(time.RFC3339),
-			e.Type, e.Method, m.Text(e.Path), e.Status, m.Visitor(e.IP), e.Route, e.Reason, e.Field)
+		fmt.Fprintf(&b, "%s %s %s %s %d visitor=%s entry=%s reason=%s field=%s id=%s\n", e.TS.UTC().Format(time.RFC3339),
+			e.Type, e.Method, m.Text(e.Path), e.Status, m.Visitor(e.IP), e.Route, e.Reason, e.Field, e.RequestID)
 	}
 	return b.String()
 }

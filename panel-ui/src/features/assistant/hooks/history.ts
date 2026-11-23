@@ -5,6 +5,7 @@ export type Message = {
   role: "user" | "assistant";
   text: string;
   proposals?: Schemas["AssistantProposal"][];
+  cards?: Schemas["AssistantCard"][];
   failed?: boolean; // the panel's own words: never sent back to the model
 };
 

@@ -14,7 +14,7 @@ export function useAssistant(app: string) {
     mutationFn: (question: string) =>
       unwrap(api.POST("/apps/{app}/assistant", { params: { path: { app } }, body: { messages: history(messages, question) } })),
     onMutate: (question) => setMessages((m) => [...m, { role: "user", text: question }]),
-    onSuccess: (a) => setMessages((m) => [...m, { role: "assistant", text: a.text, proposals: a.proposals }]),
+    onSuccess: (a) => setMessages((m) => [...m, { role: "assistant", text: a.text, proposals: a.proposals, cards: a.cards }]),
     onError: (err, question) => setMessages((m) => {
       // the question stays on screen; it is sent again with the next one only if it was answered
       const rest = m.slice(0, -1);

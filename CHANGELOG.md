@@ -19,7 +19,8 @@ Add a section at the top of "Entries" for every commit:
 
 ## Current project status
 
-Latest release: **0.2.23** (`docs/releases/0.2.23.md`); before it 0.2.22
+Latest release: **0.2.24** (`docs/releases/0.2.24.md`); before it 0.2.23
+(`docs/releases/0.2.23.md`), 0.2.22
 (`docs/releases/0.2.22.md`), 0.2.21
 (`docs/releases/0.2.21.md`), 0.2.20
 (`docs/releases/0.2.20.md`), 0.2.19
@@ -55,6 +56,28 @@ it, 0.1.0 (`docs/releases/0.1.0.md`, tag on the merge of #39).
 | tools (eqtool) | Map signing keys, form key, relay token, connector registration, map signing |
 
 ## Entries
+
+### 2026-11-23 — Show what the discovery is doing; fix the schedule's hour; release 0.2.24
+
+- **Branch:** feat/discovery-activity
+- **What:** agent: `Crawler.say(doing, path)` sends the panel what the
+  discovery is doing (exploring, as which account, the page; the browser
+  pass; stylesheets; building the map; the AI; visitors' requests), at
+  most every 2 seconds unless a step starts, never stopping the study if
+  the panel does not answer (test `tests/test_progress.py`); the old
+  every-20-pages progress is replaced. panel-ui `Report.tsx` shows it on a
+  line under "Running: N pages so far…". `ScheduleForm` shows the hour of
+  a schedule saved in another zone (UTC) as it really runs in the
+  person's zone, from the next run, with a note to Save (test
+  `ScheduleForm.test.ts`). Tenant manual and help; release notes 0.2.24;
+  versions bumped; efficacy study rerun.
+- **Why:** the owner saw "440 pages so far" not move for minutes (the
+  study had moved on to the browser and the AI), and the schedule said
+  03:00 Europe/Rome while it ran at 04:00: it had been saved in UTC
+  before he chose his zone, and the form showed that hour under his
+  zone's name.
+- **Status:** agent tests pass; CI runs tsc and vitest.
+- **Next steps:** tag `v0.2.24`; the two log fixes seen on the phone.
 
 ### 2026-11-23 — Make the assistant more useful; release 0.2.23
 

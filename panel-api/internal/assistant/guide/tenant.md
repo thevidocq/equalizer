@@ -267,6 +267,12 @@ file of that type in that folder.
 
 ![Discovery](../screenshots/discovery.png)
 
+While it runs, the page shows how many pages it has found and, under it,
+what it is doing now: exploring (as which test account) with the page it
+is on, opening pages in the browser to see what their scripts load,
+reading the stylesheets, building the map, the AI studying the structure,
+checking what visitors asked for.
+
 The whole site always stays in the map through the `/` area. The report
 shows what was found, which pages got precise entries, how each test
 account logged in, what is **still open** with its reason (pages not
@@ -277,7 +283,9 @@ and a detail with the same id). If the map should change, a draft is
 proposed: review it and publish it. **Continuous discovery** explores
 again every day or every week, at the hour (and day) you choose in your
 time zone, and proposes a draft only when something changed; the page shows
-the next run and the latest discovery. The report says whether the AI
+the next run and the latest discovery. A schedule saved before you chose
+your time zone (in UTC) shows the hour it really runs at in yours, with a
+note: **Save** to keep it at that hour in your time zone. The report says whether the AI
 model was used; when it was asked but could not answer (no credit left, key
 refused, provider not answering) it says so in plain words, and the draft
 comes from the fixed rules only.

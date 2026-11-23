@@ -42,7 +42,7 @@ func TestAssistant(t *testing.T) {
 	viewer := e.join("ap@acme.test")
 	boss.must(201, "POST", "/v1/tenants/acme/connectors", map[string]string{"id": "cn-web01"}, nil)
 	boss.must(201, "POST", "/v1/tenants/acme/apps", map[string]any{"id": "blog", "name": "Blog", "public_domain": "blog.acme.test", "kind": "wordpress"}, nil)
-	ask := map[string]any{"messages": []map[string]string{{"role": "user", "text": "Why are PDFs refused?"}}}
+	ask := map[string]any{"text": "Why are PDFs refused?"}
 
 	// no model in Settings → AI
 	boss.must(409, "POST", "/v1/apps/blog/assistant", ask, nil)
@@ -116,6 +116,31 @@ func TestAssistant(t *testing.T) {
 	var made struct{ Version int }
 	boss.must(201, "POST", "/v1/apps/blog/assistant/proposals/"+id+"/draft", nil, &made)
 	boss.must(409, "POST", "/v1/apps/blog/assistant/proposals/"+id+"/draft", nil, nil)
+	// the viewer's conversation shows the draft the proposal became
+	var convs struct{ Items []struct{ ID string } }
+	viewer.must(200, "GET", "/v1/assistant/conversations", nil, &convs)
+	shown := 0
+	for _, c := range convs.Items {
+		var conv struct {
+			Messages []struct {
+				Proposals []struct {
+					ID           string
+					DraftVersion *int `json:"draft_version"`
+				}
+			}
+		}
+		viewer.must(200, "GET", "/v1/assistant/conversations/"+c.ID, nil, &conv)
+		for _, m := range conv.Messages {
+			for _, p := range m.Proposals {
+				if p.ID == id && p.DraftVersion != nil && *p.DraftVersion == made.Version {
+					shown++
+				}
+			}
+		}
+	}
+	if shown != 1 {
+		t.Fatalf("the proposal does not show its draft (%d)", shown)
+	}
 	var mapList struct {
 		Items []struct {
 			Version int
@@ -181,5 +206,96 @@ func TestAssistant(t *testing.T) {
 	eve := e.join("eve@other.test")
 	eve.must(404, "POST", "/v1/apps/blog/assistant", ask, nil)
 	eve.must(404, "POST", "/v1/apps/blog/assistant/proposals/"+id+"/draft", nil, nil)
-	boss.must(422, "POST", "/v1/apps/blog/assistant", map[string]any{"messages": []map[string]string{{"role": "assistant", "text": "x"}}}, nil)
+	boss.must(422, "POST", "/v1/apps/blog/assistant", map[string]any{"text": " "}, nil)
+}
+
+// remembers keeps what the model was given on each question.
+type remembers struct{ seen [][]assistant.Turn }
+
+func (m *remembers) Chat(_ context.Context, _ string, turns []assistant.Turn, _ []assistant.Tool) (assistant.Reply, error) {
+	m.seen = append(m.seen, turns)
+	return assistant.Reply{Text: "answer " + turns[len(turns)-1].Text}, nil
+}
+
+// A conversation is its author's only, goes on where it stopped, and lasts
+// as long as the tenant keeps it.
+func TestAssistantConversations(t *testing.T) {
+	e := setup(t)
+	root := e.client()
+	root.must(200, "POST", "/v1/auth/login", map[string]string{"email": "root@example.com", "password": "platform-admin-password"}, nil)
+	root.must(201, "POST", "/v1/tenants", map[string]string{"id": "acme", "name": "Acme", "admin_email": "boss@acme.test", "admin_name": "Boss"}, nil)
+	boss := e.join("boss@acme.test")
+	boss.must(201, "POST", "/v1/tenants/acme/invitations", map[string]string{"email": "ed@acme.test", "name": "Ed", "role": "admin"}, nil)
+	ed := e.join("ed@acme.test")
+	boss.must(201, "POST", "/v1/tenants/acme/apps", map[string]any{"id": "blog", "name": "Blog", "public_domain": "blog.acme.test", "kind": "wordpress"}, nil)
+	boss.must(201, "POST", "/v1/tenants/acme/apps", map[string]any{"id": "shop", "name": "Shop", "public_domain": "shop.acme.test", "kind": "wordpress"}, nil)
+	boss.must(200, "PUT", "/v1/tenants/acme/llm", map[string]any{"provider": "anthropic", "model": "claude-haiku-5-5", "api_key": "sk-test"}, nil)
+	model := &remembers{}
+	e.server.AssistantModel = func(assistant.Config) (assistant.Model, error) { return model, nil }
+
+	var first struct{ Conversation, Text string }
+	boss.must(200, "POST", "/v1/apps/blog/assistant", map[string]any{"text": "one"}, &first)
+	var second struct{ Conversation string }
+	boss.must(200, "POST", "/v1/apps/blog/assistant", map[string]any{"text": "two", "conversation": first.Conversation}, &second)
+	if second.Conversation != first.Conversation || len(model.seen[1]) != 3 || model.seen[1][1].Text != "answer one" {
+		t.Fatalf("the conversation did not go on: %+v %+v", second, model.seen)
+	}
+	// not someone else's, not on another site
+	ed.must(404, "POST", "/v1/apps/blog/assistant", map[string]any{"text": "x", "conversation": first.Conversation}, nil)
+	ed.must(404, "GET", "/v1/assistant/conversations/"+first.Conversation, nil, nil)
+	ed.must(404, "DELETE", "/v1/assistant/conversations/"+first.Conversation, nil, nil)
+	boss.must(404, "POST", "/v1/apps/shop/assistant", map[string]any{"text": "x", "conversation": first.Conversation}, nil)
+	var edList struct{ Items []any }
+	ed.must(200, "GET", "/v1/assistant/conversations", nil, &edList)
+	if len(edList.Items) != 0 {
+		t.Fatalf("another person's conversations: %+v", edList)
+	}
+
+	boss.must(200, "POST", "/v1/apps/shop/assistant", map[string]any{"text": "about the shop"}, nil)
+	var mine struct {
+		Items []struct{ ID, App, AppName, Title string }
+	}
+	boss.must(200, "GET", "/v1/assistant/conversations", nil, &mine)
+	if len(mine.Items) != 2 || mine.Items[0].App != "shop" || mine.Items[1].Title != "one" {
+		t.Fatalf("list: %+v", mine)
+	}
+	var conv struct {
+		Conversation struct{ App string }
+		Messages     []struct{ Role, Text string }
+	}
+	boss.must(200, "GET", "/v1/assistant/conversations/"+first.Conversation, nil, &conv)
+	if conv.Conversation.App != "blog" || len(conv.Messages) != 4 || conv.Messages[3].Text != "answer two" {
+		t.Fatalf("conversation: %+v", conv)
+	}
+
+	// the retention, from the tenant's settings
+	var set struct {
+		KeepDays int `json:"keep_days"`
+	}
+	ed.must(200, "GET", "/v1/tenants/acme/assistant", nil, &set)
+	if set.KeepDays != 30 {
+		t.Fatalf("default retention: %d", set.KeepDays)
+	}
+	boss.must(422, "PUT", "/v1/tenants/acme/assistant", map[string]int{"keep_days": 0}, nil)
+	boss.must(200, "PUT", "/v1/tenants/acme/assistant", map[string]int{"keep_days": 7}, nil)
+	if _, err := e.st.DB.Exec(`UPDATE assistant_conversations SET updated_at = now() - interval '8 days' WHERE id = $1`, first.Conversation); err != nil {
+		t.Fatal(err)
+	}
+	boss.must(404, "GET", "/v1/assistant/conversations/"+first.Conversation, nil, nil)
+	boss.must(404, "POST", "/v1/apps/blog/assistant", map[string]any{"text": "x", "conversation": first.Conversation}, nil)
+	// and the hourly purge deletes it, even if nobody asks anything
+	if err := e.st.PurgeAssistant(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	var left int
+	_ = e.st.DB.QueryRow(`SELECT count(*) FROM assistant_messages WHERE conversation_id = $1`, first.Conversation).Scan(&left)
+	if left != 0 {
+		t.Fatalf("%d messages past retention", left)
+	}
+
+	boss.must(204, "DELETE", "/v1/assistant/conversations/"+mine.Items[0].ID, nil, nil)
+	boss.must(200, "GET", "/v1/assistant/conversations", nil, &mine)
+	if len(mine.Items) != 0 {
+		t.Fatalf("left: %+v", mine)
+	}
 }

@@ -2,7 +2,10 @@ package api
 
 import (
 	"context"
+	"crypto/ed25519"
+	"crypto/hmac"
 	"crypto/rand"
+	"crypto/sha256"
 	"encoding/json"
 	"errors"
 	"net/http"
@@ -21,16 +24,14 @@ import (
 // propose a change that an administrator turns into a draft.
 
 const (
-	assistantMessages = 20
+	assistantMessages = 20 // of a conversation, sent to the model
 	assistantChars    = 4000
 	assistantTimeout  = 100 * time.Second // under the server's 2-minute write timeout
 )
 
 type assistantIn struct {
-	Messages []struct {
-		Role string `json:"role"`
-		Text string `json:"text"`
-	} `json:"messages"`
+	Conversation string `json:"conversation"` // empty: a new one
+	Text         string `json:"text"`
 }
 
 func (s *Server) askAssistant(w http.ResponseWriter, r *http.Request, u *auth.User) {
@@ -42,22 +43,20 @@ func (s *Server) askAssistant(w http.ResponseWriter, r *http.Request, u *auth.Us
 	if !decode(w, r, &in) {
 		return
 	}
-	var turns []assistant.Turn
-	for i, m := range in.Messages {
-		want := "user"
-		if i%2 == 1 {
-			want = "assistant"
-		}
-		if m.Role != want || strings.TrimSpace(m.Text) == "" || len([]rune(m.Text)) > assistantChars {
-			fail(w, http.StatusUnprocessableEntity, "invalid", "messages: alternate user and assistant, starting and ending with user, 1 to 4000 characters each")
-			return
-		}
-		turns = append(turns, assistant.Turn{Role: m.Role, Text: m.Text})
-	}
-	if len(turns) == 0 || len(turns) > assistantMessages || turns[len(turns)-1].Role != "user" {
-		fail(w, http.StatusUnprocessableEntity, "invalid", "messages: 1 to 20, the last one the person's")
+	if strings.TrimSpace(in.Text) == "" || len([]rune(in.Text)) > assistantChars {
+		fail(w, http.StatusUnprocessableEntity, "invalid", "text: 1 to 4000 characters")
 		return
 	}
+	var turns []assistant.Turn
+	if in.Conversation != "" {
+		c, msgs, err := s.Store.ConversationOf(r.Context(), u.ID, in.Conversation)
+		if err != nil || c.App != a.ID {
+			fail(w, http.StatusNotFound, "not_found", "this conversation is gone (past the retention of Settings → AI): start a new one")
+			return
+		}
+		turns = pastTurns(msgs)
+	}
+	turns = append(turns, assistant.Turn{Role: "user", Text: in.Text})
 	model, err := s.assistantModel(r, a.Tenant)
 	if err != nil {
 		fail(w, http.StatusConflict, "no_ai", err.Error())
@@ -74,7 +73,7 @@ func (s *Server) askAssistant(w http.ResponseWriter, r *http.Request, u *auth.Us
 	ctx, cancel := context.WithTimeout(r.Context(), assistantTimeout)
 	defer cancel()
 	src := &siteSource{s: s, a: a, u: u}
-	ans, err := assistant.Run(ctx, model, src, assistant.NewMasker(maskKey), a.Name, a.PublicDomain,
+	ans, err := assistant.Run(ctx, model, src, assistant.NewMasker(s.maskKey(a.Tenant)), a.Name, a.PublicDomain,
 		time.Now().UTC().Format("2006-01-02"), turns)
 	var pe *assistant.ErrProvider
 	switch {
@@ -91,22 +90,39 @@ func (s *Server) askAssistant(w http.ResponseWriter, r *http.Request, u *auth.Us
 		map[string]any{"tools": uniq(ans.Used), "proposals": len(ans.Proposals), "cards": len(ans.Cards)})
 	props := make([]map[string]any, 0, len(ans.Proposals))
 	for _, p := range ans.Proposals {
-		props = append(props, map[string]any{"id": p.ID, "summary": p.Summary, "reason": p.Reason})
+		props = append(props, map[string]any{"id": p.ID, "summary": p.Summary, "reason": p.Reason, "draft_version": nil})
 	}
 	cards := ans.Cards
 	if cards == nil {
 		cards = []any{}
 	}
-	writeJSON(w, http.StatusOK, map[string]any{"text": ans.Text, "proposals": props, "cards": cards, "used": uniq(ans.Used)})
+	conv, err := s.keepExchange(r.Context(), u, a, in, ans.Text, cards, props)
+	if err != nil {
+		s.storeError(w, r, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"conversation": conv, "text": ans.Text, "proposals": props, "cards": cards, "used": uniq(ans.Used)})
 }
 
-// maskKey makes a visitor's code the same across questions while the
-// panel runs; it never leaves the process.
-var maskKey = func() []byte {
+// fallbackKey replaces the signing key when there is none (tests).
+var fallbackKey = func() []byte {
 	k := make([]byte, 32)
 	_, _ = rand.Read(k)
 	return k
 }()
+
+// maskKey makes a visitor's code the same in all the tenant's
+// conversations, also after a restart (they are kept), and different from
+// one tenant to another. It never leaves the process.
+func (s *Server) maskKey(tenant string) []byte {
+	seed := fallbackKey
+	if len(s.SigningKey) == ed25519.PrivateKeySize {
+		seed = s.SigningKey.Seed()
+	}
+	h := hmac.New(sha256.New, seed)
+	h.Write([]byte("equalizer-assistant-visitors\x00" + tenant))
+	return h.Sum(nil)
+}
 
 // assistantModel is the tenant's model from Settings → AI.
 func (s *Server) assistantModel(r *http.Request, tenant string) (assistant.Model, error) {

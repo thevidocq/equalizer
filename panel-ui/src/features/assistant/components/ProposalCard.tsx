@@ -8,15 +8,16 @@ type Props = { tenant: string; app: string; proposal: Proposal; canDraft: boolea
 /** A change the assistant proposed: an administrator makes it a draft, which the agent checks. */
 export function ProposalCard({ tenant, app, proposal, canDraft }: Props) {
   const draft = useDraftProposal(app);
+  const made = draft.data?.version ?? proposal.draft_version; // made now, or before (a kept conversation)
   return (
     <div className="rounded-[var(--radius-control)] border border-signal/30 bg-signal-soft p-3 text-sm">
       <p className="text-xs font-semibold uppercase tracking-wide text-ink-soft">Proposed change</p>
       <p className="mt-1 font-mono text-[0.8125rem] text-ink break-words">{proposal.summary}</p>
       {proposal.reason ? <p className="mt-1 text-ink-soft">{proposal.reason}</p> : null}
       <div className="mt-3 flex flex-wrap items-center gap-3">
-        {draft.data ? (
-          <Link className="font-semibold text-signal hover:underline" to={`/t/${tenant}/sites/${app}/maps/${draft.data.version}`}>
-            Draft v{draft.data.version} created: open it
+        {made ? (
+          <Link className="font-semibold text-signal hover:underline" to={`/t/${tenant}/sites/${app}/maps/${made}`}>
+            Draft v{made} created: open it
           </Link>
         ) : canDraft ? (
           <Button variant="primary" busy={draft.isPending} onClick={() => draft.mutate(proposal.id)}>

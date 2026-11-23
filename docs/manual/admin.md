@@ -118,7 +118,9 @@ too, through panel-api, so it needs Loki like the Logs page; without it the
 assistant answers from the map, the report and the activity. The assistant
 uses the tenant's own AI model: panel-api must reach the provider (or the
 tenant's own https server) on port 443, as the agent does. Conversations
-are not stored anywhere on the platform.
+are kept in PostgreSQL for the person who had them only, as long as the
+tenant chooses (Settings, 1 to 365 days); the platform's Activity and
+the panel show them to nobody else.
 
 ## Settings
 

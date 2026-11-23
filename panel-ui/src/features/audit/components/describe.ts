@@ -45,6 +45,7 @@ const actions: Record<string, Say> = {
   "llm.delete": () => "removed the AI model",
   "assistant.asked": (t, d) => `asked the assistant about ${t}` +
     (typeof d.proposals === "number" && d.proposals > 0 ? ` (${d.proposals} change${d.proposals > 1 ? "s" : ""} proposed)` : ""),
+  "assistant.settings": (_t, d) => `set the assistant to keep conversations for ${String(d.keep_days)} days`,
   "assistant.draft": (t, d) => `made a change proposed by the assistant into ${version(d)}${t}`,
   "discovery.start": (t) => `started a discovery of ${t}`,
   "discovery.finish": (t, d) =>

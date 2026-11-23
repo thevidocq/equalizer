@@ -16,6 +16,8 @@ describe("describeEntry", () => {
       .toBe("a@acme.test asked the assistant about shop (1 change proposed)");
     expect(describeEntry({ id: 21, ts: "", action: "assistant.draft", target: "shop", user: "a@acme.test", detail: { version: 6, from: 5 } }))
       .toBe("a@acme.test made a change proposed by the assistant into version 6 of the map of shop");
+    expect(describeEntry({ id: 22, ts: "", action: "assistant.settings", target: "acme", user: "a@acme.test", detail: { keep_days: 7 } }))
+      .toBe("a@acme.test set the assistant to keep conversations for 7 days");
   });
   it("names the agent and Equalizer, and never shows raw action names", () => {
     expect(describeEntry({ id: 4, ts: "", action: "discovery.finish", target: "shop", user: null, detail: { draft_version: 5 } }))

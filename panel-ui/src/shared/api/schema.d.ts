@@ -3995,17 +3995,65 @@ export interface components {
             }[];
         };
         AssistantAnswer: {
-            /** @description Plain text: paragraphs, - bullets, `code` */
+            /** @description Markdown without links, images or HTML */
             text: string;
             proposals: components["schemas"]["AssistantProposal"][];
+            cards: components["schemas"]["AssistantCard"][];
             /** @description The tools the model called */
-            used: ("get_map" | "get_report" | "search_logs" | "get_activity" | "propose_change")[];
+            used: ("get_map" | "get_report" | "search_logs" | "get_activity" | "show_card" | "propose_change")[];
         };
         AssistantProposal: {
             id: string;
             /** @description What the change does, e.g. text/csv added to the folder /files/ */
             summary: string;
             reason: string;
+        };
+        /** @description Built by the panel from the logs or the map; the model only chose which */
+        AssistantCard: components["schemas"]["AssistantEventCard"] | components["schemas"]["AssistantRefusalsCard"] | components["schemas"]["AssistantRouteCard"];
+        AssistantEventCard: {
+            /** @enum {string} */
+            kind: "event";
+            /** Format: date-time */
+            ts: string;
+            type: string;
+            reason: string;
+            status: number;
+            method: string;
+            path: string;
+            route: string;
+            field: string;
+            request_id: string;
+            /** @description The visitor's code (V-…), as in the answer */
+            visitor: string;
+        };
+        AssistantRefusalsCard: {
+            /** @enum {string} */
+            kind: "refusals";
+            /** @enum {string} */
+            since: "1h" | "24h" | "7d" | "30d";
+            total: number;
+            /** @description More events than the 500 read */
+            partial: boolean;
+            rows: {
+                type: string;
+                reason: string;
+                requests: number;
+                visitors: number;
+            }[];
+        };
+        AssistantRouteCard: {
+            /** @enum {string} */
+            kind: "route";
+            version: number;
+            id: string;
+            method: string;
+            path: string;
+            checks: {
+                name: string;
+                /** @description path, query, or form <id> */
+                where: string;
+                rule: string;
+            }[];
         };
         AssistantDraft: {
             app: string;

@@ -72,6 +72,11 @@ const reasons: Record<string, string> = {
   websocket_not_supported: "WebSocket not supported yet",
 };
 
+/** A reason code in words. */
+export function reasonText(reason: string): string {
+  return reasons[reason] ?? reason.replaceAll("_", " ");
+}
+
 /** What happened, for events of the Alert group (they have no reason code). */
 const titles: Partial<Record<EventType, string>> = {
   "connector.down": "Connector offline",
@@ -88,7 +93,7 @@ export function reasonLabel(e: LogEvent): string {
 /** The line under the kind, or null when it would only repeat the kind ("Served"). */
 export function subtitle(e: LogEvent): string | null {
   if (e.reason) {
-    const r = reasons[e.reason] ?? e.reason.replaceAll("_", " ");
+    const r = reasonText(e.reason);
     return e.field ? `${e.field}: ${r.toLowerCase()}` : r;
   }
   const t = titles[e.type];

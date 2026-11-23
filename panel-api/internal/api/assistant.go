@@ -88,12 +88,16 @@ func (s *Server) askAssistant(w http.ResponseWriter, r *http.Request, u *auth.Us
 	}
 	// the activity says a question was asked and what was read, never what
 	_ = s.Store.Record(r.Context(), &u.ID, &a.Tenant, "assistant.asked", a.ID,
-		map[string]any{"tools": uniq(ans.Used), "proposals": len(ans.Proposals)})
+		map[string]any{"tools": uniq(ans.Used), "proposals": len(ans.Proposals), "cards": len(ans.Cards)})
 	props := make([]map[string]any, 0, len(ans.Proposals))
 	for _, p := range ans.Proposals {
 		props = append(props, map[string]any{"id": p.ID, "summary": p.Summary, "reason": p.Reason})
 	}
-	writeJSON(w, http.StatusOK, map[string]any{"text": ans.Text, "proposals": props, "used": uniq(ans.Used)})
+	cards := ans.Cards
+	if cards == nil {
+		cards = []any{}
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"text": ans.Text, "proposals": props, "cards": cards, "used": uniq(ans.Used)})
 }
 
 // maskKey makes a visitor's code the same across questions while the
@@ -206,7 +210,7 @@ func (src *siteSource) Logs(ctx context.Context, since string, types []string, s
 	out := make([]assistant.Event, 0, len(evs))
 	for _, e := range evs {
 		out = append(out, assistant.Event{TS: e.TS, Type: e.Type, Reason: deref(e.Reason), Route: deref(e.Route),
-			Method: deref(e.Method), Path: deref(e.Path), Status: derefInt(e.Status), Field: deref(e.Field), IP: deref(e.SrcIP)})
+			Method: deref(e.Method), Path: deref(e.Path), Status: derefInt(e.Status), Field: deref(e.Field), IP: deref(e.SrcIP), RequestID: deref(e.RequestID)})
 	}
 	return out, nil
 }

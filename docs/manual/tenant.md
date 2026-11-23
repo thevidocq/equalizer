@@ -495,7 +495,8 @@ last 7 days. Refreshed every 30 seconds.
 
 What the gateway served and refused on your sites, for 30 days: filters by
 site, period, kind of event and free search (IP address, path, request ID).
-A row opens its detail in plain words (alerts such as a connector going
+A link from the assistant's event card opens the page filtered on that
+request. A row opens its detail in plain words (alerts such as a connector going
 offline name the connector or the site); on a path that is not in the map,
 **Add to the map** opens a new version. **Live** refreshes every few
 seconds; **Export CSV** downloads up to 10 000 events (recorded in
@@ -526,6 +527,26 @@ screen on a phone) and stays open while you move between the site's tabs.
 **Close** hides it and keeps the conversation; **New** starts over. It
 uses your own model, the one in **Settings → AI**: without one it says so
 and does nothing else.
+
+### What an answer looks like
+
+- **Words**, formatted: short paragraphs, lists, **bold** for the key
+  point, paths and values as `code`, a small table when it compares. It
+  never shows images or links to other websites.
+- **Cards** under the words, drawn by the panel from the real data (the
+  AI only chooses which one, so the numbers and paths in a card are never
+  the AI's):
+  - **an event**: time, request ID, blocked or served with its status,
+    the request, the rule that refused it, the visitor's code, and
+    **Open in Logs**, which opens the Logs page on that request in a new
+    tab (the conversation stays);
+  - **the refusals of a period**: by reason, with requests and distinct
+    visitors, to tell a scan (many requests, few visitors) from a gap
+    (many visitors);
+  - **an entry of the map**: its address and what it checks on each
+    value (`?orderby` one of price, date; `{slug}` text, 80 characters at
+    most), with a link to that map version.
+- **Proposed changes**, when there is one (below).
 
 ### What it reads
 

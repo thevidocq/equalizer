@@ -191,10 +191,10 @@ write, and every proposal that widens the surface needs human approval.
 
 panel-api also talks to the tenant's model, for the assistant of a site
 (`panel-api/internal/assistant`, `POST /v1/apps/{app}/assistant`). The
-model gets five tools, scoped to that one site and to what the person
+model gets six tools, scoped to that one site and to what the person
 asking may read: `get_map`, `get_report` (latest discovery),
 `search_logs` (Loki, up to 500 events summarised by type, reason, entry
-and path), `get_activity` (audit) and `propose_change`. At most 8 rounds of
+and path), `get_activity` (audit), `show_card` and `propose_change`. At most 8 rounds of
 tools, then words only; 100 seconds in all.
 
 - **No writes.** `propose_change` stores a change in
@@ -207,6 +207,12 @@ tools, then words only; 100 seconds in all.
   human step. Drafts from proposals are made one at a time per site (a
   PostgreSQL advisory lock), on the newest draft or the published map,
   never beside a version under review.
+- **Cards.** `show_card` makes the panel build an event card (looked up
+  by request ID in Loki), a refusals table or an entry's checks (from the
+  map) and return it with the answer; the model gets a one-line summary
+  (kind, masked path, count), never the card's raw data. Answers are Markdown parsed into data in the browser and
+  rendered by React as text: no HTML, no images, links only to panel
+  pages.
 - **Masking.** Client IPs, in the logs or typed in a question, become
   HMAC codes (`V-…`) under a key that lives only in the panel-api
   process; emails in paths and questions are hidden, panel users become `U-…` codes that only the

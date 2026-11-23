@@ -31,9 +31,9 @@ organisation.
 - A site has these tabs: **Discovery**, **Map**, **Isolation**,
   **Certificate**, **Login**. Discovery comes first: it is where a new site
   starts. **Ask AI** in a site's header opens [the assistant](#the-assistant).
-  An administrator can delete a site from its header
-  (**Delete site**); it asks you to type the site's name to confirm, and
-  removes the map, connectors, discoveries and certificate with it.
+  An administrator deletes a site from the list of **Protected sites**
+  (**Delete** on its row); it asks you to type the site's name to confirm,
+  and removes the map, connectors, discoveries and certificate with it.
 - At the bottom of the sidebar: your name and role (opens your account),
   **Help** (the question mark: this guide), **Log out** (the arrow out
   of the door) and the release of Equalizer, which opens its release notes.
@@ -496,7 +496,8 @@ last 7 days. Refreshed every 30 seconds.
 What the gateway served and refused on your sites, for 30 days: filters by
 site, period, kind of event and free search (IP address, path, request ID).
 A link from the assistant's event card opens the page filtered on that
-request. A row opens its detail in plain words (alerts such as a connector going
+request. A row opens its detail right under it, in plain words (click it
+again to close it; alerts such as a connector going
 offline name the connector or the site); on a path that is not in the map,
 **Add to the map** opens a new version. **Live** refreshes every few
 seconds; **Export CSV** downloads up to 10 000 events (recorded in

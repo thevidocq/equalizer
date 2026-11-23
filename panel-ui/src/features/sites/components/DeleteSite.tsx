@@ -29,13 +29,13 @@ export function DeleteSite({ tenant, app, name }: Props) {
 
   return (
     <>
-      <Button variant="danger" onClick={() => { setTyped(""); setOpen(true); }}>Delete site</Button>
+      <Button variant="danger" aria-label={`Delete ${name}`} onClick={() => { setTyped(""); setOpen(true); }}>Delete</Button>
       <Dialog open={open} onOpenChange={setOpen} title="Delete this site?"
         description="The map, connectors, discoveries and certificate are removed. The gateway stops serving it. This cannot be undone.">
         <div className="flex flex-col gap-4">
           {del.isError ? <Notice tone="error">{describeError(del.error)}</Notice> : null}
           <TextField label={`Type the site name to confirm`} value={typed} onChange={(e) => setTyped(e.target.value)}
-            placeholder={name} hint="Its exact name, as shown above." />
+            placeholder={name} hint="Its exact name, as in the list of sites." />
           <div className="flex justify-end gap-2">
             <Button onClick={() => setOpen(false)}>Cancel</Button>
             <Button variant="danger" busy={del.isPending} disabled={typed !== name} onClick={confirm}>Delete site</Button>

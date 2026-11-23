@@ -47,10 +47,11 @@ export function LLMForm({ tenant, current }: { tenant: string; current: Current 
   return (
     <form onSubmit={submit} className="flex max-w-xl flex-col gap-4">
       <div>
-        <h2 className="text-base font-semibold">AI for discovery</h2>
+        <h2 className="text-base font-semibold">AI model</h2>
         <p className="text-sm text-ink-soft">
-          Your own model and key: the platform has none and never sees the key. Discovery sends it the structure of the site
-          (paths, parameter names, form fields) with values masked. Without a model, discovery still runs.
+          Your own model and key, used by discovery, the review of a version before you publish it, and each site's
+          assistant. The platform has none and never shows the key. Discovery sends it the structure of the site (paths,
+          parameter names, form fields) with values masked. Without a model discovery still runs; the assistant needs one.
         </p>
       </div>
       {error ? <Notice tone="error">{describeError(error)}</Notice> : null}

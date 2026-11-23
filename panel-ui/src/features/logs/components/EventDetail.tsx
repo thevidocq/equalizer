@@ -7,7 +7,7 @@ type Props = { event: LogEvent; apps: App[]; tenant: string; canEditMap: boolean
 
 const mono = "font-mono overflow-wrap-anywhere break-all";
 
-/** One event in plain words, with what can be done about it. */
+/** One event in plain words, with what can be done about it: under its row. */
 export function EventDetail({ event: e, apps, tenant, canEditMap, onOnlyIP }: Props) {
   const toast = useToast();
   const k = kindOf(e.type);
@@ -27,7 +27,7 @@ export function EventDetail({ event: e, apps, tenant, canEditMap, onOnlyIP }: Pr
   const sub = subtitle(e);
   const unmapped = e.reason === "route_not_mapped" && site && canEditMap;
   return (
-    <aside aria-label="Event detail" className="flex w-full max-w-sm flex-[1_1_320px] flex-col gap-3.5 rounded-[var(--radius-panel)] border border-rule-soft bg-surface p-[18px]">
+    <div role="region" aria-label="Event detail" className="flex max-w-3xl flex-col gap-3.5">
       <div className="flex items-center gap-2">
         <span aria-hidden="true" className="size-2 rounded-full" style={{ background: k.color }} />
         <h2 className="text-[17px] font-semibold">{sub ? `${k.label}: ${sub}` : k.label}</h2>
@@ -60,6 +60,6 @@ export function EventDetail({ event: e, apps, tenant, canEditMap, onOnlyIP }: Pr
           Field values are never stored: only the field name and the rule that refused it.
         </p>
       ) : null}
-    </aside>
+    </div>
   );
 }

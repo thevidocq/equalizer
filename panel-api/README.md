@@ -102,7 +102,7 @@ Security:
 | `EQ_SMTP_ADDR` | — | `host:port`; 465 implicit TLS, otherwise STARTTLS (required) |
 | `EQ_SMTP_USER`, `EQ_SMTP_PASSWORD` or `_FILE` | — | SMTP credentials; empty user: no authentication |
 | `EQ_MAIL_FROM` | `equalizer@localhost` | Sender of the invitations |
-| `EQ_DIRECT_DESTINATIONS` | — | `host:port` list allowed in `direct` mode (lab apps); empty: connectors only |
+| `EQ_DIRECT_DESTINATIONS` | — | `host:port` list allowed in `direct` mode besides public IP addresses (e.g. lab apps on a private network); empty: public addresses only |
 | `EQ_LOKI_URL` | none | Loki for the Logs page (Compose: `http://loki:3100`); empty: the page answers 503 |
 | `EQ_RELAY_ADMIN` | none | Relays' admin endpoint for the status page (Compose: `tunnel-relay:9091`) |
 | `EQ_GATEWAY_ADMIN` | none | Gateways' admin endpoint (Compose: `gateway:9090`): checks every draft and publish with the gateway's own rules (`POST /maps/check`), and the platform status. Empty: schema checks only |

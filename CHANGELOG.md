@@ -19,7 +19,8 @@ Add a section at the top of "Entries" for every commit:
 
 ## Current project status
 
-Latest release: **0.2.21** (`docs/releases/0.2.21.md`); before it 0.2.20
+Latest release: **0.2.22** (`docs/releases/0.2.22.md`); before it 0.2.21
+(`docs/releases/0.2.21.md`), 0.2.20
 (`docs/releases/0.2.20.md`), 0.2.19
 (`docs/releases/0.2.19.md`), 0.2.18
 (`docs/releases/0.2.18.md`), 0.2.17
@@ -53,6 +54,25 @@ it, 0.1.0 (`docs/releases/0.1.0.md`, tag on the merge of #39).
 | tools (eqtool) | Map signing keys, form key, relay token, connector registration, map signing |
 
 ## Entries
+
+### 2026-11-23 — Explain the check of a version; release 0.2.22
+
+- **Branch:** feat/verify-clarity
+- **What:** `VerifyForm`/`VerificationPanel`: "Check on the site" with a
+  standing explanation, button "Check this version on the site", "Start
+  the check", the correction option explained, a hint under each figure.
+  `review.go`: `direct_mode` is a medium finding only when a version
+  switches to direct mode, with what to check (it said "only for lab
+  apps", which is wrong since public addresses are allowed); test
+  `TestDirectMode`; `panel-api/README.md` and an `api.go` comment say the
+  same. Tenant manual: chapter "Check on the site (verification)"
+  rewritten (discovery vs check, the steps, the figures, when it runs);
+  `docs/agent.md`, `docs/architecture.md` use the new button name; help
+  synced; release notes 0.2.22; versions bumped; efficacy study rerun.
+- **Why:** the owner did not understand what Verify did or how it differs
+  from discovery, and the review aid alarmed him about direct mode.
+- **Status:** Go tests pass; CI runs tsc and vitest.
+- **Next steps:** merge, tag `v0.2.22`.
 
 ### 2026-11-23 — Delete from the site list, AI model, log detail under its row; release 0.2.21
 

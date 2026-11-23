@@ -107,3 +107,22 @@ func TestAreaRules(t *testing.T) {
 		t.Errorf("area rules: %v", got)
 	}
 }
+
+// Direct mode is a finding only when a version switches to it.
+func TestDirectMode(t *testing.T) {
+	direct := strings.Replace(base, `"mode":"connector","connector_id":"cn-1","allow":["10.0.0.1:443"]`, `"mode":"direct","allow":["203.0.113.7:443"]`, 1)
+	has := func(r Result) bool {
+		for _, f := range r.Findings {
+			if f.Rule == "direct_mode" {
+				return f.Severity == "medium"
+			}
+		}
+		return false
+	}
+	if !has(Compare([]byte(base), []byte(direct))) {
+		t.Fatal("switching to direct mode is not pointed out")
+	}
+	if has(Compare([]byte(direct), []byte(direct))) {
+		t.Fatal("a site already in direct mode is flagged at every version")
+	}
+}

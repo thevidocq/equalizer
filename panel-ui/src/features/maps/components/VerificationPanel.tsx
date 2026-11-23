@@ -22,16 +22,20 @@ export function VerificationPanel({ app, version, canVerify, versionLink = (v) =
   return (
     <section aria-labelledby="verify-title" className="flex flex-col gap-4 border border-rule bg-surface p-5">
       <div className="flex flex-wrap items-baseline justify-between gap-2">
-        <h3 id="verify-title" className="text-base font-semibold">Verification</h3>
+        <h3 id="verify-title" className="text-base font-semibold">Check on the site</h3>
       </div>
+      <p className="max-w-prose text-sm text-ink-soft">
+        The agent tries this version on a gateway of its own, against the real site, and changes nothing: it opens every
+        page the discovery found with and without Equalizer and compares them, then tries attacks on every parameter and
+        field, which the gateway judges without sending them to the site. Discovery finds pages; this checks a version.
+      </p>
       {canVerify ? <VerifyForm app={app} version={version} busy={!!running} /> : null}
       {none || !v.data ? (
         <p className="max-w-prose text-sm text-ink-soft">
-          Not verified yet. Verify opens every studied page with and without Equalizer using this version, and tries a
-          set of attacks on every parameter and field, on the gateway only: nothing is sent to the site.
+          Not checked yet.
         </p>
       ) : running ? (
-        <p className="text-sm text-ink-soft">The agent is verifying this version…</p>
+        <p className="text-sm text-ink-soft">The agent is checking this version on the site…</p>
       ) : (
         <Result r={v.data} link={versionLink} />
       )}
@@ -40,17 +44,18 @@ export function VerificationPanel({ app, version, canVerify, versionLink = (v) =
 }
 
 function Result({ r, link }: { r: Verification; link: (v: number) => string }) {
-  if (r.status === "failed") return <Notice tone="error">The verification failed: {r.error}</Notice>;
+  if (r.status === "failed") return <Notice tone="error">The check failed: {r.error}</Notice>;
   const s = r.score;
   return (
     <div className="flex flex-col gap-4">
       {s ? (
         <dl className="grid gap-4 sm:grid-cols-3">
           <Figure value={`${s.functions_identical} / ${s.functions_total}`} label="pages identical through Equalizer"
-            good={s.functions_identical === s.functions_total} />
+            hint="The site works as before." good={s.functions_identical === s.functions_total} />
           <Figure value={`${s.inputs_protected} / ${s.inputs_total}`} label="inputs that refuse every attack"
-            good={s.inputs_protected === s.inputs_total} />
-          <Figure value={`${s.area_percent} %`} label="of the pages served only by the site area" />
+            hint="Parameters and form fields; the others are under Still open." good={s.inputs_protected === s.inputs_total} />
+          <Figure value={`${s.area_percent} %`} label="of the pages served only by the site area"
+            hint="Rebuilt, but without a precise check of their values." />
         </dl>
       ) : null}
       {r.corrected_version ? (
@@ -75,18 +80,19 @@ function Result({ r, link }: { r: Verification; link: (v: number) => string }) {
           items={r.open.map((o) => `${o.target}  ${STILL_OPEN[o.reason] ?? o.reason}${o.detail ? ` (${o.detail})` : ""}`)} />
       ) : null}
       <p className="text-xs text-ink-soft">
-        Verified {r.finished_at ? formatDate(r.finished_at) : ""}{r.requested_by ? ` at the request of ${r.requested_by}` : " after the discovery"}.{" "}
-        {r.accounts?.length ? `Pages behind the login of ${r.accounts.join(", ")} verified too.` : "Public pages only: no test account."}
+        Checked {r.finished_at ? formatDate(r.finished_at) : ""}{r.requested_by ? ` at the request of ${r.requested_by}` : " after the discovery"}.{" "}
+        {r.accounts?.length ? `Pages behind the login of ${r.accounts.join(", ")} checked too.` : "Public pages only: no test account."}
       </p>
     </div>
   );
 }
 
-function Figure({ value, label, good }: { value: string; label: string; good?: boolean }) {
+function Figure({ value, label, hint, good }: { value: string; label: string; hint: string; good?: boolean }) {
   return (
     <div>
       <dd className={`text-2xl font-semibold ${good === false ? "text-state-review" : ""}`}>{value}</dd>
       <dt className="text-sm text-ink-soft">{label}</dt>
+      <dd className="text-xs text-ink-soft">{hint}</dd>
     </div>
   );
 }

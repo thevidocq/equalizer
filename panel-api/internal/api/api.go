@@ -56,7 +56,7 @@ type Server struct {
 	MailAvailable bool   // the platform sends email (alerts can work)
 	Version       string // release of the platform; older connectors are outdated
 	// Destinations a map may reach in direct mode (EQ_DIRECT_DESTINATIONS);
-	// empty: tenant maps must use a connector.
+	// empty: direct mode reaches public addresses only.
 	DirectDestinations map[string]bool
 	Exposure           *exposure.Runner // nil: no exposure checks
 	ExposureThrottle   *auth.Throttle

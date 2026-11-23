@@ -4,14 +4,16 @@ import { describeError } from "@/shared/api/errors";
 import { useVerify } from "../hooks/useVerification";
 import { TestAccounts, type TestAccount } from "./TestAccounts";
 
-type Props = { app: string; version: number; busy: boolean };
+type Props = { app: string; version: number; checked: boolean };
 
 /**
  * Check this version on the site again: optional test accounts for the
  * pages behind their login, and whether the agent may prepare a corrected
- * draft. It changes nothing by itself.
+ * draft. It changes nothing by itself. Every discovery's draft is checked
+ * already, so on a checked version this is only a quiet "Check again"; a
+ * version never checked (a draft changed by hand) gets the button.
  */
-export function VerifyForm({ app, version, busy }: Props) {
+export function VerifyForm({ app, version, checked }: Props) {
   const verify = useVerify(app, version);
   const [open, setOpen] = useState(false);
   const [accounts, setAccounts] = useState<TestAccount[]>([]);
@@ -21,7 +23,9 @@ export function VerifyForm({ app, version, busy }: Props) {
   if (!open) {
     return (
       <div>
-        <Button onClick={() => setOpen(true)} disabled={busy}>{busy ? "Checking…" : "Check this version on the site"}</Button>
+        {checked
+          ? <Button variant="quiet" onClick={() => setOpen(true)}>Check again</Button>
+          : <Button variant="primary" onClick={() => setOpen(true)}>Check this version on the site</Button>}
       </div>
     );
   }

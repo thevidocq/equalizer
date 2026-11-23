@@ -29,16 +29,16 @@ export function VerificationPanel({ app, version, canVerify, versionLink = (v) =
         page the discovery found with and without Equalizer and compares them, then tries attacks on every parameter and
         field, which the gateway judges without sending them to the site. Discovery finds pages; this checks a version.
       </p>
-      {canVerify ? <VerifyForm app={app} version={version} busy={!!running} /> : null}
       {none || !v.data ? (
         <p className="max-w-prose text-sm text-ink-soft">
-          Not checked yet.
+          Not checked yet: for example a draft changed by hand.
         </p>
       ) : running ? (
         <p className="text-sm text-ink-soft">The agent is checking this version on the site…</p>
       ) : (
         <Result r={v.data} link={versionLink} />
       )}
+      {canVerify && !running ? <VerifyForm app={app} version={version} checked={!none && !!v.data} /> : null}
     </section>
   );
 }

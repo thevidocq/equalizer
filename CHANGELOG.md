@@ -60,7 +60,10 @@ it, 0.1.0 (`docs/releases/0.1.0.md`, tag on the merge of #39).
 - **Branch:** feat/verify-clarity
 - **What:** `VerifyForm`/`VerificationPanel`: "Check on the site" with a
   standing explanation, button "Check this version on the site", "Start
-  the check", the correction option explained, a hint under each figure.
+  the check", the correction option explained, a hint under each figure;
+  on a checked version only a quiet "Check again" under the result, the
+  button only on a version never checked (every discovery's draft is
+  checked already).
   `review.go`: `direct_mode` is a medium finding only when a version
   switches to direct mode, with what to check (it said "only for lab
   apps", which is wrong since public addresses are allowed); test

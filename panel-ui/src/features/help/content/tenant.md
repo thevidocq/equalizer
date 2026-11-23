@@ -334,10 +334,13 @@ When it runs:
   draft with its measure and the corrections, and the first draft is
   retired. If the agent could not check its draft, the discovery page says
   so.
-- **When you ask** (administrators): **Check this version on the site**
-  on a version. Use it after changing a draft by hand, after the site
-  itself changed (an update of the CMS, a new section), or to check the
-  pages behind a login with test accounts. Tick **let the agent prepare a
+- **When you ask** (administrators). You rarely need to: a version a
+  discovery made is checked already, and shows only a quiet **Check
+  again** under its result. A version never checked (a draft changed by
+  hand) shows **Check this version on the site** instead. Ask for a check
+  after changing a draft by hand, after the site itself changed without a
+  new discovery (an update of the CMS, a new plugin), or to check the
+  pages behind a login with test accounts the discovery did not have. Tick **let the agent prepare a
   corrected version** to have the agent fix what it finds into a new
   draft; without it, it only measures. Both versions stay, and a draft you
   have already submitted or approved is never replaced.

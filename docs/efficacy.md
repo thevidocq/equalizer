@@ -44,7 +44,7 @@ every site the lab can build.
 
 Run again for 0.2.15 (23 Nov 2026): the same numbers on every line, all
 guarantees hold (0.2.15 adds the panel's assistant and does not change
-the gateway or the agent's maps). Run again for 0.2.16 to 0.2.20: the same.
+the gateway or the agent's maps). Run again for 0.2.16 to 0.2.21: the same.
 
 Five sites: WordPress 6.9, Drupal 11.4, the custom intranet (generic
 profile), phpBB 3.3, MediaWiki 1.43. Joomla, OpenCart, PrestaShop, TYPO3

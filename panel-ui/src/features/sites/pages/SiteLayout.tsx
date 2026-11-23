@@ -6,7 +6,6 @@ import { canManage, useMe } from "@/features/auth";
 import { AskAIButton, AssistantPanel } from "@/features/assistant";
 import { useApp } from "../hooks/useSites";
 import { SiteStatus } from "../components/SiteStatus";
-import { DeleteSite } from "../components/DeleteSite";
 
 /** A protected site: header and tabs, the tab content in the outlet, the assistant on the side. */
 export function SiteLayout() {
@@ -27,10 +26,7 @@ export function SiteLayout() {
     <div className="flex flex-col gap-6">
       <PageHeader title={site.data.name} subtitle={<span className="flex flex-wrap items-center gap-x-4 gap-y-1">
         <span>{site.data.public_domain}</span><SiteStatus app={site.data} withLabel /></span>}
-        actions={<>
-          <AskAIButton open={asking || !!fromHistory} onToggle={() => (asking || fromHistory ? close() : setAsking(true))} />
-          {canManage(me, tenant) ? <DeleteSite tenant={tenant} app={app} name={site.data.name} /> : null}
-        </>} />
+        actions={<AskAIButton open={asking || !!fromHistory} onToggle={() => (asking || fromHistory ? close() : setAsking(true))} />} />
       <TabNav label="Site sections" tabs={[
         { to: `${base}/discovery`, label: "Discovery" },
         { to: `${base}/maps`, label: "Map" },

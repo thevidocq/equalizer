@@ -7,6 +7,7 @@ import { canManage, useMe } from "@/features/auth";
 import { useApps } from "../hooks/useSites";
 import { CreateSiteDialog } from "../components/CreateSiteDialog";
 import { SiteStatus } from "../components/SiteStatus";
+import { DeleteSite } from "../components/DeleteSite";
 
 export function SitesPage() {
   const tenant = useParams().tenant ?? "";
@@ -30,6 +31,7 @@ export function SitesPage() {
           { header: "Site", cell: (a) => <Link className="font-semibold text-signal hover:underline" to={`/t/${tenant}/sites/${a.id}`}>{a.name}</Link> },
           { header: "Public domain", cell: (a) => a.public_domain },
           { header: "Status", cell: (a) => <SiteStatus app={a} withLabel /> },
+          ...(manage ? [{ header: "Actions", className: "text-right", cell: (a: App) => <DeleteSite tenant={tenant} app={a.id} name={a.name} /> }] : []),
         ]} />
       ) : null}
       <CreateSiteDialog tenant={tenant} open={adding} onOpenChange={setAdding} />

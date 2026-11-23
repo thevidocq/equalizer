@@ -4,7 +4,7 @@ import { hasRole, useMe } from "@/features/auth";
 import { useApps } from "@/features/sites";
 import { describeError } from "@/shared/api/errors";
 import { Button, EmptyState, Notice, PageHeader } from "@/shared/ui";
-import { defaultKinds, eventKey, kinds } from "../components/kinds";
+import { defaultKinds, kinds } from "../components/kinds";
 import { LogFilters } from "../components/LogFilters";
 import { RefusedChart } from "../components/RefusedChart";
 import { EventTable } from "../components/EventTable";
@@ -33,8 +33,6 @@ export function LogsPage() {
   const exporter = useLogExport(tenant);
   const restart = useRestartLogs(tenant);
   const events = logs.data?.pages.flatMap((p) => p.items) ?? [];
-  // The detail follows the event, not its row: live refresh adds rows on top.
-  const current = events.find((e) => eventKey(e) === selected) ?? events[0];
   const error = logs.error ?? stats.error ?? exporter.error;
 
   function change(f: LogFilter) {
@@ -66,21 +64,20 @@ export function LogsPage() {
         <EmptyState title="No events for these filters">Try a longer period or turn on more kinds of event.</EmptyState>
       ) : null}
       {events.length ? (
-        <div className="flex flex-wrap items-start gap-5">
-          <section aria-label="Events" className="min-w-0 flex-[999_1_560px] overflow-hidden rounded-[var(--radius-panel)] border border-rule-soft bg-surface">
-            <EventTable events={events} apps={apps} selected={current ? eventKey(current) : null} onSelect={setSelected} />
-            <div className="flex items-center justify-between border-t border-rule-soft px-4 py-2.5 text-[13px] text-ink-soft">
-              <span>{events.length} events shown, newest first</span>
-              {logs.hasNextPage ? (
-                <Button busy={logs.isFetchingNextPage} onClick={() => { setLive(false); void logs.fetchNextPage(); }}>Load older (pauses Live)</Button>
-              ) : null}
-            </div>
-          </section>
-          {current ? (
-            <EventDetail event={current} apps={apps} tenant={tenant} canEditMap={hasRole(me, tenant, "admin")}
-              onOnlyIP={(ip) => change({ ...filter, q: ip })} />
-          ) : null}
-        </div>
+        <section aria-label="Events" className="overflow-hidden rounded-[var(--radius-panel)] border border-rule-soft bg-surface">
+          {/* the open row is the event, not its place: live refresh adds rows on top */}
+          <EventTable events={events} apps={apps} selected={selected} onSelect={(k) => setSelected((s) => (s === k ? null : k))}
+            detail={(e) => (
+              <EventDetail event={e} apps={apps} tenant={tenant} canEditMap={hasRole(me, tenant, "admin")}
+                onOnlyIP={(ip) => change({ ...filter, q: ip })} />
+            )} />
+          <div className="flex items-center justify-between border-t border-rule-soft px-4 py-2.5 text-[13px] text-ink-soft">
+            <span>{events.length} events shown, newest first</span>
+            {logs.hasNextPage ? (
+              <Button busy={logs.isFetchingNextPage} onClick={() => { setLive(false); void logs.fetchNextPage(); }}>Load older (pauses Live)</Button>
+            ) : null}
+          </div>
+        </section>
       ) : null}
     </div>
   );

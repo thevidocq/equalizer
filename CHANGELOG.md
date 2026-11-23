@@ -19,7 +19,8 @@ Add a section at the top of "Entries" for every commit:
 
 ## Current project status
 
-Latest release: **0.2.20** (`docs/releases/0.2.20.md`); before it 0.2.19
+Latest release: **0.2.21** (`docs/releases/0.2.21.md`); before it 0.2.20
+(`docs/releases/0.2.20.md`), 0.2.19
 (`docs/releases/0.2.19.md`), 0.2.18
 (`docs/releases/0.2.18.md`), 0.2.17
 (`docs/releases/0.2.17.md`), 0.2.16
@@ -52,6 +53,23 @@ it, 0.1.0 (`docs/releases/0.1.0.md`, tag on the merge of #39).
 | tools (eqtool) | Map signing keys, form key, relay token, connector registration, map signing |
 
 ## Entries
+
+### 2026-11-23 — Delete from the site list, AI model, log detail under its row; release 0.2.21
+
+- **Branch:** feat/panel-tweaks
+- **What:** `SitesPage` has a **Delete** per row (administrators),
+  `SiteLayout` keeps only **Ask AI**; `DeleteSite` button says "Delete"
+  with the site's name for screen readers. `LLMForm` heading "AI model"
+  with what uses it. Logs: `EventTable` is a fixed-layout full-width table
+  (request truncated, site hidden below `lg`, address below `md`) and
+  renders the detail in a row under the open one; `EventDetail` is an
+  inline block; `LogsPage` opens no row by default and toggles on click.
+  Tenant manual and help updated; release notes 0.2.21, versions bumped;
+  efficacy study rerun.
+- **Why:** the owner's requests: delete belongs to the site list, the AI
+  is not only for discovery, and the side detail made the table scroll.
+- **Status:** boundaries and help checks pass; CI runs tsc and vitest.
+- **Next steps:** merge #101 then this; tag `v0.2.21`.
 
 ### 2026-11-23 — Fix History and New crashing the page; release 0.2.20
 

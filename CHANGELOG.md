@@ -19,7 +19,8 @@ Add a section at the top of "Entries" for every commit:
 
 ## Current project status
 
-Latest release: **0.2.14** (`docs/releases/0.2.14.md`); before it 0.2.13
+Latest release: **0.2.15** (`docs/releases/0.2.15.md`); before it 0.2.14
+(`docs/releases/0.2.14.md`), 0.2.13
 (`docs/releases/0.2.13.md`), 0.2.12
 (tagged on the code of 0.2.11, `docs/releases/0.2.11.md`), 0.2.11
 (`docs/releases/0.2.11.md`), 0.2.10
@@ -39,13 +40,61 @@ it, 0.1.0 (`docs/releases/0.1.0.md`, tag on the merge of #39).
 | tunnel-relay | Token-authenticated tunnels, forwarding with tenant check, admin endpoints; several replicas with handover |
 | connector | Outbound tunnel, local allowlist, reconnection; one per server, virtual hosts |
 | orchestrator | Not implemented yet |
-| panel-api | Discovery jobs and continuous discovery, tenant AI settings, map templates per CMS, auth with mandatory TOTP, tenants, email invitations, tenant connectors, map reach checks, exposure check, Logs page backend (Loki), status page, platform/tenant privacy, users, sites, connectors, maps with approval and signing, audit, internal endpoints |
-| panel-ui | Logo (sidebar, login), discovery tab and tenant AI settings, login, joining by invitation, platform tenant overview, sites with isolation and certificate, tenant connectors, people with invitations, maps with editor, approval, import and export, activity, logs, status |
+| panel-api | Discovery jobs and continuous discovery, tenant AI settings, site assistant (tenant's model with read tools and checked proposals), map templates per CMS, auth with mandatory TOTP, tenants, email invitations, tenant connectors, map reach checks, exposure check, Logs page backend (Loki), status page, platform/tenant privacy, users, sites, connectors, maps with approval and signing, audit, internal endpoints |
+| panel-ui | Site assistant (Ask AI side panel, proposals to drafts), logo (sidebar, login), discovery tab and tenant AI settings, login, joining by invitation, platform tenant overview, sites with isolation and certificate, tenant connectors, people with invitations, maps with editor, approval, import and export, activity, logs, status |
 | agent | Study: read-only crawl and real browser through the connector, test accounts, typed form fields, administrations read-only where proven, profiles for ten web applications, verification of every draft on the gateway with self-correction, IDOR proposals, optional AI review with the tenant's model |
 | deploy/compose | Caddy (protected sites use the certificate uploaded in the panel, Let's Encrypt only for relay and panel), SMTP settings, gateway (2 replicas), Redis, PostgreSQL, panel-api, panel-ui, tunnel-relay, Vector, Loki, Grafana; statically validated |
 | tools (eqtool) | Map signing keys, form key, relay token, connector registration, map signing |
 
 ## Entries
+
+### 2026-11-23 — Add the site assistant; release 0.2.15
+
+- **Branch:** feat/assistant
+- **What:**
+  - `panel-api/internal/assistant`: provider clients (Anthropic Messages,
+    OpenAI-compatible chat completions, public addresses only, no
+    redirects), masking (visitor IPs → `V-…` HMAC codes under a
+    per-process key, emails hidden, panel users `U-…` turned back in the
+    answer), fenced tool results, tools `get_map`, `get_report`,
+    `search_logs` (≤500 events summarised), `get_activity`,
+    `propose_change`, loop of at most 8 tool rounds then words only.
+  - Proposals: three kinds (file type for a folder, query key with
+    int/date/enum/markup-free string, enum values); risky types refused;
+    checked against the map and the schema before being stored
+    (migration `0026_assistant_proposals`, 30 days).
+  - API: `POST /v1/apps/{app}/assistant` (admin, viewer; 20 per 10 min;
+    audit `assistant.asked` without text), `POST
+    /v1/apps/{app}/assistant/proposals/{proposal}/draft` (admin; advisory
+    lock per site; base = newest draft or published map, refused beside a
+    version under review or a draft being checked; supersedes the base
+    draft; queues the agent's verification; audit `assistant.draft`).
+    Contract in `schema/api/panel-api.yaml`, `schema.d.ts` by hand.
+  - panel-ui `features/assistant`: **Ask AI** in the site header, right
+    side panel (full screen on phones), suggestions, conversation, plain
+    text rendering, proposal cards, composer; Shell makes room
+    (`--assistant-width`); audit sentences.
+  - Docs: tenant manual "The assistant" (what it reads, what to ask, what
+    it proposes, privacy, limits), roles table, Settings → AI,
+    troubleshooting; admin manual; architecture; help synced; release
+    notes 0.2.15; versions bumped; efficacy study rerun (same numbers).
+- **Why:** the tenant administrator can tune a site by asking, with the
+  logs in view, without reading the map format; changes stay drafts.
+- **Status:** Go tests (unit with fake providers, API with PostgreSQL),
+  agent tests and the efficacy study pass. panel-ui `tsc`, `vitest` and
+  `check:api` could not run here (no node_modules): CI runs them. An
+  independent review's findings were fixed (report lookup, words-only
+  round with real providers, lowercase keys, base beside a version under
+  review, concurrent drafts, `api` key, IPs in free text, Escape over
+  dialogs). No screenshot of the panel yet.
+- **Next steps:**
+  1. CI green, merge, tag `v0.2.15`; deploy and try the assistant on
+     metreta with the tenant's key (the key was refused before: fix it in
+     Settings → AI).
+  2. Screenshot `docs/screenshots/assistant.png` from the built panel and
+     add it to the manual.
+  3. Later: an inspector in the connector (files, database read-only) as
+     an extra source for the assistant.
 
 ### 2026-11-23 — Release 0.2.14
 

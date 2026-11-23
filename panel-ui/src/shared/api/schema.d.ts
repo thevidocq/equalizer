@@ -2386,6 +2386,94 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/apps/{app}/assistant": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Ask the assistant about the site (administrators and viewers). The tenant's AI model (Settings → AI) answers with tools that read the site's map, latest discovery report, security logs and history, and may propose changes to the map, which only an administrator turns into a draft. Visitors' addresses reach the model as codes, never as addresses. 409 no_ai without a model, 502 ai_failed when the provider refuses, 429 after 20 questions in 10 minutes */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    app: components["parameters"]["app"];
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["AssistantAsk"];
+                };
+            };
+            responses: {
+                /** @description Answer */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["AssistantAnswer"];
+                    };
+                };
+                409: components["responses"]["Error"];
+                422: components["responses"]["Error"];
+                429: components["responses"]["Error"];
+                502: components["responses"]["Error"];
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/apps/{app}/assistant/proposals/{proposal}/draft": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Turn a proposal of the assistant into a new draft (tenant administrators): on the latest draft if there is one, else on the published map; the agent then checks it as any draft. 409 when the proposal is already a draft, the map already has it, or the latest draft is being checked */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    app: components["parameters"]["app"];
+                    proposal: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Draft created */
+                201: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["AssistantDraft"];
+                    };
+                };
+                404: components["responses"]["Error"];
+                409: components["responses"]["Error"];
+                422: components["responses"]["Error"];
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/internal/discoveries/claim": {
         parameters: {
             query?: never;
@@ -3898,6 +3986,33 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        AssistantAsk: {
+            /** @description The conversation so far, alternating user and assistant, starting and ending with user */
+            messages: {
+                /** @enum {string} */
+                role: "user" | "assistant";
+                text: string;
+            }[];
+        };
+        AssistantAnswer: {
+            /** @description Plain text: paragraphs, - bullets, `code` */
+            text: string;
+            proposals: components["schemas"]["AssistantProposal"][];
+            /** @description The tools the model called */
+            used: ("get_map" | "get_report" | "search_logs" | "get_activity" | "propose_change")[];
+        };
+        AssistantProposal: {
+            id: string;
+            /** @description What the change does, e.g. text/csv added to the folder /files/ */
+            summary: string;
+            reason: string;
+        };
+        AssistantDraft: {
+            app: string;
+            version: number;
+            /** @enum {string} */
+            status: "draft";
+        };
         Error: {
             /** @description Machine-readable reason, e.g. not_found, forbidden, invalid_map */
             error: string;

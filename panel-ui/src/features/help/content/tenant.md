@@ -30,7 +30,8 @@ organisation.
   **Settings**: some pages depend on your role.
 - A site has these tabs: **Discovery**, **Map**, **Isolation**,
   **Certificate**, **Login**. Discovery comes first: it is where a new site
-  starts. An administrator can delete a site from its header
+  starts. **Ask AI** in a site's header opens [the assistant](#the-assistant).
+  An administrator can delete a site from its header
   (**Delete site**); it asks you to type the site's name to confirm, and
   removes the map, connectors, discoveries and certificate with it.
 - At the bottom of the sidebar: your name and role (opens your account),
@@ -53,6 +54,8 @@ example an auditor or a manager who follows the sites.
 | Connectors, Settings, Isolation | yes | |
 | Map: write, publish, roll back, import | yes | |
 | Login: settings and client secret | yes | |
+| Assistant: ask | yes | yes |
+| Assistant: make a proposed change a draft | yes | |
 
 ### Joining and inviting
 
@@ -514,6 +517,116 @@ goes further back.
 
 ![Activity](/help-img/activity.png)
 
+## The assistant
+
+Each site has an assistant: an AI that reads the site's protection and
+answers your questions about it in plain words. Open it with **Ask AI** in
+the site's header; it opens on the right of the page (over the whole
+screen on a phone) and stays open while you move between the site's tabs.
+**Close** hides it and keeps the conversation; **New** starts over. It
+uses your own model, the one in **Settings → AI**: without one it says so
+and does nothing else.
+
+### What it reads
+
+Only the site you are on, and only what you could read yourself:
+
+- **The map**: the published version, or any version you name, with every
+  entry, the checks on each value, the forms, the file folders and the
+  site area.
+- **The last discovery's report**: pages found, what is still open and
+  why, what was kept out, what was added from visitors' requests.
+- **The logs** of the site, up to 30 days: what was served and refused,
+  why, on which entry, how many different visitors.
+- **The site's history** in Activity: discoveries, drafts, publications,
+  alerts, who did what and when.
+
+It looks these up before it answers, and says so when they do not tell.
+
+### What you can ask
+
+- **Why something was refused**: "Why was the request to /shop/ at 14:02
+  blocked?", "What happened to request 9c41e0b2?". It finds the event,
+  the rule that refused it and whether it looks like a visitor or a scan
+  (how many visitors, how many requests, which entries and paths; the
+  values themselves are never logged).
+- **Whether real visitors are being refused**: "Did real visitors get
+  refused today?", "Which refusals this week came from more than three
+  visitors?". It sums the refusals by reason and by entry and points out
+  the ones that look like a gap in the map rather than an attack.
+- **What the map does**: "What does the map check on the home page?",
+  "Which file types does /wp-content/uploads/ serve?", "Does version 6
+  still check `?orderby=`?".
+- **What a discovery found**: "What did the last discovery leave open, and
+  why?", "Which pages were kept out?".
+- **Who did what**: "Who published the current map, and when?", "When did
+  the last discovery run, and who started it?".
+- **How to tune it**: "Can the shop sort by date?", "PDFs in the uploads
+  folder are refused: should they be?". When a change is worth making, it
+  proposes it (below).
+
+Ask in your language: it answers in the language of your question.
+
+### Changes it proposes
+
+The assistant never changes a map. When a change is worth making it shows
+a **Proposed change** card: what the change does and why. An
+administrator clicks **Create a draft and check it**: the panel makes a
+new draft (on the latest draft if there is one, otherwise on the published
+map) and the agent checks it on the site, as for any draft. While a
+version is under review, or the latest draft is being checked, it waits:
+decide that one first. Nothing
+reaches visitors until an administrator reviews and publishes the draft
+(see [Review and publication](#review-and-publication)). A viewer sees the
+card and cannot make it a draft.
+
+It can propose three kinds of change, each checked by the panel before the
+card is shown and again when the draft is made (the new map must be
+valid and accepted by the gateway):
+
+- **A file type for a file folder** (`application/pdf` for
+  `/wp-content/uploads/`). Types that can run code or hide what they are
+  (scripts, HTML, PHP, executables, unknown binaries) are never proposed.
+- **A new query key on a page** (`?lang=` on the shop), with a narrow
+  check: one of the values the site offers, a whole number, a date, or
+  short text without markup.
+- **More values for a key that takes a list** (`date` for the shop's
+  `?orderby=`).
+
+At most three proposals per answer. It does not propose new pages, forms,
+logins or other settings: those come from a discovery or from editing the
+map.
+
+### What stays private
+
+- Visitors' IP addresses never reach the AI: each visitor appears as a
+  code (`V-3fa9c1`), the same for the same visitor across your questions;
+  an address you type in a question becomes a code too. Email addresses
+  in paths and questions are hidden.
+- People of your organisation reach the AI as codes and are shown to you
+  by their email.
+- What comes from the site, its visitors or the logs is given to the AI
+  as data, never as instructions: a path that says "ignore your rules"
+  changes nothing.
+- Activity records that someone asked the assistant about a site, which
+  sources it read and how many changes it proposed, never the question or
+  the answer. The conversation is not saved: it ends when you leave the
+  site or reload the page.
+- Your question and what the assistant reads go to your AI provider, as
+  for discovery. Its own terms say how long it keeps them.
+
+### Limits
+
+- 20 questions every 10 minutes per person; the conversation sends at
+  most the last 20 messages.
+- It reads up to 500 events per question: on a busy site it says when it
+  only saw the latest ones; the **Logs** page shows everything.
+- It does not open pages of the site and does not see the legacy server.
+- Without logs on the platform it answers from the map, the report and
+  the history, and says the logs are not available.
+- The AI can be wrong: check what matters in **Logs** or on the **Map**
+  tab, and read a proposed change before you publish it.
+
 ## Settings
 
 ### Alerts
@@ -534,11 +647,12 @@ once.
 ### AI model
 
 **Settings → AI**: your own model (Claude, OpenAI or your own server) names
-routes, spots sensitive pages and narrows types during discovery, and
-summarises versions before you publish them. Once the provider and the key
+routes, spots sensitive pages and narrows types during discovery,
+summarises versions before you publish them, and answers in each site's
+[assistant](#the-assistant). Once the provider and the key
 are in, the panel lists the models the key may use: pick one. The key is
 yours, encrypted and never shown again. Without a model discovery still
-works.
+works; the assistant needs one.
 
 ![Settings](/help-img/settings-ai.png)
 
@@ -596,7 +710,10 @@ errors: the legacy application itself. Map: no published version.
 Open **Logs** and search the path. The detail says why: a value refused by
 a precise entry (widen its type in a new version), a rate limit (429), an
 object not shown to that user (403), a method the area does not allow
-(405). A path not in the map has **Add to the map**.
+(405). A path not in the map has **Add to the map**. Or ask the site's
+[assistant](#the-assistant): "why was /path refused?" — it finds the
+event, explains the rule and, if real visitors need it, proposes the
+change.
 
 ### An upload fails
 

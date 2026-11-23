@@ -33,6 +33,7 @@ tags:
   - name: internal
   - name: maps
   - name: discovery
+  - name: assistant
   - name: connectors
   - name: capacity
   - name: llm
@@ -1081,6 +1082,50 @@ paths:
             application/json:
               schema: { $ref: "#/components/schemas/Discovery" }
         "404": { $ref: "#/components/responses/Error" }
+  /apps/{app}/assistant:
+    post:
+      tags: [assistant]
+      summary: >-
+        Ask the assistant about the site (administrators and viewers). The tenant's AI model (Settings → AI)
+        answers with tools that read the site's map, latest discovery report, security logs and history, and
+        may propose changes to the map, which only an administrator turns into a draft. Visitors' addresses
+        reach the model as codes, never as addresses. 409 no_ai without a model, 502 ai_failed when the
+        provider refuses, 429 after 20 questions in 10 minutes
+      parameters: [{ $ref: "#/components/parameters/app" }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/AssistantAsk" }
+      responses:
+        "200":
+          description: Answer
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/AssistantAnswer" }
+        "409": { $ref: "#/components/responses/Error" }
+        "422": { $ref: "#/components/responses/Error" }
+        "429": { $ref: "#/components/responses/Error" }
+        "502": { $ref: "#/components/responses/Error" }
+  /apps/{app}/assistant/proposals/{proposal}/draft:
+    post:
+      tags: [assistant]
+      summary: >-
+        Turn a proposal of the assistant into a new draft (tenant administrators): on the latest draft if
+        there is one, else on the published map; the agent then checks it as any draft. 409 when the
+        proposal is already a draft, the map already has it, or the latest draft is being checked
+      parameters:
+        - { $ref: "#/components/parameters/app" }
+        - { name: proposal, in: path, required: true, schema: { type: string } }
+      responses:
+        "201":
+          description: Draft created
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/AssistantDraft" }
+        "404": { $ref: "#/components/responses/Error" }
+        "409": { $ref: "#/components/responses/Error" }
+        "422": { $ref: "#/components/responses/Error" }
   /internal/discoveries/claim:
     post:
       tags: [internal]
@@ -1728,6 +1773,47 @@ components:
               items: { type: array, items: { type: object } }
               next_cursor: { type: [string, "null"] }
   schemas:
+    AssistantAsk:
+      type: object
+      required: [messages]
+      additionalProperties: false
+      properties:
+        messages:
+          type: array
+          minItems: 1
+          maxItems: 20
+          description: The conversation so far, alternating user and assistant, starting and ending with user
+          items:
+            type: object
+            required: [role, text]
+            additionalProperties: false
+            properties:
+              role: { type: string, enum: [user, assistant] }
+              text: { type: string, minLength: 1, maxLength: 4000 }
+    AssistantAnswer:
+      type: object
+      required: [text, proposals, used]
+      properties:
+        text: { type: string, description: "Plain text: paragraphs, - bullets, `code`" }
+        proposals: { type: array, items: { $ref: "#/components/schemas/AssistantProposal" } }
+        used:
+          type: array
+          description: The tools the model called
+          items: { type: string, enum: [get_map, get_report, search_logs, get_activity, propose_change] }
+    AssistantProposal:
+      type: object
+      required: [id, summary, reason]
+      properties:
+        id: { type: string }
+        summary: { type: string, description: "What the change does, e.g. text/csv added to the folder /files/" }
+        reason: { type: string }
+    AssistantDraft:
+      type: object
+      required: [app, version, status]
+      properties:
+        app: { type: string }
+        version: { type: integer }
+        status: { type: string, enum: [draft] }
     Error:
       type: object
       required: [error]

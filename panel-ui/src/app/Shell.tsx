@@ -51,7 +51,7 @@ export function Shell() {
           </div>
         </div>
       ) : null}
-      <main key={me?.time_zone ?? "UTC"} className="min-w-0 flex-1 px-4 py-6 sm:px-6 lg:px-10 lg:py-8">
+      <main key={me?.time_zone ?? "UTC"} className="min-w-0 flex-1 px-4 py-6 sm:px-6 lg:mr-[var(--assistant-width,0px)] lg:px-10 lg:py-8">
         <div className="mx-auto max-w-6xl">
           <Outlet />
         </div>

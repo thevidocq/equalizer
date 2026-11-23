@@ -78,7 +78,7 @@ func (s *Server) askAssistant(w http.ResponseWriter, r *http.Request, u *auth.Us
 	var pe *assistant.ErrProvider
 	switch {
 	case errors.As(err, &pe):
-		fail(w, http.StatusBadGateway, "ai_failed", pe.Msg)
+		fail(w, http.StatusFailedDependency, "ai_failed", pe.Msg) // not 502: proxies may replace a 502 body
 		return
 	case err != nil:
 		s.Log.ErrorContext(r.Context(), "assistant failed", "error", err.Error())

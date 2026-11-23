@@ -299,3 +299,29 @@ func TestAssistantConversations(t *testing.T) {
 		t.Fatalf("left: %+v", mine)
 	}
 }
+
+type refuses struct{}
+
+func (refuses) Chat(context.Context, string, []assistant.Turn, []assistant.Tool) (assistant.Reply, error) {
+	return assistant.Reply{}, &assistant.ErrProvider{Msg: "the AI provider refused the API key: check it in Settings → AI"}
+}
+
+// A refusal of the provider is a 424 with words to act on: never a 502,
+// whose body a proxy may replace.
+func TestAssistantProviderRefusal(t *testing.T) {
+	e := setup(t)
+	root := e.client()
+	root.must(200, "POST", "/v1/auth/login", map[string]string{"email": "root@example.com", "password": "platform-admin-password"}, nil)
+	root.must(201, "POST", "/v1/tenants", map[string]string{"id": "acme", "name": "Acme", "admin_email": "boss@acme.test", "admin_name": "Boss"}, nil)
+	boss := e.join("boss@acme.test")
+	boss.must(201, "POST", "/v1/tenants/acme/apps", map[string]any{"id": "blog", "name": "Blog", "public_domain": "blog.acme.test", "kind": "wordpress"}, nil)
+	boss.must(200, "PUT", "/v1/tenants/acme/llm", map[string]any{"provider": "anthropic", "model": "claude-haiku-5-5", "api_key": "sk-bad"}, nil)
+	e.server.AssistantModel = func(assistant.Config) (assistant.Model, error) { return refuses{}, nil }
+	var out struct{ Error, Message string }
+	if code := boss.do("POST", "/v1/apps/blog/assistant", map[string]any{"text": "hi"}, &out); code != 424 {
+		t.Fatalf("status %d", code)
+	}
+	if out.Error != "ai_failed" || !strings.Contains(out.Message, "Settings → AI") {
+		t.Fatalf("body: %+v", out)
+	}
+}

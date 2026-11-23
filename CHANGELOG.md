@@ -19,7 +19,8 @@ Add a section at the top of "Entries" for every commit:
 
 ## Current project status
 
-Latest release: **0.2.16** (`docs/releases/0.2.16.md`); before it 0.2.15
+Latest release: **0.2.17** (`docs/releases/0.2.17.md`); before it 0.2.16
+(`docs/releases/0.2.16.md`), 0.2.15
 (`docs/releases/0.2.15.md`), 0.2.14
 (`docs/releases/0.2.14.md`), 0.2.13
 (`docs/releases/0.2.13.md`), 0.2.12
@@ -48,6 +49,21 @@ it, 0.1.0 (`docs/releases/0.1.0.md`, tag on the merge of #39).
 | tools (eqtool) | Map signing keys, form key, relay token, connector registration, map signing |
 
 ## Entries
+
+### 2026-11-23 — Fix the assistant's first question; release 0.2.17
+
+- **Branch:** fix/assistant-first-question
+- **What:** `panel-ui/src/features/assistant/hooks/useAssistant.ts` fixes
+  the turns to send when the person asks (`send`), not inside
+  `mutationFn`; regression test `useAssistant.test.tsx`;
+  `AssistantPanel` uses `send`.
+- **Why:** react-query runs `onMutate` (which shows the question) before
+  `mutationFn`, which then read the new state and sent the question twice
+  (user, user): the API refused every question with "messages: alternate
+  user and assistant". Seen on metreta with 0.2.16.
+- **Status:** fix and test; CI runs vitest.
+- **Release:** 0.2.17 (`docs/releases/0.2.17.md`, versions bumped).
+- **Next steps:** tag `v0.2.17`, update metreta, ask the assistant there.
 
 ### 2026-11-23 — Show cards and Markdown in the assistant; release 0.2.16
 

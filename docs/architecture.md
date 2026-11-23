@@ -191,11 +191,17 @@ write, and every proposal that widens the surface needs human approval.
 
 panel-api also talks to the tenant's model, for the assistant of a site
 (`panel-api/internal/assistant`, `POST /v1/apps/{app}/assistant`). The
-model gets six tools, scoped to that one site and to what the person
-asking may read: `get_map`, `get_report` (latest discovery),
-`search_logs` (Loki, up to 500 events summarised by type, reason, entry
-and path), `get_activity` (audit), `show_card` and `propose_change`. At most 8 rounds of
-tools, then words only; 100 seconds in all.
+model gets its tools, scoped to that one site and to what the person
+asking may read: `get_map`, `get_report` (latest discovery,
+plain facts first and every list capped, so a long list never hides the
+CMS version), `search_logs` (Loki, up to 500 events summarised by type,
+reason, entry and path), `get_activity` (audit), `get_site` (the Status
+page's evaluation), `list_versions`, `get_check` (a version's
+verification), `compare_versions` (the review aid's comparison),
+`read_guide` (the tenant guide, embedded from `docs/manual/tenant.md` by
+`panel-ui/scripts/sync-help.mjs`, checked in CI), `show_card` and
+`propose_change`. At most 10 rounds of tools, then words only; 100
+seconds in all.
 
 - **No writes.** `propose_change` stores a change in
   `assistant_proposals` after checking it on the map it would go on; only

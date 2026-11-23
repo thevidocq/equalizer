@@ -599,11 +599,22 @@ so and does nothing else.
 
 Only the site you are on, and only what you could read yourself:
 
+- **Its status**, as the **Status** page shows it: the connector online
+  or not, the legacy application answering or failing, the certificate
+  and when it expires, the isolation check, the last 7 days.
+- **The versions of the map**: which is published, which drafts wait,
+  who made and approved each one, and **what changed between two
+  versions** with its risks (the same comparison as the review aid).
+- **The check of a version** on the site: pages identical, inputs that
+  refuse every attack, what breaks, what is still open, the agent's
+  corrections.
 - **The map**: the published version, or any version you name, with every
   entry, the checks on each value, the forms, the file folders and the
   site area.
-- **The last discovery's report**: pages found, what is still open and
-  why, what was kept out, what was added from visitors' requests.
+- **The last discovery's report**: the CMS and its version, the plugins,
+  themes and libraries with their versions, pages found, what is still
+  open and why, what was kept out, what was added from visitors' requests.
+- **This guide**, to answer how to do something in the panel.
 - **The logs** of the site, up to 30 days: what was served and refused,
   why, on which entry, how many different visitors.
 - **The site's history** in Activity: discoveries, drafts, publications,
@@ -613,6 +624,20 @@ It looks these up before it answers, and says so when they do not tell.
 
 ### What you can ask
 
+- **Whether the site works**: "Is everything working on this site?",
+  "When does the certificate expire?", "Was the connector offline this
+  week?". It reads the status and points out what needs attention.
+- **What the site runs**: "Which WordPress version and which plugins?",
+  "Is anything in the report outdated?". It gives the versions the
+  discovery found and says when one looks old. It names a vulnerability
+  only when the report lists it among the known issues; it does not
+  search for vulnerabilities (CVEs) and never invents one.
+- **About the versions of the map**: "What changed in version 6?",
+  "Which version is waiting for review, and is it safe?", "How did the
+  check of version 5 go?".
+- **How to do something**: "How do I check the pages behind the login?",
+  "How do I upload the certificate?". It answers from this guide and says
+  which page to open and what to press.
 - **Why something was refused**: "Why was the request to /shop/ at 14:02
   blocked?", "What happened to request 9c41e0b2?". It finds the event,
   the rule that refused it and whether it looks like a visitor or a scan

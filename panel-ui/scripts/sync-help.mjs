@@ -1,6 +1,7 @@
 // The in-panel Help is the manuals in docs/manual, one source for both.
 // This copies them into the panel (screenshot links pointed at /help-img/)
-// with the screenshots they use. --check fails when the copy is stale (CI).
+// with the screenshots they use, and the tenant guide into panel-api, where
+// the site assistant reads it. --check fails when a copy is stale (CI).
 import { copyFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 
@@ -29,6 +30,16 @@ for (const guide of ["tenant", "admin"]) {
       if (check) stale.push(to);
       else copyFileSync(from, to);
     }
+  }
+}
+// the assistant answers "how do I…" from the same guide (embedded in panel-api)
+{
+  const src = readFileSync(join(docs, "manual", "tenant.md"), "utf8");
+  const dest = join(ui, "../panel-api/internal/assistant/guide/tenant.md");
+  mkdirSync(join(ui, "../panel-api/internal/assistant/guide"), { recursive: true });
+  if (!existsSync(dest) || readFileSync(dest, "utf8") !== src) {
+    if (check) stale.push(dest);
+    else writeFileSync(dest, src);
   }
 }
 if (stale.length) {

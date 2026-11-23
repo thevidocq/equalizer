@@ -19,7 +19,8 @@ Add a section at the top of "Entries" for every commit:
 
 ## Current project status
 
-Latest release: **0.2.13** (`docs/releases/0.2.13.md`); before it 0.2.12
+Latest release: **0.2.14** (`docs/releases/0.2.14.md`); before it 0.2.13
+(`docs/releases/0.2.13.md`), 0.2.12
 (tagged on the code of 0.2.11, `docs/releases/0.2.11.md`), 0.2.11
 (`docs/releases/0.2.11.md`), 0.2.10
 (`docs/releases/0.2.10.md`), 0.2.9
@@ -46,6 +47,42 @@ it, 0.1.0 (`docs/releases/0.1.0.md`, tag on the merge of #39).
 
 ## Entries
 
+### 2026-11-23 — Release 0.2.14
+
+- **Branch:** feat/strict-precise-entries
+- **What:** `VERSION`, agent version, `deploy/compose/.env.example`,
+  `INSTALL.md`, `README.md` point to 0.2.14; notes `docs/releases/0.2.14.md`.
+- **Why:** the checks hold when a request steps aside into the area;
+  maps serve far more of each site precisely.
+- **Status:** documents only. Tag `v0.2.14` on the merge commit publishes
+  the images.
+- **Next steps:**
+  1. Discovery on metreta and metaliquid with 0.2.14; check that no page
+     is refused.
+  2. The AI assistant in the panel, with logs (0.2.15).
+  3. Lost-session detection; the tenant's AI key.
+
+### 2026-11-23 — Review of the precise checks in the area
+
+- **Branch:** feat/strict-precise-entries
+- **What:** gateway: an apostrophe between two letters is a page name
+  (`/wiki/Don't_Stop`); a key PHP or a case-blind server reads as a
+  declared one (`page.id`, ` p`, `p[]`, `P`) is checked as that one; the
+  server falls through to another entry only if it guards the same way
+  (same roles, no `authz`), and to an asset prefix only for a path with no
+  page's shape (as before); undeclared keys are reported after the area's
+  limits; the link issuer picks entries as the server does; the router
+  sorts entries once. WordPress comment website: a scheme is optional,
+  `javascript:` and markup are refused. Study: encoded payloads found as
+  sent. Docs: `docs/map-format.md`, `docs/efficacy.md` (before and after on
+  five sites), tenant manual and help, release notes, lab README.
+- **Why:** independent review: apostrophes in real page names were
+  refused; aliases of a declared key carried an attack past it; a later
+  entry with other roles could answer 403 where the area served.
+- **Status:** gateway, panel-api, agent tests pass; study passes on five
+  sites.
+- **Next steps:** release 0.2.14.
+
 ### 2026-11-23 — The area keeps the precise checks; efficacy study in the lab
 
 - **Branch:** feat/strict-precise-entries
@@ -71,8 +108,8 @@ it, 0.1.0 (`docs/releases/0.1.0.md`, tag on the merge of #39).
     `README.md`; `CLAUDE.md`: the study before every release.
 - **Why:** the efficacy study on WordPress found that one extra key
   (`&zz=1`) sent any request to the area, where values are not checked:
-  0 of 125 attacks on typed values blocked that way. Now 520 of 520 on five
-  sites, with every page still the same (159 of 159).
+  0 of 125 attacks on typed values blocked that way. Now 500 of 500 on five
+  sites, with every page still the same (161 of 161).
 - **Status:** gateway, panel-api, agent tests pass; study passes on
   WordPress, Drupal, the intranet, phpBB, MediaWiki. Joomla, OpenCart,
   PrestaShop, TYPO3, Magento not built here (npm, MariaDB).

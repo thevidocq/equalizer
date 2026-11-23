@@ -115,7 +115,9 @@ built, the real agent makes the map, the gateway of this checkout serves
 it, and the legacy site, served again behind `efficacy/record.php`, logs
 what it receives. It needs only the sites (`wordpress.sh`, `cms.sh`,
 `webapps.sh`), not the platform, and exits 1 when a guarantee breaks.
-Results in `.run/efficacy/`. Run it before every release.
+Results in `.run/efficacy/`. Run it before every release. Like the rest
+of the lab, the sites listen on 127.0.0.1 only and the attacks go to them
+alone.
 
 `python3 fidelity.py [host…]` runs the comparison alone (on a lab without
 SSO, such as right after test 2) and writes side-by-side

@@ -163,6 +163,7 @@ func (p *Public) handle(w http.ResponseWriter, r *http.Request) string {
 		if !p.checkLimits(w, r, active, a.ID, false) {
 			return a.ID
 		}
+		p.reportAreaKeys(r, active, m, fits)
 		p.serveArea(w, r, active, a)
 		return a.ID
 	}

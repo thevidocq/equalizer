@@ -418,7 +418,8 @@ project):
   that has a page's address but not exactly its shape (an extra parameter
   the map does not know) is served by the area, yet the page's own checks
   still apply: `?id=1' OR '1'='1&x=1` is refused like `?id=1' OR '1'='1`,
-  and a page name with quotes or angle brackets is refused too.
+  and a page name with angle brackets, braces or quotes (an apostrophe
+  inside a word, as in `l'evento`, is fine) is refused too.
 - **defaults**: limits, session duration, "remember me".
 
 A map with only the `/` area already protects the site; precise entries add

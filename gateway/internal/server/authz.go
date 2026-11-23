@@ -127,10 +127,11 @@ func (i *issuer) note(public string) {
 	if err != nil {
 		return
 	}
-	m, err := i.st.Router.Match(http.MethodGet, u.Path)
+	cands, err := i.st.Router.Candidates(http.MethodGet, u.Path)
 	if err != nil {
 		return
 	}
+	m, _ := firstFit(i.st, cands) // the entry the server will pick
 	q := u.Query()
 	for _, target := range i.st.Owned(m.Entry.ID) {
 		ns, name, _ := strings.Cut(target, ".")

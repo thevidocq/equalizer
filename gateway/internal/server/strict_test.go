@@ -21,9 +21,9 @@ import (
 )
 
 // A request that steps aside from a precise entry into the area keeps the
-// entry's checks (efficacy study, 0.2.14): an extra key does not carry an
-// attack past a declared one, a path value no page has is refused, and a
-// file that only has the shape of a page goes to its asset prefix.
+// entry's checks (efficacy study, 0.2.14): an extra key or an alias of a
+// declared one (checked as that one) does not carry an attack past it, and a path value no page
+// name has is refused; names with an apostrophe still reach the site.
 func TestAreaKeepsThePreciseChecks(t *testing.T) {
 	var mu sync.Mutex
 	var hits []string
@@ -48,7 +48,8 @@ func TestAreaKeepsThePreciseChecks(t *testing.T) {
 		Roles:  mapmodel.Roles{Anonymous: "guest", List: map[string]any{"guest": nil}},
 		Types:  map[string]mapmodel.TypeDef{"slug": slug},
 		Routes: []mapmodel.Route{
-			{ID: "home", Path: "/", Method: "GET", Roles: []string{"guest"}, Query: map[string]mapmodel.FieldSpec{"p": {Type: "int"}},
+			{ID: "home", Path: "/", Method: "GET", Roles: []string{"guest"},
+				Query:         map[string]mapmodel.FieldSpec{"p": {Type: "int"}, "page_id": {Type: "int"}},
 				LegacyRequest: mapmodel.LegacyRequest{Method: "GET", Path: "/", Query: map[string]string{"p": "{{query.p}}"}}},
 			{ID: "page", Path: "/{slug}/", Method: "GET", Roles: []string{"guest"}, Params: map[string]mapmodel.FieldSpec{"slug": {Type: "slug"}},
 				LegacyRequest: mapmodel.LegacyRequest{Method: "GET", Path: "/{{params.slug}}/"}},
@@ -84,14 +85,21 @@ func TestAreaKeepsThePreciseChecks(t *testing.T) {
 		code   int
 		legacy string // what the legacy site gets, "" none
 	}{
-		{"/?p=5&zz=1", 200, "/?p=5&zz=1"},                             // an extra key: the area, as before
-		{"/?p=1%27+OR+%271%27%3D%271&zz=1", 400, ""},                  // ...but the declared key is still checked
-		{"/?zz=%3Cscript%3E", 200, "/?zz=%3Cscript%3E"},               // a key no entry declares: the area's
-		{"/1%27OR%271%27%3D%271/", 400, ""},                           // a path value no page has
-		{"/%3Cscript%3E/", 400, ""},                                   //
-		{"/wp-admin/", 200, "/wp-admin/"},                             // a name the type denies: the area
-		{"/citt%C3%A0/", 200, "/citt%C3%A0/"},                         // accents fit
-		{"/wp-includes/js/x.js?ver=6.9", 200, "/wp-includes/js/x.js"}, // a file, not a dated post
+		{"/?p=5&zz=1", 200, "/?p=5&zz=1"},                                     // an extra key: the area, as before
+		{"/?p=1%27+OR+%271%27%3D%271&zz=1", 400, ""},                          // ...but the declared key is still checked
+		{"/?zz=%3Cscript%3E", 200, "/?zz=%3Cscript%3E"},                       // a key no entry declares: the area's
+		{"/1%27OR%271%27%3D%271/", 400, ""},                                   // a path value no page has
+		{"/%3Cscript%3E/", 400, ""},                                           //
+		{"/wp-admin/", 200, "/wp-admin/"},                                     // a name the type denies: the area
+		{"/citt%C3%A0/", 200, "/citt%C3%A0/"},                                 // accents fit
+		{"/l%27evento/", 200, "/l%27evento/"},                                 // an apostrophe in a name
+		{"/2025/01/don%27t-stop/", 200, "/2025/01/don%27t-stop/"},             //
+		{"/%27%20OR%201%3D1/", 400, ""},                                       // ...but not around it
+		{"/?page.id=1%27OR&zz=1", 400, ""},                                    // PHP reads page.id as page_id: no alias
+		{"/?%20p=1%27OR", 400, ""},                                            // " p" as p
+		{"/?p%5B%5D=1%27OR", 400, ""},                                         // p[] as p
+		{"/?P=1%27OR", 400, ""},                                               // P as p, on case-blind servers
+		{"/wp-includes/js/x.js?ver=6.9", 200, "/wp-includes/js/x.js?ver=6.9"}, // a page's shape: the area, as before
 	} {
 		mu.Lock()
 		hits = nil

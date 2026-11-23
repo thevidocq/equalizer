@@ -25,9 +25,12 @@ CORE = {"sqli": ["'", "UNION", "SLEEP"], "xss": ["<", ">"], "traversal": ["..", 
 
 
 def decoded(entry: dict) -> str:
-    u = urllib.parse.unquote_plus(urllib.parse.unquote_plus(entry["u"]))
+    """What the site got, as sent and decoded once and twice (a payload that
+    is itself encoded, x%0d%0a, is found as it arrived)."""
+    u = entry["u"]
     b = base64.b64decode(entry["b"]).decode("utf-8", "replace")
-    return u + "\n" + urllib.parse.unquote_plus(b) + "\n" + json.dumps(entry.get("h", {}))
+    once = urllib.parse.unquote_plus(u) + "\n" + urllib.parse.unquote_plus(b)
+    return "\n".join([u, b, once, urllib.parse.unquote_plus(once), json.dumps(entry.get("h", {}))])
 
 
 def verdict(status, legacy: list, marker: str, payload: str, cls: str) -> str:

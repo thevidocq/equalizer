@@ -45,20 +45,27 @@ every site the lab can build.
 Five sites: WordPress 6.9, Drupal 11.4, the custom intranet (generic
 profile), phpBB 3.3, MediaWiki 1.43. Joomla, OpenCart, PrestaShop, TYPO3
 and Magento need a build (npm) or MariaDB the study's machine did not
-have: they are studied where the full lab runs.
+have: they are studied where the full lab runs. "Before" is 0.2.13 on the
+same sites.
 
-| Input | Requests | Blocked | Passed | Before 0.2.14 (WordPress, Drupal, intranet) |
-| --- | --- | --- | --- | --- |
-| Pages the same as on the site | 159 | — | — | the same |
-| Typed values (ids, numbers, lists, emails) | 560 | 560 (100%) | 0 | 100% where checked; the intranet's `?id=` never checked (below) |
-| Typed values with an extra key | 520 | 520 (100%) | 0 | 0 of 120 blocked |
-| Path parameters (`/{slug}/`…) | 160 | 103 (64%) | 42 | 32 of 160 blocked |
-| Text with a pattern (search, slug-like, a website) | 60 | 40 (67%) | 18 | 10 of 20: WordPress's comment website had no pattern |
-| Free text (comments, messages, titles) | 700 | 311 (44%) | 364 | lower: WordPress's comment name had no rules |
-| Free or patterned text with an extra key | 540 | 245 (45%) | 268 | 0 of 40 blocked |
-| A key no entry declares | 540 | 0 | 513 | the same: the area's |
-| Paths only the area serves | 300 | 0 | 285 | the same: the area's |
-| Attacks on the protocol | 65 | 56 blocked, 9 neutralised | 0 | the same |
+| Measure | 0.2.14 | 0.2.13 |
+| --- | --- | --- |
+| Pages the same as on the site | 161 of 161 | 162 of 162 |
+| Pages served by a precise entry | 159 of 161 (99%) | 91 of 162 (56%) |
+| Attacks on typed values (ids, numbers, lists, emails) blocked | 540 of 540 | 160 of 160 |
+| The same with an extra key (`&zz=1`) blocked | 500 of 500 | 0 of 120 |
+| Attacks on path parameters (`/{slug}/`…) blocked | 103 of 160 (7 neutralised) | 32 of 160 (5 neutralised) |
+| Attacks on text with a pattern (search, website) blocked | 36 of 60 | 20 of 40 |
+| Attacks on free text (comments, messages, titles) blocked | 302 of 680 | 90 of 240 |
+| The same with an extra key blocked | 236 of 520 | 0 of 60 |
+| Attacks in a key no entry declares | 0 of 540: the area's | 0 of 300 |
+| Attacks on paths only the area serves | 0 of 300: the area's | 0 of 300 |
+| Attacks on the protocol (13 per site) | 56 blocked, 9 neutralised, 0 through | the same |
+
+More requests are measured in 0.2.14 because more of each site is served
+by precise entries: in 0.2.13 phpBB's and MediaWiki's pages (`viewtopic.php`,
+`index.php`) had routes that never served them, so their inputs were
+unchecked area traffic.
 
 Reading:
 
@@ -66,11 +73,11 @@ Reading:
   undeclared key sent the request to the area, where values are not
   checked: `/?p=1' OR '1'='1&zz=1` reached WordPress. Now the area still
   serves such a request, so the site keeps working, but the keys the page
-  declares are checked first.
-- **Path values with characters no page name has** (`'`, `"`, `<`, `>`,
-  braces, backticks, pipes, backslashes) are refused instead of reaching
-  the area. Values without them that fit no entry (`; cat /etc/passwd`
-  as a slug: `/` splits it) still go to the area.
+  declares are checked first, and so are their aliases (`page.id` for
+  `page_id`).
+- **Path values with characters no page name has** are refused instead of
+  reaching the area. Values without them that fit no entry
+  (`; cat /etc/passwd` as a slug: `/` splits it) still go to the area.
 - **Free text passes by nature**: a comment must accept quotes, `;` and
   `|`. Equalizer refuses markup and template syntax where the field says
   so; the rest is the application's job.
@@ -79,12 +86,11 @@ Reading:
   It shrinks as the agent types what the site uses (`query_added`) and
   what visitors use (`visitors_added`, docs/agent.md).
 
-Two findings fixed in 0.2.14 came from this study: the gateway now tries
-every entry a path has the shape of (`/wp-includes/js/x.js` has the shape
-of `/{year}/{month}/{slug}/` and went to the area instead of its asset
-prefix), and the agent no longer gives a key to a route whose types refuse
-the page (`/notice.php?id=1` gave `id` to `/{slug}`, which never serves a
-name with a dot: the intranet's only id was never checked).
+The study also found why so much was area traffic: the agent gave a
+page's keys to a route whose types refuse that page (`/notice.php?id=1`
+gave `id` to `/{slug}`, which never serves a name with a dot), so the page
+kept going to the area. It now gives them only to a route that serves the
+page, else makes one.
 
 ## Limits
 

@@ -306,7 +306,7 @@
      "type": "string",
      "max_length": 200,
      "required": false,
-     "pattern": "^(https?://[^\\s<>\"'{}|\\\\^`]+)?$",
+     "pattern": "^((?i:https?)://[^\\s<>\"'{}|\\\\^`]*|[^\\s<>\"'{}|\\\\^`:/]+(/[^\\s<>\"'{}|\\\\^`]*)?)?$",
      "rules": [
       "no_html",
       "no_template_meta"

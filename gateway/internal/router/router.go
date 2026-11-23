@@ -81,6 +81,8 @@ func New(entries []Entry) (*Router, error) {
 		r.entries = append(r.entries, compiled{entry: e, segments: segs, params: params})
 	}
 	sort.Slice(r.assets, func(i, j int) bool { return len(r.assets[i].Pattern) > len(r.assets[j].Pattern) })
+	// fewest parameters first, map order kept: Candidates needs no sort per request
+	sort.SliceStable(r.entries, func(i, j int) bool { return r.entries[i].params < r.entries[j].params })
 	return r, nil
 }
 
@@ -103,12 +105,7 @@ func (r *Router) Candidates(method, path string) ([]Match, error) {
 		method = http.MethodGet
 	}
 	parts := split(path)
-	type found struct {
-		m      Match
-		params int
-	}
 	var (
-		routes    []found
 		out       []Match
 		pathFound bool
 	)
@@ -122,11 +119,7 @@ func (r *Router) Candidates(method, path string) ([]Match, error) {
 		if c.entry.Method != method {
 			continue
 		}
-		routes = append(routes, found{Match{Entry: c.entry, Params: vals}, c.params})
-	}
-	sort.SliceStable(routes, func(i, j int) bool { return routes[i].params < routes[j].params })
-	for _, f := range routes {
-		out = append(out, f.m)
+		out = append(out, Match{Entry: c.entry, Params: vals})
 	}
 	if len(out) == 0 && pathFound {
 		return nil, ErrMethodNotAllowed

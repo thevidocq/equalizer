@@ -2474,6 +2474,169 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/assistant/conversations": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Your conversations with the assistant, newest first, on every site you can read. Private: no other user, administrator or the platform reads them. Kept as long as Settings → AI says (keep_days) */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Conversations */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            items: components["schemas"]["AssistantConversation"][];
+                        };
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/assistant/conversations/{conversation}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** One of your conversations with its messages; a proposal shows the draft it became */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    conversation: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Conversation */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["AssistantConversationDetail"];
+                    };
+                };
+                404: components["responses"]["Error"];
+            };
+        };
+        put?: never;
+        post?: never;
+        /** Delete one of your conversations now */
+        delete: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    conversation: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Deleted */
+                204: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                404: components["responses"]["Error"];
+            };
+        };
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/tenants/{tenant}/assistant": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** How long the tenant keeps the assistant's conversations (administrators and viewers) */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    tenant: components["parameters"]["tenant"];
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Settings */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["AssistantSettings"];
+                    };
+                };
+            };
+        };
+        /** Change it (tenant administrators); older conversations are deleted at once */
+        put: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    tenant: components["parameters"]["tenant"];
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["AssistantSettings"];
+                };
+            };
+            responses: {
+                /** @description Settings */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["AssistantSettings"];
+                    };
+                };
+                422: components["responses"]["Error"];
+            };
+        };
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/internal/discoveries/claim": {
         parameters: {
             query?: never;
@@ -3987,14 +4150,13 @@ export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
         AssistantAsk: {
-            /** @description The conversation so far, alternating user and assistant, starting and ending with user */
-            messages: {
-                /** @enum {string} */
-                role: "user" | "assistant";
-                text: string;
-            }[];
+            /** @description One of yours about this site, to go on with it; omitted: a new one */
+            conversation?: string;
+            text: string;
         };
         AssistantAnswer: {
+            /** @description The conversation the exchange was kept in */
+            conversation: string;
             /** @description Markdown without links, images or HTML */
             text: string;
             proposals: components["schemas"]["AssistantProposal"][];
@@ -4007,6 +4169,8 @@ export interface components {
             /** @description What the change does, e.g. text/csv added to the folder /files/ */
             summary: string;
             reason: string;
+            /** @description The draft it became; null: not yet */
+            draft_version: number | null;
         };
         /** @description Built by the panel from the logs or the map; the model only chose which */
         AssistantCard: components["schemas"]["AssistantEventCard"] | components["schemas"]["AssistantRefusalsCard"] | components["schemas"]["AssistantRouteCard"];
@@ -4054,6 +4218,31 @@ export interface components {
                 where: string;
                 rule: string;
             }[];
+        };
+        AssistantConversation: {
+            id: string;
+            app: string;
+            app_name: string;
+            /** @description The start of the first question */
+            title: string;
+            /** Format: date-time */
+            updated_at: string;
+        };
+        AssistantConversationDetail: {
+            conversation: components["schemas"]["AssistantConversation"];
+            messages: {
+                /** @enum {string} */
+                role: "user" | "assistant";
+                text: string;
+                cards: components["schemas"]["AssistantCard"][];
+                proposals: components["schemas"]["AssistantProposal"][];
+                /** Format: date-time */
+                created_at: string;
+            }[];
+        };
+        AssistantSettings: {
+            /** @description Days a conversation is kept after its last message */
+            keep_days: number;
         };
         AssistantDraft: {
             app: string;

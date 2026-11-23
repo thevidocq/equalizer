@@ -1126,6 +1126,70 @@ paths:
         "404": { $ref: "#/components/responses/Error" }
         "409": { $ref: "#/components/responses/Error" }
         "422": { $ref: "#/components/responses/Error" }
+  /assistant/conversations:
+    get:
+      tags: [assistant]
+      summary: >-
+        Your conversations with the assistant, newest first, on every site you can read. Private: no other user,
+        administrator or the platform reads them. Kept as long as Settings → AI says (keep_days)
+      responses:
+        "200":
+          description: Conversations
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items: { type: array, items: { $ref: "#/components/schemas/AssistantConversation" } }
+  /assistant/conversations/{conversation}:
+    get:
+      tags: [assistant]
+      summary: One of your conversations with its messages; a proposal shows the draft it became
+      parameters:
+        - { name: conversation, in: path, required: true, schema: { type: string } }
+      responses:
+        "200":
+          description: Conversation
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/AssistantConversationDetail" }
+        "404": { $ref: "#/components/responses/Error" }
+    delete:
+      tags: [assistant]
+      summary: Delete one of your conversations now
+      parameters:
+        - { name: conversation, in: path, required: true, schema: { type: string } }
+      responses:
+        "204": { description: Deleted }
+        "404": { $ref: "#/components/responses/Error" }
+  /tenants/{tenant}/assistant:
+    get:
+      tags: [assistant]
+      summary: How long the tenant keeps the assistant's conversations (administrators and viewers)
+      parameters: [{ $ref: "#/components/parameters/tenant" }]
+      responses:
+        "200":
+          description: Settings
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/AssistantSettings" }
+    put:
+      tags: [assistant]
+      summary: Change it (tenant administrators); older conversations are deleted at once
+      parameters: [{ $ref: "#/components/parameters/tenant" }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/AssistantSettings" }
+      responses:
+        "200":
+          description: Settings
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/AssistantSettings" }
+        "422": { $ref: "#/components/responses/Error" }
   /internal/discoveries/claim:
     post:
       tags: [internal]
@@ -1775,25 +1839,16 @@ components:
   schemas:
     AssistantAsk:
       type: object
-      required: [messages]
+      required: [text]
       additionalProperties: false
       properties:
-        messages:
-          type: array
-          minItems: 1
-          maxItems: 20
-          description: The conversation so far, alternating user and assistant, starting and ending with user
-          items:
-            type: object
-            required: [role, text]
-            additionalProperties: false
-            properties:
-              role: { type: string, enum: [user, assistant] }
-              text: { type: string, minLength: 1, maxLength: 4000 }
+        conversation: { type: string, description: "One of yours about this site, to go on with it; omitted: a new one" }
+        text: { type: string, minLength: 1, maxLength: 4000 }
     AssistantAnswer:
       type: object
-      required: [text, proposals, cards, used]
+      required: [conversation, text, proposals, cards, used]
       properties:
+        conversation: { type: string, description: "The conversation the exchange was kept in" }
         text: { type: string, description: "Markdown without links, images or HTML" }
         proposals: { type: array, items: { $ref: "#/components/schemas/AssistantProposal" } }
         cards: { type: array, items: { $ref: "#/components/schemas/AssistantCard" } }
@@ -1803,11 +1858,12 @@ components:
           items: { type: string, enum: [get_map, get_report, search_logs, get_activity, show_card, propose_change] }
     AssistantProposal:
       type: object
-      required: [id, summary, reason]
+      required: [id, summary, reason, draft_version]
       properties:
         id: { type: string }
         summary: { type: string, description: "What the change does, e.g. text/csv added to the folder /files/" }
         reason: { type: string }
+        draft_version: { type: [integer, "null"], description: "The draft it became; null: not yet" }
     AssistantCard:
       description: Built by the panel from the logs or the map; the model only chose which
       oneOf:
@@ -1865,6 +1921,36 @@ components:
               name: { type: string }
               where: { type: string, description: "path, query, or form <id>" }
               rule: { type: string }
+    AssistantConversation:
+      type: object
+      required: [id, app, app_name, title, updated_at]
+      properties:
+        id: { type: string }
+        app: { type: string }
+        app_name: { type: string }
+        title: { type: string, description: "The start of the first question" }
+        updated_at: { type: string, format: date-time }
+    AssistantConversationDetail:
+      type: object
+      required: [conversation, messages]
+      properties:
+        conversation: { $ref: "#/components/schemas/AssistantConversation" }
+        messages:
+          type: array
+          items:
+            type: object
+            required: [role, text, cards, proposals, created_at]
+            properties:
+              role: { type: string, enum: [user, assistant] }
+              text: { type: string }
+              cards: { type: array, items: { $ref: "#/components/schemas/AssistantCard" } }
+              proposals: { type: array, items: { $ref: "#/components/schemas/AssistantProposal" } }
+              created_at: { type: string, format: date-time }
+    AssistantSettings:
+      type: object
+      required: [keep_days]
+      properties:
+        keep_days: { type: integer, minimum: 1, maximum: 365, description: "Days a conversation is kept after its last message" }
     AssistantDraft:
       type: object
       required: [app, version, status]

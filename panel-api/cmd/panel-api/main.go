@@ -85,7 +85,7 @@ func run() error {
 		log.Warn("no platform administrator yet: run `panel-api create-admin -email ... -name ...`")
 	}
 	sessions := &auth.Sessions{DB: conn, TTL: cfg.SessionTTL}
-	go purge(ctx, sessions, log)
+	go purge(ctx, sessions, st, log)
 
 	box, err := mfa.NewBox(cfg.MFAKey)
 	if err != nil {
@@ -207,7 +207,7 @@ func scheduleDiscoveries(ctx context.Context, srv *api.Server, log *slog.Logger)
 	}
 }
 
-func purge(ctx context.Context, s *auth.Sessions, log *slog.Logger) {
+func purge(ctx context.Context, s *auth.Sessions, st *store.Store, log *slog.Logger) {
 	t := time.NewTicker(time.Hour)
 	defer t.Stop()
 	for {
@@ -217,6 +217,9 @@ func purge(ctx context.Context, s *auth.Sessions, log *slog.Logger) {
 		case <-t.C:
 			if _, err := s.Purge(ctx); err != nil {
 				log.Warn("expired sessions not purged", slog.String("error", err.Error()))
+			}
+			if err := st.PurgeAssistant(ctx); err != nil {
+				log.Warn("expired assistant conversations not purged", slog.String("error", err.Error()))
 			}
 		}
 	}

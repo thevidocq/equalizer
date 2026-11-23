@@ -223,8 +223,18 @@ tools, then words only; 100 seconds in all.
 - **Outbound.** The same rule as the agent: public addresses only, no
   redirects, https for a tenant's own server.
 - **Trace.** Activity records `assistant.asked` (tools used, number of
-  proposals) and `assistant.draft`; never the question or the answer.
-  20 questions per person every 10 minutes.
+  proposals and cards), `assistant.draft` and `assistant.settings`; never
+  the question or the answer. 20 questions per person every 10 minutes.
+- **Conversations.** `assistant_conversations` and `assistant_messages`
+  belong to one user and one site; every read and write is filtered by
+  the user's id, never by role. The server builds the model's past turns
+  from them (the panel sends only the new question and the conversation
+  id, so a client cannot forge an earlier answer). Kept
+  `tenants.assistant_keep_days` days after the last message (1–365, 30 by
+  default), proposals as many days after they were made; panel-api
+  deletes what is past retention every hour. Visitor codes use an HMAC key derived from
+  the signing key and the tenant, so a kept code still means the same
+  visitor after a restart and never matches another tenant's.
 
 ## Connector and tunnel
 

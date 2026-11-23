@@ -1,5 +1,5 @@
 import { useCallback, useState } from "react";
-import { Outlet, useParams } from "react-router";
+import { Outlet, useParams, useSearchParams } from "react-router";
 import { Notice, PageHeader, TabNav } from "@/shared/ui";
 import { describeError } from "@/shared/api/errors";
 import { canManage, useMe } from "@/features/auth";
@@ -13,8 +13,13 @@ export function SiteLayout() {
   const { tenant = "", app = "" } = useParams();
   const site = useApp(app);
   const me = useMe().data;
-  const [asking, setAsking] = useState(false);
-  const close = useCallback(() => setAsking(false), []);
+  const [params, setParams] = useSearchParams();
+  const fromHistory = params.get("assistant"); // a conversation opened from History on another site
+  const [asking, setAsking] = useState(!!fromHistory);
+  const close = useCallback(() => {
+    setAsking(false);
+    setParams((p) => { p.delete("assistant"); return p; }, { replace: true });
+  }, [setParams]);
   if (site.isError) return <Notice tone="error">{describeError(site.error)}</Notice>;
   if (!site.data) return null;
   const base = `/t/${tenant}/sites/${app}`;
@@ -23,7 +28,7 @@ export function SiteLayout() {
       <PageHeader title={site.data.name} subtitle={<span className="flex flex-wrap items-center gap-x-4 gap-y-1">
         <span>{site.data.public_domain}</span><SiteStatus app={site.data} withLabel /></span>}
         actions={<>
-          <AskAIButton open={asking} onToggle={() => setAsking((o) => !o)} />
+          <AskAIButton open={asking || !!fromHistory} onToggle={() => (asking || fromHistory ? close() : setAsking(true))} />
           {canManage(me, tenant) ? <DeleteSite tenant={tenant} app={app} name={site.data.name} /> : null}
         </>} />
       <TabNav label="Site sections" tabs={[
@@ -35,7 +40,7 @@ export function SiteLayout() {
       ]} />
       <Outlet />
       <AssistantPanel key={app} tenant={tenant} app={app} siteName={site.data.name} mapVersion={site.data.published_version ?? null}
-        canDraft={canManage(me, tenant)} open={asking} onClose={close} />
+        canDraft={canManage(me, tenant)} open={asking || !!fromHistory} initialConversation={fromHistory} onClose={close} />
     </div>
   );
 }

@@ -26,7 +26,8 @@ func (s *Store) SaveProposal(ctx context.Context, app string, change json.RawMes
 		return "", err
 	}
 	id := hex.EncodeToString(b)
-	_, _ = s.DB.ExecContext(ctx, `DELETE FROM assistant_proposals WHERE created_at < now() - interval '30 days'`)
+	_, _ = s.DB.ExecContext(ctx, `DELETE FROM assistant_proposals p USING apps a, tenants t
+		WHERE a.id = p.app_id AND t.id = a.tenant_id AND p.created_at < now() - make_interval(days => t.assistant_keep_days)`)
 	_, err := s.DB.ExecContext(ctx, `INSERT INTO assistant_proposals (id, app_id, change, summary, asked_by) VALUES ($1, $2, $3, $4, $5)`,
 		id, app, []byte(change), summary, by)
 	return id, translate(err)
@@ -37,7 +38,8 @@ func (s *Store) Proposal(ctx context.Context, app, id string) (AssistantProposal
 	p := AssistantProposal{ID: id, App: app}
 	var change []byte
 	err := s.DB.QueryRowContext(ctx, `SELECT change, summary, created_at, draft_version FROM assistant_proposals
-		WHERE id = $1 AND app_id = $2 AND created_at >= now() - interval '30 days'`, id, app).
+		WHERE id = $1 AND app_id = $2 AND created_at >= now() - make_interval(days =>
+			(SELECT t.assistant_keep_days FROM apps a JOIN tenants t ON t.id = a.tenant_id WHERE a.id = $2))`, id, app).
 		Scan(&change, &p.Summary, &p.CreatedAt, &p.DraftVersion)
 	p.Change = change
 	return p, translate(err)

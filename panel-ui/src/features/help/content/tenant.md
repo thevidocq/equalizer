@@ -524,9 +524,30 @@ Each site has an assistant: an AI that reads the site's protection and
 answers your questions about it in plain words. Open it with **Ask AI** in
 the site's header; it opens on the right of the page (over the whole
 screen on a phone) and stays open while you move between the site's tabs.
-**Close** hides it and keeps the conversation; **New** starts over. It
-uses your own model, the one in **Settings → AI**: without one it says so
-and does nothing else.
+It uses your own model, the one in **Settings → AI**: without one it says
+so and does nothing else.
+
+### Your conversations
+
+- **Yours only.** Your conversations are kept for you: no other person of
+  your organisation reads them in the panel, administrators included, nor
+  the platform operator. They are stored with the rest of your data in
+  the platform's database.
+- **Ask AI** opens your latest conversation about the site you are on, so
+  you go on where you stopped, also from another device.
+- **History** lists all your conversations, on every site, newest first,
+  with the site and the date. One of another site opens that site with
+  the conversation. **Delete** removes one at once.
+- **New** starts a clean conversation, for another subject: the AI no
+  longer carries what was said before (a long conversation also makes it
+  slower). The previous one stays in History.
+- **How long**: an administrator chooses it in **Settings** ("Assistant",
+  30 days by default, 1 to 365), counted from the last message. Lowering
+  it deletes the older conversations at once.
+- A proposed change shows, when you open the conversation again, whether
+  it already became a draft and which one. A proposal can be made a draft
+  for the same number of days after it was proposed; after that, ask
+  again.
 
 ### What an answer looks like
 
@@ -631,15 +652,14 @@ map.
   changes nothing.
 - Activity records that someone asked the assistant about a site, which
   sources it read and how many changes it proposed, never the question or
-  the answer. The conversation is not saved: it ends when you leave the
-  site or reload the page.
+  the answer. The conversation itself is kept only for you (above).
 - Your question and what the assistant reads go to your AI provider, as
   for discovery. Its own terms say how long it keeps them.
 
 ### Limits
 
-- 20 questions every 10 minutes per person; the conversation sends at
-  most the last 20 messages.
+- 20 questions every 10 minutes per person; the AI is given the last 20
+  messages of the conversation.
 - It reads up to 500 events per question: on a busy site it says when it
   only saw the latest ones; the **Logs** page shows everything.
 - It does not open pages of the site and does not see the legacy server.
@@ -664,6 +684,13 @@ published until you do. It goes to the
 administrators of your organisation and to up to five more addresses (an
 on-call mailbox, a ticketing address). On by default; each change is sent
 once.
+
+### Assistant
+
+**Settings → Assistant**: how many days each person's conversations with
+the assistant are kept after their last message (30 by default, 1 to
+365). Nobody reads another person's conversations; lowering the number
+deletes the older ones at once. See [Your conversations](#your-conversations).
 
 ### AI model
 

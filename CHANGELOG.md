@@ -19,7 +19,8 @@ Add a section at the top of "Entries" for every commit:
 
 ## Current project status
 
-Latest release: **0.2.17** (`docs/releases/0.2.17.md`); before it 0.2.16
+Latest release: **0.2.18** (`docs/releases/0.2.18.md`); before it 0.2.17
+(`docs/releases/0.2.17.md`), 0.2.16
 (`docs/releases/0.2.16.md`), 0.2.15
 (`docs/releases/0.2.15.md`), 0.2.14
 (`docs/releases/0.2.14.md`), 0.2.13
@@ -49,6 +50,39 @@ it, 0.1.0 (`docs/releases/0.1.0.md`, tag on the merge of #39).
 | tools (eqtool) | Map signing keys, form key, relay token, connector registration, map signing |
 
 ## Entries
+
+### 2026-11-23 — Keep each person's assistant conversations; release 0.2.18
+
+- **Branch:** feat/assistant-history
+- **What:**
+  - Migration `0027_assistant_conversations`: conversations and messages
+    per user and site, `tenants.assistant_keep_days` (1–365, default 30).
+  - panel-api: `POST /v1/apps/{app}/assistant` takes `{conversation?,
+    text}` and builds the past turns itself (alternating, last 20);
+    `GET /v1/assistant/conversations`, `GET|DELETE
+    /v1/assistant/conversations/{conversation}` (the user's own only;
+    proposals show their draft), `GET|PUT /v1/tenants/{tenant}/assistant`
+    (retention; audit `assistant.settings`); hourly purge of conversations
+    and proposals past retention; one exchange at a time per conversation
+    (row lock); visitor codes from an HMAC key derived from the signing key
+    and the tenant (stable across restarts, never shared between tenants).
+  - panel-ui: History in the assistant (all sites; another site's
+    conversation opens that site with `?assistant=`), Ask AI resumes the
+    latest conversation of the site, New, Delete; answers or loads that
+    arrive after moving to another conversation are dropped; Settings →
+    Assistant (retention); audit sentence.
+  - Docs: tenant manual "Your conversations" and Settings → Assistant,
+    admin manual, architecture, help synced, release notes 0.2.18,
+    versions bumped; efficacy study rerun (same numbers).
+- **Why:** the owner wants conversations kept, private to each account,
+  with the retention set from the panel.
+- **Status:** Go tests (API: ownership, other site, retention, purge,
+  proposal drafts in history; turns alternation) and vitest hook tests
+  (CI). An independent review's findings were fixed: hourly purge, stale
+  answers dropped, load errors cleared by New, row lock, alternation.
+- **Next steps:**
+  1. Merge #98 (0.2.17) then this; tag `v0.2.18`; update the server.
+  2. Screenshot of the assistant for the manual.
 
 ### 2026-11-23 — Fix the assistant's first question; release 0.2.17
 

@@ -19,7 +19,8 @@ Add a section at the top of "Entries" for every commit:
 
 ## Current project status
 
-Latest release: **0.2.26** (`docs/releases/0.2.26.md`); before it 0.2.25
+Latest release: **0.2.27** (`docs/releases/0.2.27.md`); before it 0.2.26
+(`docs/releases/0.2.26.md`), 0.2.25
 (`docs/releases/0.2.25.md`), 0.2.24
 (`docs/releases/0.2.24.md`), 0.2.23
 (`docs/releases/0.2.23.md`), 0.2.22
@@ -58,6 +59,60 @@ it, 0.1.0 (`docs/releases/0.1.0.md`, tag on the merge of #39).
 | tools (eqtool) | Map signing keys, form key, relay token, connector registration, map signing |
 
 ## Entries
+
+### 2026-11-24 — Security scans with CVE Radar; 0.2.27
+
+- **Branch:** feat/security-scanner
+- **What:**
+  - Contract (`schema/api/panel-api.yaml`, tag `security`):
+    `GET|PUT|DELETE /tenants/{tenant}/scanner`, `GET /apps/{app}/security`,
+    `POST /apps/{app}/security/scans`; schemas `ScannerConfig`,
+    `ScannerConfigUpdate`, `SecurityScanStart`, `SecurityScan`,
+    `SecurityFinding`, `SecurityMapVerdict`, `SecurityTarget`,
+    `SecurityOverview`. `schema.d.ts` regenerated.
+  - panel-api: migration `0028_security_scans.sql` (`tenant_scanner`,
+    `security_scans`, `security_findings`); `internal/cveradar` (client:
+    public-only, https, no redirects, 8 MiB cap, cursor pages, errors with
+    Retry-After); `internal/securityscan` (`Map.Judge`: refused, precise,
+    free_text, area, asset, server; `Runner`: polls scans going on once a
+    minute, claimed with `SKIP LOCKED`, copies open findings, fails after 2
+    hours); `api/security.go` (settings tried before saving, key sealed
+    and shown as its last 4 characters; original site needs `confirm`;
+    scanner errors as 409/424/429); hourly purge of scans older than a
+    year.
+  - panel-ui: feature `security` (Security tab with the two targets, scan
+    dialog with the confirmation for the original site, findings table
+    with the map's verdict; Settings → Security scanner); Activity
+    sentences for `scanner.*` and `security.*`.
+  - `scripts/openapi_ts.py`: emulates openapi-typescript 7 where npm is
+    blocked, byte for byte on the committed file (noted in CLAUDE.md).
+  - Tests: `cveradar/client_test.go`, `securityscan/verdict_test.go`,
+    `api/security_test.go` (fake scanner end to end), `verdicts.test.ts`,
+    `describe.test.ts`.
+  - Docs: `docs/manual/tenant.md` (Security scans, Settings → Security
+    scanner, roles) and the in-app help, `docs/manual/admin.md`,
+    `docs/architecture.md`, `docs/releases/0.2.27.md`.
+- **Why:** the owner asked for a Security tab fed by CVE Radar, the
+  vulnerability scanner of a partner project, through Equalizer and on
+  the original site for a before and after; ownership verification is
+  optional at the scanner and left off for now.
+- **Review:** an independent review found the form and area verdicts
+  wrong against the gateway (forms post to a path; the area serves what a
+  precise entry does not take), the saved key sendable to a new address,
+  NUL in a finding stalling a scan, one tenant's scanner able to slow the
+  runner, a transport per request, the original target allowed for
+  connector sites, any port accepted, a few reserved IPv6 ranges missing
+  (6to4, Teredo, local NAT64, discard), "Closed" shown for what the scanner
+  reached, and the help out of sync. All fixed: `Map.Judge` follows the
+  gateway's order (`routing.go`), port 443 only, key needed for a new
+  address, 4 MiB/32 MiB caps, shared transport, 4 polls at a time with a
+  2-minute deadline, give-up on unreadable findings, original only for
+  direct sites with a public name, a partial unique index per target,
+  "Closed now" for findings the current map refuses.
+- **Status:** panel-api tests pass; panel-ui tsc/vitest run in CI (no npm
+  registry here); efficacy study rerun.
+- **Next steps:** the scanner's source IPs (to recognise them in Logs),
+  a webhook instead of polling, scheduled scans after each publication.
 
 ### 2026-11-24 — Strict Unicode slugs; precise self-varying pages; 0.2.26
 

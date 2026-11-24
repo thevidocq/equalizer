@@ -12,7 +12,7 @@ import (
 
 func TestPublicIP(t *testing.T) {
 	for ip, want := range map[string]bool{
-		"8.8.8.8": true, "2a00:1450::1": true,
+		"8.8.8.8": true, "2a00:1450::1": true, "2002:a00:1::1": false, "2001:0:4136::1": false, "64:ff9b:1::a": false,
 		"10.0.0.1": false, "172.18.0.5": false, "192.168.1.1": false, "127.0.0.1": false, "169.254.169.254": false,
 		"100.64.1.1": false, "0.0.0.0": false, "::1": false, "fd00::1": false, "203.0.113.9": false, "x.example": false,
 		"::ffff:10.0.0.1": false, "8.8.8.8:80": true, "[2a00:1450::1]:443": true, "10.0.0.1:80": false,

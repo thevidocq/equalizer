@@ -7,8 +7,9 @@ import { useAlerts } from "../hooks/useAlerts";
 import { AlertsForm } from "../components/AlertsForm";
 import { useAssistantSettings } from "../hooks/useAssistantSettings";
 import { AssistantForm } from "../components/AssistantForm";
+import { ScannerForm } from "@/features/security";
 
-/** Tenant settings: email alerts, the AI model, how long the assistant keeps conversations. */
+/** Tenant settings: email alerts, the AI model, how long the assistant keeps conversations, the security scanner. */
 export function SettingsPage() {
   const tenant = useParams().tenant ?? "";
   const llm = useLLM(tenant);
@@ -22,6 +23,7 @@ export function SettingsPage() {
       {llm.isError ? <Notice tone="error">{describeError(llm.error)}</Notice> : null}
       {llm.data ? <LLMForm key={llm.data.provider ?? "none"} tenant={tenant} current={llm.data} /> : null}
       {assistant.data ? <AssistantForm key={assistant.data.keep_days} tenant={tenant} keepDays={assistant.data.keep_days} /> : null}
+      <ScannerForm tenant={tenant} />
     </div>
   );
 }

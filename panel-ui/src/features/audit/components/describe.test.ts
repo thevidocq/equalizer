@@ -11,6 +11,14 @@ describe("describeEntry", () => {
     expect(describeEntry({ id: 3, ts: "", action: "user.invite", target: "ed@acme.test", user: "boss@acme.test" }))
       .toBe("boss@acme.test invited ed@acme.test");
   });
+  it("tells security scans, and who confirmed the original site", () => {
+    expect(describeEntry({ id: 30, ts: "", action: "security.scan", target: "shop", user: "a@acme.test",
+      detail: { target: "original", domain: "www.shop.example", scan_type: "standard" } }))
+      .toBe("a@acme.test started a standard scan of the original site of shop (www.shop.example), confirming it is theirs or allowed in writing");
+    const failed = { id: 31, ts: "", action: "security.scan_failed", target: "shop", user: null, detail: { reason: "timeout" } };
+    expect(describeEntry(failed)).toBe("Equalizer could not finish the security scan of shop: timeout");
+    expect(isWarning(failed)).toBe(true);
+  });
   it("tells the assistant's questions and drafts, never their text", () => {
     expect(describeEntry({ id: 20, ts: "", action: "assistant.asked", target: "shop", user: "a@acme.test", detail: { tools: ["search_logs"], proposals: 1 } }))
       .toBe("a@acme.test asked the assistant about shop (1 change proposed)");

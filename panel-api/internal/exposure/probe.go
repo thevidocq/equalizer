@@ -82,6 +82,10 @@ var reserved = []netip.Prefix{
 	netip.MustParsePrefix("240.0.0.0/4"),     // reserved
 	netip.MustParsePrefix("2001:db8::/32"),   // documentation
 	netip.MustParsePrefix("64:ff9b::/96"),    // NAT64
+	netip.MustParsePrefix("64:ff9b:1::/48"),  // local-use NAT64
+	netip.MustParsePrefix("100::/64"),        // discard-only
+	netip.MustParsePrefix("2001::/32"),       // Teredo: carries an IPv4 address
+	netip.MustParsePrefix("2002::/16"),       // 6to4: carries an IPv4 address
 }
 
 // Check probes ip for domain. It never follows redirects and reads at most

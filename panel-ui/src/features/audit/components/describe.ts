@@ -43,6 +43,13 @@ const actions: Record<string, Say> = {
   "oidc.secret_deleted": (t) => `removed the identity provider secret of ${t}`,
   "llm.set": (t) => `set the AI model (${t})`,
   "llm.delete": () => "removed the AI model",
+  "scanner.set": (_t, d) => `connected the security scanner${d.key_changed ? " with a new key" : ""}`,
+  "scanner.delete": () => "disconnected the security scanner",
+  "security.scan": (t, d) => d.target === "original"
+    ? `started a ${String(d.scan_type)} scan of the original site of ${t} (${String(d.domain)}), confirming it is theirs or allowed in writing`
+    : `started a ${String(d.scan_type)} security scan of ${t} through Equalizer`,
+  "security.scan_completed": (t, d) => `finished the security scan of ${t}${d.target === "original" ? " (original site)" : ""}: ${String(d.findings)} found`,
+  "security.scan_failed": (t, d) => `could not finish the security scan of ${t}: ${String(d.reason)}`,
   "assistant.asked": (t, d) => `asked the assistant about ${t}` +
     (typeof d.proposals === "number" && d.proposals > 0 ? ` (${d.proposals} change${d.proposals > 1 ? "s" : ""} proposed)` : ""),
   "assistant.settings": (_t, d) => `set the assistant to keep conversations for ${String(d.keep_days)} days`,
@@ -76,7 +83,7 @@ const actions: Record<string, Say> = {
 };
 
 /** Actions Equalizer takes by itself; the others without a person were done by the agent. */
-const byEqualizer = new Set(["alert.sent", "site.exposure", "map.corrected", "map.superseded", "map.correction_withdrawn"]);
+const byEqualizer = new Set(["alert.sent", "site.exposure", "security.scan_completed", "security.scan_failed", "map.corrected", "map.superseded", "map.correction_withdrawn"]);
 const byAgent = new Set(["discovery.finish", "discovery.start", "map.verify"]);
 
 const weekdays = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
@@ -115,7 +122,7 @@ export function isWarning(e: AuditEntry): boolean {
   const d = e.detail ?? {};
   return e.action === "auth.login_failed" || e.action === "auth.mfa_failed" ||
     (e.action === "site.exposure" && d.status === "exposed") ||
-    (e.action === "discovery.finish" && Boolean(d.error)) ||
+    (e.action === "discovery.finish" && Boolean(d.error)) || e.action === "security.scan_failed" ||
     (e.action === "alert.sent" && Array.isArray(d.alerts) && (d.alerts as Alert[]).some((a) => a.down));
 }
 

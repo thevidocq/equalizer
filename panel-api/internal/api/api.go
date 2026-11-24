@@ -66,6 +66,8 @@ type Server struct {
 	AssistantThrottle  *auth.Throttle    // questions to the assistant per user; nil: no limit
 	// AssistantModel replaces the tenant's AI provider (tests); nil: assistant.New.
 	AssistantModel func(assistant.Config) (assistant.Model, error)
+	// ScannerHTTP replaces the public-only client of the vulnerability scanner (tests); nil: public only.
+	ScannerHTTP *http.Client
 }
 
 type userKey struct{}
@@ -120,6 +122,11 @@ func (s *Server) Handler() http.Handler {
 	// Discovery and the tenant's AI
 	mux.HandleFunc("GET /v1/tenants/{tenant}/alerts", s.authed(s.getAlerts))
 	mux.HandleFunc("PUT /v1/tenants/{tenant}/alerts", s.authed(s.putAlerts))
+	mux.HandleFunc("GET /v1/tenants/{tenant}/scanner", s.authed(s.getScanner))
+	mux.HandleFunc("PUT /v1/tenants/{tenant}/scanner", s.authed(s.putScanner))
+	mux.HandleFunc("DELETE /v1/tenants/{tenant}/scanner", s.authed(s.deleteScanner))
+	mux.HandleFunc("GET /v1/apps/{app}/security", s.authed(s.getSecurity))
+	mux.HandleFunc("POST /v1/apps/{app}/security/scans", s.authed(s.startSecurityScan))
 	mux.HandleFunc("GET /v1/tenants/{tenant}/llm", s.authed(s.getLLM))
 	mux.HandleFunc("PUT /v1/tenants/{tenant}/llm", s.authed(s.putLLM))
 	mux.HandleFunc("DELETE /v1/tenants/{tenant}/llm", s.authed(s.deleteLLM))

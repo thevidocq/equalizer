@@ -242,6 +242,48 @@ seconds in all.
   the signing key and the tenant, so a kept code still means the same
   visitor after a restart and never matches another tenant's.
 
+## Security scans
+
+A tenant connects its own vulnerability scanner (CVE Radar) in Settings;
+panel-api is the only component that talks to it
+(`panel-api/internal/cveradar`, `internal/securityscan`).
+
+- **Key.** `tenant_scanner` keeps the API address and the key sealed like
+  the AI key (`EQ_MFA_KEY`, label `scanner:<tenant>`), with its last four
+  characters to recognise it. The key is tried before it is saved and is
+  never returned, logged or put in an error.
+- **Outbound.** Public addresses only (checked when connecting, so a name
+  that changes address cannot slip through), https on port 443, no
+  redirects, no proxy, one shared transport; answers over 4 MiB refused and
+  a list read up to 10 000 entries or 32 MiB. The saved key is sent only to
+  the address it was saved with.
+- **Targets.** A site is scanned through Equalizer (its public domain) or
+  as the original site (the host of the published map's
+  `legacy.base_url`, for a site reached directly, when it is a name other
+  than the domain that resolves to public addresses only). The original
+  site takes `confirm: true`, recorded in Activity (`security.scan`). The
+  scanner's target is created on the first scan, with
+  `require_verification: false`. One scan going on per target (a partial
+  unique index).
+- **Following scans.** `security_scans` records each scan; a runner in
+  panel-api polls the ones going on once a minute (20 per round, 4 at a
+  time, 2 minutes each at most, claimed with `FOR UPDATE SKIP LOCKED` so
+  replicas share the work), and when one ends copies the target's open
+  findings into `security_findings` (texts cut, NUL dropped, unknown
+  severities read as info). A scan without an end, or whose findings
+  cannot be read, fails after two hours. Scans older than a year are
+  purged hourly.
+- **Against the map.** `GET /apps/{app}/security` reads each finding
+  against the published map (`securityscan.Map.Judge`), in the gateway's
+  order: the path as legacy servers read it, precise entries (fewest
+  parameters first, the first whose path values fit, authz entries never
+  bypassed), assets, then the longest area for what they do not serve, for
+  path values that do not fit and for query keys a route does not declare.
+  Verdicts: refused, a precise entry with a typed or a free-text input, the
+  area only, a static file, or the server (no address). panel-api cannot
+  import the gateway's packages, so `verdict_test.go` pins the cases.
+  Judged when read, so a new map changes the verdicts without a new scan.
+
 ## Connector and tunnel
 
 - The connector always opens the connection to the relay: HTTPS on 443

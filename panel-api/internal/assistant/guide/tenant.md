@@ -29,7 +29,7 @@ organisation.
 - **Status**, **Connectors**, **People**, **Activity**, **Logs**,
   **Settings**: some pages depend on your role.
 - A site has these tabs: **Discovery**, **Map**, **Isolation**,
-  **Certificate**, **Login**. Discovery comes first: it is where a new site
+  **Certificate**, **Login**, **Security**. Discovery comes first: it is where a new site
   starts. **Ask AI** in a site's header opens [the assistant](#the-assistant).
   An administrator deletes a site from the list of **Protected sites**
   (**Delete** on its row); it asks you to type the site's name to confirm,
@@ -56,6 +56,8 @@ example an auditor or a manager who follows the sites.
 | Login: settings and client secret | yes | |
 | Assistant: ask | yes | yes |
 | Assistant: make a proposed change a draft | yes | |
+| Security: read scans and findings | yes | yes |
+| Security: scan, connect the scanner | yes | |
 
 ### Joining and inviting
 
@@ -729,6 +731,63 @@ map.
 - The AI can be wrong: check what matters in **Logs** or on the **Map**
   tab, and read a proposed change before you publish it.
 
+## Security scans
+
+The **Security** tab of a site scans it with your own vulnerability
+scanner, CVE Radar, connected in [Settings → Security
+scanner](#security-scanner), and reads every finding against the
+published map.
+
+### Two targets: through Equalizer and the original site
+
+- **Through Equalizer**: the site's public domain, as visitors reach it.
+  What a scan finds here is what is left open with Equalizer in front.
+- **Original site**: the legacy site's own name, from the published map
+  (for example `www.example.com` behind `test.example.org`), scanned
+  without Equalizer, for a before and after. It is an attack on the site
+  without protection: **Scan now** asks you to confirm that the site is
+  yours or that its owner allowed it in writing, and Activity records who
+  confirmed. It works only while the site still answers on its own name:
+  after [isolation](#point-the-domain-and-isolate-the-site) the scanner
+  cannot reach it. Only a site reached directly has one, and only when its
+  name leads to public addresses: a site reached through the connector, or
+  by address, has no original target, and an internal name is never
+  handed to the scanner.
+
+Both need a published map. Administrators scan; viewers read. **Scan now**
+offers a **standard** scan (a few minutes) or a **deep** one (longer, more
+requests). One scan per target at a time; each counts against your CVE
+Radar limits (20 scans a day). The tab follows the scan and shows the
+findings when it ends; a scan that does not end within two hours fails.
+The scanner creates its own record of the domain the first time, without
+asking for its DNS check.
+
+### What each finding says
+
+Findings are listed by severity (critical, high, medium, low, info), with
+the address, the method and the input the scanner names. Click one for its
+evidence, CVSS, CVE and CWE. **With Equalizer** says what the published map
+does with that address:
+
+| Says | Meaning |
+| --- | --- |
+| Closed | the gateway refuses the request: nothing serves it (and no area), the entry does not take that method or input, or its own check refuses the value |
+| Checked | a precise entry serves it and checks this input by its type |
+| Free text | a precise entry serves it, but the input is free text: its length, markup and rules are checked, not its shape. Give it a pattern or a type if you can |
+| Area only | only the generic area serves it, rebuilt but not checked precisely: no precise entry has the address, or the entry does not take this path value or query key. Add or widen a precise entry |
+| File | a static file the map serves as it is |
+| Server | about the server (open ports, TLS, headers): the map has no say |
+| Closed now | (through Equalizer only) the scanner reached it, but the current map refuses it: the map changed since the scan. Scan again to confirm |
+
+The verdict follows the gateway's own order (precise entries first, the
+area for the rest) and is worked out when you open the tab, so a new map
+changes it without a new scan.
+
+On the card of each target, the findings by severity and how many the map
+leaves open (through Equalizer) or would close (original site): the
+number to compare before and after. The scanner's risk score (0 to 100)
+is shown too. Findings older than a year are deleted, as the scanner does.
+
 ## Settings
 
 ### Alerts
@@ -764,6 +823,19 @@ yours, encrypted and never shown again. Without a model discovery still
 works; the assistant needs one.
 
 ![Settings](../screenshots/settings-ai.png)
+
+### Security scanner
+
+**Settings → Security scanner**: your CVE Radar account, for the
+[Security tab](#security-scans) of each site. Enter the address of its API
+(from CVE Radar's documentation) and a key created in CVE Radar's API
+section with the **read**, **scan** and **write** permissions (a
+`cvr_test_…` key for trials). The panel tries them before saving, keeps the
+key encrypted and shows only its last four characters; a new address needs
+the key again. Keys expire after
+90 days in CVE Radar: enter the new one here. **Disconnect** forgets the
+key; past scans stay readable. The panel connects only to public
+addresses on port 443, never to your network.
 
 ## What Equalizer protects
 

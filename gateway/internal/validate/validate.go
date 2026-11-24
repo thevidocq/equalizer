@@ -60,6 +60,13 @@ func New(types map[string]mapmodel.TypeDef, defaults mapmodel.StringDefaults) *V
 // Check compiles every pattern and charset up front, so a map with invalid
 // expressions is rejected at load time.
 func (v *Validator) Check(specs map[string]mapmodel.FieldSpec) error {
+	for name, t := range v.types { // a type's rules, even if no field uses it yet
+		for _, rule := range t.Rules {
+			if _, ok := rules[rule]; !ok {
+				return fmt.Errorf("type %q: unknown rule %q", name, rule)
+			}
+		}
+	}
 	for name, s := range specs {
 		r, err := v.resolve(s)
 		if err != nil {
@@ -224,7 +231,7 @@ func (v *Validator) resolve(s mapmodel.FieldSpec) (resolved, error) {
 			return resolved{}, fmt.Errorf("unknown type %q", s.Type)
 		}
 		r = resolved{base: t.Base, min: t.Min, max: t.Max, values: t.Values, deny: t.Deny,
-			pattern: t.Pattern, charset: t.Charset, maxLength: t.MaxLength}
+			pattern: t.Pattern, charset: t.Charset, maxLength: t.MaxLength, rules: t.Rules}
 	}
 	// Field constraints override those of the type.
 	r.required = s.Required == nil || *s.Required
@@ -249,7 +256,8 @@ func (v *Validator) resolve(s mapmodel.FieldSpec) (resolved, error) {
 	if s.MaxLength > 0 {
 		r.maxLength = s.MaxLength
 	}
-	r.rules = s.Rules
+	// A field can only add rules to those of its type.
+	r.rules = append(append([]string{}, r.rules...), s.Rules...)
 	if r.base == "string" {
 		if r.charset == "" && r.pattern == "" {
 			r.charset = v.defaults.Charset

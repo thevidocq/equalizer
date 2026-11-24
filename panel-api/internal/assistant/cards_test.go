@@ -82,3 +82,12 @@ func TestCards(t *testing.T) {
 		t.Fatalf("cards per answer: %d %s", len(ans.Cards), got)
 	}
 }
+
+// A field's own rules add to its type's, as the gateway applies them.
+func TestRuleKeepsTheTypesRules(t *testing.T) {
+	named := map[string]map[string]any{"slug": {"base": "string", "rules": []any{"no_lookalikes"}}}
+	got := rule(map[string]any{"type": "slug", "rules": []any{"no_html"}}, named)
+	if !strings.Contains(got, "no lookalikes") || !strings.Contains(got, "no html") {
+		t.Errorf("%q", got)
+	}
+}

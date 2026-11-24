@@ -254,15 +254,18 @@ func (c *cmp) field(label string, b, n obj, isField bool) {
 	if num(n["max_length"]) > 2*num(b["max_length"]) && num(b["max_length"]) > 0 {
 		c.find("medium", label, "longer", fmt.Sprintf("Maximum length from %v to %v.", b["max_length"], n["max_length"]))
 	}
+	// What the field really keeps: its own constraints and its type's, so
+	// that leaving a named type (slug → string) counts as removing them.
+	be, ne := effective(b, c.oldTypes), effective(n, c.types)
 	for _, k := range []string{"pattern", "charset"} {
-		if str(b[k]) != "" && str(n[k]) == "" {
+		if str(be[k]) != "" && str(ne[k]) == "" {
 			c.find("medium", label, k+"_removed", "Its "+k+" was removed.")
 		}
 	}
-	if len(asList(b["rules"])) > len(asList(n["rules"])) {
+	if dropped(asList(be["rules"]), asList(ne["rules"])) {
 		c.find("high", label, "rules_removed", "Text rules were removed (for example no_html).")
 	}
-	if len(asList(b["deny"])) > len(asList(n["deny"])) {
+	if dropped(asList(be["deny"]), asList(ne["deny"])) {
 		c.find("high", label, "deny_removed", "Refused values were removed: admin names may pass again.")
 	}
 	if num(n["max"]) > num(b["max"]) && b["max"] != nil {
@@ -300,6 +303,42 @@ func (c *cmp) assets(b, n map[string]obj) {
 }
 
 func (c *cmp) base(spec obj) string { return c.baseWith(spec, c.types) }
+
+// dropped reports whether a value of before is missing from after (a rule
+// swapped for another is still a rule removed).
+func dropped(before, after []any) bool {
+	kept := map[string]bool{}
+	for _, v := range after {
+		kept[strings.ToLower(str(v))] = true
+	}
+	for _, v := range before {
+		if !kept[strings.ToLower(str(v))] {
+			return true
+		}
+	}
+	return false
+}
+
+// effective is a field spec with its named type's pattern, charset, rules
+// and refused values, as the gateway applies them: the field's own pattern
+// and charset win, rules and refused values add up.
+func effective(spec obj, types map[string]obj) obj {
+	def, ok := types[str(spec["type"])]
+	if !ok {
+		return spec
+	}
+	out := obj{}
+	for _, k := range []string{"pattern", "charset"} {
+		out[k] = def[k]
+		if str(spec[k]) != "" {
+			out[k] = spec[k]
+		}
+	}
+	for _, k := range []string{"rules", "deny"} {
+		out[k] = append(append([]any{}, asList(def[k])...), asList(spec[k])...)
+	}
+	return out
+}
 
 func (c *cmp) baseWith(spec obj, types map[string]obj) string {
 	t := str(spec["type"])

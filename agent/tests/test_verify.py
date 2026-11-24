@@ -51,6 +51,61 @@ class CompareTest(unittest.TestCase):
         r = direct(b"", 301, location="http://legacy:8080/tag/%ce%b5/")
         self.assertEqual(verify.compare(r, via(b"", 301, {"Location": "/tag/%CE%B5/"})), ("", ""))
 
+    def test_only_what_the_site_varies_by_itself_is_excused(self):
+        # WooCommerce's related products are random: Belt one time, Hoodie the next
+        words = (b"<h1>Cap</h1><p>" + b" ".join(b"w%d" % i for i in range(60)) + b"</p>" +
+                 b"".join(b"<a href='/menu/%d'>M</a>" % i for i in range(10)))
+
+        def page(rel, extra=b""):
+            return Response(200, {"content-type": "text/html"}, words + extra +
+                            b"<p>Related: %s</p><a href='/product/%s'>R</a><a href='/cart'>C</a>" % (rel, rel),
+                            "http://legacy:8080/product/cap/")
+        first, again = page(b"belt"), page(b"hoodie")
+        self.assertEqual(verify.compare(first, via(page(b"beanie").body))[0], "links")
+        # the gateway's answer differs only where the site differs from itself
+        self.assertEqual(verify.compare(first, via(page(b"beanie").body), (), again), ("", ""))
+        # a link the site always shows is still missed
+        lost = page(b"beanie").body.replace(b"<a href='/cart'>C</a>", b"")
+        self.assertEqual(verify.compare(first, via(lost), (), again)[0], "links")
+        # text lost far beyond the site's own variation is still a difference
+        self.assertEqual(verify.compare(first, via(b"<h1>Cap</h1>"), (), again)[0], "text")
+
+    def test_a_second_load_that_is_another_page_excuses_nothing(self):
+        # a login wall or a challenge served as 200 text/html
+        body = b"<h1>Cap</h1><p>" + b" ".join(b"w%d" % i for i in range(60)) + b"</p><a href='/a'>A</a><a href='/b'>B</a>"
+        first = Response(200, {"content-type": "text/html"}, body, "http://legacy:8080/p")
+        wall = Response(200, {"content-type": "text/html"}, b"<p>Please log in</p><a href='/login'>L</a>", "http://legacy:8080/p")
+        third = b"<h1>Cap</h1><p>" + b" ".join(b"w%d" % i for i in range(40)) + b"</p><a href='/a'>A</a>"
+        self.assertNotEqual(verify.compare(first, via(third), (), wall)[0], "")
+
+    def test_the_stable_half_must_survive(self):
+        # the site randomises half the page; the gateway loses the other half
+        stable = b" ".join(b"s%d" % i for i in range(50))
+
+        def load(tag):
+            return Response(200, {"content-type": "text/html"},
+                            b"<p>" + stable + b"</p><p>" + b" ".join(tag + b"%d" % i for i in range(8)) + b"</p>",
+                            "http://legacy:8080/p")
+        first, again = load(b"x"), load(b"y")
+        lost = b"<p>" + b" ".join(b"s%d" % i for i in range(25)) + b"</p><p>" + b" ".join(b"z%d" % i for i in range(8)) + b"</p>"
+        self.assertEqual(verify.compare(first, via(lost), (), again)[0], "text")
+        kept = load(b"z").body
+        self.assertEqual(verify.compare(first, via(kept), (), again), ("", ""))
+
+    def test_a_second_answer_that_is_an_error_excuses_nothing(self):
+        first = Response(200, {"content-type": "text/html"}, b"<a href='/a'>A</a>", "http://legacy:8080/x")
+        run = verify.Run.__new__(verify.Run)
+        for status in (429, 503, 302, 500):
+            run.f = type("F", (), {"get": lambda self, pq, s=status: Response(s, {"content-type": "text/html"}, b"", "http://legacy:8080/x")})()
+            self.assertIsNone(run._again("/x", first), status)
+        run.f = type("F", (), {"get": lambda self, pq: first})()
+        self.assertIs(run._again("/x", first), first)
+
+    def test_long_numbers_are_not_attacks_on_text(self):
+        from equalizer_agent import attacks
+        self.assertIn(attacks.OVERFLOW, [v for _, v in attacks.values("int")])
+        self.assertNotIn(attacks.OVERFLOW, [v for _, v in attacks.values("string")])
+
     def test_a_final_slash_is_the_same_page(self):
         """Magento links to /page/ and answers 301 to /page; the gateway
         writes the link in its route's spelling and serves the page."""

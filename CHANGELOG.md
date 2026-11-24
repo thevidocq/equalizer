@@ -19,7 +19,8 @@ Add a section at the top of "Entries" for every commit:
 
 ## Current project status
 
-Latest release: **0.2.25** (`docs/releases/0.2.25.md`); before it 0.2.24
+Latest release: **0.2.26** (`docs/releases/0.2.26.md`); before it 0.2.25
+(`docs/releases/0.2.25.md`), 0.2.24
 (`docs/releases/0.2.24.md`), 0.2.23
 (`docs/releases/0.2.23.md`), 0.2.22
 (`docs/releases/0.2.22.md`), 0.2.21
@@ -57,6 +58,60 @@ it, 0.1.0 (`docs/releases/0.1.0.md`, tag on the merge of #39).
 | tools (eqtool) | Map signing keys, form key, relay token, connector registration, map signing |
 
 ## Entries
+
+### 2026-11-24 — Strict Unicode slugs; precise self-varying pages; 0.2.26
+
+- **Branch:** fix/slugs-and-changing-pages
+- **What:**
+  - Contract: `schema/map/gateway-map.schema.json` types take `rules`
+    (copied to `panel-api/internal/mapschema`); `schema/api/panel-api.yaml`
+    `StudyScore.functions_changing` (`schema.d.ts` updated).
+  - Gateway: `TypeDef.Rules`, kept by every field of the type
+    (`validate.resolve`), unknown ones refused at load even if unused;
+    rule `no_lookalikes` (`validate/rules.go`): NFKC look-alikes
+    (fullwidth, mathematical, letterlike, ligatures, ſ, modifier letters,
+    superscripts), invisible Hangul fillers, variation selectors.
+  - Templates (`panel-api/internal/templates/maps/*.json`): slug is
+    `[\p{L}\p{Nd}][\p{L}\p{Nd}\p{Mn}\p{Mc}_-]{0,199}` with
+    `no_lookalikes`; MediaWiki titles also take `( ) , : !`.
+  - Panel-api: `review` compares a field's effective constraints (its
+    type's pattern, rules, refused values), so leaving a named type or
+    swapping a rule is flagged; assistant cards add type and field rules.
+  - Agent: `slugs.py` is the one place for the slug (`PATTERN`, `RULES`,
+    `LOOKALIKES`, `is_slug`) and reads RE2 `\p{…}` patterns
+    (`re2_search`: categories from `unicodedata`, `$` as end of text,
+    ASCII `\d \w \s`, None for syntax it cannot read); `cluster` and
+    `mapbuild.fits` use it on decoded segments (deny compared casefolded).
+    `verify.compare(…, again)` sets aside only what the site varies by
+    itself: the gateway keeps 97% of the words both loads share, loses
+    only links the site varies; nothing when the loads are < 80% alike or
+    > 30% of links vary; `_again` refuses a second answer of another
+    status or type; `Measure.changing`. `attacks.values(base)` skips the
+    40-digit probe on text types.
+  - Panel: the identical-pages hint counts the pages that change by
+    themselves (`identicalHint`); the Logs **Live** dot pulses while live
+    (`motion-safe:animate-ping`, still for reduced motion).
+  - Tests: `test_slugs.py` (incl. Go/Python look-alike ranges agree),
+    `test_verify.py`, `test_query_merge.py`, gateway `validate_test.go`,
+    `templates_test.go`, `VerificationPanel.test.ts`.
+  - Docs: `docs/map-format.md`, `docs/agent.md`, `docs/manual/tenant.md`
+    and the in-app help, `docs/releases/0.2.26.md`, `docs/efficacy.md`.
+- **Why:** wp.thevidocq.com, draft v13: 21 inputs still open, mostly the
+  template slug that refused only `/ . < > { } " ' \`; the 2 broken pages
+  were WooCommerce's random related products. A first fix was reviewed:
+  its self-variation excuse was all-or-nothing and accepted error pages,
+  cluster still read encoded ASCII slugs, the Unicode slug let look-alikes
+  through, and the Python estimate of RE2 was approximate. A second review
+  found that a login wall as second load, or a half-random page, still
+  excused real breakage, more NFKC look-alikes, ASCII classes, `\p{Lm}`
+  (Japanese `ー`), and the review and cards missing type rules. All fixed.
+- **Status:** agent, gateway, panel-api tests pass; panel-ui tsc/vitest
+  run in CI (no npm registry here); efficacy study rerun.
+- **Not changed, on purpose:** the gateway's session-cookie name list and
+  the agent's common deny list name CMSs (`wp_`, `wp-admin`): they are
+  safety nets for sites whose CMS is not recognised, so they stay generic.
+- **Next steps:** rerun the discovery on wp.thevidocq.com; logs on narrow
+  screens; "Show this IP only" for an IPv6 /64.
 
 ### 2026-11-24 — Keep links' escaping; compare decoded links; 0.2.25
 

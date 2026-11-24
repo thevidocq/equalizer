@@ -50,7 +50,10 @@ export function LogsPage() {
         actions={
           <>
             <Button aria-pressed={live} onClick={() => { if (!live) restart(); setLive(!live); }}>
-              <span aria-hidden="true" className="size-2 rounded-full" style={{ background: live ? "#2b7a4b" : "#6b7684" }} />
+              <span aria-hidden="true" className="relative flex size-2">
+                {live ? <span className="absolute inline-flex size-full rounded-full bg-[#2b7a4b] opacity-75 motion-safe:animate-ping" /> : null}
+                <span className="relative inline-flex size-2 rounded-full" style={{ background: live ? "#2b7a4b" : "#6b7684" }} />
+              </span>
               {live ? "Live" : "Paused"}
             </Button>
             <Button busy={exporter.isPending} disabled={!on.length} onClick={() => exporter.mutate(filter)}>Export CSV</Button>

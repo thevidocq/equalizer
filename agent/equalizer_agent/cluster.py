@@ -5,7 +5,8 @@ import re
 import urllib.parse
 from dataclasses import dataclass, field
 
-SLUG = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_\-]{0,119}$")
+from . import slugs
+
 IDENT = re.compile(r"^[a-z][a-z0-9_]{0,63}$")
 DATE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
 CODE = re.compile(r"^[a-z][a-z0-9_\-]{0,30}$")
@@ -35,7 +36,9 @@ def ident(raw: str, taken: set) -> str:
 
 
 def _is_value(v: str) -> bool:
-    return v.isdigit() or bool(SLUG.match(v))
+    """A segment that can be a parameter's value: a number or a slug, read
+    decoded as the gateway does (/tag/%ce%b5%cf%80/ is the slug επ)."""
+    return v.isdigit() or slugs.is_slug(urllib.parse.unquote(v))
 
 
 def patterns(paths: list, loose_top: bool = False) -> dict:

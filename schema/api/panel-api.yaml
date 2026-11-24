@@ -2436,6 +2436,7 @@ components:
         inputs_total: { type: integer, minimum: 0, description: "Parameters and form fields of the map" }
         inputs_protected: { type: integer, minimum: 0, description: "Those the gateway refuses every value of the attack set for" }
         area_percent: { type: number, minimum: 0, maximum: 100, description: "Share of the studied requests that only the generic area serves" }
+        functions_changing: { type: integer, minimum: 0, description: "Of the identical ones, those the site itself answers differently each time (random products): compared on what the site does not vary" }
     StudyFunction:
       type: object
       required: [name, entries]

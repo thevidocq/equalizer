@@ -373,7 +373,12 @@
         },
         "pattern": { "type": "string" },
         "charset": { "type": "string" },
-        "max_length": { "type": "integer", "minimum": 1 }
+        "max_length": { "type": "integer", "minimum": 1 },
+        "rules": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Text rules every field of this type keeps (a field can add its own, never remove these), e.g. no_lookalikes for a slug"
+        }
       }
     },
     "fieldSpec": {

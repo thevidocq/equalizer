@@ -235,7 +235,13 @@ Deterministic, no AI needed:
   values seen and the form's own attributes: an integer with its range, a
   list of values (`enum`) when the site offers a closed set (a `<select>`,
   links that only ever use `asc` and `desc`), a date, an email, a slug, a
-  text with its maximum length.
+  text with its maximum length. A slug is letters and digits of any
+  alphabet with combining marks, `-` and `_` (WordPress writes
+  `/tag/επίπεδο/`, `/コーヒー/`), never quotes, spaces, dots or slashes,
+  and with the `no_lookalikes` rule (no fullwidth `ａｄｍｉｎ`, `𝐚𝐝𝐦𝐢𝐧`, `ﬁ`,
+  modifier apostrophe `ʼ`). Path segments are read decoded, as the
+  gateway reads them. Emoji, Persian ZWNJ and other characters leave a
+  page to the area.
 - **Form fields** (read-only, so from what the page declares, never from
   submitted values): a `<select>`, radio group or checkbox becomes a list of
   values; a number its range; email, date, phone, URL, colour and time
@@ -282,7 +288,16 @@ For every page and every script request seen in step 1:
 3. it compares the two: status, visible text, links and forms (after the
    address rewrite), and a screenshot of both in the browser. Links are
    compared by the address they lead to, decoded: `%ce%b5` and `%CE%B5`
-   are the same link.
+   are the same link. A page that differs only in text or links is
+   opened on the site a second time. When the site differs from its own
+   first answer (random related products), only that is set aside: the
+   gateway's page must keep 97% of the words the two loads share, and may
+   lose only links the site itself shows or hides from one load to the
+   next. Nothing is set aside when the second answer is of another kind
+   (an error, a redirect to the login, a rate limit), when the two loads
+   are less than 80% alike (a login wall, a challenge), or when more than
+   30% of the links change by themselves. Such pages are counted as
+   identical and as "changing by themselves".
 
 Forms are never submitted. For each form the agent builds the request the
 browser would send with the values it saw and asks the gateway, in dry-run,
@@ -318,7 +333,8 @@ dry-run, whether it would accept each value of a fixed attack set:
 - paths (`../`, encoded variants, null bytes);
 - shell (`;`, `|`, `$(…)`, backticks);
 - out of type (letters in a number, out-of-range values, oversized values,
-  control characters).
+  control characters). A 40-digit number is tried on numbers, dates and
+  lists, not on text: there it is a valid value (a slug may be all digits).
 
 A value that would be accepted means the entry is too wide: the agent
 narrows it when the values it saw allow it, and checks the site again (step

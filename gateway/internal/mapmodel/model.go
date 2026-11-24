@@ -196,6 +196,7 @@ type TypeDef struct {
 	Pattern   string   `json:"pattern"`
 	Charset   string   `json:"charset"`
 	MaxLength int      `json:"max_length"`
+	Rules     []string `json:"rules"` // kept by every field of the type
 }
 
 // FieldSpec describes a value coming from the client.

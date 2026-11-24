@@ -51,7 +51,7 @@ function Result({ r, link }: { r: Verification; link: (v: number) => string }) {
       {s ? (
         <dl className="grid gap-4 sm:grid-cols-3">
           <Figure value={`${s.functions_identical} / ${s.functions_total}`} label="pages identical through Equalizer"
-            hint="The site works as before." good={s.functions_identical === s.functions_total} />
+            hint={identicalHint(s.functions_changing ?? 0)} good={s.functions_identical === s.functions_total} />
           <Figure value={`${s.inputs_protected} / ${s.inputs_total}`} label="inputs that refuse every attack"
             hint="Parameters and form fields; the others are under Still open." good={s.inputs_protected === s.inputs_total} />
           <Figure value={`${s.area_percent} %`} label="of the pages served only by the site area"
@@ -106,4 +106,11 @@ function List({ title, items }: { title: string; items: string[] }) {
       </ul>
     </details>
   );
+}
+
+/** Pages the site itself changes on every load are compared on the rest. */
+export function identicalHint(changing: number): string {
+  if (changing === 0) return "The site works as before.";
+  const which = changing === 1 ? "1 page changes by itself" : `${changing} pages change by themselves`;
+  return `The site works as before. ${which} on the site (random products, for example): compared on what the site does not vary.`;
 }

@@ -318,7 +318,9 @@ What you see, in **Check on the site** on each version:
 - **pages identical through Equalizer** (for example 34 / 34): the site
   works as before. Fewer means a page breaks; **Broken by this version**
   says which and how (a different answer, missing text, links or forms,
-  refused).
+  refused). A page the site itself changes on every load (a shop's random
+  related products) is compared on what the site does not vary: the hint
+  under the figure says how many there are.
 - **inputs that refuse every attack** (for example 0 / 2): the
   parameters and fields where every attack is stopped. The others are
   under **Still open**, each with its reason; usually a value that falls
@@ -533,7 +535,7 @@ request. A row opens its detail right under it, in plain words (click it
 again to close it; alerts such as a connector going
 offline name the connector or the site); on a path that is not in the map,
 **Add to the map** opens a new version. **Live** refreshes every few
-seconds; **Export CSV** downloads up to 10 000 events (recorded in
+seconds, and its green dot pulses while it does (**Paused**: grey, still); **Export CSV** downloads up to 10 000 events (recorded in
 Activity). Field values are never stored, only the field name and the rule
 that refused it. The IP address is the visitor's real one, the same the
 legacy site receives in `X-Forwarded-For` (its own logs and bans keep

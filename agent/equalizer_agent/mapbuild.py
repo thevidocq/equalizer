@@ -6,7 +6,7 @@ import copy
 import re
 import urllib.parse
 
-from . import assettypes, cluster, fields as fieldspec, idor, rules
+from . import assettypes, cluster, fields as fieldspec, idor, rules, slugs
 
 COMMON_DENY = ["admin", "administrator", "wp-admin", "wp-login", "phpmyadmin", "pma", "cpanel", "plesk", "webmail",
                "server-status", "server-info", "cgi-bin", "install", "setup", "backup", "backups", "config",
@@ -56,16 +56,15 @@ def fits(doc: dict, route: dict, path: str) -> bool:
         base = t.get("base", spec.get("type", ""))
         if base in ("int", "id") and not val.isdigit():
             return False
-        deny = {d.lower() for d in (t.get("deny") or []) + (spec.get("deny") or [])}
-        if val.lower() in deny:
+        val = urllib.parse.unquote(val)  # the gateway checks the decoded value
+        deny = {d.casefold() for d in (t.get("deny") or []) + (spec.get("deny") or [])}
+        if val.casefold() in deny:  # as the gateway's EqualFold (ſetup is setup)
             return False
         rx = spec.get("pattern") or t.get("pattern")
-        if rx:
-            try:
-                if not re.search(rx, val):
-                    return False
-            except re.error:
-                return False
+        if rx and slugs.re2_search(rx, val) is not True:
+            return False  # refused, or a pattern only the gateway can read
+        if "no_lookalikes" in (t.get("rules") or []) + (spec.get("rules") or []) and slugs.lookalike(val):
+            return False
     return True
 
 
@@ -102,7 +101,7 @@ def _covered(doc: dict, path: str) -> bool:
 
 def _ensure_types(doc: dict):
     t = doc.setdefault("types", {})
-    t.setdefault("slug", {"base": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9_-]{0,119}$", "deny": COMMON_DENY})
+    t.setdefault("slug", {"base": "string", "pattern": slugs.PATTERN, "rules": slugs.RULES, "deny": COMMON_DENY})
     t.setdefault("id", {"base": "int", "min": 0, "max": 999999999})
 
 

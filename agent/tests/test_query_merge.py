@@ -7,7 +7,7 @@ import unittest
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
-from equalizer_agent import crawler, fingerprint, mapbuild  # noqa: E402
+from equalizer_agent import crawler, fingerprint, mapbuild, slugs  # noqa: E402
 
 
 def current():
@@ -110,3 +110,16 @@ class SeedsTest(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class UnicodeSlugTest(unittest.TestCase):
+    def test_the_agents_slug_takes_any_alphabet_and_no_quotes(self):
+        doc = {"meta": {"version": 1}, "legacy": {}, "roles": {"anonymous": "guest"},
+               "types": {"slug": {"base": "string", "pattern": slugs.PATTERN, "rules": slugs.RULES}},
+               "routes": [{"id": "tag", "path": "/tag/{slug}/", "method": "GET", "roles": ["guest"],
+                           "legacy_request": {"method": "GET", "path": "/tag/{{params.slug}}/"},
+                           "params": {"slug": {"type": "slug"}}}]}
+        for ok in ("/tag/%ce%b5%cf%80%ce%af%cf%80%ce%b5%ce%b4%ce%bf/", "/tag/a%C3%A7%C3%A3o/", "/tag/hello-world/"):
+            self.assertEqual((mapbuild.gateway_route(doc, ok) or {}).get("id"), "tag", ok)
+        for bad in ("/tag/1'OR'1/", "/tag/a%20b/", "/tag/%3Cx%3E/"):
+            self.assertIsNone(mapbuild.gateway_route(doc, bad), bad)

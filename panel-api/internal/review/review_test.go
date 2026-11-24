@@ -126,3 +126,21 @@ func TestDirectMode(t *testing.T) {
 		t.Fatal("a site already in direct mode is flagged at every version")
 	}
 }
+
+// Leaving a named type for a plain one drops the type's constraints: the
+// agent widening a slug parameter to text must be flagged.
+func TestLeavingATypeDropsItsRules(t *testing.T) {
+	b := strings.Replace(base, `"pattern":"^[a-z-]+$","deny":["admin","wp-admin"]}`, `"pattern":"^[a-z-]+$","rules":["no_lookalikes"],"deny":["admin","wp-admin"]}`, 1)
+	b = strings.Replace(b, `{"id":"old","path":"/old","method":"GET","roles":["guest"]}`,
+		`{"id":"page","path":"/p/{slug}","method":"GET","roles":["guest"],"params":{"slug":{"type":"slug"}}}`, 1)
+	n := strings.Replace(b, `"params":{"slug":{"type":"slug"}}`, `"params":{"slug":{"type":"string","max_length":1000,"rules":["no_html"]}}`, 1)
+	got := map[string]bool{}
+	for _, f := range Compare([]byte(b), []byte(n)).Findings {
+		got[f.Rule+" "+f.Entry] = true
+	}
+	for _, want := range []string{"pattern_removed routes.page.params.slug", "rules_removed routes.page.params.slug", "deny_removed routes.page.params.slug"} {
+		if !got[want] {
+			t.Errorf("missing %s: %v", want, got)
+		}
+	}
+}

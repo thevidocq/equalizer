@@ -17,7 +17,7 @@ ADMIN = [
     ("discovery", "/t/acme/sites/blog/discovery", "From the source code", None),
     ("maps", "/t/acme/sites/portal/maps", "Version", None),
     ("new-version", "/t/acme/sites/portal/maps/new", "Save", None),
-    ("verification", "/t/acme/sites/portal/maps/2", "Verification", None),
+    ("verification", "/t/acme/sites/portal/maps/2", "Check on the site", None),
     ("review", "/t/acme/sites/blog/maps/2", "Review aid", None),
     ("isolation", "/t/acme/sites/blog/isolation", "Isolation", None),
     ("certificate", "/t/acme/sites/blog/certificate", "Certificate", None),

@@ -127,6 +127,9 @@ def verify(internal, correct=False, open_=()):
     if not v:
         return
     out = {"score": dict(SCORE), "open": list(open_)}
+    if open_:
+        out["broken"] = [{"path": "/search.php?q=%27", "entry": "search_php", "difference": "refused",
+                          "detail": "a search with an apostrophe is refused: the field refuses SQL characters"}]
     if correct:
         doc = v["document"]
         for r in doc["routes"]:
@@ -189,7 +192,7 @@ def main(base, token, log):
     verify(internal)
     alex.call("POST", "/v1/apps/portal/maps/1/publish")
     discovery(alex, internal, "portal", {})
-    verify(internal, correct=True, open_=fixture("generic-report.json")["open"])
+    verify(internal, open_=fixture("generic-report.json")["open"])
 
     # A draft of the blog a person wrote, in review, with the AI's summary
     v1 = alex.call("GET", "/v1/apps/blog/maps/1")["document"]

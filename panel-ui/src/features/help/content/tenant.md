@@ -628,7 +628,7 @@ Only the site you are on, and only what you could read yourself:
   open and why, what was kept out, what was added from visitors' requests.
 - **The security scans** of the [Security tab](#security-scans): each
   finding, how severe, what the map does with it, and the draft built to
-  close it.
+  harden it.
 - **This guide**, to answer how to do something in the panel.
 - **The logs** of the site, up to 30 days: what was served and refused,
   why, on which entry, how many different visitors.

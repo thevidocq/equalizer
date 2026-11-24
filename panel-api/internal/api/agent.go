@@ -136,6 +136,35 @@ func (s *Server) discoveryProgress(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNoContent)
 }
 
+func (s *Server) verificationProgress(w http.ResponseWriter, r *http.Request) {
+	id, err := strconv.ParseInt(r.PathValue("id"), 10, 64)
+	if err != nil {
+		fail(w, http.StatusNotFound, "not_found", "")
+		return
+	}
+	var p struct {
+		Step    string  `json:"step"`
+		Done    int     `json:"done"`
+		Total   int     `json:"total"`
+		Account *string `json:"account"`
+	}
+	if !decode(w, r, &p) {
+		return
+	}
+	switch {
+	case p.Step != "pages" && p.Step != "attacks" && p.Step != "files" && p.Step != "correcting",
+		p.Done < 0 || p.Total < 0 || p.Done > p.Total, p.Account != nil && len(*p.Account) > 60:
+		fail(w, http.StatusUnprocessableEntity, "invalid", "step, done and total")
+		return
+	}
+	b, _ := json.Marshal(p)
+	if err := s.Store.VerificationProgress(r.Context(), id, b); err != nil {
+		s.storeError(w, r, err)
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
+}
+
 // discoveryResult saves the report and, when the proposed map differs from
 // the published one, a draft by whoever started the discovery. The draft
 // has the same checks as any other and needs someone else's approval.

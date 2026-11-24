@@ -18,9 +18,11 @@ import (
 func scannerLabel(tenant string) string { return "scanner:" + tenant }
 
 type scannerView struct {
-	Endpoint  *string `json:"endpoint"`
-	HasAPIKey bool    `json:"has_api_key"`
-	KeyHint   *string `json:"key_hint"`
+	Endpoint  *string    `json:"endpoint"`
+	HasAPIKey bool       `json:"has_api_key"`
+	KeyHint   *string    `json:"key_hint"`
+	Status    string     `json:"status"`
+	CheckedAt *time.Time `json:"checked_at"`
 }
 
 func (s *Server) getScanner(w http.ResponseWriter, r *http.Request, u *auth.User) {
@@ -30,14 +32,19 @@ func (s *Server) getScanner(w http.ResponseWriter, r *http.Request, u *auth.User
 	}
 	c, err := s.Store.TenantScanner(r.Context(), tenant)
 	if errors.Is(err, store.ErrNotFound) {
-		writeJSON(w, http.StatusOK, scannerView{})
+		writeJSON(w, http.StatusOK, scannerView{Status: "not_connected"})
 		return
 	}
 	if err != nil {
 		s.storeError(w, r, err)
 		return
 	}
-	writeJSON(w, http.StatusOK, scannerView{Endpoint: &c.Endpoint, HasAPIKey: len(c.Key) > 0, KeyHint: &c.KeyHint})
+	status := "connected"
+	if c.KeyRefused {
+		status = "key_refused"
+	}
+	writeJSON(w, http.StatusOK, scannerView{Endpoint: &c.Endpoint, HasAPIKey: len(c.Key) > 0, KeyHint: &c.KeyHint, Status: status,
+		CheckedAt: c.CheckedAt})
 }
 
 func (s *Server) putScanner(w http.ResponseWriter, r *http.Request, u *auth.User) {

@@ -3,7 +3,7 @@ import { useParams, useSearchParams } from "react-router";
 import { hasRole, useMe } from "@/features/auth";
 import { useApps } from "@/features/sites";
 import { describeError } from "@/shared/api/errors";
-import { Button, EmptyState, Notice, PageHeader } from "@/shared/ui";
+import { Button, EmptyState, Notice, PageHeader, formatTick } from "@/shared/ui";
 import { defaultKinds, kinds } from "../components/kinds";
 import { LogFilters } from "../components/LogFilters";
 import { RefusedChart } from "../components/RefusedChart";
@@ -25,18 +25,30 @@ export function LogsPage() {
   }));
   const [live, setLive] = useState(true);
   const [selected, setSelected] = useState<string | null>(null);
+  // a bar of the chart: its interval, until the ✕
+  const [win, setWin] = useState<{ ts: string; from: string; to: string } | null>(null);
   const filter: LogFilter = useMemo(
-    () => ({ ...base, types: kinds.filter((k) => on.includes(k.id)).flatMap((k) => k.types) }), [base, on]);
+    () => ({ ...base, types: kinds.filter((k) => on.includes(k.id)).flatMap((k) => k.types),
+      ...(win ? { from: win.from, to: win.to } : {}) }), [base, on, win]);
 
   const logs = useLogs(tenant, filter, live);
   const stats = useLogStats(tenant, filter, live);
+  const step = stats.data?.step_seconds ?? 3600;
   const exporter = useLogExport(tenant);
   const restart = useRestartLogs(tenant);
   const events = logs.data?.pages.flatMap((p) => p.items) ?? [];
   const error = logs.error ?? stats.error ?? exporter.error;
 
   function change(f: LogFilter) {
+    if (f.since !== base.since) setWin(null); // another period: its own bars
     setBase({ app: f.app, q: f.q, since: f.since });
+    setSelected(null);
+  }
+  function pick(b: { ts: string }) {
+    const from = new Date(b.ts);
+    setWin({ ts: b.ts, from: from.toISOString(), to: new Date(from.getTime() + step * 1000).toISOString() });
+    setOn(defaultKinds); // the refused kinds, as the chart counts them
+    setLive(false); // an interval of the past does not change
     setSelected(null);
   }
   function toggle(id: string) {
@@ -61,7 +73,15 @@ export function LogsPage() {
         } />
       {error ? <Notice tone="error">{describeError(error)}</Notice> : null}
       <LogFilters apps={apps} filter={filter} onChange={change} on={on} onToggle={toggle} counts={stats.data?.counts} />
-      {stats.data ? <RefusedChart buckets={stats.data.refused} step={stats.data.step_seconds} /> : null}
+      {stats.data ? <RefusedChart buckets={stats.data.refused} step={step} picked={win?.ts ?? null} onPick={pick} /> : null}
+      {win ? (
+        <div>
+          <span className="inline-flex items-center gap-2 rounded-full border border-rule bg-surface px-3 py-1 text-[13px]">
+            Refused, {formatTick(new Date(win.from), step >= 86400)}–{formatTick(new Date(win.to), step >= 86400)}
+            <button type="button" aria-label="Show the whole period" className="text-ink-soft hover:text-ink" onClick={() => setWin(null)}>✕</button>
+          </span>
+        </div>
+      ) : null}
       {!on.length ? <EmptyState title="Choose at least one kind of event" /> : null}
       {on.length && logs.data && !events.length ? (
         <EmptyState title="No events for these filters">Try a longer period or turn on more kinds of event.</EmptyState>

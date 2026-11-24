@@ -174,6 +174,7 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("GET /v1/internal/maps", s.internal(s.internalMaps))
 	mux.HandleFunc("POST /v1/internal/discoveries/claim", s.internal(s.claimDiscovery))
 	mux.HandleFunc("POST /v1/internal/verifications/claim", s.internal(s.claimVerification))
+	mux.HandleFunc("POST /v1/internal/verifications/{id}/progress", s.internal(s.verificationProgress))
 	mux.HandleFunc("POST /v1/internal/verifications/{id}/result", s.internal(s.verificationResult))
 	mux.HandleFunc("POST /v1/internal/verifications/{id}/try-map", s.internal(s.verificationTryMap))
 	mux.HandleFunc("POST /v1/internal/discoveries/{id}/progress", s.internal(s.discoveryProgress))

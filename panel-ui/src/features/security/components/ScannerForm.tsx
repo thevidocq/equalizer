@@ -1,5 +1,5 @@
 import { useState, type FormEvent } from "react";
-import { Button, Notice, TextField, useToast } from "@/shared/ui";
+import { Button, IntegrationCard, Notice, TextField, useToast, type IntegrationState } from "@/shared/ui";
 import { describeError } from "@/shared/api/errors";
 import { useScanner, useScannerActions } from "../hooks/useScanner";
 
@@ -12,10 +12,16 @@ export function ScannerForm({ tenant }: { tenant: string }) {
   if (current.isError) return <Notice tone="error">{describeError(current.error)}</Notice>;
   if (!current.data) return null;
   return <Form key={current.data.endpoint ?? "none"} tenant={tenant} endpoint={current.data.endpoint ?? ""}
-    hasKey={current.data.has_api_key} hint={current.data.key_hint ?? null} />;
+    hasKey={current.data.has_api_key} hint={current.data.key_hint ?? null} status={current.data.status} />;
 }
 
-function Form({ tenant, endpoint: saved, hasKey, hint }: { tenant: string; endpoint: string; hasKey: boolean; hint: string | null }) {
+const STATE: Record<string, [IntegrationState, string]> = {
+  connected: ["connected", "Connected"], not_connected: ["not_connected", "Not connected"], key_refused: ["error", "Key refused"],
+};
+
+type FormProps = { tenant: string; endpoint: string; hasKey: boolean; hint: string | null; status: string };
+
+function Form({ tenant, endpoint: saved, hasKey, hint, status }: FormProps) {
   const { save, remove } = useScannerActions(tenant);
   const toast = useToast();
   const [endpoint, setEndpoint] = useState(saved);
@@ -30,21 +36,14 @@ function Form({ tenant, endpoint: saved, hasKey, hint }: { tenant: string; endpo
   const error = save.error ?? remove.error;
   return (
     <form onSubmit={submit} className="flex max-w-xl flex-col gap-4">
-      <div>
-        <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
-          <h2 className="text-base font-semibold">Security scanner</h2>
-          <span className="inline-flex items-center gap-1 text-xs text-ink-soft">
-            Provided by
-            <img src="/brands/cve-radar.png" alt="" width={14} height={14} className="self-center" />
-            <span className="font-medium text-ink">CVE Radar</span>
-          </span>
-        </div>
-        <p className="text-sm text-ink-soft">
-          Your CVE Radar account, to scan each site from its Security tab and read what is found against its map. Create
-          the key in CVE Radar (API section) with the read, scan and write permissions. The panel tries the address and the
-          key before saving, keeps the key encrypted and never shows it again.
-        </p>
-      </div>
+      <h2 className="text-base font-semibold">Security scanner</h2>
+      <IntegrationCard logo="/brands/cve-radar.png" name="CVE Radar" description="Vulnerability scans of your sites, read against their maps"
+        state={(STATE[status] ?? STATE.not_connected)[0]} label={(STATE[status] ?? STATE.not_connected)[1]}
+        note={status === "key_refused" ? "CVE Radar refused the saved key at the last call (revoked, expired or without permissions): save a new one." : undefined} />
+      <p className="text-sm text-ink-soft">
+        Create the key in CVE Radar (API section) with the read, scan and write permissions. The panel tries the address and the
+        key before saving, keeps the key encrypted and never shows it again.
+      </p>
       {error ? <Notice tone="error">{describeError(error)}</Notice> : null}
       <TextField label="API address" type="url" required value={endpoint} placeholder="https://…/api/public/v1"
         onChange={(e) => setEndpoint(e.target.value)} hint="The base address of CVE Radar's API, from its documentation." />

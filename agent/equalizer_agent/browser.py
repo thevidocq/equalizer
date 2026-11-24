@@ -13,6 +13,7 @@ types or submits.
 Optional: without Playwright installed (EQ_BROWSER=off, or an image
 without it) the study runs as before, with plain requests."""
 
+import time
 import urllib.parse
 from dataclasses import dataclass, field
 
@@ -25,7 +26,7 @@ except ImportError:  # pragma: no cover - depends on the image
     sync_playwright = None
     PlaywrightError = Exception
 
-PAGE_TIMEOUT_MS = 15000
+PAGE_SECONDS = 20  # a page in the browser at most, loading and settling; then it is skipped
 SETTLE_MS = 1500
 CLOSED_PORT = "http://127.0.0.1:9"  # discard: nothing listens
 DROPPED = {"connection", "keep-alive", "transfer-encoding", "set-cookie", "content-length", "content-encoding",
@@ -43,6 +44,8 @@ class Seen:
     refused: set = field(default_factory=set)  # (method, path) the guard kept in
     pages: int = 0
     errors: int = 0
+    # pages left before their scripts were seen: {path, reason, seconds}
+    skipped: list = field(default_factory=list)
 
 
 class _Guard:
@@ -93,10 +96,13 @@ def _close(ctx, b) -> None:
     b.close()
 
 
-def study(fetcher, host: str, pages: list, log, allowed, executable: str = "") -> Seen:
+def study(fetcher, host: str, pages: list, log, allowed, executable: str = "", page_seconds: int = PAGE_SECONDS,
+          progress=None) -> Seen:
     """Opens each page in the browser and returns what it asked for. host is
     the site's host[:port] as in its base URL; the Fetcher's session (a test
-    account's, or none) is the browser's."""
+    account's, or none) is the browser's. A page gets page_seconds at most:
+    then it is skipped, and Seen.skipped says which, why and after how long.
+    progress(done, total, path) is told before each page."""
     seen = Seen()
     if not available() or not pages:
         return seen
@@ -116,15 +122,42 @@ def study(fetcher, host: str, pages: list, log, allowed, executable: str = "") -
                 ctx.route("**/*", guard)
                 page = ctx.new_page()
                 page.on("dialog", lambda d: d.dismiss())
-                for pq in pages:
+                for n, pq in enumerate(pages):
+                    if progress:
+                        progress(n, len(pages), pq)
+                    started = time.monotonic()
                     try:
-                        page.goto(origin + pq, wait_until="load", timeout=PAGE_TIMEOUT_MS)
-                        page.wait_for_timeout(SETTLE_MS)
+                        page.goto(origin + pq, wait_until="load", timeout=page_seconds * 1000)
+                        page.wait_for_timeout(min(SETTLE_MS, max(0, page_seconds * 1000 - int((time.monotonic() - started) * 1000))))
                         seen.pages += 1
-                    except PlaywrightError:
+                    except PlaywrightError as e:
                         seen.errors += 1
+                        took = round(time.monotonic() - started, 1)
+                        timeout = "Timeout" in type(e).__name__ or "timeout" in str(e).lower()
+                        seen.skipped.append({"path": pq, "seconds": took,
+                                             "reason": "time_limit" if timeout else "error",
+                                             "detail": "" if timeout else str(e).splitlines()[0][:160]})
+                        if not timeout:
+                            page = _fresh(ctx, page)
+                    if (n + 1) % 10 == 0:
+                        log.info("browser progress", done=n + 1, total=len(pages), skipped=len(seen.skipped))
             finally:
                 _close(ctx, b)
     except PlaywrightError as e:
         log.warn("browser unavailable", error=str(e)[:200])
+        done = {s["path"] for s in seen.skipped}
+        for pq in pages[seen.pages + len(seen.skipped):]:
+            if pq not in done:
+                seen.skipped.append({"path": pq, "seconds": 0, "reason": "browser_failed", "detail": str(e).splitlines()[0][:160]})
     return seen
+
+
+def _fresh(ctx, page):
+    """A new tab after a page broke the old one (a crash, a closed target)."""
+    try:
+        page.close()
+    except PlaywrightError:
+        pass
+    p = ctx.new_page()
+    p.on("dialog", lambda d: d.dismiss())
+    return p

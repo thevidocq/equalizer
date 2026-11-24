@@ -6,3 +6,4 @@ export { VerificationPanel } from "./components/VerificationPanel";
 export { useVerification } from "./hooks/useVerification";
 export { STILL_OPEN } from "./components/stillOpen";
 export { TestAccounts, type TestAccount } from "./components/TestAccounts";
+export { progressText } from "./components/progress";

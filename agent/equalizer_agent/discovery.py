@@ -82,7 +82,8 @@ def run(job: dict, cfg, panel, log) -> None:
     cms = job.get("kind") if job.get("kind") not in (None, "generic") else None
     c = crawler.Crawler(f, cms, int(job.get("max_pages", 500)), log, progress=lambda p: panel.progress(jid, p))
     if use_browser(cfg, log):
-        c.browser = {"executable": getattr(cfg, "browser_path", "")}
+        c.browser = {"executable": getattr(cfg, "browser_path", ""),
+                     "page_seconds": getattr(cfg, "browser_page_seconds", 20)}
     fp = fingerprint.Fingerprint(cms=cms)
     try:
         result = c.anonymous(seeds(job, cms))

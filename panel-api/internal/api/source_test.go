@@ -123,6 +123,27 @@ func TestSourceReader(t *testing.T) {
 		t.Fatal("nothing queued")
 	}
 
+	// A site in Docker: the command takes its container's volumes, read only;
+	// a folder of the host is mounted at the same path.
+	boss.must(422, "PUT", "/v1/apps/blog/source", map[string]any{"method": "local", "path": "/var/www/html", "container": "wp; rm"}, nil)
+	boss.must(200, "PUT", "/v1/apps/blog/source", map[string]any{"method": "local", "path": "/var/www/html", "container": "wp"}, nil)
+	var dock struct{ Token, Install string }
+	boss.must(201, "POST", "/v1/apps/blog/source/token", nil, &dock)
+	if !strings.Contains(dock.Install, "--volumes-from wp:ro") || !strings.Contains(dock.Install, "EQ_SOURCE_SITE=/ ") {
+		t.Fatalf("docker install: %s", dock.Install)
+	}
+	boss.must(200, "PUT", "/v1/apps/blog/source", map[string]any{"method": "local", "path": "/srv/blog"}, nil)
+	boss.must(201, "POST", "/v1/apps/blog/source/token", nil, &dock)
+	if !strings.Contains(dock.Install, "-v /srv/blog:/srv/blog:ro") || strings.Contains(dock.Install, "volumes-from") {
+		t.Fatalf("folder install: %s", dock.Install)
+	}
+	tok.Token = dock.Token
+	if readerCall(t, e, tok.Token, "/v1/source/hello", map[string]any{"version": "0.2.30", "public_key": key}, nil) != 204 {
+		t.Fatal("hello with the new token")
+	}
+	boss.must(200, "PUT", "/v1/apps/blog/source", map[string]any{"method": "sftp", "host": "web01.lan", "username": "reader",
+		"path": "/var/www/html"}, &v)
+
 	// A read by hand: one at a time, a summary checked against its schema.
 	boss.must(202, "POST", "/v1/apps/blog/source/reads", nil, nil)
 	boss.must(409, "POST", "/v1/apps/blog/source/reads", nil, &apiErr)

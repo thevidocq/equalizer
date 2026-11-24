@@ -10,23 +10,26 @@ import (
 
 // Scanner is a tenant's vulnerability scanner connection.
 type Scanner struct {
-	Endpoint string
-	Key      []byte // sealed
-	KeyHint  string
+	Endpoint   string
+	Key        []byte // sealed
+	KeyHint    string
+	KeyRefused bool       // at the last real call
+	CheckedAt  *time.Time // that call
 }
 
 // TenantScanner returns the tenant's scanner, ErrNotFound without one.
 func (s *Store) TenantScanner(ctx context.Context, tenant string) (Scanner, error) {
 	var c Scanner
-	err := s.DB.QueryRowContext(ctx, `SELECT endpoint, api_key, key_hint FROM tenant_scanner WHERE tenant_id = $1`, tenant).
-		Scan(&c.Endpoint, &c.Key, &c.KeyHint)
+	err := s.DB.QueryRowContext(ctx, `SELECT endpoint, api_key, key_hint, key_refused, checked_at FROM tenant_scanner
+		WHERE tenant_id = $1`, tenant).Scan(&c.Endpoint, &c.Key, &c.KeyHint, &c.KeyRefused, &c.CheckedAt)
 	return c, translate(err)
 }
 
 // SetTenantScanner saves the scanner; a nil key keeps the saved one.
 func (s *Store) SetTenantScanner(ctx context.Context, tenant string, c Scanner) error {
 	if c.Key == nil {
-		res, err := s.DB.ExecContext(ctx, `UPDATE tenant_scanner SET endpoint = $2, updated_at = now() WHERE tenant_id = $1`,
+		res, err := s.DB.ExecContext(ctx, `UPDATE tenant_scanner SET endpoint = $2, key_refused = false, checked_at = now(),
+			updated_at = now() WHERE tenant_id = $1`,
 			tenant, c.Endpoint)
 		if err != nil {
 			return err
@@ -37,10 +40,18 @@ func (s *Store) SetTenantScanner(ctx context.Context, tenant string, c Scanner) 
 		return nil
 	}
 	_, err := s.DB.ExecContext(ctx, `
-		INSERT INTO tenant_scanner (tenant_id, endpoint, api_key, key_hint) VALUES ($1, $2, $3, $4)
-		ON CONFLICT (tenant_id) DO UPDATE SET endpoint = $2, api_key = $3, key_hint = $4, updated_at = now()`,
+		INSERT INTO tenant_scanner (tenant_id, endpoint, api_key, key_hint, key_refused, checked_at) VALUES ($1, $2, $3, $4, false, now())
+		ON CONFLICT (tenant_id) DO UPDATE SET endpoint = $2, api_key = $3, key_hint = $4, key_refused = false, checked_at = now(),
+			updated_at = now()`,
 		tenant, c.Endpoint, c.Key, c.KeyHint)
 	return translate(err)
+}
+
+// ScannerAnswered records whether the scanner took the tenant's key at a
+// real call.
+func (s *Store) ScannerAnswered(ctx context.Context, tenant string, refused bool) error {
+	_, err := s.DB.ExecContext(ctx, `UPDATE tenant_scanner SET key_refused = $2, checked_at = now() WHERE tenant_id = $1`, tenant, refused)
+	return err
 }
 
 // DeleteTenantScanner forgets the scanner and its key; scans stay.

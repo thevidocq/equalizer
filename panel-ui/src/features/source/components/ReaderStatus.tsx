@@ -39,7 +39,7 @@ export function ReaderStatus({ app, s, isAdmin }: { app: string; s: SourceReader
           {token.isError ? <Notice tone="error">{describeError(token.error)}</Notice> : null}
           {install ? (
             <div className="flex flex-col gap-2">
-              <Notice tone="info">Copy the command now: the token is shown only once. Run it on the server of the connector, not on the web server.</Notice>
+              <Notice tone="info">Copy the command now: the token is shown only once. Run it next to the connector; with a mounted folder or a Docker container, on the site's server. It mounts the site read only. If you change the settings above, make a new token: the command follows them.</Notice>
               <pre className="whitespace-pre-wrap break-all rounded-[var(--radius-control)] bg-ink p-3 font-mono text-[12.5px] leading-relaxed text-paper">{install}</pre>
               <div><Button variant="primary" onClick={() => copy("cmd", install)}>{copied === "cmd" ? "Copied" : "Copy command"}</Button></div>
             </div>

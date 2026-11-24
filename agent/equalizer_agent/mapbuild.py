@@ -373,6 +373,8 @@ def build(job: dict, crawl, fp) -> tuple:
                                      and s.status < 400 and s.ctype == "text/html"][:150]
                              for label in crawl.logins},
         "browser": {"pages": crawl.browser_pages, "script_requests": sorted(crawl.script_requests)[:200],
+                    "page_seconds": getattr(crawl, "browser_page_seconds", 0),
+                    "skipped": list(getattr(crawl, "browser_skipped", []))[:200],
                     "kept_in": [{"method": m, "path": p} for m, p in sorted(crawl.script_refused)][:200]},
         "open": _still_open(crawl, still_open, not_supported),
         "base": "published map" if continuous else ("template" if job.get("template") else "empty map"),
@@ -402,6 +404,11 @@ def _still_open(crawl, inputs: list, not_supported: list) -> list:
                     "detail": "a script's %s, kept in by the read-only guard" % m})
     for n in not_supported:
         out.append({"kind": "path", "target": n["path"], "reason": "other", "detail": n["reason"]})
+    for sk in getattr(crawl, "browser_skipped", []):
+        why = {"time_limit": "time limit reached after %ss" % sk.get("seconds"), "error": "the page failed in the browser",
+               "browser_failed": "the browser stopped"}.get(sk.get("reason"), sk.get("reason"))
+        out.append({"kind": "path", "target": sk["path"].split("?")[0], "reason": "browser_skipped",
+                    "detail": why + ("; " + sk["detail"] if sk.get("detail") else "")})
     out.extend(inputs)
     seen, dedup = set(), []
     for o in out:

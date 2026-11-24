@@ -1,3 +1,4 @@
+import { progressText } from "./progress";
 import { Notice, formatDate } from "@/shared/ui";
 import { ApiError } from "@/shared/api/client";
 import { describeError } from "@/shared/api/errors";
@@ -34,7 +35,7 @@ export function VerificationPanel({ app, version, canVerify, versionLink = (v) =
           Not checked yet: for example a draft changed by hand.
         </p>
       ) : running ? (
-        <p className="text-sm text-ink-soft">The agent is checking this version on the site…</p>
+        <p className="text-sm text-ink-soft">The agent is checking this version on the site{v.data.progress ? `: ${progressText(v.data.progress)}` : ""}…</p>
       ) : (
         <Result r={v.data} link={versionLink} />
       )}

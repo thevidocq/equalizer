@@ -127,16 +127,17 @@ func TestSecurityScans(t *testing.T) {
 		Endpoint  *string `json:"endpoint"`
 		HasAPIKey bool    `json:"has_api_key"`
 		KeyHint   *string `json:"key_hint"`
+		Status    string
 	}
 	boss.must(200, "GET", "/v1/tenants/acme/scanner", nil, &cfg)
-	if cfg.Endpoint != nil || cfg.HasAPIKey {
+	if cfg.Endpoint != nil || cfg.HasAPIKey || cfg.Status != "not_connected" {
 		t.Fatalf("empty settings: %+v", cfg)
 	}
 	viewer.must(403, "GET", "/v1/tenants/acme/scanner", nil, nil)
 	boss.must(422, "PUT", "/v1/tenants/acme/scanner", map[string]string{"endpoint": "http://plain.example", "api_key": radar.key}, nil)
 	boss.must(424, "PUT", "/v1/tenants/acme/scanner", map[string]string{"endpoint": endpoint, "api_key": "cvr_test_wrong_key_123"}, nil)
 	boss.must(200, "PUT", "/v1/tenants/acme/scanner", map[string]string{"endpoint": endpoint, "api_key": radar.key}, &cfg)
-	if !cfg.HasAPIKey || cfg.KeyHint == nil || *cfg.KeyHint != "cdef" {
+	if !cfg.HasAPIKey || cfg.KeyHint == nil || *cfg.KeyHint != "cdef" || cfg.Status != "connected" {
 		t.Fatalf("settings: %+v", cfg)
 	}
 	boss.must(200, "PUT", "/v1/tenants/acme/scanner", map[string]string{"endpoint": endpoint}, &cfg)           // the saved key is kept
@@ -320,6 +321,15 @@ func TestSecurityScans(t *testing.T) {
 		if !seen[a] {
 			t.Errorf("no %s in Activity", a)
 		}
+	}
+	// The key revoked in the scanner: the next real call says so in Settings
+	radar.mu.Lock()
+	radar.key = "cvr_test_revoked_0123456789"
+	radar.mu.Unlock()
+	boss.must(424, "POST", "/v1/apps/portal/security/scans", map[string]any{"target": "protected", "scan_type": "quick"}, nil)
+	boss.must(200, "GET", "/v1/tenants/acme/scanner", nil, &cfg)
+	if cfg.Status != "key_refused" {
+		t.Fatalf("revoked key: %+v", cfg)
 	}
 	boss.must(204, "DELETE", "/v1/tenants/acme/scanner", nil, nil)
 	viewer.must(200, "GET", "/v1/apps/portal/security", nil, &ov)

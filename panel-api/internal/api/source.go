@@ -24,6 +24,7 @@ type sourceReaderView struct {
 	Username    *string         `json:"username"`
 	Path        *string         `json:"path"`
 	Share       *string         `json:"share"`
+	Container   *string         `json:"container"`
 	HasPassword bool            `json:"has_password"`
 	Status      string          `json:"status"`
 	PublicKey   *string         `json:"public_key"`
@@ -48,6 +49,7 @@ var (
 	// reaches the server's shell (rsync) and smbclient's command string.
 	sourcePathRe = regexp.MustCompile(`^/[A-Za-z0-9._@+~ /-]{0,299}$`)
 	sourceShrRe  = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9 ._$-]{0,79}$`)
+	containerRe  = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9_.-]{0,127}$`)
 )
 
 func readerStatus(c store.SourceReader, now time.Time) string {
@@ -77,7 +79,7 @@ func (s *Server) sourceView(r *http.Request, app string) (sourceReaderView, erro
 		return sourceReaderView{}, err
 	}
 	v := sourceReaderView{Configured: c.Method != nil, Method: c.Method, Host: c.Host, Port: c.Port, Username: c.Username,
-		Path: c.Path, Share: c.Share, HasPassword: len(c.Password) > 0, Status: readerStatus(c, time.Now()),
+		Path: c.Path, Share: c.Share, Container: c.Container, HasPassword: len(c.Password) > 0, Status: readerStatus(c, time.Now()),
 		PublicKey: c.PublicKey, Version: c.Version, LastSeen: c.LastSeen}
 	last, err := s.Store.LatestSourceRead(r.Context(), app)
 	if err == nil {
@@ -102,13 +104,14 @@ func (s *Server) getSource(w http.ResponseWriter, r *http.Request, u *auth.User)
 }
 
 type sourceUpdate struct {
-	Method   string `json:"method"`
-	Host     string `json:"host"`
-	Port     int    `json:"port"`
-	Username string `json:"username"`
-	Path     string `json:"path"`
-	Share    string `json:"share"`
-	Password string `json:"password"`
+	Method    string `json:"method"`
+	Host      string `json:"host"`
+	Port      int    `json:"port"`
+	Username  string `json:"username"`
+	Path      string `json:"path"`
+	Share     string `json:"share"`
+	Password  string `json:"password"`
+	Container string `json:"container"`
 }
 
 // check normalises the update; a message when it is not acceptable.
@@ -124,6 +127,10 @@ func (in *sourceUpdate) check() string {
 	switch in.Method {
 	case "local":
 		in.Host, in.Port, in.Username, in.Share, in.Password = "", 0, "", "", ""
+		in.Container = strings.TrimSpace(in.Container)
+		if in.Container != "" && !containerRe.MatchString(in.Container) {
+			return "container: the name of the site's Docker container"
+		}
 		return ""
 	case "sftp":
 		in.Share, in.Password = "", ""
@@ -176,6 +183,9 @@ func (s *Server) putSource(w http.ResponseWriter, r *http.Request, u *auth.User)
 	}
 	if in.Method == "smb" {
 		c.Share = &in.Share
+	}
+	if in.Method == "local" && in.Container != "" {
+		c.Container = &in.Container
 	}
 	// The saved password serves the same smb host and account only: an
 	// empty one for another erases it.
@@ -231,23 +241,35 @@ func (s *Server) sourceToken(w http.ResponseWriter, r *http.Request, u *auth.Use
 		return
 	}
 	_ = s.Store.Record(r.Context(), &u.ID, &a.Tenant, "source.token", a.ID, nil)
-	writeJSON(w, http.StatusCreated, map[string]string{"token": tok, "install": s.sourceInstall(tok)})
+	c, _ := s.Store.SourceReaderOf(r.Context(), a.ID)
+	writeJSON(w, http.StatusCreated, map[string]string{"token": tok, "install": s.sourceInstall(tok, c)})
 }
 
 // sourceInstall is the command that starts the reader next to the
-// connector; the site's folder is mounted only for the local method.
-func (s *Server) sourceInstall(token string) string {
+// connector. With the local method it mounts the site, read only: the
+// volumes of its container, or its folder at the same path, so the folder
+// saved in the panel is the one the reader reads.
+func (s *Server) sourceInstall(token string, c store.SourceReader) string {
 	tag := strings.TrimPrefix(s.Version, "v")
 	if !releaseRe.MatchString(tag) {
 		tag = "latest"
 	}
-	return strings.Join([]string{
-		"docker run -d --name eq-source-reader --restart unless-stopped \\",
-		"  -e EQ_PANEL_URL=" + s.PanelURL + " \\",
-		"  -e EQ_SOURCE_TOKEN=" + token + " \\",
+	lines := []string{"docker run -d --name eq-source-reader --restart unless-stopped \\"}
+	if c.Method != nil && *c.Method == "local" {
+		switch {
+		case c.Container != nil:
+			lines = append(lines, "  --volumes-from "+*c.Container+":ro \\")
+		case c.Path != nil:
+			lines = append(lines, "  -v "+*c.Path+":"+*c.Path+":ro \\")
+		}
+		lines = append(lines, "  -e EQ_SOURCE_SITE=/ \\")
+	}
+	return strings.Join(append(lines,
+		"  -e EQ_PANEL_URL="+s.PanelURL+" \\",
+		"  -e EQ_SOURCE_TOKEN="+token+" \\",
 		"  -v eq-source-reader:/var/lib/equalizer-source \\",
-		"  ghcr.io/thevidocq/equalizer-source-reader:" + tag,
-	}, "\n")
+		"  ghcr.io/thevidocq/equalizer-source-reader:"+tag,
+	), "\n")
 }
 
 var releaseRe = regexp.MustCompile(`^\d+\.\d+\.\d+$`)

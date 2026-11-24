@@ -4,6 +4,7 @@ import { STILL_OPEN } from "@/features/maps";
 import { DraftNotice } from "./DraftNotice";
 import { VisitorRequests } from "./VisitorRequests";
 import { FromSource } from "./FromSource";
+import { mergeComponents } from "./components";
 import type { Discovery } from "../hooks/useDiscovery";
 
 type R = Record<string, any>; // eslint-disable-line @typescript-eslint/no-explicit-any
@@ -29,6 +30,7 @@ function List({ title, items, render }: { title: string; items?: R[]; render: (i
   );
 }
 
+const SKIP: Record<string, string> = { time_limit: "time limit reached", error: "failed", browser_failed: "the browser stopped" };
 const LOGIN: Record<string, string> = { ok: "logged in", failed: "login failed", no_login_form: "no login form found" };
 
 /** What a finished discovery found and proposes. */
@@ -43,7 +45,8 @@ export function Report({ d }: { d: Discovery }) {
     const doing = typeof p.doing === "string" ? p.doing : "";
     const path = typeof p.path === "string" ? p.path : "";
     return (
-      <div className="flex flex-col gap-1 text-sm text-ink-soft">
+      <div className="flex flex-col gap-2 text-sm text-ink-soft">
+        {d.use_ai === false ? <Notice tone="warning">Running without AI: no model is configured for your organisation (Settings → AI model).</Notice> : null}
         <Spinner label={d.status === "queued" ? (d.with_source ? "Waiting for the source reader (10 minutes at most)…" : "Waiting to start…") : `Running: ${pages} ${pages === 1 ? "page" : "pages"} so far…`} />
         {d.status === "running" && doing ? (
           <p className="truncate pl-6" aria-live="polite">
@@ -69,7 +72,7 @@ export function Report({ d }: { d: Discovery }) {
       ) : null}
       {ai.used === false && ai.error ? (
         <Notice tone="error">The AI was asked but not used, so the draft comes from the fixed rules only: {ai.error}.</Notice>
-      ) : ai.used === false ? <p className="text-sm text-ink-soft">Without AI{ai.reason ? `: ${ai.reason}` : ""}.</p> : null}
+      ) : ai.used === false ? <Notice tone="warning">Without AI{ai.reason ? `: ${ai.reason}` : ""}.</Notice> : null}
       {ai.notes?.length ? <List title="AI notes" items={ai.notes.map((n: string) => ({ n }))} render={(i) => i.n} /> : null}
       <List title="Routes added" items={r.routes_added} render={(i) => `${i.path}${i.logged_in_only ? "  (logged in)" : ""}`} />
       <List title="Forms added" items={r.forms_added} render={(i) => `${i.route}  ${i.fields.join(", ")}`} />
@@ -81,11 +84,14 @@ export function Report({ d }: { d: Discovery }) {
       ) : (
         <List title="Not opened by the agent (still served, by the site area)" items={r.excluded} render={(i) => `${i.path}  ${i.reason}`} />
       )}
+      <List title={`Skipped in the browser (limit ${r.browser?.page_seconds ?? "?"} s a page): their scripts were not studied`}
+        items={r.browser?.skipped} render={(i) => `${i.path}  ${SKIP[i.reason] ?? i.reason} after ${i.seconds} s${i.account && i.account !== "anonymous" ? ` (as ${i.account})` : ""}${i.detail ? ` (${i.detail})` : ""}`} />
       <FromSource source={r.source} />
       <VisitorRequests report={r} />
       <List title="Served by the site area, without typed checks" items={r.open ? [] : r.not_supported} render={(i) => `${i.path}  ${i.reason}`} />
       <List title="In the map, not seen any more" items={(r.not_seen_anymore ?? []).map((p: string) => ({ p }))} render={(i) => i.p} />
-      <List title="Components" items={r.components} render={(i) => `${i.name}${i.version ? " " + i.version : ""}`} />
+      <List title="Components" items={mergeComponents(r.components, r.source?.components)}
+        render={(i) => `${i.name}${i.version ? " " + i.version : ""}  (${i.seen})`} />
     </div>
   );
 }

@@ -83,6 +83,12 @@ func (l *Loki) Events(ctx context.Context, f Filter, before int64, limit int) ([
 		end = time.Unix(0, before)
 	}
 	start := l.now().Add(-span)
+	if f.From.After(start) {
+		start = f.From
+	}
+	if !f.To.IsZero() && f.To.Before(end) {
+		end = f.To
+	}
 	if !end.After(start) {
 		return []Event{}, "", nil
 	}

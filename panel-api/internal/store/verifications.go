@@ -27,6 +27,7 @@ type Verification struct {
 	Corrections      json.RawMessage `json:"corrections"`
 	Before           json.RawMessage `json:"before"`
 	Accounts         []string        `json:"accounts"`
+	Progress         json.RawMessage `json:"progress"`
 
 	AccountsSecret []byte `json:"-"` // only when claimed
 	Correct        bool   `json:"-"`
@@ -42,15 +43,15 @@ type VerifyOptions struct {
 }
 
 const verificationColumns = `v.id, v.app_id, v.version, v.status, u.email, v.created_at, v.finished_at,
-	v.score, v.broken, v.open, v.error, v.corrected_version, v.corrections, v.before, v.accounts, v.correct, v.author_id`
+	v.score, v.broken, v.open, v.error, v.corrected_version, v.corrections, v.before, v.accounts, v.correct, v.author_id, v.progress`
 
 func scanVerification(row interface{ Scan(...any) error }) (Verification, error) {
 	var v Verification
-	var score, before []byte
+	var score, before, progress []byte
 	err := row.Scan(&v.ID, &v.App, &v.Version, &v.Status, &v.RequestedBy, &v.CreatedAt, &v.FinishedAt,
 		&score, &v.Broken, &v.Open, &v.Error, &v.CorrectedVersion, &v.Corrections, &before, pq.Array(&v.Accounts),
-		&v.Correct, &v.AuthorID)
-	v.Score, v.Before = orNull(score), orNull(before)
+		&v.Correct, &v.AuthorID, &progress)
+	v.Score, v.Before, v.Progress = orNull(score), orNull(before), orNull(progress)
 	if v.Accounts == nil {
 		v.Accounts = []string{}
 	}
@@ -147,7 +148,7 @@ func (s *Store) FinishVerification(ctx context.Context, id int64, r Verification
 	}
 	res, err := s.DB.ExecContext(ctx, `
 		UPDATE map_verifications SET status = $2, score = $3, broken = $4, open = $5, error = $6, finished_at = now(),
-			corrected_version = $7, corrections = $8, before = $9, accounts_secret = NULL
+			corrected_version = $7, corrections = $8, before = $9, accounts_secret = NULL, progress = NULL
 		WHERE id = $1 AND status = 'running'`, id, status, nullJSON(r.Score), orEmpty(r.Broken), orEmpty(r.Open),
 		r.Failure, r.CorrectedVersion, orEmpty(r.Corrections), nullJSON(r.Before))
 	return affected(res, err)
@@ -259,4 +260,10 @@ func orEmpty(j json.RawMessage) []byte {
 		return []byte("[]")
 	}
 	return []byte(j)
+}
+
+// VerificationProgress records where a running verification is.
+func (s *Store) VerificationProgress(ctx context.Context, id int64, progress json.RawMessage) error {
+	res, err := s.DB.ExecContext(ctx, `UPDATE map_verifications SET progress = $2 WHERE id = $1 AND status = 'running'`, id, []byte(progress))
+	return affected(res, err)
 }

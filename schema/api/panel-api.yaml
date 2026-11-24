@@ -1468,6 +1468,19 @@ paths:
             application/json:
               schema: { type: object, additionalProperties: true }
         "422": { $ref: "#/components/responses/Error" }
+  /internal/verifications/{id}/progress:
+    post:
+      tags: [internal]
+      summary: Where a running verification is (VerificationProgress)
+      security: [{ serviceToken: [] }]
+      parameters: [{ $ref: "#/components/parameters/id" }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/VerificationProgress" }
+      responses:
+        "204": { description: Saved }
   /internal/verifications/{id}/result:
     post:
       tags: [internal]
@@ -1889,6 +1902,8 @@ paths:
         - { $ref: "#/components/parameters/logTypes" }
         - { $ref: "#/components/parameters/logSearch" }
         - { $ref: "#/components/parameters/logSince" }
+        - { $ref: "#/components/parameters/logFrom" }
+        - { $ref: "#/components/parameters/logTo" }
         - name: before
           in: query
           description: Cursor from next_cursor (older events)
@@ -1933,6 +1948,8 @@ paths:
         - { $ref: "#/components/parameters/logTypes" }
         - { $ref: "#/components/parameters/logSearch" }
         - { $ref: "#/components/parameters/logSince" }
+        - { $ref: "#/components/parameters/logFrom" }
+        - { $ref: "#/components/parameters/logTo" }
       responses:
         "200":
           description: CSV file
@@ -1993,6 +2010,16 @@ components:
       name: since
       in: query
       schema: { enum: [1h, 24h, 7d, 30d], default: 24h }
+    logFrom:
+      name: from
+      in: query
+      description: Only events at or after this moment, within the period (a bar of the refused chart)
+      schema: { type: string, format: date-time }
+    logTo:
+      name: to
+      in: query
+      description: Only events before this moment
+      schema: { type: string, format: date-time }
     app:
       name: app
       in: path
@@ -2036,10 +2063,12 @@ components:
   schemas:
     ScannerConfig:
       type: object
-      required: [endpoint, has_api_key]
+      required: [endpoint, has_api_key, status]
       properties:
         endpoint: { type: [string, "null"], description: "https base URL of the scanner's API" }
         has_api_key: { type: boolean }
+        status: { enum: [not_connected, connected, key_refused], description: "From the last real call to the scanner (saving, a scan, reading its results): key_refused when it answered 401 or 403" }
+        checked_at: { type: [string, "null"], format: date-time, description: "When that call was made" }
         key_hint: { type: [string, "null"], description: "Last 4 characters of the saved key" }
     ScannerConfigUpdate:
       type: object
@@ -2745,7 +2774,7 @@ components:
         kind: { enum: [path, input] }
         target: { type: string, description: "A path left to the area, or entry.field" }
         reason:
-          enum: [not_reached, legacy_error, action_not_performed, cannot_narrow, accepts_markup, accepts_sql, accepts_template, accepts_path, accepts_shell, other]
+          enum: [not_reached, legacy_error, action_not_performed, browser_skipped, cannot_narrow, accepts_markup, accepts_sql, accepts_template, accepts_path, accepts_shell, other]
         detail: { type: string }
     BrokenPage:
       type: object
@@ -2795,9 +2824,12 @@ components:
               origin: { enum: [rest_route, wp_ajax, wp_ajax_nopriv, admin_post, php_file] }
               action: { type: [string, "null"] }
               public: { type: boolean, description: "Answers without a login" }
+              where: { type: string, description: "file:line" }
           description: >-
             Entry points in the code the exploration never opened: the site area serves them as they are, the
             map does not narrow them yet
+        unseen_total: { type: integer, description: "All of them, when the list holds only the first 200" }
+        risks_total: { type: integer, description: "All of them, when the list holds only the first 100" }
         typed:
           type: array
           maxItems: 300
@@ -2837,6 +2869,7 @@ components:
       properties:
         version: { type: integer }
         status: { enum: [queued, running, done, failed] }
+        progress: { anyOf: [{ $ref: "#/components/schemas/VerificationProgress" }, { type: "null" }], description: "While running" }
         requested_by: { type: [string, "null"] }
         created_at: { type: string, format: date-time }
         finished_at: { type: [string, "null"], format: date-time }
@@ -2848,6 +2881,14 @@ components:
         corrections: { type: array, items: { $ref: "#/components/schemas/Correction" } }
         before: { anyOf: [{ $ref: "#/components/schemas/StudyScore" }, { type: "null" }], description: "Score of this version before the agent's corrections" }
         accounts: { type: array, items: { type: string }, description: "Test accounts the pages behind a login were verified with" }
+    VerificationProgress:
+      type: object
+      required: [step, done, total]
+      properties:
+        step: { enum: [pages, attacks, files, correcting], description: "pages: compared with and without Equalizer; attacks: tried on each input; files: the files pages load; correcting: a corrected version checked again" }
+        done: { type: integer, minimum: 0 }
+        total: { type: integer, minimum: 0 }
+        account: { type: [string, "null"], description: "The test account whose pages are checked; null: anonymous" }
     Correction:
       type: object
       required: [entry, change, reason]
@@ -2928,6 +2969,7 @@ components:
         username: { type: [string, "null"] }
         path: { type: [string, "null"], description: "The site's folder: on the host (sftp), in the share (smb), or mounted in the reader (local)" }
         share: { type: [string, "null"], description: "smb: the share" }
+        container: { type: [string, "null"], description: "local: the site's Docker container, whose volumes the reader takes" }
         has_password: { type: boolean }
         status: { type: string, enum: [not_set_up, not_installed, waiting, ready], description: "not_set_up: no method; not_installed: no token or never heard; waiting: not heard for 2 minutes; ready: answering" }
         public_key: { type: [string, "null"], description: "sftp: the reader's own key, to add to the read-only user's authorized_keys" }
@@ -2945,12 +2987,13 @@ components:
         path: { type: string, maxLength: 300 }
         share: { type: string, maxLength: 80 }
         password: { type: string, writeOnly: true, maxLength: 200, description: "smb only; empty keeps the saved one" }
+        container: { type: string, maxLength: 128, description: "local only: the Docker container of the site; the reader then takes its volumes, read only. Empty: the folder of the host, mounted read only at the same path" }
     SourceToken:
       type: object
       required: [token, install]
       properties:
         token: { type: string }
-        install: { type: string, description: "The lines that start the reader next to the connector" }
+        install: { type: string, description: "The command that starts the reader next to the connector, with the site's folder or container mounted read only when the method is local" }
     SourceRead:
       type: object
       required: [id, status, created_at]

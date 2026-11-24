@@ -141,12 +141,13 @@ def apply(report: dict, doc: dict, job: dict, samples: dict, opened: set) -> Non
             out["typed"].append({"route": f.get("route", ""), "field": legacy, "type": t[0], "where": t[2]})
             _close(report, f["id"] + "." + m.group(1))
     out["typed"] = out["typed"][:300]
+    out["risks_total"] = len(summary.get("risks") or [])
     out["risks"] = [{"kind": r.get("kind"), "input": r.get("input"), "route": r.get("route"),
                      "where": "%s:%s" % ((r.get("where") or {}).get("file", "?"), (r.get("where") or {}).get("line", "?"))}
                     for r in (summary.get("risks") or [])][:100]
     out["components"] = [{"name": c.get("name"), "kind": c.get("kind"), "version": c.get("version")}
                          for c in (summary.get("components") or [])][:200]
-    out["unseen"] = _unseen(summary, opened)
+    out["unseen"], out["unseen_total"] = _unseen(summary, opened)
     report["source"] = out
 
 
@@ -158,8 +159,10 @@ def _unseen(summary: dict, opened: set) -> list:
         if key in seen or "{" not in p and p in opened and not r.get("action"):
             continue
         seen.add(key)
-        out.append({"path": p, "origin": r.get("origin"), "action": r.get("action"), "public": bool(r.get("public"))})
-    return out[:200]
+        w = r.get("where") or {}
+        out.append({"path": p, "origin": r.get("origin"), "action": r.get("action"), "public": bool(r.get("public")),
+                    "where": "%s:%s" % (w.get("file", "?"), w.get("line", "?"))})
+    return out[:200], len(out)
 
 
 def _close(report: dict, target: str) -> None:

@@ -83,9 +83,17 @@ func (s *Summary) file(rel, src string) {
 	s.sawPHP = true
 	if s.Stack == "wordpress" {
 		s.component(rel, src)
+	}
+	if library(s.Stack, rel) {
+		return // known code: only its version (version.php, composer.lock)
+	}
+	if s.Stack == "wordpress" {
 		s.wordpressFile(rel, src)
 	}
-	route := directRoute(s.Stack, rel, src)
+	route := ""
+	if acts(src) {
+		route = directRoute(s.Stack, rel, src)
+	}
 	if route != "" && len(s.Routes) < maxRoutes {
 		s.Routes = append(s.Routes, Route{Path: route, Methods: []string{"GET", "POST"}, Origin: "php_file", Public: true,
 			Where: Where{File: rel, Line: 1}})

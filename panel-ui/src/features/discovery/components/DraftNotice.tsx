@@ -1,6 +1,6 @@
 import { Link } from "react-router";
 import { Notice, Spinner } from "@/shared/ui";
-import { VerificationPanel, useMapVersion, useVerification } from "@/features/maps";
+import { VerificationPanel, progressText, useMapVersion, useVerification } from "@/features/maps";
 
 /**
  * The one draft a discovery proposes: the agent verifies it on the gateway
@@ -16,7 +16,7 @@ export function DraftNotice({ app, draft }: { app: string; draft: number }) {
   if (checking && !v.isError) {
     return (
       <Notice tone="info">
-        <Spinner label={`The agent is checking its draft on the gateway and correcting it. The draft to review will appear here.`} />
+        <Spinner label={`The agent is checking its draft on the gateway and correcting it${v.data?.progress ? `: ${progressText(v.data.progress)}` : ""}. The draft to review will appear here.`} />
       </Notice>
     );
   }

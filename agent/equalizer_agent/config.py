@@ -29,6 +29,7 @@ class Config:
     instance: str = ""
     browser: str = "off"  # from EQ_BROWSER: auto (when Playwright is installed, the default), on, off
     browser_path: str = ""  # a Chromium to use instead of Playwright's own
+    browser_page_seconds: int = 20  # EQ_BROWSER_PAGE_SECONDS: one page in the browser at most, then skipped
     gateway_url: str = "http://gateway:9090"  # the gateway's admin endpoint, for verifications
 
 
@@ -46,6 +47,7 @@ def from_env() -> Config:
         instance=os.environ.get("HOSTNAME", "agent"),
         browser=os.environ.get("EQ_BROWSER", "auto").strip().lower(),
         browser_path=os.environ.get("EQ_BROWSER_PATH", "").strip(),
+        browser_page_seconds=min(120, max(5, int(os.environ.get("EQ_BROWSER_PAGE_SECONDS", "20") or 20))),
         gateway_url=os.environ.get("EQ_GATEWAY_ADMIN_URL", Config.gateway_url).rstrip("/"),
     )
     if len(c.panel_token) < 32:

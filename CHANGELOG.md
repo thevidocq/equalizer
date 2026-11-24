@@ -118,6 +118,9 @@ it, 0.1.0 (`docs/releases/0.1.0.md`, tag on the merge of #39).
   a day while the map is busy; the UI polls for it; the scan row is
   reserved before the scanner is asked; Harden knows the entry's list;
   retired versions are not linked.
+- **Also:** Settings → Security scanner says "Provided by" with CVE
+  Radar's icon (`panel-ui/public/brands/cve-radar.png`, cut from the logo
+  the provider gave the owner) and name, small, beside the title.
 - **Next steps:** response-header verdict and policy (CSP report-only,
   Permissions-Policy, dropping `X-Deployment-Id`), the scanner's source
   IPs.

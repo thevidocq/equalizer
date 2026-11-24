@@ -154,7 +154,8 @@ func (c *Client) GetTarget(ctx context.Context, id string) (Target, error) {
 	return out.Data, err
 }
 
-// StartScan starts a scan of a target.
+// StartScan starts a scan of a target: quick, standard or deep. A quick
+// scan runs while the request waits (5-20 s) and comes back ended.
 func (c *Client) StartScan(ctx context.Context, target, scanType string) (Scan, error) {
 	var out struct {
 		Data Scan `json:"data"`
@@ -296,10 +297,10 @@ func (c *Client) client() *http.Client {
 
 // public is the one client of every tenant's scanner: public addresses
 // only, no redirects, no proxy, idle connections closed.
-var public = &http.Client{Timeout: 30 * time.Second, Transport: &http.Transport{
+var public = &http.Client{Timeout: 45 * time.Second, Transport: &http.Transport{
 	DialContext:         (&net.Dialer{Timeout: 5 * time.Second, Control: publicOnly}).DialContext,
 	TLSHandshakeTimeout: 5 * time.Second, Proxy: nil,
-	MaxIdleConnsPerHost: 2, IdleConnTimeout: 30 * time.Second, ResponseHeaderTimeout: 20 * time.Second,
+	MaxIdleConnsPerHost: 2, IdleConnTimeout: 30 * time.Second, ResponseHeaderTimeout: 40 * time.Second, // a quick scan answers in 5-20 s
 }, CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }}
 
 // publicOnly refuses to connect to a private, loopback or reserved address:

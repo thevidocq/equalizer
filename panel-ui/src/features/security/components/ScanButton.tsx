@@ -10,7 +10,7 @@ import { useStartScan, type ScanStart } from "../hooks/useSecurity";
 export function ScanButton({ app, target, domain, disabled }: { app: string; target: ScanStart["target"]; domain: string; disabled: boolean }) {
   const start = useStartScan(app);
   const [open, setOpen] = useState(false);
-  const [type, setType] = useState<"standard" | "deep">("standard");
+  const [type, setType] = useState<ScanStart["scan_type"]>("standard");
   const [sure, setSure] = useState(false);
   const original = target === "original";
 
@@ -26,7 +26,8 @@ export function ScanButton({ app, target, domain, disabled }: { app: string; tar
           : `CVE Radar scans ${domain}, the site as visitors reach it through Equalizer: what it finds is what is left open.`}>
         <div className="flex flex-col gap-4">
           {start.isError ? <Notice tone="error">{describeError(start.error)}</Notice> : null}
-          <SelectField label="Kind of scan" value={type} onChange={(e) => setType(e.target.value as "standard" | "deep")}>
+          <SelectField label="Kind of scan" value={type} onChange={(e) => setType(e.target.value as ScanStart["scan_type"])}>
+            <option value="quick">Quick (seconds: headers, HTTPS, cookies, exposed files)</option>
             <option value="standard">Standard (a few minutes)</option>
             <option value="deep">Deep (longer, more requests)</option>
           </SelectField>

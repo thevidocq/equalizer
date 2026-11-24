@@ -56,6 +56,11 @@ func (siteSrc) Compare(_ context.Context, a, b int) (any, error) {
 	return map[string]any{"changes": []any{fmt.Sprintf("%d→%d", a, b)}}, nil
 }
 
+func (siteSrc) Security(context.Context) (any, error) {
+	return map[string]any{"targets": []any{map[string]any{"target": "protected", "findings": []any{
+		map[string]any{"title": "SQL error", "severity": "high", "evidence": "from 198.51.100.7", "map": map[string]any{"verdict": "free_text"}}}}}}, nil
+}
+
 func TestSiteTools(t *testing.T) {
 	var ans Answer
 	run := func(name, in string) string {
@@ -63,6 +68,7 @@ func TestSiteTools(t *testing.T) {
 	}
 	for name, want := range map[string]string{
 		"get_site": "online", "list_versions": "in_review", "get_check": `"version":0`, "read_guide": "Sections",
+		"get_security": "free_text",
 	} {
 		if out := run(name, `{}`); !strings.Contains(out, want) {
 			t.Fatalf("%s: %s", name, out)
@@ -70,6 +76,9 @@ func TestSiteTools(t *testing.T) {
 	}
 	if out := run("get_site", `{}`); strings.Contains(out, "203.0.113.5") || strings.Contains(out, "jane@") {
 		t.Fatalf("unmasked: %s", out)
+	}
+	if out := run("get_security", `{}`); strings.Contains(out, "198.51.100.7") {
+		t.Fatalf("evidence unmasked: %s", out)
 	}
 	if out := run("compare_versions", `{"from":5,"to":6}`); !strings.Contains(out, "5→6") {
 		t.Fatal(out)

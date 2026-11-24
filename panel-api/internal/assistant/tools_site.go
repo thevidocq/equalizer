@@ -15,6 +15,7 @@ type SiteSource interface {
 	Versions(ctx context.Context) (any, error) // every version, newest first, without documents
 	Verification(ctx context.Context, version int) (any, error)
 	Compare(ctx context.Context, from, to int) (any, error) // changes and findings, as the review aid
+	Security(ctx context.Context) (any, error)              // the Security tab: scans and their findings
 }
 
 func siteTools() []Tool {
@@ -28,6 +29,8 @@ func siteTools() []Tool {
 			Schema: obj(map[string]any{"version": num("a map version; omit for the published one")})},
 		{Name: "compare_versions", Description: "What changed between two map versions and what it risks (the review aid's comparison): entries added, removed or widened, findings by severity.",
 			Schema: obj(map[string]any{"from": num("the older version"), "to": num("the newer version")}, "from", "to")},
+		{Name: "get_security", Description: "The site's security scans (the Security tab, by the tenant's vulnerability scanner CVE Radar), through Equalizer and of the original site: each target's latest scan (status, risk score, the map draft built from it and what it hardens) and its open findings (the 20 most severe of each target, without evidence), each with what the published map does with its address (refused, precise, free_text, area, asset, server) and the draft change that hardens it, if any.",
+			Schema: obj(map[string]any{})},
 		{Name: "read_guide", Description: "The Equalizer guide for tenants: how to do something in the panel, what a page or a setting means. Query with a few English words (e.g. 'publish draft', 'test accounts', 'certificate upload'); empty for the list of sections.",
 			Schema: obj(map[string]any{"query": map[string]any{"type": "string"}})},
 	}
@@ -47,7 +50,7 @@ func execSite(ctx context.Context, src Source, m *Masker, c Call, in map[string]
 	case "read_guide":
 		q, _ := in["query"].(string)
 		return Guide(q), true
-	case "get_site", "list_versions", "get_check", "compare_versions":
+	case "get_site", "list_versions", "get_check", "compare_versions", "get_security":
 		if ss == nil {
 			return "error: not available here", true
 		}
@@ -61,6 +64,8 @@ func execSite(ctx context.Context, src Source, m *Masker, c Call, in map[string]
 		return show(ss.Versions(ctx)), true
 	case "get_check":
 		return show(ss.Verification(ctx, intOf(in["version"], 0))), true
+	case "get_security":
+		return show(ss.Security(ctx)), true
 	default:
 		from, to := intOf(in["from"], 0), intOf(in["to"], 0)
 		if from <= 0 || to <= 0 || from == to {

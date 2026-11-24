@@ -141,7 +141,10 @@ func run() error {
 		log.Warn("EQ_LOKI_URL not set: the Logs page is not available")
 	}
 	go scheduleDiscoveries(ctx, srv, log.With(slog.String("module", "discovery")))
-	go (&securityscan.Runner{Store: st, Clients: srv.ScannerFor, Log: log.With(slog.String("module", "security"))}).Run(ctx)
+	scans := &securityscan.Runner{Store: st, Clients: srv.ScannerFor, AfterComplete: srv.HardenAfterScan,
+		Log: log.With(slog.String("module", "security"))}
+	srv.FollowScan = scans.Follow
+	go scans.Run(ctx)
 	srv.MailAvailable = cfg.MailMode != "off"
 	if srv.MailAvailable {
 		go (&alerts.Runner{Store: st, Statuses: srv.SiteStatuses, Mail: sender, PanelURL: cfg.PanelURL,

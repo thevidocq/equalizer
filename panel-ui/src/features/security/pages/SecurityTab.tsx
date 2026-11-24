@@ -20,6 +20,7 @@ export function SecurityTab() {
   if (!sec.data) return null;
   const { configured, targets } = sec.data;
   const scanned = targets.filter((t) => t.findings.length > 0 || t.scan?.status === "completed");
+  const mapBase = `/t/${tenant}/sites/${app}/maps`;
   return (
     <div className="flex max-w-5xl flex-col gap-6">
       {!configured ? (
@@ -29,14 +30,14 @@ export function SecurityTab() {
         </EmptyState>
       ) : null}
       <div className="grid gap-4 md:grid-cols-2">
-        {targets.map((t) => <TargetCard key={t.target} app={app} t={t} canScan={isAdmin} configured={configured} />)}
+        {targets.map((t) => <TargetCard key={t.target} app={app} t={t} canScan={isAdmin} configured={configured} mapBase={mapBase} />)}
       </div>
       {scanned.map((t) => (
         <section key={t.target} className="flex flex-col gap-2">
           <h2 className="text-base font-semibold">
             {t.target === "protected" ? "Found through Equalizer" : "Found on the original site"} ({t.findings.length})
           </h2>
-          {t.findings.length ? <FindingsTable findings={t.findings} target={t.target} caption={`Findings of ${t.domain ?? t.target}`} />
+          {t.findings.length ? <FindingsTable findings={t.findings} target={t.target} mapBase={mapBase} caption={`Findings of ${t.domain ?? t.target}`} />
             : <p className="text-sm text-ink-soft">Nothing open: the last scan found nothing.</p>}
         </section>
       ))}

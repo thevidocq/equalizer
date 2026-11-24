@@ -22,6 +22,16 @@ const (
 	kAsset
 )
 
+func (k kind) list() string {
+	switch k {
+	case kForm:
+		return "forms"
+	case kAPI:
+		return "api"
+	}
+	return "routes"
+}
+
 type candidate struct {
 	e    *entry
 	kind kind

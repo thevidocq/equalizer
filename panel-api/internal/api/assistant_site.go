@@ -94,3 +94,24 @@ func (src *siteSource) Compare(ctx context.Context, from, to int) (any, error) {
 	raw, _ := json.Marshal(r)
 	return json.RawMessage(raw), nil
 }
+
+// Security is the Security tab of the site, its findings cut to the 20 most
+// severe of each target, without their evidence: it may hold cookies,
+// tokens or file contents, which do not go to the AI provider, and the
+// title, address, input and weakness say what the finding is.
+func (src *siteSource) Security(ctx context.Context) (any, error) {
+	ov, err := src.s.securityOverview(ctx, src.a)
+	if err != nil {
+		return nil, errors.New("the security scans could not be read")
+	}
+	for i := range ov.Targets {
+		t := &ov.Targets[i]
+		if len(t.Findings) > 20 {
+			t.Findings = t.Findings[:20]
+		}
+		for j := range t.Findings {
+			t.Findings[j].Evidence = nil
+		}
+	}
+	return ov, nil
+}

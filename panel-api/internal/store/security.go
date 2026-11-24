@@ -64,8 +64,11 @@ type SecurityScan struct {
 	RiskScore     *int       `json:"risk_score"`
 	Error         *string    `json:"error"`
 	RequestedBy   *string    `json:"requested_by"`
+	RequestedByID *int64     `json:"-"`
 	CreatedAt     time.Time  `json:"created_at"`
 	CompletedAt   *time.Time `json:"completed_at"`
+	DraftVersion  *int       `json:"draft_version"`
+	DraftNote     *string    `json:"draft_note"`
 }
 
 // SecurityFinding is a finding of a scan, as the scanner gave it.
@@ -85,25 +88,47 @@ type SecurityFinding struct {
 }
 
 const scanColumns = `sc.id, sc.app_id, a.tenant_id, sc.target, sc.domain, sc.scan_type, sc.status, sc.remote_target,
-	sc.remote_scan, sc.findings_count, sc.risk_score, sc.error, u.email, sc.created_at, sc.completed_at`
+	sc.remote_scan, sc.findings_count, sc.risk_score, sc.error, u.email, sc.requested_by, sc.created_at, sc.completed_at,
+	sc.draft_version, sc.draft_note`
 
 func scanScan(row interface{ Scan(...any) error }) (SecurityScan, error) {
 	var c SecurityScan
 	err := row.Scan(&c.ID, &c.App, &c.Tenant, &c.Target, &c.Domain, &c.ScanType, &c.Status, &c.RemoteTarget,
-		&c.RemoteScan, &c.FindingsCount, &c.RiskScore, &c.Error, &c.RequestedBy, &c.CreatedAt, &c.CompletedAt)
+		&c.RemoteScan, &c.FindingsCount, &c.RiskScore, &c.Error, &c.RequestedBy, &c.RequestedByID, &c.CreatedAt, &c.CompletedAt,
+		&c.DraftVersion, &c.DraftNote)
 	return c, err
 }
 
-// AddSecurityScan records a scan the scanner accepted.
-func (s *Store) AddSecurityScan(ctx context.Context, c SecurityScan, by int64) (SecurityScan, error) {
+// ReserveSecurityScan records a scan about to be started, before the
+// scanner is asked: one scan going on per target of a site (ErrConflict),
+// even while a quick scan runs. The runner leaves it alone until
+// SetSecurityScanRemote; DropSecurityScan undoes it when the scanner refuses.
+func (s *Store) ReserveSecurityScan(ctx context.Context, c SecurityScan, by int64) (int64, error) {
 	var id int64
 	err := s.DB.QueryRowContext(ctx, `
 		INSERT INTO security_scans (app_id, target, domain, scan_type, status, remote_target, remote_scan, requested_by)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING id`,
-		c.App, c.Target, c.Domain, c.ScanType, c.Status, c.RemoteTarget, c.RemoteScan, by).Scan(&id)
-	if err != nil {
-		return c, translate(err) // ErrConflict: a scan of this target is going on
+		VALUES ($1, $2, $3, $4, 'pending', '', '', $5) RETURNING id`,
+		c.App, c.Target, c.Domain, c.ScanType, by).Scan(&id)
+	return id, translate(err)
+}
+
+// SetSecurityScanRemote records the scanner's ids of a reserved scan.
+func (s *Store) SetSecurityScanRemote(ctx context.Context, id int64, target, scan, status string) (SecurityScan, error) {
+	if _, err := s.DB.ExecContext(ctx, `UPDATE security_scans SET remote_target = $2, remote_scan = $3, status = $4 WHERE id = $1`,
+		id, target, scan, status); err != nil {
+		return SecurityScan{}, err
 	}
+	return s.securityScan(ctx, id)
+}
+
+// DropSecurityScan deletes a reserved scan the scanner did not start.
+func (s *Store) DropSecurityScan(ctx context.Context, id int64) error {
+	_, err := s.DB.ExecContext(ctx, `DELETE FROM security_scans WHERE id = $1 AND remote_scan = ''`, id)
+	return err
+}
+
+// SecurityScanByID reads one scan.
+func (s *Store) SecurityScanByID(ctx context.Context, id int64) (SecurityScan, error) {
 	return s.securityScan(ctx, id)
 }
 
@@ -140,14 +165,6 @@ func (s *Store) LatestSecurityScans(ctx context.Context, app string) ([]Security
 	return out, rows.Err()
 }
 
-// ActiveSecurityScan reports whether a target of a site has a scan going on.
-func (s *Store) ActiveSecurityScan(ctx context.Context, app, target string) (bool, error) {
-	var n int
-	err := s.DB.QueryRowContext(ctx, `SELECT count(*) FROM security_scans
-		WHERE app_id = $1 AND target = $2 AND status IN ('pending', 'running')`, app, target).Scan(&n)
-	return n > 0, err
-}
-
 // ClaimSecurityScans returns the scans going on that were not polled for a
 // minute, marking them polled, so that two panel replicas do not poll the
 // same scan at once.
@@ -155,7 +172,8 @@ func (s *Store) ClaimSecurityScans(ctx context.Context, limit int) ([]SecuritySc
 	rows, err := s.DB.QueryContext(ctx, `
 		WITH due AS (
 			SELECT id FROM security_scans
-			WHERE status IN ('pending', 'running') AND (polled_at IS NULL OR polled_at < now() - interval '50 seconds')
+			WHERE status IN ('pending', 'running') AND remote_scan <> ''
+			AND (polled_at IS NULL OR polled_at < now() - interval '50 seconds')
 			ORDER BY id LIMIT $1 FOR UPDATE SKIP LOCKED)
 		UPDATE security_scans sc SET polled_at = now() FROM due WHERE sc.id = due.id RETURNING sc.id`, limit)
 	if err != nil {
@@ -201,35 +219,37 @@ func (s *Store) FailSecurityScan(ctx context.Context, id int64, reason string) e
 }
 
 // CompleteSecurityScan ends a scan with its findings, in one transaction.
-// note says what to know about a scan that completed (findings cut).
-func (s *Store) CompleteSecurityScan(ctx context.Context, id int64, risk *int, findings []SecurityFinding, note *string) error {
+// note says what to know about a scan that completed (findings cut). done
+// is false when the scan had ended already (another replica, a quick scan
+// followed twice): then nothing is written.
+func (s *Store) CompleteSecurityScan(ctx context.Context, id int64, risk *int, findings []SecurityFinding, note *string) (done bool, err error) {
 	tx, err := s.DB.BeginTx(ctx, nil)
 	if err != nil {
-		return err
+		return false, err
 	}
 	defer tx.Rollback()
 	res, err := tx.ExecContext(ctx, `UPDATE security_scans SET status = 'completed', findings_count = $2, risk_score = $3,
 		error = $4, completed_at = now() WHERE id = $1 AND status IN ('pending', 'running')`, id, len(findings), risk, note)
 	if err != nil {
-		return err
+		return false, err
 	}
 	if n, _ := res.RowsAffected(); n == 0 {
-		return nil // another replica completed it
+		return false, nil
 	}
 	stmt, err := tx.PrepareContext(ctx, `INSERT INTO security_findings (scan_id, remote_id, source, title, severity, cvss,
 		cve, cwe, url, http_method, parameter, evidence, first_seen_at, last_seen_at)
 		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14) ON CONFLICT DO NOTHING`)
 	if err != nil {
-		return err
+		return false, err
 	}
 	defer stmt.Close()
 	for _, f := range findings {
 		if _, err := stmt.ExecContext(ctx, id, f.RemoteID, f.Source, f.Title, f.Severity, f.CVSS, pq.Array(f.CVE),
 			pq.Array(f.CWE), f.URL, f.HTTPMethod, f.Parameter, f.Evidence, f.FirstSeenAt, f.LastSeenAt); err != nil {
-			return err
+			return false, err
 		}
 	}
-	return tx.Commit()
+	return true, tx.Commit()
 }
 
 // SecurityFindings returns the findings of a scan, the most severe first.

@@ -31,7 +31,14 @@ function Form({ tenant, endpoint: saved, hasKey, hint }: { tenant: string; endpo
   return (
     <form onSubmit={submit} className="flex max-w-xl flex-col gap-4">
       <div>
-        <h2 className="text-base font-semibold">Security scanner</h2>
+        <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
+          <h2 className="text-base font-semibold">Security scanner</h2>
+          <span className="inline-flex items-center gap-1 text-xs text-ink-soft">
+            Provided by
+            <img src="/brands/cve-radar.png" alt="" width={14} height={14} className="self-center" />
+            <span className="font-medium text-ink">CVE Radar</span>
+          </span>
+        </div>
         <p className="text-sm text-ink-soft">
           Your CVE Radar account, to scan each site from its Security tab and read what is found against its map. Create
           the key in CVE Radar (API section) with the read, scan and write permissions. The panel tries the address and the

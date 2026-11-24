@@ -23,6 +23,7 @@ type Verdict struct {
 	Verdict   string  `json:"verdict"`
 	Entry     *string `json:"entry"`
 	FieldType *string `json:"field_type"`
+	list      string  // the document's list of the entry: routes, forms or api
 }
 
 type field struct {
@@ -157,7 +158,7 @@ func (m *Map) input(c candidate, parameter string) Verdict {
 		if t == "" {
 			t = "string"
 		}
-		v := Verdict{Verdict: Precise, Entry: &id, FieldType: &t}
+		v := Verdict{Verdict: Precise, Entry: &id, FieldType: &t, list: c.kind.list()}
 		if m.free(f) {
 			v.Verdict = FreeText
 		}

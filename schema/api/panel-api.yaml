@@ -1143,8 +1143,10 @@ paths:
       tags: [security]
       summary: >-
         Start a scan (tenant administrators): the scanner's target for the domain is created when missing; the
-        panel follows the scan and reads its findings when it ends. The original site is scanned without
-        Equalizer in front: confirm must be true (recorded in Activity); it needs a site reached directly whose
+        panel follows the scan and reads its findings when it ends. Then it builds one map draft with the
+        changes that harden what the map can (text rules on free-text inputs), on the latest draft or
+        the published map, and has the agent check it; the draft is reviewed and published in the Map tab.
+        The original site is scanned without Equalizer in front: confirm must be true (recorded in Activity); it needs a site reached directly whose
         name leads to public addresses only. 409 no_scanner, scan_in_progress or no_target; 424 scanner_failed
         when the scanner refuses; 429 when its limits are reached
       parameters: [{ $ref: "#/components/parameters/app" }]
@@ -1937,7 +1939,7 @@ components:
       required: [target]
       properties:
         target: { type: string, enum: [protected, original], description: "protected: the public domain, through Equalizer; original: the legacy site, without Equalizer" }
-        scan_type: { type: string, enum: [standard, deep], default: standard }
+        scan_type: { type: string, enum: [quick, standard, deep], default: standard, description: "quick: seconds (headers, HTTPS, cookies, email DNS, technologies, exposed files); standard: a few minutes; deep: longer" }
         confirm: { type: boolean, description: "Required true for the original site: it is yours, or its owner allowed the scan in writing" }
     SecurityScan:
       type: object
@@ -1946,7 +1948,7 @@ components:
         id: { type: integer }
         target: { type: string, enum: [protected, original] }
         domain: { type: string }
-        scan_type: { type: string, enum: [standard, deep] }
+        scan_type: { type: string, enum: [quick, standard, deep] }
         status: { type: string, enum: [pending, running, completed, failed] }
         findings_count: { type: [integer, "null"] }
         risk_score: { type: [integer, "null"], minimum: 0, maximum: 100, description: "The scanner's score of the target after the scan" }
@@ -1954,6 +1956,15 @@ components:
         requested_by: { type: [string, "null"] }
         created_at: { type: string, format: date-time }
         completed_at: { type: [string, "null"], format: date-time }
+        draft_version: { type: [integer, "null"], description: "The map draft the panel built from this scan's findings, reviewed and published in the Map tab" }
+        draft_note: { type: [string, "null"], description: "What that draft hardens, or why none was built (it may point to a version already waiting that hardens them)" }
+    SecurityFix:
+      type: object
+      required: [version, change]
+      description: The change of a map draft that hardens a finding's input (a text rule narrows it, it does not prove the attack impossible)
+      properties:
+        version: { type: integer }
+        change: { type: string }
     SecurityFinding:
       type: object
       required: [id, source, title, severity, cve, cwe, map]
@@ -1972,6 +1983,7 @@ components:
         first_seen_at: { type: [string, "null"], format: date-time }
         last_seen_at: { type: [string, "null"], format: date-time }
         map: { $ref: "#/components/schemas/SecurityMapVerdict" }
+        fix: { oneOf: [{ $ref: "#/components/schemas/SecurityFix" }, { type: "null" }], description: "The draft change that hardens it, when the panel built one" }
     SecurityMapVerdict:
       type: object
       required: [verdict]

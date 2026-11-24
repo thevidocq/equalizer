@@ -19,7 +19,8 @@ Add a section at the top of "Entries" for every commit:
 
 ## Current project status
 
-Latest release: **0.2.27** (`docs/releases/0.2.27.md`); before it 0.2.26
+Latest release: **0.2.28** (`docs/releases/0.2.28.md`); before it 0.2.27
+(`docs/releases/0.2.27.md`), 0.2.26
 (`docs/releases/0.2.26.md`), 0.2.25
 (`docs/releases/0.2.25.md`), 0.2.24
 (`docs/releases/0.2.24.md`), 0.2.23
@@ -59,6 +60,70 @@ it, 0.1.0 (`docs/releases/0.1.0.md`, tag on the merge of #39).
 | tools (eqtool) | Map signing keys, form key, relay token, connector registration, map signing |
 
 ## Entries
+
+### 2026-11-24 — Draft after a scan; the assistant reads scans; quick scans; 0.2.28
+
+- **Branch:** feat/security-drafts-assistant
+- **What:**
+  - Contract: `SecurityScan.draft_version`/`draft_note`, `SecurityFix`,
+    `SecurityFinding.fix`; `POST /apps/{app}/security/scans` says what
+    happens after the scan. `schema.d.ts` regenerated.
+  - panel-api: migration `0029_security_drafts.sql` (`security_scans`
+    draft columns, `security_fixes`); `securityscan.Harden` (text rule by
+    CWE or title on free-text inputs a finding names: `no_html`,
+    `no_sql_meta`, `no_template_meta`); `api/security_draft.go`
+    (`HardenAfterScan`, called by the runner when a scan's findings are
+    saved: one draft under the site's lock, on the newest draft, which it
+    supersedes, or the published map, as the assistant's drafts; in the
+    name of the scan's author while a tenant administrator; validated,
+    checked by a gateway, queued for verification; recorded as
+    `security.draft`); `securityOverview` shared by the Security tab and
+    the assistant.
+  - Assistant: tool `get_security` (60 findings per target, evidence cut,
+    masked); the prompt says how to read a finding and its verdict and
+    lets it name the CVEs the scanner found.
+  - panel-ui: the Security card links the draft (Map tab) or says why
+    none; each finding it closes says "Closed in draft N"; Activity
+    sentence for `security.draft`.
+  - Tests: `harden_test.go`, `api/security_test.go` (scan → draft 2 with
+    the rule, queued for its check, fix on the finding),
+    `tools_site_test.go`, `describe.test.ts`.
+  - Docs: `docs/manual/tenant.md` (the draft that closes what it can,
+    what the assistant reads and can be asked) and the in-app help,
+    `docs/architecture.md`, `docs/releases/0.2.28.md`.
+- **Why:** the owner asked that Equalizer close by itself what a scan
+  finds (the draft reviewed and published in the Map tab, in one place,
+  not in the Security tab) and that the assistant know the findings.
+- **Status:** panel-api tests pass; panel-ui tsc/vitest in CI; efficacy
+  study rerun.
+  - Quick scans (CVE Radar published `scan_type: quick`, synchronous,
+    5-20 s): contract enums, the migration's scan type check, the client's
+    timeouts (40 s for the answer), `Server.FollowScan` (`Runner.Follow`)
+    reads an ended scan at once; `CompleteSecurityScan` reports whether it
+    ended the scan, so only that poll builds the draft (no second draft
+    when a quick scan is followed and polled at once, or by two replicas).
+- **Review:** an independent review found: a later scan (a quick one)
+  lost the earlier draft's link and said nothing could be hardened; "closed"
+  overstated text rules (CWE-94 code injection, "sqli" matching SQLite);
+  `get_security` cut at 16 000 bytes and sending evidence (cookies,
+  tokens) to the AI provider; the draft step sharing the poll's deadline,
+  never retried, and the UI not waiting for it; a 5-20 s window for a
+  second quick scan; one draft when both targets end together; a second
+  finding on the same input not marked; ids repeated across lists; links
+  to retired versions; docs. All fixed: the waiting version that already
+  hardens them is pointed at; "hardened" everywhere, code injection has
+  no rule, title words matched as words; 20 findings per target without
+  evidence; the draft is claimed on the scan row, built with its own
+  deadline after `scan_completed` is recorded, retried every 5 minutes for
+  a day while the map is busy; the UI polls for it; the scan row is
+  reserved before the scanner is asked; Harden knows the entry's list;
+  retired versions are not linked.
+- **Also:** Settings → Security scanner says "Provided by" with CVE
+  Radar's icon (`panel-ui/public/brands/cve-radar.png`, cut from the logo
+  the provider gave the owner) and name, small, beside the title.
+- **Next steps:** response-header verdict and policy (CSP report-only,
+  Permissions-Policy, dropping `X-Deployment-Id`), the scanner's source
+  IPs.
 
 ### 2026-11-24 — Security scans with CVE Radar; 0.2.27
 

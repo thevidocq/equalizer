@@ -68,6 +68,9 @@ type Server struct {
 	AssistantModel func(assistant.Config) (assistant.Model, error)
 	// ScannerHTTP replaces the public-only client of the vulnerability scanner (tests); nil: public only.
 	ScannerHTTP *http.Client
+	// FollowScan reads at once a scan the scanner already ended (a quick
+	// one); nil: the runner does it within a minute.
+	FollowScan func(ctx context.Context, scan store.SecurityScan)
 }
 
 type userKey struct{}

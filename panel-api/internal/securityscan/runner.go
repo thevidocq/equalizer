@@ -18,8 +18,9 @@ type Store interface {
 	ClaimSecurityScans(ctx context.Context, limit int) ([]store.SecurityScan, error)
 	SetSecurityScanStatus(ctx context.Context, id int64, status string) error
 	FailSecurityScan(ctx context.Context, id int64, reason string) error
-	CompleteSecurityScan(ctx context.Context, id int64, risk *int, findings []store.SecurityFinding, note *string) error
+	CompleteSecurityScan(ctx context.Context, id int64, risk *int, findings []store.SecurityFinding, note *string) (bool, error)
 	Record(ctx context.Context, userID *int64, tenant *string, action, target string, detail map[string]any) error
+	PendingSecurityDrafts(ctx context.Context, limit int) ([]int64, error)
 }
 
 // Clients opens a tenant's scanner; store.ErrNotFound when it has none.
@@ -32,6 +33,9 @@ type Runner struct {
 	Clients Clients
 	Log     *slog.Logger
 	GiveUp  time.Duration // a scan without an end after this fails; 0: 2 hours
+	// AfterComplete runs once a scan's findings are saved (the map draft
+	// that closes them); nil: nothing.
+	AfterComplete func(ctx context.Context, scan int64)
 }
 
 const (
@@ -54,8 +58,10 @@ func (r *Runner) Run(ctx context.Context) {
 	}
 }
 
-// Once polls the scans that are due.
+// Once polls the scans that are due, then builds the drafts still to build
+// (the map was busy, or a replica stopped while building one).
 func (r *Runner) Once(ctx context.Context) {
+	defer r.retryDrafts(ctx)
 	scans, err := r.Store.ClaimSecurityScans(ctx, perRound)
 	if err != nil {
 		r.Log.Error("security scans: listing", slog.String("error", err.Error()))
@@ -77,6 +83,14 @@ func (r *Runner) Once(ctx context.Context) {
 		}(sc)
 	}
 	wg.Wait()
+}
+
+// Follow polls one scan now, with the same deadline as a round (a quick
+// scan the scanner already ended).
+func (r *Runner) Follow(ctx context.Context, sc store.SecurityScan) {
+	ctx, cancel := context.WithTimeout(ctx, pollTimeout)
+	defer cancel()
+	r.Poll(ctx, sc)
 }
 
 // Poll reads one scan's status and records what changed.
@@ -153,15 +167,44 @@ func (r *Runner) complete(ctx context.Context, c *cveradar.Client, sc store.Secu
 	for _, v := range vulns {
 		findings = append(findings, Finding(v))
 	}
-	if err := r.Store.CompleteSecurityScan(ctx, sc.ID, risk, findings, note); err != nil {
+	done, err := r.Store.CompleteSecurityScan(ctx, sc.ID, risk, findings, note)
+	if err != nil {
 		return err
+	}
+	if !done {
+		return nil // ended by another poll, which records it and builds the draft
 	}
 	tenant := sc.Tenant
 	_ = r.Store.Record(ctx, nil, &tenant, "security.scan_completed", sc.App,
 		map[string]any{"target": sc.Target, "domain": sc.Domain, "findings": len(findings)})
+	r.draft(ctx, sc.ID)
 	r.Log.Info("security scan completed", slog.Group("detail", slog.String("tenant", sc.Tenant), slog.String("app", sc.App),
 		slog.String("target", sc.Target), slog.Int("findings", len(findings))))
 	return nil
+}
+
+// draft builds the draft of a scan with a deadline of its own: reading
+// the findings may have used most of the poll's.
+func (r *Runner) draft(ctx context.Context, scan int64) {
+	if r.AfterComplete == nil {
+		return
+	}
+	dctx, cancel := context.WithTimeout(context.WithoutCancel(ctx), pollTimeout)
+	defer cancel()
+	r.AfterComplete(dctx, scan)
+}
+
+func (r *Runner) retryDrafts(ctx context.Context) {
+	if r.AfterComplete == nil || ctx.Err() != nil {
+		return
+	}
+	ids, err := r.Store.PendingSecurityDrafts(ctx, perRound)
+	if err != nil {
+		return
+	}
+	for _, id := range ids {
+		r.draft(ctx, id)
+	}
 }
 
 func (r *Runner) fail(ctx context.Context, sc store.SecurityScan, reason string) {

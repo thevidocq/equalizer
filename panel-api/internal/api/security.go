@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"net"
 	"net/http"
 	"net/url"
@@ -136,6 +137,19 @@ func (s *Server) securityOverview(ctx context.Context, a store.App) (securityOve
 	if err != nil {
 		return ov, err
 	}
+	// A draft replaced or set aside since is no longer the one to open.
+	gone := map[int]bool{}
+	if vs, err := s.Store.Versions(ctx, a.ID); err == nil {
+		for _, v := range vs {
+			gone[v.Version] = v.Status == "retired" || v.Status == "rejected"
+		}
+	}
+	for i := range scans {
+		if d := scans[i].DraftVersion; d != nil && gone[*d] {
+			note := fmt.Sprintf("Version %d, built after this scan, was replaced or set aside: see the Map tab", *d)
+			scans[i].DraftVersion, scans[i].DraftNote = nil, &note
+		}
+	}
 	for _, name := range []string{"protected", "original"} {
 		v := targetView{Target: name, Findings: []findingView{}}
 		if d, ok := targets.domains[name]; ok {
@@ -171,7 +185,7 @@ func (s *Server) securityOverview(ctx context.Context, a store.App) (securityOve
 					Severity: f.Severity, CVSS: f.CVSS, CVE: nonNil(f.CVE), CWE: nonNil(f.CWE), URL: f.URL,
 					HTTPMethod: f.HTTPMethod, Parameter: f.Parameter, Evidence: f.Evidence, FirstSeenAt: f.FirstSeenAt,
 					LastSeenAt: f.LastSeenAt, Map: targets.m.Judge(deref(f.URL), deref(f.HTTPMethod), deref(f.Parameter)),
-					Fix: fixOf(fixes, f.RemoteID)})
+					Fix: fixOf(fixes, f.RemoteID, gone)})
 			}
 		}
 		ov.Targets = append(ov.Targets, v)
@@ -233,15 +247,19 @@ func (s *Server) startSecurityScan(w http.ResponseWriter, r *http.Request, u *au
 		fail(w, http.StatusConflict, "no_target", "the original site's name does not lead to public addresses only")
 		return
 	}
-	if busy, err := s.Store.ActiveSecurityScan(r.Context(), a.ID, in.Target); err != nil || busy {
-		if err != nil {
-			s.storeError(w, r, err)
-			return
-		}
+	// Reserved before the scanner is asked: one scan per target, even while
+	// a quick scan runs (5-20 s) or two people click at once.
+	reserved, err := s.Store.ReserveSecurityScan(r.Context(), store.SecurityScan{App: a.ID, Target: in.Target,
+		Domain: domain, ScanType: in.ScanType}, u.ID)
+	if errors.Is(err, store.ErrConflict) {
 		fail(w, http.StatusConflict, "scan_in_progress", "a scan of this target is going on: wait for it to end")
 		return
 	}
-	ctx, cancel := context.WithTimeout(r.Context(), scannerTimeout)
+	if err != nil {
+		s.storeError(w, r, err)
+		return
+	}
+	ctx, cancel := context.WithTimeout(context.WithoutCancel(r.Context()), scannerTimeout)
 	defer cancel()
 	target, err := client.EnsureTarget(ctx, domain)
 	var scan cveradar.Scan
@@ -249,6 +267,7 @@ func (s *Server) startSecurityScan(w http.ResponseWriter, r *http.Request, u *au
 		scan, err = client.StartScan(ctx, target.ID, in.ScanType)
 	}
 	if err != nil {
+		_ = s.Store.DropSecurityScan(context.WithoutCancel(r.Context()), reserved)
 		scannerFailure(w, err)
 		return
 	}
@@ -258,12 +277,7 @@ func (s *Server) startSecurityScan(w http.ResponseWriter, r *http.Request, u *au
 	if status != "running" {
 		status = "pending"
 	}
-	sc, err := s.Store.AddSecurityScan(r.Context(), store.SecurityScan{App: a.ID, Target: in.Target, Domain: domain,
-		ScanType: in.ScanType, Status: status, RemoteTarget: target.ID, RemoteScan: scan.ID}, u.ID)
-	if errors.Is(err, store.ErrConflict) {
-		fail(w, http.StatusConflict, "scan_in_progress", "a scan of this target is going on: wait for it to end")
-		return
-	}
+	sc, err := s.Store.SetSecurityScanRemote(context.WithoutCancel(r.Context()), reserved, target.ID, scan.ID, status)
 	if err != nil {
 		s.storeError(w, r, err)
 		return
@@ -327,8 +341,8 @@ func nonNil(v []string) []string {
 	return v
 }
 
-func fixOf(fixes map[string]store.SecurityFix, id string) *store.SecurityFix {
-	if f, ok := fixes[id]; ok {
+func fixOf(fixes map[string]store.SecurityFix, id string, gone map[int]bool) *store.SecurityFix {
+	if f, ok := fixes[id]; ok && !gone[f.Version] {
 		return &f
 	}
 	return nil

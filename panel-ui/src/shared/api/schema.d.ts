@@ -2521,7 +2521,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Start a scan (tenant administrators): the scanner's target for the domain is created when missing; the panel follows the scan and reads its findings when it ends. Then it builds one map draft with the changes that close what the map can close (text rules on free-text inputs), on the latest draft or the published map, and has the agent check it; the draft is reviewed and published in the Map tab. The original site is scanned without Equalizer in front: confirm must be true (recorded in Activity); it needs a site reached directly whose name leads to public addresses only. 409 no_scanner, scan_in_progress or no_target; 424 scanner_failed when the scanner refuses; 429 when its limits are reached */
+        /** Start a scan (tenant administrators): the scanner's target for the domain is created when missing; the panel follows the scan and reads its findings when it ends. Then it builds one map draft with the changes that harden what the map can (text rules on free-text inputs), on the latest draft or the published map, and has the agent check it; the draft is reviewed and published in the Map tab. The original site is scanned without Equalizer in front: confirm must be true (recorded in Activity); it needs a site reached directly whose name leads to public addresses only. 409 no_scanner, scan_in_progress or no_target; 424 scanner_failed when the scanner refuses; 429 when its limits are reached */
         post: {
             parameters: {
                 query?: never;
@@ -4370,10 +4370,10 @@ export interface components {
             completed_at?: string | null;
             /** @description The map draft the panel built from this scan's findings, reviewed and published in the Map tab */
             draft_version?: number | null;
-            /** @description What that draft closes, or why none was built */
+            /** @description What that draft hardens, or why none was built (it may point to a version already waiting that hardens them) */
             draft_note?: string | null;
         };
-        /** @description The change of a map draft that closes a finding */
+        /** @description The change of a map draft that hardens a finding's input (a text rule narrows it, it does not prove the attack impossible) */
         SecurityFix: {
             version: number;
             change: string;
@@ -4398,7 +4398,7 @@ export interface components {
             /** Format: date-time */
             last_seen_at?: string | null;
             map: components["schemas"]["SecurityMapVerdict"];
-            /** @description The draft change that closes it, when the panel built one */
+            /** @description The draft change that hardens it, when the panel built one */
             fix?: components["schemas"]["SecurityFix"] | null;
         };
         /** @description How the gateway treats the finding's request under the published map, read when shown: refused: the gateway refuses it (nothing serves it, a method or an input the entry does not declare, a value its own check refuses); precise: a precise entry serves it and checks the parameter by its type; free_text: a precise entry serves it but the parameter is free text (markup and length are checked); area: only the generic area serves it, without a precise check (also a path value or a query key a precise entry does not take); asset: a static file; server: not about an address (ports, TLS, headers), the map has no say */

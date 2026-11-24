@@ -278,8 +278,29 @@ func TestSecurityScans(t *testing.T) {
 	if s := ov.Targets[0].Scan; s == nil || s.Status != "completed" || *s.FindingsCount != 4 {
 		t.Fatalf("quick scan: %+v", s)
 	}
-	if s := ov.Targets[0].Scan; s.DraftVersion != nil {
-		t.Fatalf("a draft on draft 2 while it is checked: %+v", s) // the card says why instead
+	// draft 2, waiting in the Map tab, hardens it already: pointed at, no third draft
+	if s := ov.Targets[0].Scan; s.DraftVersion == nil || *s.DraftVersion != 2 || ov.Targets[0].Findings[0].Fix == nil {
+		t.Fatalf("quick scan's draft: %+v", s)
+	}
+	var vs struct{ Items []struct{ Version int } }
+	viewer.must(200, "GET", "/v1/apps/portal/maps", nil, &vs)
+	if len(vs.Items) != 2 {
+		t.Fatalf("versions: %+v", vs)
+	}
+
+	// A draft not recorded (a replica stopped, the map was busy) is built by the next round
+	if _, err := e.st.DB.Exec(`UPDATE security_scans SET draft_note = NULL, draft_version = NULL, draft_claimed_at = NULL`); err != nil {
+		t.Fatal(err)
+	}
+	runner.Once(context.Background())
+	viewer.must(200, "GET", "/v1/apps/portal/security", nil, &ov)
+	if s := ov.Targets[0].Scan; s.DraftVersion == nil || *s.DraftVersion != 2 || s.DraftNote == nil {
+		t.Fatalf("retried draft: %+v", s)
+	}
+	runner.Once(context.Background()) // claimed and recorded: not built twice
+	viewer.must(200, "GET", "/v1/apps/portal/maps", nil, &vs)
+	if len(vs.Items) != 2 {
+		t.Fatalf("versions after the retry: %+v", vs)
 	}
 
 	// The scanner's limits reach the user as 429

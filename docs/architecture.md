@@ -199,8 +199,8 @@ reason, entry and path), `get_activity` (audit), `get_site` (the Status
 page's evaluation), `list_versions`, `get_check` (a version's
 verification), `compare_versions` (the review aid's comparison),
 `get_security` (the Security tab: scans, findings with the map's verdict
-and the draft change that closes them; 60 findings per target, evidence
-cut),
+and the draft change that hardens them; the 20 most severe per target,
+without evidence, which may hold cookies or tokens),
 `read_guide` (the tenant guide, embedded from `docs/manual/tenant.md` by
 `panel-ui/scripts/sync-help.mjs`, checked in CI), `show_card` and
 `propose_change`. At most 10 rounds of tools, then words only; 100
@@ -286,17 +286,33 @@ panel-api is the only component that talks to it
   area only, a static file, or the server (no address). panel-api cannot
   import the gateway's packages, so `verdict_test.go` pins the cases.
   Judged when read, so a new map changes the verdicts without a new scan.
-- **The draft after a scan.** When the runner saves a scan's findings it
-  calls `Server.HardenAfterScan`: under the site's lock, on the same base
-  as the assistant's drafts (`proposalBase`: the newest draft, which it
-  supersedes, or the published map; none while a version is in review or
-  a draft is being checked), `securityscan.Harden` adds to each free-text
-  input a finding names the text rule for its weakness (CWE or title:
-  `no_html`, `no_sql_meta`, `no_template_meta`), the draft is validated
-  and checked by a gateway, created in the name of the scan's author
-  while still a tenant administrator, and queued for verification.
-  `security_scans.draft_version`/`draft_note` and `security_fixes` (one
-  row per finding closed) feed the Security tab.
+- **The draft after a scan.** When the poll that ends a scan has saved its
+  findings and recorded `security.scan_completed`, it calls
+  `Server.HardenAfterScan` with a deadline of its own. The draft is claimed
+  on the scan row (`draft_claimed_at`, 5 minutes), so a second poll, a
+  replica or a retry never builds two. Under the site's lock:
+  `securityscan.Harden` judges each finding on the published map and, for
+  a free-text input it names, adds the text rule for its weakness (CWE or
+  title words: `no_html` for cross-site scripting, `no_sql_meta` for SQL
+  injection, `no_template_meta` for template or expression injection;
+  nothing for code injection, which no text rule stops). The panel says
+  "hardened", not "closed": a rule narrows an input. A version already
+  waiting in the Map tab that has those rules is pointed at instead of a
+  new draft. Otherwise the draft goes on the same base as the assistant's
+  (`proposalBase`: the newest draft, which it supersedes, or the published
+  map), is validated, checked by a gateway, created in the name of the
+  scan's author while a tenant administrator, and queued for
+  verification. When the map is busy (a version in review, a draft being
+  checked) the claim lapses and the runner tries again every 5 minutes for
+  a day (`PendingSecurityDrafts`). `security_scans.draft_version`/
+  `draft_note` and `security_fixes` (one row per finding) feed the
+  Security tab, which drops links to versions since retired or rejected.
+- **Starting a scan.** The scan row is reserved before the scanner is
+  asked (a partial unique index: one scan going on per target), so a quick
+  scan, which answers in 5-20 s, cannot be started twice; the row is
+  deleted when the scanner refuses, and the runner ignores it until the
+  scanner's ids are recorded. A quick scan is followed at once
+  (`Server.FollowScan`).
 
 ## Connector and tunnel
 

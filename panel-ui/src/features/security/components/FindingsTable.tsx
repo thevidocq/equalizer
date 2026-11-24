@@ -34,7 +34,7 @@ export function FindingsTable({ findings, target, caption, mapBase }: {
           <span className={`font-medium ${tones[v.tone]}`} title={v.why}>{v.label}</span>
           {f.fix ? (
             <Link className="text-xs text-signal hover:underline" to={`${mapBase}/${f.fix.version}`} title={f.fix.change}>
-              Closed in draft {f.fix.version}
+              Hardened in draft {f.fix.version}
             </Link>
           ) : null}
         </div>

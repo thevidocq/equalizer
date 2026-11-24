@@ -2,8 +2,9 @@
 -- changes closes.
 
 ALTER TABLE security_scans
-    ADD COLUMN draft_version int,
-    ADD COLUMN draft_note    text;
+    ADD COLUMN draft_version    int,
+    ADD COLUMN draft_note       text,
+    ADD COLUMN draft_claimed_at timestamptz; -- a panel replica building the draft; retried after 5 minutes
 
 CREATE TABLE security_fixes (
     scan_id   bigint NOT NULL REFERENCES security_scans (id) ON DELETE CASCADE,

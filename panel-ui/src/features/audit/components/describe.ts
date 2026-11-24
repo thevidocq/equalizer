@@ -49,7 +49,7 @@ const actions: Record<string, Say> = {
     ? `started a ${String(d.scan_type)} scan of the original site of ${t} (${String(d.domain)}), confirming it is theirs or allowed in writing`
     : `started a ${String(d.scan_type)} security scan of ${t} through Equalizer`,
   "security.scan_completed": (t, d) => `finished the security scan of ${t}${d.target === "original" ? " (original site)" : ""}: ${String(d.findings)} found`,
-  "security.draft": (t, d) => `built draft version ${String(d.version)} of ${t} from a security scan: it closes ${String(d.closes)} finding(s)`,
+  "security.draft": (t, d) => `built draft version ${String(d.version)} of ${t} from a security scan: it hardens ${String(d.hardens)} finding(s)`,
   "security.scan_failed": (t, d) => `could not finish the security scan of ${t}: ${String(d.reason)}`,
   "assistant.asked": (t, d) => `asked the assistant about ${t}` +
     (typeof d.proposals === "number" && d.proposals > 0 ? ` (${d.proposals} change${d.proposals > 1 ? "s" : ""} proposed)` : ""),

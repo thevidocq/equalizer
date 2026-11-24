@@ -38,11 +38,12 @@ export function TargetCard({ app, t, canScan, configured, mapBase }: {
           {scan.draft_version != null ? (
             <p className="mt-1">
               <Link className="font-medium text-signal hover:underline" to={`${mapBase}/${scan.draft_version}`}>
-                Draft version {scan.draft_version}
+                Version {scan.draft_version} in the Map tab
               </Link>{" "}
-              in the Map tab closes what the map can close: review it and publish it there.
+              hardens what the map can: review it and publish it there.
             </p>
-          ) : scan.draft_note ? <p className="mt-1 text-ink-soft">{scan.draft_note}</p> : null}
+          ) : null}
+          {scan.draft_note ? <p className="mt-1 text-ink-soft">{scan.draft_note}</p> : null}
         </div>
       ) : <p className="text-sm text-ink-soft">Never scanned.</p>}
       {counts.length ? (

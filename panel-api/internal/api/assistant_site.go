@@ -95,8 +95,10 @@ func (src *siteSource) Compare(ctx context.Context, from, to int) (any, error) {
 	return json.RawMessage(raw), nil
 }
 
-// Security is the Security tab of the site, its findings cut to the 60 most
-// severe of each target and their evidence to 300 characters.
+// Security is the Security tab of the site, its findings cut to the 20 most
+// severe of each target, without their evidence: it may hold cookies,
+// tokens or file contents, which do not go to the AI provider, and the
+// title, address, input and weakness say what the finding is.
 func (src *siteSource) Security(ctx context.Context) (any, error) {
 	ov, err := src.s.securityOverview(ctx, src.a)
 	if err != nil {
@@ -104,16 +106,11 @@ func (src *siteSource) Security(ctx context.Context) (any, error) {
 	}
 	for i := range ov.Targets {
 		t := &ov.Targets[i]
-		if len(t.Findings) > 60 {
-			t.Findings = t.Findings[:60]
+		if len(t.Findings) > 20 {
+			t.Findings = t.Findings[:20]
 		}
 		for j := range t.Findings {
-			if e := t.Findings[j].Evidence; e != nil {
-				if r := []rune(*e); len(r) > 300 {
-					cut := string(r[:300]) + "…"
-					t.Findings[j].Evidence = &cut
-				}
-			}
+			t.Findings[j].Evidence = nil
 		}
 	}
 	return ov, nil

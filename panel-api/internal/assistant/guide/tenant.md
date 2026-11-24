@@ -651,7 +651,7 @@ It looks these up before it answers, and says so when they do not tell.
 - **About the security scans**: "What is still open on this site?", "Is
   this finding serious?", "How do I close the robots.txt one?". It reads
   the Security tab: each finding, how severe, what the map does with it,
-  whether the draft built after the scan closes it (and where to review
+  whether the draft built after the scan hardens it (and where to review
   that draft), and what is left to fix on the server and how.
 - **About the versions of the map**: "What changed in version 6?",
   "Which version is waiting for review, and is it safe?", "How did the
@@ -798,31 +798,40 @@ leaves open (through Equalizer) or would close (original site): the
 number to compare before and after. The scanner's risk score (0 to 100)
 is shown too. Findings older than a year are deleted, as the scanner does.
 
-### The draft that closes what it can
+### The draft that hardens what it can
 
 When a scan ends, of either target, Equalizer builds by itself **one map
-draft** with what closes the findings the map serves as **Free text**: the
-text rule that refuses that kind of attack on that input (markup for
-cross-site scripting, SQL characters for SQL injection, template
-sequences for template injection), read from the weakness the scanner
-names. It goes where every draft goes, in the **Map** tab:
+draft** that hardens the inputs the map serves as **Free text** where a
+finding was: it adds the text rule that refuses that kind of attack
+(markup for cross-site scripting, SQL characters for SQL injection,
+template sequences for template or expression injection), read from the
+weakness the scanner names. A rule narrows an input, it does not prove the
+attack impossible (an attack without markup, quotes or template sequences
+still passes), so the panel says **hardened**, not closed; scan again
+once it is published to see what is left. Code injection gets no rule: no
+text rule stops it. The draft goes where every draft goes, in the **Map**
+tab:
 
 - on the latest draft if there is one (it takes its place, so there is
-  still one draft to review), otherwise on the published map; not while a
-  version is in review or a draft is being checked: then the card says so
-  and the next scan tries again;
-- its note says it comes from the scan and what it closes;
+  still one draft to review), otherwise on the published map;
+- when a version already waiting in the Map tab has those rules (built
+  after an earlier scan), no new draft: the card points to that version;
+- while a version is in review or a draft is being checked, Equalizer
+  waits and tries again every few minutes, for a day;
+- its note says it comes from the scan and what it hardens;
 - the agent checks it on the site like any draft, so a rule that would
   break real pages shows in **Broken by this version** before you publish;
 - it is yours to review and publish; nothing changes on the site before.
 
-In the Security tab the card of the target says which draft it built and
-what it closes (or why it built none), and each finding it closes says
-**Closed in draft N**, linked to it in the Map tab. **Area only** findings
-need a precise entry, which a discovery adds; **Server** ones are fixed on
-the server. The draft is made in the name of the person who started the
-scan, while they are an administrator. Ask the assistant about any
-finding: it reads the scans too.
+In the Security tab the card of the target links the version and says
+what it hardens (or why there is none), and each finding it hardens says
+**Hardened in draft N**, linked to it in the Map tab; a version replaced
+or set aside since is no longer linked. **Area only** findings need a
+precise entry, which a discovery adds; **Server** ones are fixed on the
+server. The draft is made in the name of the person who started the scan,
+while they are an administrator. Ask the assistant about any finding: it
+reads the scans too (the 20 most severe of each target, never their
+evidence, which may hold cookies or tokens).
 
 ## Settings
 

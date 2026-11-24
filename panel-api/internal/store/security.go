@@ -99,17 +99,32 @@ func scanScan(row interface{ Scan(...any) error }) (SecurityScan, error) {
 	return c, err
 }
 
-// AddSecurityScan records a scan the scanner accepted.
-func (s *Store) AddSecurityScan(ctx context.Context, c SecurityScan, by int64) (SecurityScan, error) {
+// ReserveSecurityScan records a scan about to be started, before the
+// scanner is asked: one scan going on per target of a site (ErrConflict),
+// even while a quick scan runs. The runner leaves it alone until
+// SetSecurityScanRemote; DropSecurityScan undoes it when the scanner refuses.
+func (s *Store) ReserveSecurityScan(ctx context.Context, c SecurityScan, by int64) (int64, error) {
 	var id int64
 	err := s.DB.QueryRowContext(ctx, `
 		INSERT INTO security_scans (app_id, target, domain, scan_type, status, remote_target, remote_scan, requested_by)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING id`,
-		c.App, c.Target, c.Domain, c.ScanType, c.Status, c.RemoteTarget, c.RemoteScan, by).Scan(&id)
-	if err != nil {
-		return c, translate(err) // ErrConflict: a scan of this target is going on
+		VALUES ($1, $2, $3, $4, 'pending', '', '', $5) RETURNING id`,
+		c.App, c.Target, c.Domain, c.ScanType, by).Scan(&id)
+	return id, translate(err)
+}
+
+// SetSecurityScanRemote records the scanner's ids of a reserved scan.
+func (s *Store) SetSecurityScanRemote(ctx context.Context, id int64, target, scan, status string) (SecurityScan, error) {
+	if _, err := s.DB.ExecContext(ctx, `UPDATE security_scans SET remote_target = $2, remote_scan = $3, status = $4 WHERE id = $1`,
+		id, target, scan, status); err != nil {
+		return SecurityScan{}, err
 	}
 	return s.securityScan(ctx, id)
+}
+
+// DropSecurityScan deletes a reserved scan the scanner did not start.
+func (s *Store) DropSecurityScan(ctx context.Context, id int64) error {
+	_, err := s.DB.ExecContext(ctx, `DELETE FROM security_scans WHERE id = $1 AND remote_scan = ''`, id)
+	return err
 }
 
 // SecurityScanByID reads one scan.
@@ -150,14 +165,6 @@ func (s *Store) LatestSecurityScans(ctx context.Context, app string) ([]Security
 	return out, rows.Err()
 }
 
-// ActiveSecurityScan reports whether a target of a site has a scan going on.
-func (s *Store) ActiveSecurityScan(ctx context.Context, app, target string) (bool, error) {
-	var n int
-	err := s.DB.QueryRowContext(ctx, `SELECT count(*) FROM security_scans
-		WHERE app_id = $1 AND target = $2 AND status IN ('pending', 'running')`, app, target).Scan(&n)
-	return n > 0, err
-}
-
 // ClaimSecurityScans returns the scans going on that were not polled for a
 // minute, marking them polled, so that two panel replicas do not poll the
 // same scan at once.
@@ -165,7 +172,8 @@ func (s *Store) ClaimSecurityScans(ctx context.Context, limit int) ([]SecuritySc
 	rows, err := s.DB.QueryContext(ctx, `
 		WITH due AS (
 			SELECT id FROM security_scans
-			WHERE status IN ('pending', 'running') AND (polled_at IS NULL OR polled_at < now() - interval '50 seconds')
+			WHERE status IN ('pending', 'running') AND remote_scan <> ''
+			AND (polled_at IS NULL OR polled_at < now() - interval '50 seconds')
 			ORDER BY id LIMIT $1 FOR UPDATE SKIP LOCKED)
 		UPDATE security_scans sc SET polled_at = now() FROM due WHERE sc.id = due.id RETURNING sc.id`, limit)
 	if err != nil {
@@ -277,52 +285,4 @@ func (s *Store) PurgeSecurityScans(ctx context.Context) (int64, error) {
 		return 0, err
 	}
 	return res.RowsAffected()
-}
-
-// SecurityFix is the draft change that closes a finding.
-type SecurityFix struct {
-	Version int    `json:"version"`
-	Change  string `json:"change"`
-}
-
-// SetSecurityDraft records the draft built from a scan (nil: none) and why.
-func (s *Store) SetSecurityDraft(ctx context.Context, scan int64, version *int, note string, fixes map[string]string) error {
-	tx, err := s.DB.BeginTx(ctx, nil)
-	if err != nil {
-		return err
-	}
-	defer tx.Rollback()
-	if _, err := tx.ExecContext(ctx, `UPDATE security_scans SET draft_version = $2, draft_note = $3 WHERE id = $1`,
-		scan, version, note); err != nil {
-		return err
-	}
-	for id, change := range fixes {
-		if version == nil {
-			break
-		}
-		if _, err := tx.ExecContext(ctx, `INSERT INTO security_fixes (scan_id, remote_id, version, change) VALUES ($1, $2, $3, $4)
-			ON CONFLICT (scan_id, remote_id) DO UPDATE SET version = $3, change = $4`, scan, id, *version, change); err != nil {
-			return err
-		}
-	}
-	return tx.Commit()
-}
-
-// SecurityFixes returns the draft changes of a scan, by finding.
-func (s *Store) SecurityFixes(ctx context.Context, scan int64) (map[string]SecurityFix, error) {
-	rows, err := s.DB.QueryContext(ctx, `SELECT remote_id, version, change FROM security_fixes WHERE scan_id = $1`, scan)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	out := map[string]SecurityFix{}
-	for rows.Next() {
-		var id string
-		var f SecurityFix
-		if err := rows.Scan(&id, &f.Version, &f.Change); err != nil {
-			return nil, err
-		}
-		out[id] = f
-	}
-	return out, rows.Err()
 }

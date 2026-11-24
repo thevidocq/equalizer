@@ -18,8 +18,8 @@ describe("describeEntry", () => {
     const failed = { id: 31, ts: "", action: "security.scan_failed", target: "shop", user: null, detail: { reason: "timeout" } };
     expect(describeEntry(failed)).toBe("Equalizer could not finish the security scan of shop: timeout");
     expect(isWarning(failed)).toBe(true);
-    expect(describeEntry({ id: 32, ts: "", action: "security.draft", target: "shop", user: null, detail: { version: 14, closes: 3 } }))
-      .toBe("Equalizer built draft version 14 of shop from a security scan: it closes 3 finding(s)");
+    expect(describeEntry({ id: 32, ts: "", action: "security.draft", target: "shop", user: null, detail: { version: 14, hardens: 3 } }))
+      .toBe("Equalizer built draft version 14 of shop from a security scan: it hardens 3 finding(s)");
   });
   it("tells the assistant's questions and drafts, never their text", () => {
     expect(describeEntry({ id: 20, ts: "", action: "assistant.asked", target: "shop", user: "a@acme.test", detail: { tools: ["search_logs"], proposals: 1 } }))

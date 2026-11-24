@@ -29,7 +29,7 @@ func siteTools() []Tool {
 			Schema: obj(map[string]any{"version": num("a map version; omit for the published one")})},
 		{Name: "compare_versions", Description: "What changed between two map versions and what it risks (the review aid's comparison): entries added, removed or widened, findings by severity.",
 			Schema: obj(map[string]any{"from": num("the older version"), "to": num("the newer version")}, "from", "to")},
-		{Name: "get_security", Description: "The site's security scans (the Security tab, by the tenant's vulnerability scanner CVE Radar), through Equalizer and of the original site: each target's latest scan (status, risk score, the map draft built from it and what it closes) and its open findings, most severe first, each with what the published map does with its address (refused, precise, free_text, area, asset, server) and the draft change that closes it, if any.",
+		{Name: "get_security", Description: "The site's security scans (the Security tab, by the tenant's vulnerability scanner CVE Radar), through Equalizer and of the original site: each target's latest scan (status, risk score, the map draft built from it and what it hardens) and its open findings (the 20 most severe of each target, without evidence), each with what the published map does with its address (refused, precise, free_text, area, asset, server) and the draft change that hardens it, if any.",
 			Schema: obj(map[string]any{})},
 		{Name: "read_guide", Description: "The Equalizer guide for tenants: how to do something in the panel, what a page or a setting means. Query with a few English words (e.g. 'publish draft', 'test accounts', 'certificate upload'); empty for the list of sections.",
 			Schema: obj(map[string]any{"query": map[string]any{"type": "string"}})},

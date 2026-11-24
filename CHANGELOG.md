@@ -102,6 +102,22 @@ it, 0.1.0 (`docs/releases/0.1.0.md`, tag on the merge of #39).
     reads an ended scan at once; `CompleteSecurityScan` reports whether it
     ended the scan, so only that poll builds the draft (no second draft
     when a quick scan is followed and polled at once, or by two replicas).
+- **Review:** an independent review found: a later scan (a quick one)
+  lost the earlier draft's link and said nothing could be hardened; "closed"
+  overstated text rules (CWE-94 code injection, "sqli" matching SQLite);
+  `get_security` cut at 16 000 bytes and sending evidence (cookies,
+  tokens) to the AI provider; the draft step sharing the poll's deadline,
+  never retried, and the UI not waiting for it; a 5-20 s window for a
+  second quick scan; one draft when both targets end together; a second
+  finding on the same input not marked; ids repeated across lists; links
+  to retired versions; docs. All fixed: the waiting version that already
+  hardens them is pointed at; "hardened" everywhere, code injection has
+  no rule, title words matched as words; 20 findings per target without
+  evidence; the draft is claimed on the scan row, built with its own
+  deadline after `scan_completed` is recorded, retried every 5 minutes for
+  a day while the map is busy; the UI polls for it; the scan row is
+  reserved before the scanner is asked; Harden knows the entry's list;
+  retired versions are not linked.
 - **Next steps:** response-header verdict and policy (CSP report-only,
   Permissions-Policy, dropping `X-Deployment-Id`), the scanner's source
   IPs.

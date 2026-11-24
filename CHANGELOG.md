@@ -65,12 +65,46 @@ it, 0.1.0 (`docs/releases/0.1.0.md`, tag on the merge of #39).
 
 ## Entries
 
+### 2026-11-24 — Fix the independent review of the 0.2.31 branch; efficacy study
+
+- **Branch:** fix/stabilize-0.2.31
+- **What:**
+  - `files.known` was missing from `summary.schema.json` (both copies):
+    every summary of a recognised CMS would have been refused. Now each
+    `cms_test` tree writes `schema/source/examples/<test>.json` (`-update`)
+    and `sourceschema` validates every example.
+  - ModSecurity export: every value inside an argument goes through
+    `quote` (`"` → `\x22`, line breaks as `\n`/`\r`), prefixes are
+    matched with `@rx`, ids and field names must be identifiers; a test
+    shows a hostile `deny` value cannot add a directive, and the rules
+    still load and behave in Coraza.
+  - `narrow_field` never widens: a field with its own charset is not
+    free text; the length is at most what it takes now (field, map
+    default, 1000); required as it was (no key stays no key); `deny` and
+    the map's default charset carried over.
+  - Verification: a lost link is excused as swapped only in a folder
+    (never the root) where the site varies its links.
+  - `acts()` keeps a count of open function/class scopes: linear on a
+    file of nested braces (was quadratic: a minute for 1 MB).
+  - Reader copy timeout 40 minutes (`fetch.CopyTimeout`), a running read
+    expires after an hour; Moodle 5.1's lists are read outside the
+    application folder only when it is inside the site.
+  - Assistant continuations send each part once and never an empty one;
+    the download menu shows the panel's reason for a failed export.
+  - Efficacy study run for 0.2.31 (WordPress, Drupal, generic, phpBB,
+    MediaWiki): the same numbers, all guarantees hold.
+- **Why:** findings of the independent review before the PR.
+- **Status:** Go, agent and schema-example tests pass; panel-ui
+  syntax-checked only.
+- **Next steps:** PR; screenshots of the download menu and the report.
+
 ### 2026-11-24 — Fix the bug hunt's findings on 0.2.27-0.2.30; version 0.2.31
 
 - **Branch:** fix/stabilize-0.2.31
 - **What:**
   - Source reads no reader ends: `store.expireSourceReads` fails a read
-    queued for 15 minutes or running for 30, on claim, queue and read of
+    queued for 15 minutes or running for an hour (the copy now gives up after
+    40 minutes, `fetch.CopyTimeout`), on claim, queue and read of
     the latest; a discovery fails a stale queued read before joining one;
     `SetSourceToken` fails the old token's reads. Test in
     `source_test.go`.

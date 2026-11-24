@@ -1,0 +1,181 @@
+{
+  "schema": "source-summary/1.0",
+  "read_at": "2026-11-24T00:00:00Z",
+  "stack": "joomla",
+  "files": {
+    "read": 6,
+    "skipped": 0,
+    "known": 3
+  },
+  "routes": [
+    {
+      "path": "/administrator/index.php",
+      "methods": [
+        "GET",
+        "POST"
+      ],
+      "origin": "php_file",
+      "public": true,
+      "where": {
+        "file": "administrator/index.php",
+        "line": 1
+      }
+    },
+    {
+      "path": "/administrator/index.php",
+      "methods": [
+        "GET",
+        "POST"
+      ],
+      "origin": "joomla_component",
+      "query": {
+        "option": "com_shop"
+      },
+      "where": {
+        "file": "administrator/components/com_shop/shop.php",
+        "line": 1,
+        "owner": "component com_shop"
+      }
+    },
+    {
+      "path": "/api/index.php/v1/shop/cart/{id}",
+      "methods": [
+        "POST"
+      ],
+      "origin": "joomla_api",
+      "public": true,
+      "params": {
+        "id": "unknown"
+      },
+      "where": {
+        "file": "plugins/webservices/shop/shop.php",
+        "line": 8,
+        "owner": "plugin webservices/shop"
+      }
+    },
+    {
+      "path": "/api/index.php/v1/shop/items",
+      "methods": [
+        "GET",
+        "POST"
+      ],
+      "origin": "joomla_api",
+      "public": true,
+      "where": {
+        "file": "plugins/webservices/shop/shop.php",
+        "line": 2,
+        "owner": "plugin webservices/shop"
+      }
+    },
+    {
+      "path": "/api/index.php/v1/shop/items/{id}",
+      "methods": [
+        "GET",
+        "PATCH",
+        "DELETE"
+      ],
+      "origin": "joomla_api",
+      "public": true,
+      "params": {
+        "id": "int"
+      },
+      "where": {
+        "file": "plugins/webservices/shop/shop.php",
+        "line": 2,
+        "owner": "plugin webservices/shop"
+      }
+    },
+    {
+      "path": "/components/com_shop/ajax.php",
+      "methods": [
+        "GET",
+        "POST"
+      ],
+      "origin": "php_file",
+      "public": true,
+      "where": {
+        "file": "components/com_shop/ajax.php",
+        "line": 1,
+        "owner": "component com_shop"
+      }
+    },
+    {
+      "path": "/index.php",
+      "methods": [
+        "GET",
+        "POST"
+      ],
+      "origin": "joomla_component",
+      "query": {
+        "option": "com_shop"
+      },
+      "public": true,
+      "where": {
+        "file": "components/com_shop/ajax.php",
+        "line": 1,
+        "owner": "component com_shop"
+      }
+    }
+  ],
+  "inputs": [
+    {
+      "name": "id",
+      "source": "request",
+      "type": "int",
+      "where": {
+        "file": "components/com_shop/shop.php",
+        "line": 1,
+        "owner": "component com_shop"
+      }
+    },
+    {
+      "name": "q",
+      "source": "query",
+      "type": "unknown",
+      "route": "/administrator/index.php",
+      "where": {
+        "file": "administrator/index.php",
+        "line": 1
+      }
+    },
+    {
+      "name": "q",
+      "source": "query",
+      "type": "unknown",
+      "route": "/components/com_shop/ajax.php",
+      "where": {
+        "file": "components/com_shop/ajax.php",
+        "line": 1,
+        "owner": "component com_shop"
+      }
+    },
+    {
+      "name": "task",
+      "source": "request",
+      "type": "key",
+      "where": {
+        "file": "components/com_shop/shop.php",
+        "line": 1,
+        "owner": "component com_shop"
+      }
+    }
+  ],
+  "risks": [],
+  "components": [
+    {
+      "name": "component:com_shop",
+      "kind": "plugin",
+      "version": null
+    },
+    {
+      "name": "joomla",
+      "kind": "core",
+      "version": "5.1.4"
+    },
+    {
+      "name": "plugin:webservices/shop",
+      "kind": "plugin",
+      "version": null
+    }
+  ]
+}

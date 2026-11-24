@@ -38,10 +38,12 @@ var moodleTypes = map[string]string{
 // moodleCore: the folders of the plugins that are not Moodle's own.
 type moodleCore struct{ added []string }
 
-func loadMoodle(root string) any {
+func loadMoodle(root, site string) any {
 	comps := readCore(root, "lib/components.json")
 	prefix := ""
-	if comps == "" { // Moodle 5.1: the web root is public/, the lists next to it
+	if comps == "" && filepath.Clean(root) != filepath.Clean(site) {
+		// Moodle 5.1: the web root is public/, the lists next to it (still
+		// in the site's folder)
 		comps, prefix = readCore(root, "../lib/components.json"), "public/"
 	}
 	var c struct {

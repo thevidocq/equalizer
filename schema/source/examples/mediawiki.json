@@ -1,0 +1,124 @@
+{
+  "schema": "source-summary/1.0",
+  "read_at": "2026-11-24T00:00:00Z",
+  "stack": "mediawiki",
+  "files": {
+    "read": 4,
+    "skipped": 0,
+    "known": 1
+  },
+  "routes": [
+    {
+      "path": "/api.php",
+      "methods": [
+        "GET",
+        "POST"
+      ],
+      "origin": "mediawiki_api",
+      "query": {
+        "action": "query",
+        "list": "quizzes"
+      },
+      "where": {
+        "file": "extensions/Quiz/extension.json",
+        "line": 2,
+        "owner": "extension Quiz"
+      }
+    },
+    {
+      "path": "/api.php",
+      "methods": [
+        "GET",
+        "POST"
+      ],
+      "origin": "mediawiki_api",
+      "query": {
+        "action": "quizsubmit"
+      },
+      "where": {
+        "file": "extensions/Quiz/extension.json",
+        "line": 2,
+        "owner": "extension Quiz"
+      }
+    },
+    {
+      "path": "/index.php",
+      "methods": [
+        "GET",
+        "POST"
+      ],
+      "origin": "mediawiki_special",
+      "query": {
+        "title": "Special:OldTool"
+      },
+      "where": {
+        "file": "extensions/Old/Old.php",
+        "line": 2,
+        "owner": "extension Old"
+      }
+    },
+    {
+      "path": "/index.php",
+      "methods": [
+        "GET",
+        "POST"
+      ],
+      "origin": "mediawiki_special",
+      "query": {
+        "title": "Special:QuizResults"
+      },
+      "where": {
+        "file": "extensions/Quiz/extension.json",
+        "line": 1,
+        "owner": "extension Quiz"
+      }
+    },
+    {
+      "path": "/rest.php/quiz/v0/list",
+      "methods": [
+        "GET"
+      ],
+      "origin": "mediawiki_rest",
+      "where": {
+        "file": "extensions/Quiz/extension.json",
+        "line": 3,
+        "owner": "extension Quiz"
+      }
+    },
+    {
+      "path": "/rest.php/quiz/v0/{id}",
+      "methods": [
+        "GET",
+        "POST"
+      ],
+      "origin": "mediawiki_rest",
+      "params": {
+        "id": "unknown"
+      },
+      "where": {
+        "file": "extensions/Quiz/extension.json",
+        "line": 3,
+        "owner": "extension Quiz"
+      }
+    }
+  ],
+  "inputs": [],
+  "risks": [],
+  "components": [
+    {
+      "name": "extension:Quiz",
+      "kind": "plugin",
+      "version": "1.2.0"
+    },
+    {
+      "name": "mediawiki",
+      "kind": "core",
+      "version": "1.42.3"
+    },
+    {
+      "name": "skin:Shiny",
+      "kind": "theme",
+      "version": "2.0"
+    }
+  ]
+}

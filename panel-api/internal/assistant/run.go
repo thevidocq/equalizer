@@ -91,8 +91,9 @@ const MaxContinues = 2
 // it stopped, and a person never reads half a sentence.
 func finish(ctx context.Context, model Model, sys string, turns []Turn, r Reply) (string, error) {
 	text := r.Text
-	for i := 0; r.Cut && len(r.Calls) == 0 && i < MaxContinues; i++ {
-		turns = append(turns, Turn{Role: "assistant", Text: text},
+	for i := 0; r.Cut && len(r.Calls) == 0 && r.Text != "" && i < MaxContinues; i++ {
+		// the part just written, once: the history already holds the earlier ones
+		turns = append(turns, Turn{Role: "assistant", Text: r.Text},
 			Turn{Role: "user", Text: "Your answer was cut. Go on exactly where it stopped, without repeating anything and without a preamble."})
 		var err error
 		if r, err = model.Chat(ctx, sys, turns, nil); err != nil {

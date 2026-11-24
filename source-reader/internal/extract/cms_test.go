@@ -1,6 +1,7 @@
 package extract
 
 import (
+	"encoding/json"
 	"os"
 	"path/filepath"
 	"sort"
@@ -9,7 +10,9 @@ import (
 	"time"
 )
 
-// tree writes a site of a few files and reads it.
+// tree writes a site of a few files and reads it. Its summary is the
+// application's example in schema/source/examples (the panel checks each
+// against the schema): -update rewrites them.
 func tree(t *testing.T, files map[string]string) *Summary {
 	t.Helper()
 	dir := t.TempDir()
@@ -26,7 +29,25 @@ func tree(t *testing.T, files map[string]string) *Summary {
 	if err != nil {
 		t.Fatal(err)
 	}
+	example(t, s)
 	return s
+}
+
+func example(t *testing.T, s *Summary) {
+	t.Helper()
+	name := strings.ToLower(strings.TrimPrefix(t.Name(), "Test"))
+	b, _ := json.MarshalIndent(s, "", "  ")
+	b = append(b, '\n')
+	p := "../../../schema/source/examples/" + name + ".json"
+	if *update {
+		if err := os.WriteFile(p, b, 0o644); err != nil {
+			t.Fatal(err)
+		}
+		return
+	}
+	if have, err := os.ReadFile(p); err != nil || string(have) != string(b) {
+		t.Errorf("the summary differs from %s (go test ./internal/extract -update to rewrite it)", p)
+	}
 }
 
 // routes lists a summary's routes as "path?k=v ORIGIN public".

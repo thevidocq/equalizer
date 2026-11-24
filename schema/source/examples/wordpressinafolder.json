@@ -1,0 +1,91 @@
+{
+  "schema": "source-summary/1.0",
+  "read_at": "2026-11-24T00:00:00Z",
+  "stack": "wordpress",
+  "files": {
+    "read": 4,
+    "skipped": 0,
+    "known": 1
+  },
+  "routes": [
+    {
+      "path": "/blog/custom.php",
+      "methods": [
+        "GET",
+        "POST"
+      ],
+      "origin": "php_file",
+      "public": true,
+      "where": {
+        "file": "blog/custom.php",
+        "line": 1
+      }
+    },
+    {
+      "path": "/blog/wp-admin/admin-ajax.php",
+      "methods": [
+        "GET",
+        "POST"
+      ],
+      "origin": "wp_ajax_nopriv",
+      "action": "shop_cart",
+      "query": {
+        "action": "shop_cart"
+      },
+      "public": true,
+      "where": {
+        "file": "blog/wp-content/plugins/shop/shop.php",
+        "line": 6,
+        "owner": "plugin shop"
+      }
+    },
+    {
+      "path": "/landing.php",
+      "methods": [
+        "GET",
+        "POST"
+      ],
+      "origin": "php_file",
+      "public": true,
+      "where": {
+        "file": "landing.php",
+        "line": 1
+      }
+    }
+  ],
+  "inputs": [
+    {
+      "name": "q",
+      "source": "query",
+      "type": "unknown",
+      "route": "/blog/custom.php",
+      "where": {
+        "file": "blog/custom.php",
+        "line": 1
+      }
+    },
+    {
+      "name": "q",
+      "source": "query",
+      "type": "unknown",
+      "route": "/landing.php",
+      "where": {
+        "file": "landing.php",
+        "line": 1
+      }
+    }
+  ],
+  "risks": [],
+  "components": [
+    {
+      "name": "plugin:shop",
+      "kind": "plugin",
+      "version": "1.0"
+    },
+    {
+      "name": "wordpress",
+      "kind": "core",
+      "version": "6.7.1"
+    }
+  ]
+}

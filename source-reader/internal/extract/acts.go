@@ -88,14 +88,8 @@ func topLevel(src string) string {
 	var out, pending strings.Builder
 	inPHP := false
 	var scopes []bool // per open brace: true when it opens a function or class
-	inside := func() bool {
-		for _, f := range scopes {
-			if f {
-				return true
-			}
-		}
-		return false
-	}
+	open := 0         // how many of them do: kept, not counted per character
+	inside := func() bool { return open > 0 }
 	for i := 0; i < len(src); i++ {
 		if !inPHP {
 			if strings.HasPrefix(src[i:], "<?php") || strings.HasPrefix(src[i:], "<?=") {
@@ -145,11 +139,18 @@ func topLevel(src string) string {
 			}
 			i = j
 		case c == '{':
-			scopes = append(scopes, scopeWord.MatchString(pending.String()))
+			f := scopeWord.MatchString(pending.String())
+			scopes = append(scopes, f)
+			if f {
+				open++
+			}
 			pending.Reset()
 		case c == '}':
-			if len(scopes) > 0 {
-				scopes = scopes[:len(scopes)-1]
+			if n := len(scopes); n > 0 {
+				if scopes[n-1] {
+					open--
+				}
+				scopes = scopes[:n-1]
 			}
 			pending.Reset()
 		case c == ';':

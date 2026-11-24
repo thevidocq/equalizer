@@ -1,0 +1,76 @@
+{
+  "schema": "source-summary/1.0",
+  "read_at": "2026-11-24T00:00:00Z",
+  "stack": "opencart",
+  "files": {
+    "read": 4,
+    "skipped": 0,
+    "known": 3
+  },
+  "routes": [
+    {
+      "path": "/admin/index.php",
+      "methods": [
+        "GET",
+        "POST"
+      ],
+      "origin": "opencart_route",
+      "query": {
+        "route": "extension/acme/module/wishlist.save"
+      },
+      "where": {
+        "file": "extension/acme/admin/controller/module/wishlist.php",
+        "line": 1,
+        "owner": "extension acme"
+      }
+    },
+    {
+      "path": "/index.php",
+      "methods": [
+        "GET",
+        "POST"
+      ],
+      "origin": "opencart_route",
+      "query": {
+        "route": "extension/acme/module/wishlist"
+      },
+      "public": true,
+      "where": {
+        "file": "extension/acme/catalog/controller/module/wishlist.php",
+        "line": 2,
+        "owner": "extension acme"
+      }
+    },
+    {
+      "path": "/index.php",
+      "methods": [
+        "GET",
+        "POST"
+      ],
+      "origin": "opencart_route",
+      "query": {
+        "route": "extension/acme/module/wishlist.add"
+      },
+      "public": true,
+      "where": {
+        "file": "extension/acme/catalog/controller/module/wishlist.php",
+        "line": 3,
+        "owner": "extension acme"
+      }
+    }
+  ],
+  "inputs": [],
+  "risks": [],
+  "components": [
+    {
+      "name": "extension:acme",
+      "kind": "plugin",
+      "version": "2.0.1"
+    },
+    {
+      "name": "opencart",
+      "kind": "core",
+      "version": "4.0.2.3"
+    }
+  ]
+}

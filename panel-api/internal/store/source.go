@@ -72,14 +72,15 @@ func (s *Store) SetSourceToken(ctx context.Context, app, hash string) error {
 }
 
 // expireSourceReads fails the site's reads no reader will end: queued for
-// 15 minutes (no reader took it) or running for 30 (the reader stopped).
+// 15 minutes (no reader took it) or running for an hour (the reader
+// stopped: its copy gives up after 40 minutes).
 // Without it a dead read would hold the site's one read slot for good.
 func (s *Store) expireSourceReads(ctx context.Context, app string) error {
 	_, err := s.DB.ExecContext(ctx, `UPDATE source_reads SET status = 'failed', finished_at = now(),
 		error = CASE status WHEN 'queued' THEN 'no source reader took the read within 15 minutes: is it running?'
 			ELSE 'the source reader stopped answering' END
 		WHERE app_id = $1 AND (status = 'queued' AND created_at < now() - interval '15 minutes'
-			OR status = 'running' AND started_at < now() - interval '30 minutes')`, app)
+			OR status = 'running' AND started_at < now() - interval '1 hour')`, app)
 	return err
 }
 

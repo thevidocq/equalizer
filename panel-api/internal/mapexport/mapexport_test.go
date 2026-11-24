@@ -91,7 +91,7 @@ func TestModSecurity(t *testing.T) {
 	for _, want := range []string{
 		`SecRule REQUEST_FILENAME "@rx ^/permits/-?[0-9]{1,18}$" "t:none,setvar:'tx.eq_entry=r_permit_detail'"`,
 		`SecRule REQUEST_FILENAME "@rx ^/login$" "t:none,setvar:'tx.eq_entry=f_login'"`,
-		`SecRule REQUEST_FILENAME "@beginsWith /admin/" "t:none,setvar:'tx.eq_entry=area_admin'"`,
+		`SecRule REQUEST_FILENAME "@rx ^/admin/" "t:none,setvar:'tx.eq_entry=area_admin'"`,
 		`SecRule &TX:EQ_ENTRY "@eq 0" "id:`,
 		`SecRule ARGS_GET_NAMES "!@rx ^(?:page|status)$"`,
 		`SecRule ARGS_GET:status "!@rx ^(?:open|in_progress|closed)$"`,
@@ -126,14 +126,28 @@ func TestModSecurity(t *testing.T) {
 	}
 }
 
-func TestQuotesCannotEscape(t *testing.T) {
-	m := `{"routes":[{"id":"x","path":"/a\"b","method":"GET","query":{"k":{"type":"string","pattern":"^a\"b$"}}}]}`
+func TestNothingEscapesItsArgument(t *testing.T) {
+	m := `{"routes":[{"id":"x","path":"/a","method":"GET","query":{"k":{"type":"string","pattern":"^a\\\"b$","deny":["a\" \"t:none\"\nSecAction \"id:1,phase:1,ctl:ruleEngine=Off\"\n#"]},
+		"e":{"type":"enum","values":["x\"y","z\\"]}}}],"areas":[{"id":"a","prefix":"/q\"/"}]}`
 	b, err := ModSecurity([]byte(m), "it's", 1)
 	if err != nil {
 		t.Fatal(err)
 	}
 	out := string(b)
-	if !strings.Contains(out, `"@rx ^/a\"b$"`) || !strings.Contains(out, `"!@rx ^(?:a\"b)$"`) || strings.Contains(out, "it's") {
+	for _, line := range strings.Split(out, "\n") {
+		l := strings.TrimSpace(line)
+		if l != "" && !strings.HasPrefix(l, "#") && !strings.HasPrefix(l, "SecRule ") {
+			t.Fatalf("a line that is not a rule: %q", line)
+		}
+		// each rule line has its four quotes: operator and actions
+		if strings.HasPrefix(l, "SecRule ") && strings.Count(strings.ReplaceAll(l, `\"`, ""), `"`) != 4 {
+			t.Fatalf("an argument left open: %q", line)
+		}
+	}
+	if strings.Contains(out, "it's") || !strings.Contains(out, `x\x22y`) {
 		t.Fatalf("%s", out)
+	}
+	if _, err := ModSecurity([]byte(`{"routes":[{"id":"x","path":"/a","query":{"a b":{"type":"int"}}}]}`), "x", 1); err == nil {
+		t.Fatal("a field name that is not an identifier")
 	}
 }

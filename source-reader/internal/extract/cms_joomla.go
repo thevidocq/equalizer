@@ -32,7 +32,7 @@ var joomlaBasics = []string{"com_admin", "com_ajax", "com_banners", "com_cache",
 	"com_postinstall", "com_privacy", "com_redirect", "com_search", "com_tags", "com_templates", "com_users", "com_wrapper",
 	"com_actionlogs", "com_associations", "com_csp", "com_mails", "com_workflow", "com_scheduler", "com_guidedtours"}
 
-func loadJoomla(root string) any {
+func loadJoomla(root, _ string) any {
 	core := joomlaCore{}
 	for _, m := range joomlaCoreList.FindAllStringSubmatch(readCore(root, "libraries/src/Extension/ExtensionHelper.php"), -1) {
 		if m[1] == "plugin" {

@@ -79,7 +79,7 @@ func Fetch(ctx context.Context, s Spec, e Env) (string, func(), error) {
 			return "", nothing, err
 		}
 		clean := func() { _ = os.RemoveAll(dir) }
-		ctx, cancel := context.WithTimeout(ctx, 20*time.Minute)
+		ctx, cancel := context.WithTimeout(ctx, CopyTimeout)
 		defer cancel()
 		if s.Method == "sftp" {
 			err = guarded(ctx, dir, func(ctx context.Context) error { return run(ctx, "rsync", RsyncArgs(s, e, dir), nil) })

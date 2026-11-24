@@ -14,7 +14,11 @@ export function useMapExport(app: string, version: number) {
         params: { path: { app, version }, query: { format } },
         parseAs: "blob",
       });
-      if (!res.response.ok || !res.data) throw new Error("The export failed. Try again in a moment.");
+      if (!res.response.ok || !res.data) {
+        // the panel says why (a map the format cannot hold), else a generic word
+        const why = (res.error as { message?: string } | undefined)?.message;
+        throw new Error(why ? `The export failed: ${why}` : "The export failed. Try again in a moment.");
+      }
       save(res.data as Blob, `${app}-map-v${version}.${NAME[format]}`);
     },
   });

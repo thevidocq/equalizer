@@ -7,6 +7,7 @@ import (
 	"path"
 	"regexp"
 	"strings"
+	"time"
 )
 
 // Limits of one read. The copy's are wider than the study's: an
@@ -19,6 +20,9 @@ const (
 	MaxBytes     = 200 << 20 // studied, all files together
 	MaxCopyFiles = 150000    // files copied from the server
 	MaxCopyBytes = 1 << 30   // copied, all files together
+	// CopyTimeout bounds a copy over sftp or smb: a large Moodle or Magento
+	// tree takes a while; the panel gives up on a read after an hour
+	CopyTimeout = 40 * time.Minute
 )
 
 // codeExt and codeNames are the files the reader reads: code, and the few

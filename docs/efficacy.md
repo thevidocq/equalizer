@@ -49,6 +49,10 @@ Run again for 0.2.26 to 0.2.30 (24 Nov 2026; 0.2.27 and 0.2.28 add the panel's s
 110 of 160 instead of 103 (WordPress 96 of 140, Drupal 14 of 20: the
 templates' slugs now refuse spaces, `;`, `|` and `$( )`), every page still
 the same as on the site, every other line the same, all guarantees hold.
+Run again for 0.2.31 (24 Nov 2026; the source reader for every CMS, map
+exports and the agent's check of drafts change neither the gateway nor
+the maps the discovery writes): the same numbers on every line, all
+guarantees hold.
 
 Five sites: WordPress 6.9, Drupal 11.4, the custom intranet (generic
 profile), phpBB 3.3, MediaWiki 1.43. Joomla, OpenCart, PrestaShop, TYPO3

@@ -1,0 +1,88 @@
+{
+  "schema": "source-summary/1.0",
+  "read_at": "2026-11-24T00:00:00Z",
+  "stack": "magento",
+  "files": {
+    "read": 8,
+    "skipped": 0,
+    "known": 3
+  },
+  "routes": [
+    {
+      "path": "/admin/acmequote/request/grid",
+      "methods": [
+        "GET",
+        "POST"
+      ],
+      "origin": "magento_route",
+      "where": {
+        "file": "app/code/Acme/Quote/Controller/Adminhtml/Request/Grid.php",
+        "line": 1,
+        "owner": "module Acme_Quote"
+      }
+    },
+    {
+      "path": "/quote/request/send",
+      "methods": [
+        "GET",
+        "POST"
+      ],
+      "origin": "magento_route",
+      "where": {
+        "file": "app/code/Acme/Quote/Controller/Request/Send.php",
+        "line": 1,
+        "owner": "module Acme_Quote"
+      }
+    },
+    {
+      "path": "/rest/V1/acme-quotes/{quoteId}",
+      "methods": [
+        "DELETE"
+      ],
+      "origin": "magento_webapi",
+      "params": {
+        "quoteId": "unknown"
+      },
+      "where": {
+        "file": "app/code/Acme/Quote/etc/webapi.xml",
+        "line": 6,
+        "owner": "module Acme_Quote"
+      }
+    },
+    {
+      "path": "/rest/V1/acme-quotes/{quoteId}",
+      "methods": [
+        "GET"
+      ],
+      "origin": "magento_webapi",
+      "public": true,
+      "params": {
+        "quoteId": "unknown"
+      },
+      "where": {
+        "file": "app/code/Acme/Quote/etc/webapi.xml",
+        "line": 2,
+        "owner": "module Acme_Quote"
+      }
+    }
+  ],
+  "inputs": [],
+  "risks": [],
+  "components": [
+    {
+      "name": "library:magento/product-community-edition",
+      "kind": "library",
+      "version": "2.4.7-p3"
+    },
+    {
+      "name": "magento",
+      "kind": "core",
+      "version": "2.4.7-p3"
+    },
+    {
+      "name": "module:Acme_Quote",
+      "kind": "plugin",
+      "version": "1.4.0"
+    }
+  ]
+}

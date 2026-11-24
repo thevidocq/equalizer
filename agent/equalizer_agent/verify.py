@@ -202,8 +202,14 @@ def compare(direct, via, hosts: tuple = (), again=None) -> tuple:
         # random products, not a block that went missing. Either the lost
         # links are among those the site varies, or each has a stand-in
         # beside it (another /product/... where a /product/... went)
+        # a stand-in counts only in a folder (never the root) where the site
+        # itself varies its links: /product/belt for /product/cap, never
+        # /wrong for /contact. A product every load happened to show is
+        # still one of them
+        moving = {_parent(x) for x in some - every} - {""}
         varied = lost <= some - every and len(lb - every) >= shown
-        swapped = len(new) >= len(lost) and all(any(_parent(n) == _parent(x) for n in new) for x in lost)
+        swapped = all(_parent(x) in moving for x in lost) and \
+            len([n for n in new if _parent(n) in moving]) >= len(lost)
         if varied or swapped:
             lost = set()
     lost = sorted(lost)

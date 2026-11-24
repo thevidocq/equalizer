@@ -26,7 +26,7 @@ type psCore struct {
 	admin   string          // the administration's folder
 }
 
-func loadPrestaShop(root string) any {
+func loadPrestaShop(root, _ string) any {
 	c := psCore{modules: map[string]bool{}}
 	for _, m := range psModule.FindAllStringSubmatch(readCore(root, "composer.json"), -1) {
 		c.modules[m[1]] = true

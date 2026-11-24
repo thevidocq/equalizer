@@ -1,0 +1,43 @@
+{
+  "schema": "source-summary/1.0",
+  "read_at": "2026-11-24T00:00:00Z",
+  "stack": "typo3",
+  "files": {
+    "read": 2,
+    "skipped": 0,
+    "known": 1
+  },
+  "routes": [
+    {
+      "path": "/index.php",
+      "methods": [
+        "GET",
+        "POST"
+      ],
+      "origin": "typo3_eid",
+      "query": {
+        "eID": "site_api"
+      },
+      "public": true,
+      "where": {
+        "file": "packages/site/ext_localconf.php",
+        "line": 2,
+        "owner": "extension site"
+      }
+    }
+  ],
+  "inputs": [],
+  "risks": [],
+  "components": [
+    {
+      "name": "library:typo3/cms-core",
+      "kind": "library",
+      "version": "13.4.2"
+    },
+    {
+      "name": "typo3",
+      "kind": "core",
+      "version": "13.4.2"
+    }
+  ]
+}

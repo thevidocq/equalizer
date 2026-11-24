@@ -19,7 +19,7 @@ var (
 
 type ocCore struct{ sep string } // between a route and its method
 
-func loadOpenCart(root string) any {
+func loadOpenCart(root, _ string) any {
 	v := ""
 	for _, f := range []string{"index.php", "admin/index.php", "action.php"} {
 		if m := ocVersion.FindStringSubmatch(readCore(root, f)); m != nil {

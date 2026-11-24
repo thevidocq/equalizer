@@ -32,18 +32,30 @@ func (c Change) narrow(doc map[string]any) (string, error) {
 		return "", err
 	}
 	if !freeText(field) {
-		return "", fmt.Errorf("%s is already checked as %v: only a field that takes free text is narrowed", where, field["type"])
+		return "", fmt.Errorf("%s is already checked (%v with a pattern, list, or set of characters): only a field that takes free text is narrowed", where, field["type"])
 	}
 	if c.Spec == nil {
 		return "", errors.New("say what the field takes: " + strings.Join(NarrowKinds, ", "))
 	}
-	required := field["required"]
-	next, what, err := c.Spec.narrowed(field)
+	next, what, err := c.Spec.narrowed(field, longest(doc, field))
 	if err != nil {
 		return "", err
 	}
-	if required != nil {
-		next["required"] = required
+	// required or optional as it was (no key: required)
+	delete(next, "required")
+	if r, ok := field["required"]; ok {
+		next["required"] = r
+	}
+	// a string held to the map's default set of characters stays held to
+	// it (the gateway drops the default once a field has a pattern)
+	if field["type"] == "string" && (next["type"] == "string" || next["type"] == "email") {
+		if cs := defaultCharset(doc); cs != "" {
+			next["charset"] = cs
+		}
+	}
+	// the values it refused stay refused
+	if deny, ok := field["deny"]; ok && next["type"] != "enum" {
+		next["deny"] = deny
 	}
 	for k := range field {
 		delete(field, k)
@@ -91,34 +103,60 @@ func (c Change) field(doc map[string]any) (map[string]any, string, error) {
 	return nil, "", errors.New("name the route (route_id) or the form (form_id) of the field")
 }
 
-// freeText: a field that takes any text (string or text, no pattern and no
-// list of values).
+// freeText: a field that takes any text (string or text, without a
+// pattern, a list of values or a set of characters of its own).
 func freeText(f map[string]any) bool {
 	t, _ := f["type"].(string)
 	_, pattern := f["pattern"]
 	_, values := f["values"]
-	return (t == "string" || t == "text") && !pattern && !values
+	_, charset := f["charset"]
+	return (t == "string" || t == "text") && !pattern && !values && !charset
 }
 
-// narrowed is the new check; what says it in words.
-func (s *Spec) narrowed(old map[string]any) (map[string]any, string, error) {
+func defaultCharset(doc map[string]any) string {
+	d, _ := doc["defaults"].(map[string]any)
+	str, _ := d["string"].(map[string]any)
+	cs, _ := str["charset"].(string)
+	return cs
+}
+
+// longest is the length the field takes now: its own, or the map's default
+// for strings, or the gateway's fallback (1000).
+func longest(doc map[string]any, f map[string]any) int {
+	if n, ok := f["max_length"].(float64); ok && n > 0 {
+		return int(n)
+	}
+	if f["type"] == "string" {
+		d, _ := doc["defaults"].(map[string]any)
+		str, _ := d["string"].(map[string]any)
+		if n, ok := str["max_length"].(float64); ok && n > 0 {
+			return int(n)
+		}
+	}
+	return 1000
+}
+
+// narrowed is the new check, never longer than the field takes now (max);
+// what says it in words.
+func (s *Spec) narrowed(old map[string]any, max int) (map[string]any, string, error) {
 	n := s.MaxLength
-	if have, ok := old["max_length"].(float64); ok && (n == 0 || float64(n) > have) {
-		n = int(have) // never longer than it was
+	if n <= 0 || n > max {
+		n = max
 	}
 	switch s.Type {
 	case "int", "date", "enum":
 		return s.field()
 	case "email":
-		return map[string]any{"type": "email", "max_length": 254}, "an e-mail address", nil
+		n = min(254, max)
+		return map[string]any{"type": "email", "max_length": n}, fmt.Sprintf("an e-mail address (%d characters at most)", n), nil
 	case "bool":
 		return map[string]any{"type": "bool"}, "yes or no (true, false, 1, 0)", nil
 	case "text":
-		if n <= 0 || n > 5000 {
-			return nil, "", errors.New("text: give max_length, the longest value the site takes (5000 at most)")
+		if s.MaxLength <= 0 {
+			return nil, "", errors.New("text: give max_length, the longest value the site takes")
 		}
-		if have, ok := old["max_length"].(float64); ok && float64(n) >= have {
-			return nil, "", fmt.Errorf("text of %d characters is not narrower than the %d it takes now", n, int(have))
+		if s.MaxLength >= max {
+			return nil, "", fmt.Errorf("text of %d characters is not narrower than the %d it takes now", s.MaxLength, max)
 		}
 		f := map[string]any{"type": old["type"], "max_length": n, "rules": rulesOf(old)}
 		return f, fmt.Sprintf("text of %d characters at most", n), nil
@@ -127,9 +165,7 @@ func (s *Spec) narrowed(old map[string]any) (map[string]any, string, error) {
 	if !ok {
 		return nil, "", fmt.Errorf("type %q: %s", s.Type, strings.Join(NarrowKinds, ", "))
 	}
-	if n <= 0 || n > shape.max {
-		n = shape.max
-	}
+	n = min(n, shape.max)
 	f := map[string]any{"type": "string", "pattern": shape.pattern, "max_length": n, "rules": rulesOf(old)}
 	return f, fmt.Sprintf("%s, %d characters at most", shape.what, n), nil
 }

@@ -19,6 +19,9 @@ func ModSecurity(raw []byte, app string, version int) ([]byte, error) {
 	if err := json.Unmarshal(raw, &d); err != nil {
 		return nil, fmt.Errorf("the map could not be read: %w", err)
 	}
+	if err := d.names(); err != nil {
+		return nil, err
+	}
 	w := &rules{id: FirstID}
 	w.header(app, version)
 	w.section("Entries: which entry of the map a request is")
@@ -98,6 +101,28 @@ func ModSecurity(raw []byte, app string, version int) ([]byte, error) {
 	return []byte(w.b.String()), nil
 }
 
+var identifier = regexp.MustCompile(`^[a-z][a-z0-9_]{0,63}$`)
+
+// names checks the ids and field names that become variable names and
+// values of setvar: identifiers only, as the map's schema says.
+func (d doc) names() error {
+	for _, kind := range []string{"routes", "forms", "api"} {
+		for _, e := range d.list(kind) {
+			if !identifier.MatchString(str(e["id"])) {
+				return fmt.Errorf("the entry %q has no identifier for an id", str(e["id"]))
+			}
+			for _, k := range []string{"query", "fields", "body", "params"} {
+				for n := range asMap(e[k]) {
+					if !identifier.MatchString(n) {
+						return fmt.Errorf("the field %q of %s is not an identifier", n, str(e["id"]))
+					}
+				}
+			}
+		}
+	}
+	return nil
+}
+
 // The local range of rule ids (1-99,999 is for a site's own rules).
 const (
 	FirstID = 10000
@@ -161,7 +186,7 @@ func (w *rules) prefix(id string, methods []string, prefix string) {
 	}
 	w.rule(`SecRule &TX:EQ_ENTRY "@eq 0" "id:%%d,phase:2,pass,nolog,t:none,chain"
     SecRule REQUEST_METHOD "@rx ^(?:%s)$" "t:none,chain"
-        SecRule REQUEST_FILENAME "@beginsWith %s" "t:none,setvar:'tx.eq_entry=%s'"`, alternation(methods), quote(prefix), id)
+        SecRule REQUEST_FILENAME "@rx ^%s" "t:none,setvar:'tx.eq_entry=%s'"`, alternation(methods), quote(regexp.QuoteMeta(prefix)), id)
 }
 
 // names refuses a key the entry does not have (none when fields is empty).
@@ -304,7 +329,7 @@ func (d doc) pathRegex(p string, params map[string]any) string {
 func alternation(values []string) string {
 	q := make([]string, len(values))
 	for i, v := range values {
-		q[i] = regexp.QuoteMeta(v)
+		q[i] = quote(regexp.QuoteMeta(v))
 	}
 	return strings.Join(q, "|")
 }
@@ -317,9 +342,12 @@ func lower(values []string) []string {
 	return out
 }
 
-// quote makes an operator's argument safe inside its double quotes.
+// quote makes an expression safe inside an operator's double quotes: a
+// quote becomes \x22 and a line break \n or \r, which mean the same to the
+// expression and cannot end the argument or the directive. Every argument
+// here is an expression that ends with ")" or "$", never with a lone "\".
 func quote(s string) string {
-	return strings.NewReplacer(`"`, `\"`, "\n", "", "\r", "").Replace(s)
+	return strings.NewReplacer(`"`, `\x22`, "\n", `\n`, "\r", `\r`).Replace(s)
 }
 
 // clean keeps a name for a message: no quote or newline can end it.

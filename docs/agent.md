@@ -351,8 +351,9 @@ For every page and every script request seen in step 1:
    the words all four loads share, and may lose only links that are not
    on every load, provided it shows at least as many such links as the
    site does (other random products, not a block that went missing); or
-   each lost link has a stand-in in the same folder (another
-   `/product/…` where a `/product/…` went), as many as were lost. Four
+   each lost link is in a folder (never the root) where the site itself
+   varies its links and has a stand-in there (another `/product/…` where a
+   `/product/…` went), as many as were lost. Four
    loads matter: a shop that shows four related products out of a few
    repeats one between two loads more often than not. Nothing is set
    aside when another answer is of another kind (an error, a redirect to

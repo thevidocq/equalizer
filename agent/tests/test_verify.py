@@ -113,6 +113,10 @@ class CompareTest(unittest.TestCase):
         # a related block that went missing is not another random one
         gone = load().body.split(b"<ul>")[0]
         self.assertNotEqual(verify.compare(load(), via(gone), (), [load() for _ in range(verify.AGAIN)])[0], "")
+        # a link the site always shows, broken where random products move,
+        # is not excused by an extra product
+        moved = load().body.replace(b"<a href='/cart'>Cart</a>", b"<a href='/wrong'>Cart</a>")
+        self.assertEqual(verify.compare(load(), via(moved), (), [load() for _ in range(verify.AGAIN)])[0], "links")
         # what the site always shows is still checked
         lost = load().body.replace(b"<a href='/cart'>Cart</a>", b"")
         self.assertEqual(verify.compare(load(), via(lost), (), [load() for _ in range(verify.AGAIN)])[0], "links")

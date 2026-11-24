@@ -32,8 +32,9 @@ type kind struct {
 	// corePackages: composer packages whose version is the core's
 	corePackages []string
 	// load reads a few files of the core once found (lists of the core's
-	// own extensions); its result is app.data
-	load func(root string) any
+	// own extensions); its result is app.data. root is the application's
+	// folder, site the site's: nothing outside site is read
+	load func(root, site string) any
 	// core: shipped with the application (rel is under its folder)
 	core func(a *app, rel string) bool
 	// owner: the extension a file belongs to ("plugin", "akismet"), or ""
@@ -74,7 +75,7 @@ func detect(root string) *app {
 				a := &app{kind: k, base: base, web: webRoots[strings.TrimSuffix(base, "/")],
 					front: map[string]string{}, admin: map[string]string{}, ctrl: map[string][]string{}}
 				if k.load != nil {
-					a.data = k.load(filepath.Join(root, filepath.FromSlash(base)))
+					a.data = k.load(filepath.Join(root, filepath.FromSlash(base)), root)
 				}
 				return a
 			}

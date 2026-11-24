@@ -789,8 +789,10 @@ map must be valid and accepted by the gateway):
   email address, one of a few values, yes or no, digits only, a slug, a
   key (letters, digits, `_ . -`), or shorter text. The patterns are
   Equalizer's own, never written by the AI; only a field that takes free
-  text is narrowed, never widened, and it stays required or optional as
-  it was. The agent's check of the draft shows any page the narrower
+  text (no pattern, list or set of characters of its own) is narrowed,
+  never widened: never longer than it takes now, still held to the map's
+  default characters and to the values it refused, and required or
+  optional as it was. The agent's check of the draft shows any page the narrower
   field would break, before you publish.
 
 At most three proposals per answer. It does not propose new pages, forms,
@@ -1048,7 +1050,8 @@ read in a temporary folder deleted after each read.
 3. The tab says **Ready** once the reader answers (it calls every minute).
    **Read now** reads the files and shows what was found, or why it failed:
    it is also the test of the settings. A read no reader takes within 15
-   minutes, or that runs for more than 30, fails with the reason, and a
+   minutes, or that runs for more than an hour (a copy gives up after 40
+   minutes), fails with the reason, and a
    new token ends the reads of the old one: one read never holds the site
    for good.
 

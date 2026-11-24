@@ -232,6 +232,13 @@ allows: a list of values, a number with its range, an email, a phone, a
 pattern. Free-text fields refuse HTML and template code; fields holding a
 name or a code also refuse SQL delimiters.
 
+The AI is always used when your organisation has a model (Settings → AI
+model); without one, a soft amber notice says so above the button, while
+the discovery runs and in its report, and the draft comes from the fixed
+rules only. To stop using AI, remove the model in Settings. **Test
+accounts** and **Pages at most** (500 by default) are closed under their
+arrow; once filled, the closed line says how many accounts are set.
+
 **Read the site's source code** (checked by default once the site's
 [source reader](#the-source-reader) answers; grey until then): the
 discovery first has the reader read the site's code, and waits for it, 10
@@ -241,8 +248,11 @@ a few values, and the values seen on the site fit; a field the code reads
 as it is anywhere stays free text. The report gains **From the source
 code**: the fields typed by the code, the entry points no link shows (REST
 routes, AJAX actions, PHP files that run when opened: the site area serves
-them as they are), the calls where a request value may do harm, with file
-and line, and the components. If the read fails or takes longer, the
+them as they are) and the calls where a request value may do harm, with
+file and line, each grouped by plugin or theme, closed but for its count;
+a long list says "first 200 of N". The components it finds join the
+report's one **Components** list, which says of each whether the pages,
+the code or both showed it. If the read fails or takes longer, the
 discovery runs without it and says why.
 
 It also finds every file the pages load (stylesheets, scripts, images,
@@ -296,6 +306,19 @@ is on, opening pages in the browser to see what their scripts load,
 reading the stylesheets, building the map, the AI studying the structure,
 checking what visitors asked for.
 
+**Pages in the browser.** The agent opens up to 40 pages per pass in a
+real browser, to see the requests their scripts make; the panel says which
+one (**browser: page 12 of 40**). A page gets 20 seconds at most (the
+platform can change it, `EQ_BROWSER_PAGE_SECONDS`): one that is still
+loading then, that fails or that crashes the browser is **skipped, never
+lost**. The report lists each under **Skipped in the browser** with why
+and after how long, and under **Still open** ("its scripts not studied"):
+the page itself was explored and mapped, only the requests its scripts
+would make were not seen, so the site area keeps serving them without a
+precise check. A slow page (a shop's search, a page full of embeds) is the
+usual cause. Run the discovery again to retry them; the limit used is in
+the report.
+
 The whole site always stays in the map through the `/` area. The report
 shows what was found, which pages got precise entries, how each test
 account logged in, what is **still open** with its reason (pages not
@@ -335,6 +358,13 @@ What the agent does:
    and script, template code, paths, shell, values of the wrong type). The
    gateway only says whether it would let each one through: **no attack is
    sent to the site**.
+
+While it runs, the card and the discovery's notice say where it is:
+**comparing pages with and without Equalizer: page 120 of 349**, then
+**trying attacks on the gateway: entry 14 of 31**, the files, and, when it
+corrects its draft, **checking its corrected version**. The agent's log
+writes a line every 50 pages. On a site of a few hundred pages it takes
+about as long as the discovery.
 
 What you see, in **Check on the site** on each version:
 
@@ -559,7 +589,13 @@ again to close it; alerts such as a connector going
 offline name the connector or the site); on a path that is not in the map,
 **Add to the map** opens a new version. **Live** refreshes every few
 seconds, and its green dot pulses while it does (**Paused**: grey, still); **Export CSV** downloads up to 10 000 events (recorded in
-Activity). Field values are never stored, only the field name and the rule
+Activity). **Refused per hour** (per 5 minutes, 6 hours or day, as the
+period): a bar is a button. It shows the refused events of that interval
+only, a new query to the log store, not a filter of the rows already
+loaded; the bar stays marked, the others fade, and **Refused, 20:00–21:00 ✕**
+above the list takes you back to the whole period. **Live** pauses (an
+interval of the past does not change) and **Export CSV** exports what you
+see. Field values are never stored, only the field name and the rule
 that refused it. The IP address is the visitor's real one, the same the
 legacy site receives in `X-Forwarded-For` (its own logs and bans keep
 working).
@@ -888,7 +924,18 @@ A file with another name that holds a password written in the code (a
 database connection with its password) is dropped as soon as it is
 opened and nothing from it is used. Over SFTP and SMB the reader first
 lists the folder and copies only the files it reads: the others never
-cross the network. It sends a summary: entry points, the type the code gives
+cross the network. It studies only the code that is the site's own: plugins, themes and
+custom files. WordPress's core (`wp-admin`, `wp-includes`, the `wp-*.php`
+files) and the libraries plugins ship (`vendor/` and the like) give only
+their versions: they are known code, and counting them buried the site's
+own entry points under thousands of lines. A PHP file counts as an entry
+point only when it does something as soon as it is opened: outside its
+functions and classes it reads the request or makes a risky call. A file
+that only declares functions or classes, or a template that prints what it
+is given, does not. This is read from the code's structure (braces,
+strings, comments), not with a PHP parser: an approximation that can miss
+an unusual file. A backtick counts as running a command only around a
+request value: in a query it quotes a table or column name. It sends a summary: entry points, the type the code gives
 each request key, the calls where a request value may do harm (file and
 line), the components and their versions. Names, types and places only:
 **the code, the values and the secrets never leave your network**. Files
@@ -907,11 +954,18 @@ read.
      in the share. Use an account that can only read the share; the
      password is encrypted and never shown again, and serves only the same
      server and user.
-   - **Folder mounted next to the reader**: mount the site's folder read
-     only in the reader's container at `/site`
-     (`-v /var/www/html:/site:ro`) and give the folder under `/site`.
-2. **Make token and command**, then run the command on the connector's
-   server. The token is shown once; a new one stops the old one.
+   - **Folder on the same server (Docker too)**: the reader runs on the
+     site's own server. Give the site's folder (for example
+     `/var/www/html`). If the site runs in Docker, also give its
+     **container** as `docker ps` names it (for example `wp`): the reader
+     takes the container's volumes, read only (`--volumes-from wp:ro`).
+     Without a container, the folder of the server is mounted read only at
+     the same path. The command the panel gives already holds the mount:
+     nothing to add by hand. A site whose code is only inside its image
+     (no volume) cannot be read this way yet.
+2. **Make token and command**, then run the command next to the
+   connector (with a folder or a container, on the site's server). The
+   command follows the settings above: change them, make a new token. The token is shown once; a new one stops the old one.
 3. The tab says **Ready** once the reader answers (it calls every minute).
    **Read now** reads the files and shows what was found, or why it failed:
    it is also the test of the settings.
@@ -958,7 +1012,13 @@ works; the assistant needs one.
 ### Security scanner
 
 **Settings → Security scanner**: your CVE Radar account, for the
-[Security tab](#security-scans) of each site. Enter the address of its API
+[Security tab](#security-scans) of each site. A card names the provider
+and how the connection stands, with a small dot: **Connected** (the last
+call to CVE Radar, saving the key, a scan or reading its results, was
+accepted), **Not connected** (no key saved) or **Key refused** (CVE Radar
+refused the saved key at that call: revoked, expired, or without the
+permissions; save a new one). The panel never calls CVE Radar just to show
+this page. Enter the address of its API
 (from CVE Radar's documentation) and a key created in CVE Radar's API
 section with the **read**, **scan** and **write** permissions (a
 `cvr_test_…` key for trials). The panel tries them before saving, keeps the

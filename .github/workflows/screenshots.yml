@@ -1,0 +1,67 @@
+# Takes the manuals' screenshots from the panel of this commit, filled with
+# the demo organisation (scripts/screenshots). Runs on demand and on
+# docs/screenshots-* branches; the images are an artifact to review and
+# commit to docs/screenshots (then `npm run sync:help`).
+name: Screenshots
+
+on:
+  workflow_dispatch:
+  push:
+    branches: ["docs/screenshots-*"]
+
+jobs:
+  shoot:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: eq
+          POSTGRES_DB: equalizer
+          POSTGRES_HOST_AUTH_METHOD: trust
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U eq" --health-interval 2s --health-timeout 2s --health-retries 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.24"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Loki
+        run: |
+          docker run -d --name loki -p 3100:3100 grafana/loki:3.1.1
+          for i in $(seq 60); do curl -fs http://127.0.0.1:3100/ready && break; sleep 2; done
+      - name: Playwright
+        run: |
+          pip install playwright==1.49.1
+          python -m playwright install --with-deps chromium
+      - name: Panel API with the demo organisation
+        env:
+          EQ_DATABASE_URL: postgres://eq@127.0.0.1:5432/equalizer?sslmode=disable
+          EQ_LOKI_URL: http://127.0.0.1:3100
+        run: |
+          scripts/screenshots/stack.sh "$RUNNER_TEMP/run"
+          python3 scripts/screenshots/logs.py http://127.0.0.1:3100
+      - name: Panel UI
+        working-directory: panel-ui
+        run: |
+          npm ci --no-audit --no-fund
+          npm run build
+          EQ_PANEL_API=http://127.0.0.1:8080 nohup npx vite preview --port 4173 --strictPort > "$RUNNER_TEMP/ui.log" 2>&1 &
+          for i in $(seq 60); do curl -fs http://localhost:4173/login >/dev/null && break; sleep 1; done
+      - name: Screenshots
+        run: python3 scripts/screenshots/shoot.py http://localhost:4173 "$RUNNER_TEMP/run/accounts.json" "$RUNNER_TEMP/shots"
+      - name: Logs on failure
+        if: failure()
+        run: tail -50 "$RUNNER_TEMP/run/panel-api.log" "$RUNNER_TEMP/ui.log" || true
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: screenshots
+          path: ${{ runner.temp }}/shots

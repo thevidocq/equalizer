@@ -1,0 +1,319 @@
+{
+ "types": {
+  "slug": {
+   "base": "string",
+   "pattern": "^[\\p{L}\\p{Nd}][\\p{L}\\p{Nd}\\p{Mn}\\p{Mc}_-]{0,199}$",
+   "rules": [
+    "no_lookalikes"
+   ],
+   "deny": [
+    "admin",
+    "administrator",
+    "api",
+    "backup",
+    "backups",
+    "cgi-bin",
+    "config",
+    "console",
+    "cpanel",
+    "install",
+    "jsonapi",
+    "manager",
+    "phpmyadmin",
+    "plesk",
+    "pma",
+    "private",
+    "server-info",
+    "server-status",
+    "setup",
+    "test",
+    "tmp",
+    "vendor",
+    "webmail",
+    "wp-admin",
+    "wp-login",
+    "xmlrpc"
+   ]
+  },
+  "id": {
+   "base": "int",
+   "min": 1,
+   "max": 999999999
+  },
+  "search": {
+   "base": "string",
+   "max_length": 200,
+   "pattern": "^[^<>{}\\x00-\\x1f]{1,200}$"
+  }
+ },
+ "routes": [
+  {
+   "id": "home",
+   "path": "/",
+   "method": "GET",
+   "roles": [
+    "guest"
+   ],
+   "legacy_request": {
+    "method": "GET",
+    "path": "/"
+   },
+   "render": "faithful",
+   "origin": "human"
+  },
+  {
+   "id": "page",
+   "path": "/{slug}",
+   "method": "GET",
+   "roles": [
+    "guest"
+   ],
+   "legacy_request": {
+    "method": "GET",
+    "path": "/{{params.slug}}"
+   },
+   "render": "faithful",
+   "origin": "human",
+   "params": {
+    "slug": {
+     "type": "slug"
+    }
+   }
+  },
+  {
+   "id": "sub_page",
+   "path": "/{section}/{slug}",
+   "method": "GET",
+   "roles": [
+    "guest"
+   ],
+   "legacy_request": {
+    "method": "GET",
+    "path": "/{{params.section}}/{{params.slug}}"
+   },
+   "render": "faithful",
+   "origin": "human",
+   "params": {
+    "section": {
+     "type": "slug"
+    },
+    "slug": {
+     "type": "slug"
+    }
+   }
+  },
+  {
+   "id": "login_php",
+   "path": "/login.php",
+   "method": "GET",
+   "roles": [
+    "guest"
+   ],
+   "render": "faithful",
+   "origin": "agent",
+   "confidence": 0.9,
+   "legacy_request": {
+    "method": "GET",
+    "path": "/login.php"
+   }
+  },
+  {
+   "id": "notice_php",
+   "path": "/notice.php",
+   "method": "GET",
+   "roles": [
+    "guest"
+   ],
+   "render": "faithful",
+   "origin": "agent",
+   "confidence": 0.8,
+   "legacy_request": {
+    "method": "GET",
+    "path": "/notice.php",
+    "query": {
+     "id": "{{query.id}}"
+    }
+   },
+   "query": {
+    "id": {
+     "type": "int",
+     "min": 0,
+     "max": 999999999,
+     "required": false
+    }
+   }
+  },
+  {
+   "id": "search_php",
+   "path": "/search.php",
+   "method": "GET",
+   "roles": [
+    "guest"
+   ],
+   "render": "faithful",
+   "origin": "agent",
+   "confidence": 0.9,
+   "legacy_request": {
+    "method": "GET",
+    "path": "/search.php"
+   }
+  }
+ ],
+ "forms": [
+  {
+   "id": "login_php_form",
+   "route": "/login.php",
+   "roles": [
+    "guest"
+   ],
+   "origin": "agent",
+   "fields": {
+    "user": {
+     "type": "string",
+     "max_length": 200,
+     "rules": [
+      "no_html",
+      "no_template_meta",
+      "no_sql_meta"
+     ],
+     "required": false
+    },
+    "password": {
+     "type": "password",
+     "max_length": 128,
+     "rules": [
+      "no_template_meta"
+     ],
+     "required": false
+    }
+   },
+   "legacy_request": {
+    "method": "POST",
+    "path": "/login.php",
+    "form": {
+     "user": "{{fields.user}}",
+     "password": "{{fields.password}}",
+     "back": "{{hidden.back}}"
+    }
+   },
+   "rate_limit": {
+    "per_ip": "10/min"
+   }
+  }
+ ],
+ "assets": [
+  {
+   "prefix": "/css/",
+   "types": [
+    "text/css",
+    "application/javascript",
+    "text/javascript",
+    "image/png",
+    "image/jpeg",
+    "image/gif",
+    "image/svg+xml",
+    "image/webp",
+    "image/x-icon",
+    "image/vnd.microsoft.icon",
+    "font/woff",
+    "font/woff2",
+    "font/ttf",
+    "application/font-woff"
+   ]
+  },
+  {
+   "prefix": "/js/",
+   "types": [
+    "text/css",
+    "application/javascript",
+    "text/javascript",
+    "image/png",
+    "image/jpeg",
+    "image/gif",
+    "image/svg+xml",
+    "image/webp",
+    "image/x-icon",
+    "image/vnd.microsoft.icon",
+    "font/woff",
+    "font/woff2",
+    "font/ttf",
+    "application/font-woff"
+   ]
+  },
+  {
+   "prefix": "/fonts/",
+   "types": [
+    "text/css",
+    "application/javascript",
+    "text/javascript",
+    "image/png",
+    "image/jpeg",
+    "image/gif",
+    "image/svg+xml",
+    "image/webp",
+    "image/x-icon",
+    "image/vnd.microsoft.icon",
+    "font/woff",
+    "font/woff2",
+    "font/ttf",
+    "application/font-woff"
+   ]
+  },
+  {
+   "prefix": "/images/",
+   "types": [
+    "image/png",
+    "image/jpeg",
+    "image/gif",
+    "image/webp",
+    "image/svg+xml",
+    "application/pdf"
+   ]
+  },
+  {
+   "prefix": "/img/",
+   "types": [
+    "image/png",
+    "image/jpeg",
+    "image/gif",
+    "image/webp",
+    "image/svg+xml",
+    "application/pdf"
+   ]
+  }
+ ],
+ "areas": [
+  {
+   "id": "site",
+   "prefix": "/",
+   "methods": [
+    "GET",
+    "HEAD",
+    "POST",
+    "PUT",
+    "PATCH",
+    "DELETE",
+    "OPTIONS"
+   ],
+   "origin": "human",
+   "max_body_kb": 51200
+  }
+ ],
+ "roles": {
+  "anonymous": "guest",
+  "list": {
+   "guest": {}
+  }
+ },
+ "defaults": {
+  "rate_limit": {
+   "per_ip": "120/min"
+  },
+  "legacy_budget": {
+   "max_concurrency": 10
+  },
+  "string": {
+   "max_length": 1000
+  }
+ }
+}

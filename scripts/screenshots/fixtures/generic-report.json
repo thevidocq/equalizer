@@ -1,0 +1,100 @@
+{
+ "cms": null,
+ "version": null,
+ "components": [],
+ "known_issues": [],
+ "mode": "first",
+ "pages_found": 4,
+ "covered_before": 1,
+ "covered_after": 4,
+ "coverage": 100,
+ "routes_added": [
+  {
+   "id": "login_php",
+   "path": "/login.php",
+   "samples": 1,
+   "logged_in_only": false
+  },
+  {
+   "id": "notice_php",
+   "path": "/notice.php",
+   "samples": 1,
+   "logged_in_only": false
+  },
+  {
+   "id": "search_php",
+   "path": "/search.php",
+   "samples": 1,
+   "logged_in_only": false
+  }
+ ],
+ "forms_added": [
+  {
+   "id": "login_php_form",
+   "route": "/login.php",
+   "fields": [
+    "password",
+    "user"
+   ]
+  }
+ ],
+ "assets_added": [],
+ "issues_proposed": [],
+ "site_area": "present",
+ "excluded": [
+  {
+   "path": "/admin/new.php",
+   "reason": "admin"
+  }
+ ],
+ "skipped_actions": 1,
+ "not_supported": [],
+ "query_added": [],
+ "visitors_added": [],
+ "not_seen_anymore": [],
+ "login": "ok",
+ "errors": 0,
+ "accounts": [
+  {
+   "label": "test",
+   "login": "ok"
+  }
+ ],
+ "pages": [
+  "/",
+  "/login.php",
+  "/notice.php?id=1",
+  "/search.php"
+ ],
+ "pages_by_account": {
+  "test": []
+ },
+ "browser": {
+  "pages": 0,
+  "script_requests": [],
+  "kept_in": []
+ },
+ "open": [
+  {
+   "kind": "path",
+   "target": "/admin/new.php",
+   "reason": "not_reached",
+   "detail": "never opened: administration"
+  },
+  {
+   "kind": "path",
+   "target": "/logout.php",
+   "reason": "action_not_performed"
+  },
+  {
+   "kind": "input",
+   "target": "login_php_form.password",
+   "reason": "accepts_sql"
+  }
+ ],
+ "base": "template",
+ "ai": {
+  "used": false,
+  "reason": "no AI model configured for this tenant"
+ }
+}

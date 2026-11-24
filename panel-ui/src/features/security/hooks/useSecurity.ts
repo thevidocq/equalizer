@@ -6,23 +6,37 @@ export type SecurityTarget = Schemas["SecurityTarget"];
 export type SecurityFinding = Schemas["SecurityFinding"];
 export type ScanStart = Schemas["SecurityScanStart"];
 
-/** A scan going on, or one just ended whose map draft is still being built. */
-export function going(o: SecurityOverview | undefined, now: number): boolean {
-  return !!o?.targets.some((t) => {
+/**
+ * How often to read the scans again: every 15 seconds while one goes on or
+ * its map draft is being built (the first 5 minutes); every minute while
+ * the draft waits for the map to be free (a version in review), up to the
+ * day Equalizer keeps trying; never otherwise.
+ */
+export function pollEvery(o: SecurityOverview | undefined, now: number): number | false {
+  let every: number | false = false;
+  for (const t of o?.targets ?? []) {
     const s = t.scan;
-    if (!s) return false;
-    if (s.status === "pending" || s.status === "running") return true;
-    const ended = s.completed_at ? Date.parse(s.completed_at) : 0;
-    return s.status === "completed" && s.draft_version == null && !s.draft_note && now - ended < 5 * 60_000;
-  });
+    if (!s) continue;
+    if (s.status === "pending" || s.status === "running") return 15_000;
+    const since = now - (s.completed_at ? Date.parse(s.completed_at) : 0);
+    if (s.status !== "completed" || s.draft_version != null || s.draft_note) continue;
+    if (since < 5 * 60_000) return 15_000;
+    if (since < 24 * 3600_000) every = 60_000;
+  }
+  return every;
 }
 
-/** The site's scans and findings; refreshed every 15 seconds while a scan goes on. */
+/** A scan going on, or one just ended whose map draft is still being built. */
+export function going(o: SecurityOverview | undefined, now: number): boolean {
+  return pollEvery(o, now) === 15_000;
+}
+
+/** The site's scans and findings, read again as pollEvery says. */
 export function useSecurity(app: string) {
   return useQuery({
     queryKey: ["security", app],
     queryFn: () => unwrap(api.GET("/apps/{app}/security", { params: { path: { app } } })),
-    refetchInterval: (q) => (going(q.state.data, Date.now()) ? 15_000 : false),
+    refetchInterval: (q) => pollEvery(q.state.data, Date.now()),
   });
 }
 

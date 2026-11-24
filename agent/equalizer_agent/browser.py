@@ -136,7 +136,7 @@ def study(fetcher, host: str, pages: list, log, allowed, executable: str = "", p
                         timeout = "Timeout" in type(e).__name__ or "timeout" in str(e).lower()
                         seen.skipped.append({"path": pq, "seconds": took,
                                              "reason": "time_limit" if timeout else "error",
-                                             "detail": "" if timeout else str(e).splitlines()[0][:160]})
+                                             "detail": "" if timeout else _first_line(e)})
                         if not timeout:
                             page = _fresh(ctx, page)
                     if (n + 1) % 10 == 0:
@@ -148,7 +148,7 @@ def study(fetcher, host: str, pages: list, log, allowed, executable: str = "", p
         done = {s["path"] for s in seen.skipped}
         for pq in pages[seen.pages + len(seen.skipped):]:
             if pq not in done:
-                seen.skipped.append({"path": pq, "seconds": 0, "reason": "browser_failed", "detail": str(e).splitlines()[0][:160]})
+                seen.skipped.append({"path": pq, "seconds": 0, "reason": "browser_failed", "detail": _first_line(e)})
     return seen
 
 
@@ -161,3 +161,8 @@ def _fresh(ctx, page):
     p = ctx.new_page()
     p.on("dialog", lambda d: d.dismiss())
     return p
+
+
+def _first_line(e: Exception) -> str:
+    """The first line of an error, or its kind when it says nothing."""
+    return (str(e).splitlines() or [type(e).__name__])[0][:160]

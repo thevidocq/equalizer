@@ -43,73 +43,30 @@ func (s *Server) patchApp(w http.ResponseWriter, r *http.Request, u *auth.User) 
 		fail(w, http.StatusUnprocessableEntity, "invalid", "nothing to change")
 		return
 	}
+	// Everything is checked before anything is changed: a refused field
+	// leaves the site as it was.
+	name := ""
 	if in.Name != nil {
-		name := strings.TrimSpace(*in.Name)
+		name = strings.TrimSpace(*in.Name)
 		if name == "" || len(name) > 200 {
 			fail(w, http.StatusUnprocessableEntity, "invalid", "name: between 1 and 200 characters")
 			return
 		}
-		if name != a.Name {
-			if err := s.Store.RenameApp(r.Context(), a.ID, name); err != nil {
-				s.storeError(w, r, err)
-				return
-			}
-			_ = s.Store.Record(r.Context(), &u.ID, &a.Tenant, "app.rename", a.ID, map[string]any{"from": a.Name, "to": name})
-		}
-		if in.LegacyIP == nil && in.Schedule == nil && in.Scheme == nil && in.Never == nil {
-			s.writeApp(w, r, a.ID)
-			return
-		}
 	}
-	if in.Scheme != nil && *in.Scheme != a.TLS.PublicScheme {
-		if err := s.setPublicScheme(r, a, *in.Scheme); err != nil {
-			var ie *inputError
-			switch {
-			case errors.As(err, &ie):
-				fail(w, http.StatusUnprocessableEntity, "invalid", ie.msg)
-			case !s.mapCheckFail(w, err):
-				s.storeError(w, r, err)
-			}
-			return
-		}
-		_ = s.Store.Record(r.Context(), &u.ID, &a.Tenant, "app.public_scheme", a.ID, map[string]any{"scheme": *in.Scheme})
-		if in.LegacyIP == nil && in.Schedule == nil && in.Never == nil {
-			s.writeApp(w, r, a.ID)
-			return
-		}
-	}
+	var at store.DiscoveryTime
 	if in.Schedule != nil {
 		if *in.Schedule != "off" && *in.Schedule != "daily" && *in.Schedule != "weekly" {
 			fail(w, http.StatusUnprocessableEntity, "invalid", "discovery_schedule: off, daily or weekly")
 			return
 		}
-		at, ok := discoveryTime(a.DiscoveryAt, in.Hour, in.Weekday, u.TimeZone)
-		if !ok {
+		var ok bool
+		if at, ok = discoveryTime(a.DiscoveryAt, in.Hour, in.Weekday, u.TimeZone); !ok {
 			fail(w, http.StatusUnprocessableEntity, "invalid", "discovery_hour: 0 to 23; discovery_weekday: 0 (Sunday) to 6")
 			return
 		}
-		if err := s.Store.SetDiscoverySchedule(r.Context(), a.ID, *in.Schedule, at, u.ID); err != nil {
-			s.storeError(w, r, err)
-			return
-		}
-		_ = s.Store.Record(r.Context(), &u.ID, &a.Tenant, "discovery.schedule", a.ID,
-			map[string]any{"schedule": *in.Schedule, "hour": at.Hour, "weekday": at.Weekday, "zone": at.Zone})
-		if in.LegacyIP == nil && in.Never == nil {
-			s.writeApp(w, r, a.ID)
-			return
-		}
-	}
-	if in.Never != nil && in.LegacyIP == nil {
-		if err := s.Store.SetNeverPublic(r.Context(), a.ID, *in.Never); err != nil {
-			s.storeError(w, r, err)
-			return
-		}
-		_ = s.Store.Record(r.Context(), &u.ID, &a.Tenant, "app.never_public", a.ID, map[string]any{"never_public": *in.Never})
-		s.writeApp(w, r, a.ID)
-		return
 	}
 	var ip *string
-	if string(in.LegacyIP) != "null" {
+	if in.LegacyIP != nil && string(in.LegacyIP) != "null" {
 		var raw string
 		addr, valid := netipFromJSON(in.LegacyIP, &raw)
 		if !valid {
@@ -124,11 +81,49 @@ func (s *Server) patchApp(w http.ResponseWriter, r *http.Request, u *auth.User) 
 		}
 		ip = &addr
 	}
-	if err := s.Store.SetLegacyIP(r.Context(), a.ID, ip); err != nil {
-		s.storeError(w, r, err)
-		return
+	// The public scheme has checks of its own (the map must still hold): first.
+	if in.Scheme != nil && *in.Scheme != a.TLS.PublicScheme {
+		if err := s.setPublicScheme(r, a, *in.Scheme); err != nil {
+			var ie *inputError
+			switch {
+			case errors.As(err, &ie):
+				fail(w, http.StatusUnprocessableEntity, "invalid", ie.msg)
+			case !s.mapCheckFail(w, err):
+				s.storeError(w, r, err)
+			}
+			return
+		}
+		_ = s.Store.Record(r.Context(), &u.ID, &a.Tenant, "app.public_scheme", a.ID, map[string]any{"scheme": *in.Scheme})
 	}
-	_ = s.Store.Record(r.Context(), &u.ID, &a.Tenant, "app.legacy_ip", a.ID, map[string]any{"set": ip != nil})
+	if in.Schedule != nil {
+		if err := s.Store.SetDiscoverySchedule(r.Context(), a.ID, *in.Schedule, at, u.ID); err != nil {
+			s.storeError(w, r, err)
+			return
+		}
+		_ = s.Store.Record(r.Context(), &u.ID, &a.Tenant, "discovery.schedule", a.ID,
+			map[string]any{"schedule": *in.Schedule, "hour": at.Hour, "weekday": at.Weekday, "zone": at.Zone})
+	}
+	switch {
+	case in.LegacyIP != nil:
+		if err := s.Store.SetLegacyIP(r.Context(), a.ID, ip); err != nil {
+			s.storeError(w, r, err)
+			return
+		}
+		_ = s.Store.Record(r.Context(), &u.ID, &a.Tenant, "app.legacy_ip", a.ID, map[string]any{"set": ip != nil})
+	case in.Never != nil:
+		if err := s.Store.SetNeverPublic(r.Context(), a.ID, *in.Never); err != nil {
+			s.storeError(w, r, err)
+			return
+		}
+		_ = s.Store.Record(r.Context(), &u.ID, &a.Tenant, "app.never_public", a.ID, map[string]any{"never_public": *in.Never})
+	}
+	if in.Name != nil && name != a.Name {
+		if err := s.Store.RenameApp(r.Context(), a.ID, name); err != nil {
+			s.storeError(w, r, err)
+			return
+		}
+		_ = s.Store.Record(r.Context(), &u.ID, &a.Tenant, "app.rename", a.ID, map[string]any{"from": a.Name, "to": name})
+	}
 	s.writeApp(w, r, a.ID)
 }
 

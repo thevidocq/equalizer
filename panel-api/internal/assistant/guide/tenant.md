@@ -858,7 +858,10 @@ offers a **quick** scan (seconds: headers, HTTPS, cookies, email DNS,
 technologies, exposed files), a **standard** one (a few minutes) or a
 **deep** one (longer, more requests). One scan per target at a time; each counts against your CVE
 Radar limits (20 scans a day). The tab follows the scan and shows the
-findings when it ends; a scan that does not end within two hours fails.
+findings when it ends; a scan that does not end within two hours fails,
+and one the scanner never started (the panel stopped while asking it)
+fails after five minutes. While its draft waits for the map to be free (a
+version in review), the tab keeps checking, every minute, for a day.
 The scanner creates its own record of the domain the first time, without
 asking for its DNS check.
 
@@ -1044,7 +1047,10 @@ read in a temporary folder deleted after each read.
    command follows the settings above: change them, make a new token. The token is shown once; a new one stops the old one.
 3. The tab says **Ready** once the reader answers (it calls every minute).
    **Read now** reads the files and shows what was found, or why it failed:
-   it is also the test of the settings.
+   it is also the test of the settings. A read no reader takes within 15
+   minutes, or that runs for more than 30, fails with the reason, and a
+   new token ends the reads of the old one: one read never holds the site
+   for good.
 
 **Remove the reader** forgets the settings, the token and the reads.
 Viewers see the tab, not the settings form.

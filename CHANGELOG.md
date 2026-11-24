@@ -19,7 +19,8 @@ Add a section at the top of "Entries" for every commit:
 
 ## Current project status
 
-Latest release: **0.2.30** (`docs/releases/0.2.30.md`); before it 0.2.29
+Latest release: **0.2.31** (`docs/releases/0.2.31.md`); before it 0.2.30
+(`docs/releases/0.2.30.md`), 0.2.29
 (`docs/releases/0.2.29.md`), 0.2.28
 (`docs/releases/0.2.28.md`), 0.2.27
 (`docs/releases/0.2.27.md`), 0.2.26
@@ -63,6 +64,32 @@ it, 0.1.0 (`docs/releases/0.1.0.md`, tag on the merge of #39).
 | tools (eqtool) | Map signing keys, form key, relay token, connector registration, map signing |
 
 ## Entries
+
+### 2026-11-24 — Fix the bug hunt's findings on 0.2.27-0.2.30; version 0.2.31
+
+- **Branch:** fix/stabilize-0.2.31
+- **What:**
+  - Source reads no reader ends: `store.expireSourceReads` fails a read
+    queued for 15 minutes or running for 30, on claim, queue and read of
+    the latest; a discovery fails a stale queued read before joining one;
+    `SetSourceToken` fails the old token's reads. Test in
+    `source_test.go`.
+  - Scan reservations never started (`remote_scan = ''`) fail after 5
+    minutes (`expireReservations`, on reserve and on claim); a failed
+    `DropSecurityScan` is logged. Test in `security_test.go`.
+  - `patchApp` checks every field before changing any: a refused field no
+    longer leaves the site renamed. Test in `rename_test.go`.
+  - Agent `browser.py`: `_first_line` of an error without a message.
+  - Security tab: `pollEvery` reads every minute while a scan's draft
+    waits for the map, up to a day.
+  - Version 0.2.31 (VERSION, INSTALL.md, `.env.example`, agent),
+    `docs/releases/0.2.31.md`; manual and in-app help for the fixes.
+- **Why:** an independent bug hunt on 0.2.27-0.2.30 found two dead ends
+  that only deleting the configuration could clear, and three smaller
+  bugs.
+- **Status:** Go and agent tests pass; panel-ui syntax-checked only.
+- **Next steps:** efficacy study; independent review of the branch; PR;
+  screenshots.
 
 ### 2026-11-24 — Every supported CMS in the source reader, map downloads, steadier verification and assistant (work in progress)
 

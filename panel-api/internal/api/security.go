@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log/slog"
 	"net"
 	"net/http"
 	"net/url"
@@ -271,7 +272,9 @@ func (s *Server) startSecurityScan(w http.ResponseWriter, r *http.Request, u *au
 		_ = s.Store.ScannerAnswered(context.WithoutCancel(r.Context()), a.Tenant, refused)
 	}
 	if err != nil {
-		_ = s.Store.DropSecurityScan(context.WithoutCancel(r.Context()), reserved)
+		if derr := s.Store.DropSecurityScan(context.WithoutCancel(r.Context()), reserved); derr != nil {
+			s.Log.Error("a scan reservation was not dropped: it expires in 5 minutes", slog.Int64("scan", reserved), slog.String("error", derr.Error()))
+		}
 		scannerFailure(w, err)
 		return
 	}

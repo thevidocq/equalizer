@@ -181,6 +181,28 @@ func TestSourceReader(t *testing.T) {
 		t.Fatalf("long error: %d", c)
 	}
 
+	// A read no reader takes does not hold the site's read slot for good.
+	boss.must(202, "POST", "/v1/apps/blog/source/reads", nil, nil)
+	if _, err := e.st.DB.Exec(`UPDATE source_reads SET created_at = now() - interval '20 minutes' WHERE status = 'queued'`); err != nil {
+		t.Fatal(err)
+	}
+	boss.must(200, "GET", "/v1/apps/blog/source", nil, &v)
+	if v.LastRead == nil || v.LastRead.Status != "failed" {
+		t.Fatalf("a read nobody took: %+v", v.LastRead)
+	}
+	// A new token ends the reads of the old one.
+	boss.must(202, "POST", "/v1/apps/blog/source/reads", nil, nil)
+	var renewed struct{ Token string }
+	boss.must(201, "POST", "/v1/apps/blog/source/token", nil, &renewed)
+	boss.must(200, "GET", "/v1/apps/blog/source", nil, &v)
+	if v.LastRead == nil || v.LastRead.Status != "failed" {
+		t.Fatalf("a read of the old token: %+v", v.LastRead)
+	}
+	tok.Token = renewed.Token
+	if readerCall(t, e, tok.Token, "/v1/source/hello", map[string]any{"version": "0.2.31", "public_key": key}, nil) != 204 {
+		t.Fatal("hello with the renewed token")
+	}
+
 	// Another site's reader cannot touch this site's reads.
 	var other struct{ Token string }
 	boss.must(201, "POST", "/v1/apps/shop/source/token", nil, &other)

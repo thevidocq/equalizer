@@ -350,4 +350,20 @@ func TestSecurityScans(t *testing.T) {
 	if !ov.Targets[0].Available || ov.Targets[1].Available || ov.Targets[1].Domain != nil {
 		t.Fatalf("connector site: %+v", ov.Targets)
 	}
+
+	// A reservation left behind (the panel stopped while asking the scanner)
+	// expires: it does not refuse the target's scans for good.
+	if _, err := e.st.DB.Exec(`INSERT INTO security_scans (app_id, target, domain, scan_type, status, remote_target, remote_scan,
+		requested_by, created_at) SELECT 'portal', 'original', 'x.test', 'quick', 'pending', '', '', id, now() - interval '10 minutes'
+		FROM users LIMIT 1`); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := e.st.ClaimSecurityScans(context.Background(), 10); err != nil {
+		t.Fatal(err)
+	}
+	var left int
+	_ = e.st.DB.QueryRow(`SELECT count(*) FROM security_scans WHERE remote_scan = '' AND status = 'pending'`).Scan(&left)
+	if left != 0 {
+		t.Fatal("a reservation never started is still going")
+	}
 }

@@ -28,4 +28,11 @@ func TestRenameSite(t *testing.T) {
 	if a.Name != "Blog" {
 		t.Fatalf("both: %+v", a)
 	}
+	// a refused field leaves the name as it was
+	boss.must(422, "PATCH", "/v1/apps/blog", map[string]any{"name": "Other", "discovery_schedule": "hourly"}, nil)
+	boss.must(422, "PATCH", "/v1/apps/blog", map[string]any{"name": "Other", "legacy_ip": "10.0.0.1"}, nil)
+	boss.must(200, "GET", "/v1/apps/blog", nil, &a)
+	if a.Name != "Blog" {
+		t.Fatalf("renamed by a refused request: %+v", a)
+	}
 }

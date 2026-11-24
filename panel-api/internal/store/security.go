@@ -115,12 +115,26 @@ func scanScan(row interface{ Scan(...any) error }) (SecurityScan, error) {
 // even while a quick scan runs. The runner leaves it alone until
 // SetSecurityScanRemote; DropSecurityScan undoes it when the scanner refuses.
 func (s *Store) ReserveSecurityScan(ctx context.Context, c SecurityScan, by int64) (int64, error) {
+	if err := s.expireReservations(ctx); err != nil {
+		return 0, err
+	}
 	var id int64
 	err := s.DB.QueryRowContext(ctx, `
 		INSERT INTO security_scans (app_id, target, domain, scan_type, status, remote_target, remote_scan, requested_by)
 		VALUES ($1, $2, $3, $4, 'pending', '', '', $5) RETURNING id`,
 		c.App, c.Target, c.Domain, c.ScanType, by).Scan(&id)
 	return id, translate(err)
+}
+
+// expireReservations fails the scans reserved and never started (the panel
+// stopped while the scanner was asked, or could not record its answer): the
+// runner follows only started scans, and a reservation left behind would
+// refuse every scan of its target for good. Starting takes a minute at most.
+func (s *Store) expireReservations(ctx context.Context) error {
+	_, err := s.DB.ExecContext(ctx, `UPDATE security_scans SET status = 'failed', completed_at = now(),
+		error = 'the scan was not started: try again'
+		WHERE status = 'pending' AND remote_scan = '' AND created_at < now() - interval '5 minutes'`)
+	return err
 }
 
 // SetSecurityScanRemote records the scanner's ids of a reserved scan.
@@ -180,6 +194,9 @@ func (s *Store) LatestSecurityScans(ctx context.Context, app string) ([]Security
 // minute, marking them polled, so that two panel replicas do not poll the
 // same scan at once.
 func (s *Store) ClaimSecurityScans(ctx context.Context, limit int) ([]SecurityScan, error) {
+	if err := s.expireReservations(ctx); err != nil {
+		return nil, err
+	}
 	rows, err := s.DB.QueryContext(ctx, `
 		WITH due AS (
 			SELECT id FROM security_scans

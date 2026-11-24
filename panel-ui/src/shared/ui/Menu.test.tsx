@@ -1,6 +1,8 @@
-import { describe, expect, it, vi } from "vitest";
-import { fireEvent, render, screen } from "@testing-library/react";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { Menu } from "./Menu";
+
+afterEach(cleanup);
 
 describe("Menu", () => {
   it("opens, moves with the arrows, chooses with Enter and closes", () => {

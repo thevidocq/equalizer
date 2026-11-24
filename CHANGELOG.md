@@ -65,6 +65,15 @@ it, 0.1.0 (`docs/releases/0.1.0.md`, tag on the merge of #39).
 
 ## Entries
 
+### 2026-11-24 — Clean up between the Menu's tests
+
+- **Branch:** fix/stabilize-0.2.31
+- **What:** `Menu.test.tsx` unmounts after each test (`afterEach(cleanup)`):
+  the second test found the first one's button too.
+- **Why:** CI's vitest failed on #115; tsc passed.
+- **Status:** the rest of CI was green or running.
+- **Next steps:** CI green; screenshots.
+
 ### 2026-11-24 — Fix the independent review of the 0.2.31 branch; efficacy study
 
 - **Branch:** fix/stabilize-0.2.31

@@ -36,11 +36,20 @@ export function Report({ d }: { d: Discovery }) {
   const r = (d.report ?? {}) as R;
   if (d.status === "failed") return <Notice tone="error">The discovery failed: {d.error}</Notice>;
   if (d.status !== "done") {
-    const pages = (d.progress as R)?.pages ?? 0;
+    const p = (d.progress ?? {}) as R;
+    const pages = Number(p.pages ?? 0);
+    // what the agent says it is doing, and the page it is on: one line
+    const doing = typeof p.doing === "string" ? p.doing : "";
+    const path = typeof p.path === "string" ? p.path : "";
     return (
-      <p className="text-sm text-ink-soft">
+      <div className="flex flex-col gap-1 text-sm text-ink-soft">
         <Spinner label={d.status === "queued" ? "Waiting to start…" : `Running: ${pages} ${pages === 1 ? "page" : "pages"} so far…`} />
-      </p>
+        {d.status === "running" && doing ? (
+          <p className="truncate pl-6" aria-live="polite">
+            {doing}{path ? <> · <span className="font-mono text-[0.8125rem]">{path}</span></> : null}
+          </p>
+        ) : null}
+      </div>
     );
   }
   const ai = (r.ai ?? {}) as R;

@@ -94,17 +94,20 @@ def run(job: dict, cfg, panel, log) -> None:
     except ReachError as e:
         panel.result(jid, error=str(e))
         return
+    c.say("building the map from what was found")
     doc, report, samples = mapbuild.build(job, result, fp)
     try:
         llm = provider(job.get("llm"), cfg.allow_private_llm)
     except LLMError as e:
         llm, report["ai"] = None, {"used": False, "error": str(e)}
     if llm is not None:
+        c.say("the AI is studying the structure")
         report["ai"] = refine(llm, doc, report, samples)
         report["coverage_note"] = "after AI review"
     elif "ai" not in report:
         report["ai"] = {"used": False, "reason": "no AI model configured for this tenant" if not job.get("llm") else "off"}
     try:  # after the AI review, on the draft's final routes
+        c.say("checking what visitors asked for")
         visitors.apply(report, doc, job.get("unmapped", []), result, f, fp.cms)
     except ReachError:
         pass  # the lists stay empty: the study itself is done

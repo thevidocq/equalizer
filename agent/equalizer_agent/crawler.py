@@ -4,6 +4,7 @@ something are recorded, never opened."""
 
 import re
 import http.client
+import time
 import urllib.parse
 from collections import deque
 from dataclasses import dataclass, field
@@ -79,6 +80,25 @@ class Crawler(LoginMixin):
         self.label = "anonymous"
         self.browser = None  # {"executable": path} to study pages in a real browser
 
+    def say(self, doing: str, path: str | None = None, force: bool = True):
+        """Tells the panel what the discovery is doing now, in a few words
+        (shown next to the page count); at most every 2 seconds unless
+        it starts something new."""
+        if not self.progress:
+            return
+        now = time.monotonic()
+        if not force and now - getattr(self, "_said", 0.0) < 2:
+            return
+        self._said = now
+        p = {"pages": len(self.r.pages), "forms": len(self.r.forms), "logged_in": getattr(self, "logged_pass", False),
+             "doing": doing[:80]}
+        if path:
+            p["path"] = path[:100]
+        try:
+            self.progress(p)
+        except Exception:  # noqa: BLE001 - progress is a courtesy, the study goes on
+            pass
+
     def anonymous(self, seeds: list) -> CrawlResult:
         self.label = "anonymous"
         self._crawl(seeds, logged_in=False)
@@ -94,6 +114,7 @@ class Crawler(LoginMixin):
         pages = [pq for pq, s in self.r.pages.items()
                  if self.label in s.seen_by and s.status < 400 and s.ctype == "text/html"][:BROWSER_PAGES]
         host = urllib.parse.urlsplit(self.f.base_url).netloc
+        self.say(f"opening {len(pages)} pages in the browser to see what their scripts load")
         seen = browser.study(self.f, host, pages, self.log, self._allowed_quiet, self.browser.get("executable", ""))
         self.r.browser_pages += seen.pages
         self.r.script_refused |= seen.refused
@@ -189,6 +210,7 @@ class Crawler(LoginMixin):
             if not self._allowed(pq):
                 continue
             fetched += 1
+            self.say("exploring" if self.label == "anonymous" else f"exploring as {self.label}", pq.split("?")[0], force=False)
             try:
                 resp = self.f.get(pq)
             except (ReachError, OSError, ValueError) as e:
@@ -237,8 +259,6 @@ class Crawler(LoginMixin):
                     self.r.forms.append(form)
                     if form.method == "GET":
                         self._enqueue(queue, form.action)
-            if self.progress and len(self.r.pages) % 20 == 0:
-                self.progress({"pages": len(self.r.pages), "forms": len(self.r.forms), "logged_in": logged_in})
 
     def _allowed(self, pq: str) -> bool:
         reason = rules.excluded(pq, self.cms, logged_in=getattr(self, "logged_pass", False))
@@ -335,6 +355,7 @@ class Crawler(LoginMixin):
     def _stylesheets(self):
         """Reads the stylesheets found so far, and those they import, for the
         fonts and images they name."""
+        self.say("reading the stylesheets for the files they load")
         read = 0
         while read < MAX_STYLESHEETS:
             path = next((p for p, done in self.sheets.items() if not done), None)

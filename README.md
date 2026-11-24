@@ -20,11 +20,12 @@ client wrote it.
 users → gateway (only exposed part) → tunnel-relay ⇠ outbound tunnel ⇠ connector → legacy app
                     ↑ signed map
 panel → panel-api ← proposals ← AI agent (crawls the legacy app)
+                  ← summary   ← source reader (optional, reads its code)
 ```
 
 - The legacy application is never reachable from the Internet: it only
   answers the connector installed next to it, which opens the tunnel **from
-  the inside**.
+  the inside**, or, in direct mode, only Equalizer's addresses.
 - Every request is **rebuilt**, never forwarded as is.
 - An AI agent proposes the map; people approve it from a multitenant panel.
 
@@ -35,7 +36,9 @@ panel → panel-api ← proposals ← AI agent (crawls the legacy app)
 | ![Status](docs/screenshots/status.png) | ![Logs](docs/screenshots/logs.png) |
 | Status of each site | Logs of what the gateway served and refused |
 | ![Review aid](docs/screenshots/review.png) | ![Discovery](docs/screenshots/discovery.png) |
-| Review aid before approving a map | Discovery through the connector |
+| Review aid before approving a map | Discovery, with what the site's source code adds |
+| ![Source](docs/screenshots/source.png) | ![People](docs/screenshots/people.png) |
+| The source reader of a site | People and invitations |
 
 More in the manuals ([tenant](docs/manual/tenant.md), [platform](docs/manual/admin.md)).
 Screenshots use a fictitious company, Acme.

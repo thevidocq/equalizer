@@ -1,0 +1,1232 @@
+{
+ "cms": "wordpress",
+ "version": "6.9.12",
+ "components": [
+  {
+   "name": "theme:twentytwentyfive",
+   "version": null
+  }
+ ],
+ "known_issues": [],
+ "mode": "first",
+ "pages_found": 42,
+ "covered_before": 39,
+ "covered_after": 42,
+ "coverage": 100,
+ "routes_added": [
+  {
+   "id": "sitemap_xml",
+   "path": "/sitemap.xml",
+   "samples": 1,
+   "logged_in_only": false
+  },
+  {
+   "id": "tag_common_page_item",
+   "path": "/tag/common/page/{page_id}/",
+   "samples": 2,
+   "logged_in_only": false
+  }
+ ],
+ "forms_added": [],
+ "assets_added": [],
+ "issues_proposed": [],
+ "site_area": "present",
+ "excluded": [
+  {
+   "path": "/author/editor/",
+   "reason": "admin"
+  },
+  {
+   "path": "/wp-admin/",
+   "reason": "admin"
+  },
+  {
+   "path": "/wp-admin/about.php",
+   "reason": "admin"
+  },
+  {
+   "path": "/wp-admin/comment.php",
+   "reason": "admin"
+  },
+  {
+   "path": "/wp-admin/comment.php",
+   "reason": "admin"
+  },
+  {
+   "path": "/wp-admin/comment.php",
+   "reason": "admin"
+  },
+  {
+   "path": "/wp-admin/comment.php",
+   "reason": "admin"
+  },
+  {
+   "path": "/wp-admin/comment.php",
+   "reason": "admin"
+  },
+  {
+   "path": "/wp-admin/comment.php",
+   "reason": "admin"
+  },
+  {
+   "path": "/wp-admin/comment.php",
+   "reason": "admin"
+  },
+  {
+   "path": "/wp-admin/comment.php",
+   "reason": "admin"
+  },
+  {
+   "path": "/wp-admin/comment.php",
+   "reason": "admin"
+  },
+  {
+   "path": "/wp-admin/comment.php",
+   "reason": "admin"
+  },
+  {
+   "path": "/wp-admin/comment.php",
+   "reason": "admin"
+  },
+  {
+   "path": "/wp-admin/comment.php",
+   "reason": "admin"
+  },
+  {
+   "path": "/wp-admin/comment.php",
+   "reason": "admin"
+  },
+  {
+   "path": "/wp-admin/comment.php",
+   "reason": "admin"
+  },
+  {
+   "path": "/wp-admin/comment.php",
+   "reason": "admin"
+  },
+  {
+   "path": "/wp-admin/comment.php",
+   "reason": "admin"
+  },
+  {
+   "path": "/wp-admin/comment.php",
+   "reason": "admin"
+  },
+  {
+   "path": "/wp-admin/comment.php",
+   "reason": "admin"
+  },
+  {
+   "path": "/wp-admin/comment.php",
+   "reason": "admin"
+  },
+  {
+   "path": "/wp-admin/comment.php",
+   "reason": "admin"
+  },
+  {
+   "path": "/wp-admin/comment.php",
+   "reason": "admin"
+  },
+  {
+   "path": "/wp-admin/comment.php",
+   "reason": "admin"
+  },
+  {
+   "path": "/wp-admin/comment.php",
+   "reason": "admin"
+  },
+  {
+   "path": "/wp-admin/comment.php",
+   "reason": "admin"
+  },
+  {
+   "path": "/wp-admin/comment.php",
+   "reason": "admin"
+  },
+  {
+   "path": "/wp-admin/comment.php",
+   "reason": "admin"
+  },
+  {
+   "path": "/wp-admin/comment.php",
+   "reason": "admin"
+  },
+  {
+   "path": "/wp-admin/comment.php",
+   "reason": "admin"
+  },
+  {
+   "path": "/wp-admin/comment.php",
+   "reason": "admin"
+  },
+  {
+   "path": "/wp-admin/comment.php",
+   "reason": "admin"
+  },
+  {
+   "path": "/wp-admin/comment.php",
+   "reason": "admin"
+  },
+  {
+   "path": "/wp-admin/comment.php",
+   "reason": "admin"
+  },
+  {
+   "path": "/wp-admin/comment.php",
+   "reason": "admin"
+  },
+  {
+   "path": "/wp-admin/comment.php",
+   "reason": "admin"
+  },
+  {
+   "path": "/wp-admin/comment.php",
+   "reason": "admin"
+  },
+  {
+   "path": "/wp-admin/comment.php",
+   "reason": "admin"
+  },
+  {
+   "path": "/wp-admin/comment.php",
+   "reason": "admin"
+  },
+  {
+   "path": "/wp-admin/comment.php",
+   "reason": "admin"
+  },
+  {
+   "path": "/wp-admin/comment.php",
+   "reason": "admin"
+  },
+  {
+   "path": "/wp-admin/contribute.php",
+   "reason": "admin"
+  },
+  {
+   "path": "/wp-admin/edit-comments.php",
+   "reason": "admin"
+  },
+  {
+   "path": "/wp-admin/media-new.php",
+   "reason": "never"
+  },
+  {
+   "path": "/wp-admin/plugins.php",
+   "reason": "admin"
+  },
+  {
+   "path": "/wp-admin/post-new.php",
+   "reason": "never"
+  },
+  {
+   "path": "/wp-admin/post-new.php",
+   "reason": "never"
+  },
+  {
+   "path": "/wp-admin/post.php",
+   "reason": "never"
+  },
+  {
+   "path": "/wp-admin/post.php",
+   "reason": "never"
+  },
+  {
+   "path": "/wp-admin/post.php",
+   "reason": "never"
+  },
+  {
+   "path": "/wp-admin/post.php",
+   "reason": "never"
+  },
+  {
+   "path": "/wp-admin/post.php",
+   "reason": "never"
+  },
+  {
+   "path": "/wp-admin/post.php",
+   "reason": "never"
+  },
+  {
+   "path": "/wp-admin/post.php",
+   "reason": "never"
+  },
+  {
+   "path": "/wp-admin/post.php",
+   "reason": "never"
+  },
+  {
+   "path": "/wp-admin/post.php",
+   "reason": "never"
+  },
+  {
+   "path": "/wp-admin/post.php",
+   "reason": "never"
+  },
+  {
+   "path": "/wp-admin/post.php",
+   "reason": "never"
+  },
+  {
+   "path": "/wp-admin/post.php",
+   "reason": "never"
+  },
+  {
+   "path": "/wp-admin/post.php",
+   "reason": "never"
+  },
+  {
+   "path": "/wp-admin/post.php",
+   "reason": "never"
+  },
+  {
+   "path": "/wp-admin/post.php",
+   "reason": "never"
+  },
+  {
+   "path": "/wp-admin/post.php",
+   "reason": "never"
+  },
+  {
+   "path": "/wp-admin/post.php",
+   "reason": "never"
+  },
+  {
+   "path": "/wp-admin/post.php",
+   "reason": "never"
+  },
+  {
+   "path": "/wp-admin/post.php",
+   "reason": "never"
+  },
+  {
+   "path": "/wp-admin/profile.php",
+   "reason": "admin"
+  },
+  {
+   "path": "/wp-admin/site-editor.php",
+   "reason": "admin"
+  },
+  {
+   "path": "/wp-admin/site-editor.php",
+   "reason": "admin"
+  },
+  {
+   "path": "/wp-admin/site-editor.php",
+   "reason": "admin"
+  },
+  {
+   "path": "/wp-admin/site-editor.php",
+   "reason": "admin"
+  },
+  {
+   "path": "/wp-admin/term.php",
+   "reason": "admin"
+  },
+  {
+   "path": "/wp-admin/term.php",
+   "reason": "admin"
+  },
+  {
+   "path": "/wp-admin/term.php",
+   "reason": "admin"
+  },
+  {
+   "path": "/wp-admin/term.php",
+   "reason": "admin"
+  },
+  {
+   "path": "/wp-admin/term.php",
+   "reason": "admin"
+  },
+  {
+   "path": "/wp-admin/term.php",
+   "reason": "admin"
+  },
+  {
+   "path": "/wp-admin/term.php",
+   "reason": "admin"
+  },
+  {
+   "path": "/wp-admin/term.php",
+   "reason": "admin"
+  },
+  {
+   "path": "/wp-admin/term.php",
+   "reason": "admin"
+  },
+  {
+   "path": "/wp-admin/term.php",
+   "reason": "admin"
+  },
+  {
+   "path": "/wp-admin/term.php",
+   "reason": "admin"
+  },
+  {
+   "path": "/wp-admin/term.php",
+   "reason": "admin"
+  },
+  {
+   "path": "/wp-admin/term.php",
+   "reason": "admin"
+  },
+  {
+   "path": "/wp-admin/term.php",
+   "reason": "admin"
+  },
+  {
+   "path": "/wp-admin/term.php",
+   "reason": "admin"
+  },
+  {
+   "path": "/wp-admin/term.php",
+   "reason": "admin"
+  },
+  {
+   "path": "/wp-admin/term.php",
+   "reason": "admin"
+  },
+  {
+   "path": "/wp-admin/themes.php",
+   "reason": "admin"
+  },
+  {
+   "path": "/wp-admin/user-new.php",
+   "reason": "never"
+  },
+  {
+   "path": "/wp-json/",
+   "reason": "admin"
+  },
+  {
+   "path": "/wp-json/oembed/1.0/embed",
+   "reason": "admin"
+  },
+  {
+   "path": "/wp-json/oembed/1.0/embed",
+   "reason": "admin"
+  },
+  {
+   "path": "/wp-json/oembed/1.0/embed",
+   "reason": "admin"
+  },
+  {
+   "path": "/wp-json/oembed/1.0/embed",
+   "reason": "admin"
+  },
+  {
+   "path": "/wp-json/oembed/1.0/embed",
+   "reason": "admin"
+  },
+  {
+   "path": "/wp-json/oembed/1.0/embed",
+   "reason": "admin"
+  },
+  {
+   "path": "/wp-json/oembed/1.0/embed",
+   "reason": "admin"
+  },
+  {
+   "path": "/wp-json/oembed/1.0/embed",
+   "reason": "admin"
+  },
+  {
+   "path": "/wp-json/oembed/1.0/embed",
+   "reason": "admin"
+  },
+  {
+   "path": "/wp-json/oembed/1.0/embed",
+   "reason": "admin"
+  },
+  {
+   "path": "/wp-json/oembed/1.0/embed",
+   "reason": "admin"
+  },
+  {
+   "path": "/wp-json/oembed/1.0/embed",
+   "reason": "admin"
+  },
+  {
+   "path": "/wp-json/oembed/1.0/embed",
+   "reason": "admin"
+  },
+  {
+   "path": "/wp-json/oembed/1.0/embed",
+   "reason": "admin"
+  },
+  {
+   "path": "/wp-json/oembed/1.0/embed",
+   "reason": "admin"
+  },
+  {
+   "path": "/wp-json/oembed/1.0/embed",
+   "reason": "admin"
+  },
+  {
+   "path": "/wp-json/oembed/1.0/embed",
+   "reason": "admin"
+  },
+  {
+   "path": "/wp-json/oembed/1.0/embed",
+   "reason": "admin"
+  },
+  {
+   "path": "/wp-json/oembed/1.0/embed",
+   "reason": "admin"
+  },
+  {
+   "path": "/wp-json/oembed/1.0/embed",
+   "reason": "admin"
+  },
+  {
+   "path": "/wp-json/oembed/1.0/embed",
+   "reason": "admin"
+  },
+  {
+   "path": "/wp-json/oembed/1.0/embed",
+   "reason": "admin"
+  },
+  {
+   "path": "/wp-json/oembed/1.0/embed",
+   "reason": "admin"
+  },
+  {
+   "path": "/wp-json/oembed/1.0/embed",
+   "reason": "admin"
+  },
+  {
+   "path": "/wp-json/oembed/1.0/embed",
+   "reason": "admin"
+  },
+  {
+   "path": "/wp-json/oembed/1.0/embed",
+   "reason": "admin"
+  },
+  {
+   "path": "/wp-json/oembed/1.0/embed",
+   "reason": "admin"
+  },
+  {
+   "path": "/wp-json/oembed/1.0/embed",
+   "reason": "admin"
+  },
+  {
+   "path": "/wp-json/oembed/1.0/embed",
+   "reason": "admin"
+  },
+  {
+   "path": "/wp-json/oembed/1.0/embed",
+   "reason": "admin"
+  },
+  {
+   "path": "/wp-json/oembed/1.0/embed",
+   "reason": "admin"
+  },
+  {
+   "path": "/wp-json/oembed/1.0/embed",
+   "reason": "admin"
+  },
+  {
+   "path": "/wp-json/oembed/1.0/embed",
+   "reason": "admin"
+  },
+  {
+   "path": "/wp-json/oembed/1.0/embed",
+   "reason": "admin"
+  },
+  {
+   "path": "/wp-json/oembed/1.0/embed",
+   "reason": "admin"
+  },
+  {
+   "path": "/wp-json/oembed/1.0/embed",
+   "reason": "admin"
+  },
+  {
+   "path": "/wp-json/oembed/1.0/embed",
+   "reason": "admin"
+  },
+  {
+   "path": "/wp-json/oembed/1.0/embed",
+   "reason": "admin"
+  },
+  {
+   "path": "/wp-json/wp/v2/categories/1",
+   "reason": "admin"
+  },
+  {
+   "path": "/wp-json/wp/v2/categories/2",
+   "reason": "admin"
+  },
+  {
+   "path": "/wp-json/wp/v2/categories/3",
+   "reason": "admin"
+  },
+  {
+   "path": "/wp-json/wp/v2/categories/4",
+   "reason": "admin"
+  },
+  {
+   "path": "/wp-json/wp/v2/pages/19",
+   "reason": "admin"
+  },
+  {
+   "path": "/wp-json/wp/v2/pages/2",
+   "reason": "admin"
+  },
+  {
+   "path": "/wp-json/wp/v2/pages/20",
+   "reason": "admin"
+  },
+  {
+   "path": "/wp-json/wp/v2/pages/21",
+   "reason": "admin"
+  },
+  {
+   "path": "/wp-json/wp/v2/pages/4",
+   "reason": "admin"
+  },
+  {
+   "path": "/wp-json/wp/v2/posts/1",
+   "reason": "admin"
+  },
+  {
+   "path": "/wp-json/wp/v2/posts/10",
+   "reason": "admin"
+  },
+  {
+   "path": "/wp-json/wp/v2/posts/11",
+   "reason": "admin"
+  },
+  {
+   "path": "/wp-json/wp/v2/posts/12",
+   "reason": "admin"
+  },
+  {
+   "path": "/wp-json/wp/v2/posts/13",
+   "reason": "admin"
+  },
+  {
+   "path": "/wp-json/wp/v2/posts/14",
+   "reason": "admin"
+  },
+  {
+   "path": "/wp-json/wp/v2/posts/15",
+   "reason": "admin"
+  },
+  {
+   "path": "/wp-json/wp/v2/posts/16",
+   "reason": "admin"
+  },
+  {
+   "path": "/wp-json/wp/v2/posts/17",
+   "reason": "admin"
+  },
+  {
+   "path": "/wp-json/wp/v2/posts/18",
+   "reason": "admin"
+  },
+  {
+   "path": "/wp-json/wp/v2/posts/5",
+   "reason": "admin"
+  },
+  {
+   "path": "/wp-json/wp/v2/posts/7",
+   "reason": "admin"
+  },
+  {
+   "path": "/wp-json/wp/v2/posts/8",
+   "reason": "admin"
+  },
+  {
+   "path": "/wp-json/wp/v2/posts/9",
+   "reason": "admin"
+  },
+  {
+   "path": "/wp-json/wp/v2/tags/10",
+   "reason": "admin"
+  },
+  {
+   "path": "/wp-json/wp/v2/tags/11",
+   "reason": "admin"
+  },
+  {
+   "path": "/wp-json/wp/v2/tags/12",
+   "reason": "admin"
+  },
+  {
+   "path": "/wp-json/wp/v2/tags/13",
+   "reason": "admin"
+  },
+  {
+   "path": "/wp-json/wp/v2/tags/14",
+   "reason": "admin"
+  },
+  {
+   "path": "/wp-json/wp/v2/tags/15",
+   "reason": "admin"
+  },
+  {
+   "path": "/wp-json/wp/v2/tags/16",
+   "reason": "admin"
+  },
+  {
+   "path": "/wp-json/wp/v2/tags/17",
+   "reason": "admin"
+  },
+  {
+   "path": "/wp-json/wp/v2/tags/5",
+   "reason": "admin"
+  },
+  {
+   "path": "/wp-json/wp/v2/tags/6",
+   "reason": "admin"
+  },
+  {
+   "path": "/wp-json/wp/v2/tags/7",
+   "reason": "admin"
+  },
+  {
+   "path": "/wp-json/wp/v2/tags/8",
+   "reason": "admin"
+  },
+  {
+   "path": "/wp-json/wp/v2/tags/9",
+   "reason": "admin"
+  },
+  {
+   "path": "/wp-login.php",
+   "reason": "admin"
+  },
+  {
+   "path": "/wp-login.php",
+   "reason": "admin"
+  },
+  {
+   "path": "/wp-login.php",
+   "reason": "admin"
+  },
+  {
+   "path": "/wp-login.php",
+   "reason": "admin"
+  },
+  {
+   "path": "/wp-login.php",
+   "reason": "admin"
+  },
+  {
+   "path": "/wp-login.php",
+   "reason": "admin"
+  },
+  {
+   "path": "/wp-login.php",
+   "reason": "admin"
+  },
+  {
+   "path": "/wp-login.php",
+   "reason": "admin"
+  },
+  {
+   "path": "/wp-login.php",
+   "reason": "admin"
+  },
+  {
+   "path": "/wp-login.php",
+   "reason": "admin"
+  },
+  {
+   "path": "/wp-login.php",
+   "reason": "admin"
+  },
+  {
+   "path": "/wp-login.php",
+   "reason": "admin"
+  },
+  {
+   "path": "/wp-login.php",
+   "reason": "admin"
+  },
+  {
+   "path": "/wp-login.php",
+   "reason": "admin"
+  },
+  {
+   "path": "/wp-login.php",
+   "reason": "admin"
+  },
+  {
+   "path": "/xmlrpc.php",
+   "reason": "never"
+  }
+ ],
+ "skipped_actions": 0,
+ "not_supported": [],
+ "query_added": [
+  {
+   "id": "page",
+   "keys": [
+    "replytocom"
+   ]
+  }
+ ],
+ "visitors_added": [],
+ "not_seen_anymore": [],
+ "login": "ok",
+ "errors": 0,
+ "accounts": [
+  {
+   "label": "test",
+   "login": "ok"
+  }
+ ],
+ "pages": [
+  "/",
+  "/sitemap.xml",
+  "/about/",
+  "/contact/",
+  "/sample-page/",
+  "/services/",
+  "/services/consulting/",
+  "/news-from-the-lab/",
+  "/hello-world/",
+  "/post-number-8/",
+  "/post-number-7/",
+  "/post-number-6/",
+  "/page/2/",
+  "/page/3/",
+  "/?p=4",
+  "/?p=20",
+  "/?p=2",
+  "/?p=19",
+  "/?p=21",
+  "/?p=5",
+  "/category/uncategorized/",
+  "/?p=1",
+  "/hello-world/?replytocom=1",
+  "/hello-world/?replytocom=16",
+  "/hello-world/?replytocom=17",
+  "/hello-world/?replytocom=18",
+  "/hello-world/?replytocom=19",
+  "/hello-world/?replytocom=20",
+  "/hello-world/?replytocom=21",
+  "/hello-world/?replytocom=22",
+  "/hello-world/?replytocom=23",
+  "/hello-world/?replytocom=24",
+  "/hello-world/?replytocom=25",
+  "/hello-world/?replytocom=26",
+  "/hello-world/?replytocom=27",
+  "/hello-world/?replytocom=28",
+  "/hello-world/?replytocom=29",
+  "/hello-world/?replytocom=30",
+  "/hello-world/?replytocom=31",
+  "/hello-world/?replytocom=32",
+  "/hello-world/?replytocom=33",
+  "/hello-world/?replytocom=34",
+  "/?p=14",
+  "/category/events/",
+  "/tag/common/",
+  "/tag/tag8/",
+  "/post-number-8/?replytocom=9",
+  "/?p=13",
+  "/category/products/",
+  "/tag/tag7/",
+  "/post-number-7/?replytocom=8",
+  "/?p=12",
+  "/category/news/",
+  "/tag/tag6/",
+  "/post-number-5/",
+  "/post-number-6/?replytocom=7",
+  "/post-number-4/",
+  "/post-number-3/",
+  "/post-number-2/",
+  "/post-number-1/",
+  "/post-number-9/",
+  "/post-number-12/",
+  "/post-number-11/",
+  "/post-number-10/",
+  "/tag/common/page/2/",
+  "/tag/common/page/3/",
+  "/?p=11",
+  "/tag/tag5/",
+  "/post-number-5/?replytocom=6",
+  "/?p=10",
+  "/tag/tag4/",
+  "/post-number-4/?replytocom=5",
+  "/?p=9",
+  "/tag/tag3/",
+  "/post-number-3/?replytocom=4",
+  "/post-number-3/?replytocom=14",
+  "/post-number-3/?replytocom=15",
+  "/?p=8",
+  "/tag/tag2/",
+  "/post-number-2/?replytocom=3",
+  "/?p=7",
+  "/tag/tag1/",
+  "/post-number-1/?replytocom=2",
+  "/?p=15",
+  "/tag/tag9/",
+  "/post-number-9/?replytocom=10",
+  "/?p=18",
+  "/tag/tag12/",
+  "/post-number-12/?replytocom=13",
+  "/?p=17",
+  "/tag/tag11/",
+  "/post-number-11/?replytocom=12",
+  "/?p=16",
+  "/tag/tag10/",
+  "/post-number-10/?replytocom=11"
+ ],
+ "pages_by_account": {
+  "test": [
+   "/hello-world/?replytocom=39",
+   "/hello-world/?replytocom=38",
+   "/hello-world/?replytocom=37",
+   "/hello-world/?replytocom=36",
+   "/hello-world/?replytocom=35"
+  ]
+ },
+ "browser": {
+  "pages": 0,
+  "script_requests": [],
+  "kept_in": []
+ },
+ "open": [
+  {
+   "kind": "path",
+   "target": "/author/editor/",
+   "reason": "not_reached",
+   "detail": "never opened: administration"
+  },
+  {
+   "kind": "path",
+   "target": "/wp-admin/",
+   "reason": "not_reached",
+   "detail": "never opened: administration"
+  },
+  {
+   "kind": "path",
+   "target": "/wp-admin/about.php",
+   "reason": "not_reached",
+   "detail": "never opened: administration"
+  },
+  {
+   "kind": "path",
+   "target": "/wp-admin/comment.php",
+   "reason": "not_reached",
+   "detail": "never opened: administration"
+  },
+  {
+   "kind": "path",
+   "target": "/wp-admin/contribute.php",
+   "reason": "not_reached",
+   "detail": "never opened: administration"
+  },
+  {
+   "kind": "path",
+   "target": "/wp-admin/edit-comments.php",
+   "reason": "not_reached",
+   "detail": "never opened: administration"
+  },
+  {
+   "kind": "path",
+   "target": "/wp-admin/media-new.php",
+   "reason": "not_reached",
+   "detail": "never opened: sensitive file"
+  },
+  {
+   "kind": "path",
+   "target": "/wp-admin/plugins.php",
+   "reason": "not_reached",
+   "detail": "never opened: administration"
+  },
+  {
+   "kind": "path",
+   "target": "/wp-admin/post-new.php",
+   "reason": "not_reached",
+   "detail": "never opened: sensitive file"
+  },
+  {
+   "kind": "path",
+   "target": "/wp-admin/post.php",
+   "reason": "not_reached",
+   "detail": "never opened: sensitive file"
+  },
+  {
+   "kind": "path",
+   "target": "/wp-admin/profile.php",
+   "reason": "not_reached",
+   "detail": "never opened: administration"
+  },
+  {
+   "kind": "path",
+   "target": "/wp-admin/site-editor.php",
+   "reason": "not_reached",
+   "detail": "never opened: administration"
+  },
+  {
+   "kind": "path",
+   "target": "/wp-admin/term.php",
+   "reason": "not_reached",
+   "detail": "never opened: administration"
+  },
+  {
+   "kind": "path",
+   "target": "/wp-admin/themes.php",
+   "reason": "not_reached",
+   "detail": "never opened: administration"
+  },
+  {
+   "kind": "path",
+   "target": "/wp-admin/user-new.php",
+   "reason": "not_reached",
+   "detail": "never opened: sensitive file"
+  },
+  {
+   "kind": "path",
+   "target": "/wp-json/",
+   "reason": "not_reached",
+   "detail": "never opened: administration"
+  },
+  {
+   "kind": "path",
+   "target": "/wp-json/oembed/1.0/embed",
+   "reason": "not_reached",
+   "detail": "never opened: administration"
+  },
+  {
+   "kind": "path",
+   "target": "/wp-json/wp/v2/categories/1",
+   "reason": "not_reached",
+   "detail": "never opened: administration"
+  },
+  {
+   "kind": "path",
+   "target": "/wp-json/wp/v2/categories/2",
+   "reason": "not_reached",
+   "detail": "never opened: administration"
+  },
+  {
+   "kind": "path",
+   "target": "/wp-json/wp/v2/categories/3",
+   "reason": "not_reached",
+   "detail": "never opened: administration"
+  },
+  {
+   "kind": "path",
+   "target": "/wp-json/wp/v2/categories/4",
+   "reason": "not_reached",
+   "detail": "never opened: administration"
+  },
+  {
+   "kind": "path",
+   "target": "/wp-json/wp/v2/pages/19",
+   "reason": "not_reached",
+   "detail": "never opened: administration"
+  },
+  {
+   "kind": "path",
+   "target": "/wp-json/wp/v2/pages/2",
+   "reason": "not_reached",
+   "detail": "never opened: administration"
+  },
+  {
+   "kind": "path",
+   "target": "/wp-json/wp/v2/pages/20",
+   "reason": "not_reached",
+   "detail": "never opened: administration"
+  },
+  {
+   "kind": "path",
+   "target": "/wp-json/wp/v2/pages/21",
+   "reason": "not_reached",
+   "detail": "never opened: administration"
+  },
+  {
+   "kind": "path",
+   "target": "/wp-json/wp/v2/pages/4",
+   "reason": "not_reached",
+   "detail": "never opened: administration"
+  },
+  {
+   "kind": "path",
+   "target": "/wp-json/wp/v2/posts/1",
+   "reason": "not_reached",
+   "detail": "never opened: administration"
+  },
+  {
+   "kind": "path",
+   "target": "/wp-json/wp/v2/posts/10",
+   "reason": "not_reached",
+   "detail": "never opened: administration"
+  },
+  {
+   "kind": "path",
+   "target": "/wp-json/wp/v2/posts/11",
+   "reason": "not_reached",
+   "detail": "never opened: administration"
+  },
+  {
+   "kind": "path",
+   "target": "/wp-json/wp/v2/posts/12",
+   "reason": "not_reached",
+   "detail": "never opened: administration"
+  },
+  {
+   "kind": "path",
+   "target": "/wp-json/wp/v2/posts/13",
+   "reason": "not_reached",
+   "detail": "never opened: administration"
+  },
+  {
+   "kind": "path",
+   "target": "/wp-json/wp/v2/posts/14",
+   "reason": "not_reached",
+   "detail": "never opened: administration"
+  },
+  {
+   "kind": "path",
+   "target": "/wp-json/wp/v2/posts/15",
+   "reason": "not_reached",
+   "detail": "never opened: administration"
+  },
+  {
+   "kind": "path",
+   "target": "/wp-json/wp/v2/posts/16",
+   "reason": "not_reached",
+   "detail": "never opened: administration"
+  },
+  {
+   "kind": "path",
+   "target": "/wp-json/wp/v2/posts/17",
+   "reason": "not_reached",
+   "detail": "never opened: administration"
+  },
+  {
+   "kind": "path",
+   "target": "/wp-json/wp/v2/posts/18",
+   "reason": "not_reached",
+   "detail": "never opened: administration"
+  },
+  {
+   "kind": "path",
+   "target": "/wp-json/wp/v2/posts/5",
+   "reason": "not_reached",
+   "detail": "never opened: administration"
+  },
+  {
+   "kind": "path",
+   "target": "/wp-json/wp/v2/posts/7",
+   "reason": "not_reached",
+   "detail": "never opened: administration"
+  },
+  {
+   "kind": "path",
+   "target": "/wp-json/wp/v2/posts/8",
+   "reason": "not_reached",
+   "detail": "never opened: administration"
+  },
+  {
+   "kind": "path",
+   "target": "/wp-json/wp/v2/posts/9",
+   "reason": "not_reached",
+   "detail": "never opened: administration"
+  },
+  {
+   "kind": "path",
+   "target": "/wp-json/wp/v2/tags/10",
+   "reason": "not_reached",
+   "detail": "never opened: administration"
+  },
+  {
+   "kind": "path",
+   "target": "/wp-json/wp/v2/tags/11",
+   "reason": "not_reached",
+   "detail": "never opened: administration"
+  },
+  {
+   "kind": "path",
+   "target": "/wp-json/wp/v2/tags/12",
+   "reason": "not_reached",
+   "detail": "never opened: administration"
+  },
+  {
+   "kind": "path",
+   "target": "/wp-json/wp/v2/tags/13",
+   "reason": "not_reached",
+   "detail": "never opened: administration"
+  },
+  {
+   "kind": "path",
+   "target": "/wp-json/wp/v2/tags/14",
+   "reason": "not_reached",
+   "detail": "never opened: administration"
+  },
+  {
+   "kind": "path",
+   "target": "/wp-json/wp/v2/tags/15",
+   "reason": "not_reached",
+   "detail": "never opened: administration"
+  },
+  {
+   "kind": "path",
+   "target": "/wp-json/wp/v2/tags/16",
+   "reason": "not_reached",
+   "detail": "never opened: administration"
+  },
+  {
+   "kind": "path",
+   "target": "/wp-json/wp/v2/tags/17",
+   "reason": "not_reached",
+   "detail": "never opened: administration"
+  },
+  {
+   "kind": "path",
+   "target": "/wp-json/wp/v2/tags/5",
+   "reason": "not_reached",
+   "detail": "never opened: administration"
+  },
+  {
+   "kind": "path",
+   "target": "/wp-json/wp/v2/tags/6",
+   "reason": "not_reached",
+   "detail": "never opened: administration"
+  },
+  {
+   "kind": "path",
+   "target": "/wp-json/wp/v2/tags/7",
+   "reason": "not_reached",
+   "detail": "never opened: administration"
+  },
+  {
+   "kind": "path",
+   "target": "/wp-json/wp/v2/tags/8",
+   "reason": "not_reached",
+   "detail": "never opened: administration"
+  },
+  {
+   "kind": "path",
+   "target": "/wp-json/wp/v2/tags/9",
+   "reason": "not_reached",
+   "detail": "never opened: administration"
+  },
+  {
+   "kind": "path",
+   "target": "/wp-login.php",
+   "reason": "not_reached",
+   "detail": "never opened: administration"
+  },
+  {
+   "kind": "path",
+   "target": "/xmlrpc.php",
+   "reason": "not_reached",
+   "detail": "never opened: sensitive file"
+  }
+ ],
+ "base": "template",
+ "ai": {
+  "used": false,
+  "reason": "no AI model configured for this tenant"
+ }
+}

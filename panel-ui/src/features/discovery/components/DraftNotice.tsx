@@ -1,6 +1,6 @@
 import { Link } from "react-router";
 import { Notice, Spinner } from "@/shared/ui";
-import { VerificationPanel, useVerification } from "@/features/maps";
+import { VerificationPanel, useMapVersion, useVerification } from "@/features/maps";
 
 /**
  * The one draft a discovery proposes: the agent verifies it on the gateway
@@ -12,6 +12,7 @@ export function DraftNotice({ app, draft }: { app: string; draft: number }) {
   const checking = v.isPending || (v.data && ["queued", "running"].includes(v.data.status));
   // the discovery may still name the first draft until it is read again
   const shown = v.data?.corrected_version ?? draft;
+  const version = useMapVersion(app, shown);
   if (checking && !v.isError) {
     return (
       <Notice tone="info">
@@ -20,6 +21,8 @@ export function DraftNotice({ app, draft }: { app: string; draft: number }) {
     );
   }
   const verified = v.data?.status === "done";
+  // once a person acted on it, the draft is no longer one to review
+  const status = version.data?.status;
   if (v.isError) {
     // a draft a person made from the report: the agent does not verify it
     return (
@@ -30,6 +33,15 @@ export function DraftNotice({ app, draft }: { app: string; draft: number }) {
     );
   }
   const link = <Link className="font-semibold text-signal hover:underline" to={`../maps/${shown}`}>version {shown}</Link>;
+  if (status === "published" || status === "retired" || status === "rejected") {
+    const what = status === "published" ? "is published" : status === "rejected" ? "was rejected" : "was replaced by a newer version";
+    return (
+      <>
+        <Notice tone="info">The draft of this discovery, {link}, {what}.</Notice>
+        <VerificationPanel app={app} version={shown} canVerify={false} versionLink={(n) => `../maps/${n}`} />
+      </>
+    );
+  }
   return (
     <>
       {verified ? (

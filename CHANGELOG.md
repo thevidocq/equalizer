@@ -63,6 +63,50 @@ it, 0.1.0 (`docs/releases/0.1.0.md`, tag on the merge of #39).
 
 ## Entries
 
+### 2026-11-24 — Screenshots taken in CI from a seeded panel; documents checked
+
+- **Branch:** docs/screenshots-refresh (on top of feat/source-reader and
+  feat/rename-site: merge it after them)
+- **What:**
+  - `scripts/screenshots/`: `stack.sh` (panel-api with throwaway keys,
+    serving the built UI), `seed.py` (the demo organisation Acme through
+    the panel's API: people, connector, two sites, discoveries with the
+    reports and maps of real lab studies in `fixtures/`, a verification,
+    a draft in review with the AI's summary, certificates, a source reader
+    with a read), `logs.py` (the gateway events of a real study into
+    Loki), `shoot.py` (Playwright, each picture as tall as its page).
+  - `.github/workflows/screenshots.yml`: on demand and on
+    `docs/screenshots-*` branches; commits the images and the in-app help
+    to the branch.
+  - All screenshots taken again (they showed the panel of a week ago: old
+    tabs, one test account, no Certificate, Security, Source); new
+    `source.png` and `rename.png` in the tenant manual; README gallery.
+  - panel-ui: a discovery's notice says when its draft is published,
+    rejected or replaced, instead of "Draft to review" for ever.
+  - Docs: discovery runs through the connector or directly (manual,
+    README).
+- **Why:** the owner found the screenshots on GitHub old; a picture taken
+  by hand goes stale, one taken by CI does not.
+- **Status:** the workflow passes and its images were reviewed. The
+  Security tab is not shot: a scan needs CVE Radar.
+- **Next steps:** run the workflow before each release (docs/screenshots-
+  branch), as part of the definition of done.
+
+### 2026-11-24 — Rename a protected site
+
+- **Branch:** feat/rename-site
+- **What:** contract: `name` in `PATCH /apps/{app}`; panel-api:
+  `store.RenameApp`, `patchApp` takes `name` (1 to 200 characters,
+  trimmed, alone or with the other settings), Activity `app.rename` with
+  the old and the new name; panel-ui: a pencil next to the site's name
+  (administrators; the same icon style as Help and Log out) opens a
+  dialog; `PageHeader` gains `titleAction`; Activity sentence. Tests:
+  `api/rename_test.go`, `describe.test.ts`. Docs: tenant manual (Add the
+  site) and the in-app help.
+- **Why:** the owner asked to rename a site after it is created.
+- **Status:** panel-api tests pass; panel-ui tsc/vitest run in CI.
+- **Next steps:** released with 0.2.29 (its release notes, once
+  feat/source-reader is merged).
 ### 2026-11-24 — Source reader: the site's code in discoveries; 0.2.29
 
 - **Branch:** feat/source-reader
@@ -140,22 +184,6 @@ it, 0.1.0 (`docs/releases/0.1.0.md`, tag on the merge of #39).
      entries with the code's parameter types) once the gateway's JSON API
      support can be checked on them.
   2. Other stacks (Drupal, Joomla, Laravel) in the extractor.
-### 2026-11-24 — Rename a protected site
-
-- **Branch:** feat/rename-site
-- **What:** contract: `name` in `PATCH /apps/{app}`; panel-api:
-  `store.RenameApp`, `patchApp` takes `name` (1 to 200 characters,
-  trimmed, alone or with the other settings), Activity `app.rename` with
-  the old and the new name; panel-ui: a pencil next to the site's name
-  (administrators; the same icon style as Help and Log out) opens a
-  dialog; `PageHeader` gains `titleAction`; Activity sentence. Tests:
-  `api/rename_test.go`, `describe.test.ts`. Docs: tenant manual (Add the
-  site) and the in-app help.
-- **Why:** the owner asked to rename a site after it is created.
-- **Status:** panel-api tests pass; panel-ui tsc/vitest run in CI.
-- **Next steps:** released with 0.2.29 (its release notes, once
-  feat/source-reader is merged).
-
 ### 2026-11-24 — Draft after a scan; the assistant reads scans; quick scans; 0.2.28
 
 - **Branch:** feat/security-drafts-assistant

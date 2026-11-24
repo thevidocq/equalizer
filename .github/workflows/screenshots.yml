@@ -1,0 +1,85 @@
+# Takes the manuals' screenshots from the panel of this commit, filled with
+# the demo organisation (scripts/screenshots). On a push to a
+# docs/screenshots-* branch it checks that every page still loads; run by
+# hand on such a branch (gh workflow run screenshots.yml --ref <branch>),
+# it also commits the images to it.
+name: Screenshots
+
+on:
+  workflow_dispatch:
+  push:
+    branches: ["docs/screenshots-*"]
+
+permissions:
+  contents: write
+
+jobs:
+  shoot:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: eq
+          POSTGRES_DB: equalizer
+          POSTGRES_HOST_AUTH_METHOD: trust
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U eq" --health-interval 2s --health-timeout 2s --health-retries 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.24"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Loki
+        run: |
+          docker run -d --name loki -p 3100:3100 grafana/loki:3.1.1
+          for i in $(seq 60); do curl -fs http://127.0.0.1:3100/ready && break; sleep 2; done
+      - name: Playwright
+        run: |
+          pip install playwright
+          python -m playwright install --with-deps chromium
+      - name: Panel UI
+        working-directory: panel-ui
+        run: |
+          npm ci --no-audit --no-fund
+          npm run build
+      # panel-api serves the UI itself (EQ_UI_DIR): one origin, as behind Caddy
+      - name: Panel with the demo organisation
+        env:
+          EQ_DATABASE_URL: postgres://eq@127.0.0.1:5432/equalizer?sslmode=disable
+          EQ_LOKI_URL: http://127.0.0.1:3100
+          EQ_UI_DIR: ${{ github.workspace }}/panel-ui/dist
+        run: |
+          scripts/screenshots/stack.sh "$RUNNER_TEMP/run"
+          python3 scripts/screenshots/logs.py http://127.0.0.1:3100
+      - name: Screenshots
+        run: python3 scripts/screenshots/shoot.py http://localhost:8080 "$RUNNER_TEMP/run/accounts.json" "$RUNNER_TEMP/shots"
+      - name: Logs on failure
+        if: failure()
+        run: tail -50 "$RUNNER_TEMP/run/panel-api.log" || true
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: screenshots
+          path: ${{ runner.temp }}/shots
+      # Run by hand on a docs/screenshots-* branch, the images also land on
+      # it, in docs/screenshots and the in-app help, to review in its pull
+      # request. Never on a push: a commit made here starts no checks, and
+      # a pull request whose last commit has none cannot be merged.
+      - name: Commit to the branch
+        if: success() && github.event_name == 'workflow_dispatch' && startsWith(github.ref_name, 'docs/screenshots-')
+        run: |
+          cp "$RUNNER_TEMP"/shots/*.png docs/screenshots/
+          (cd panel-ui && node scripts/sync-help.mjs)
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add docs/screenshots panel-ui/public/help-img panel-ui/src/features/help/content
+          git diff --cached --quiet || git commit -m "Take the screenshots again (CI)"
+          git push

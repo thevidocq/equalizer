@@ -116,6 +116,8 @@ site (administrators) renames it. Only the name shown in the panel and in
 emails changes: the domain, the site's address in the panel and the map
 stay the same. Activity records the old and the new name.
 
+![Rename the site](/help-img/rename.png)
+
 ### Install a connector
 
 One connector per server: it serves every site on that server.
@@ -210,8 +212,9 @@ address is allowed and that the gateway would accept the map. Then
 
 ### Discovery
 
-**Site → Discovery → Start discovery**. The agent explores the site through
-the connector, never from the Internet, and follows no link that changes
+**Site → Discovery → Start discovery**. The agent explores the site the
+way Equalizer reaches it, through the connector or directly at the
+address that accepts only Equalizer's, and follows no link that changes
 something. With test accounts (up to three,
 for example a customer and an administrator) it also explores as each of
 them, in a separate pass, to reach the pages behind their login. With an
@@ -852,6 +855,8 @@ reads the scans too (the 20 most severe of each target, never their
 evidence, which may hold cookies or tokens).
 
 ## The source reader
+
+![The Source tab](/help-img/source.png)
 
 Optional. The **Source** tab of a site sets up a small program, the source
 reader, that reads the site's code and tells Equalizer what it found, so

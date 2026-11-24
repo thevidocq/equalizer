@@ -210,8 +210,9 @@ address is allowed and that the gateway would accept the map. Then
 
 ### Discovery
 
-**Site → Discovery → Start discovery**. The agent explores the site through
-the connector, never from the Internet, and follows no link that changes
+**Site → Discovery → Start discovery**. The agent explores the site the
+way Equalizer reaches it, through the connector or directly at the
+address that accepts only Equalizer's, and follows no link that changes
 something. With test accounts (up to three,
 for example a customer and an administrator) it also explores as each of
 them, in a separate pass, to reach the pages behind their login. With an

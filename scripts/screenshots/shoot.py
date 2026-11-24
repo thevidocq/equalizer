@@ -11,7 +11,8 @@ from playwright.sync_api import sync_playwright
 
 SIZE = {"width": 1360, "height": 900}
 
-# name, who, path, what to wait for, what to do before the shot
+# name, path, what to wait for, and "rename" (open the dialog) or the
+# tallest the picture may be (2400 px by default)
 ADMIN = [
     ("sites", "/t/acme", "Customer portal", None),
     ("discovery", "/t/acme/sites/blog/discovery", "From the source code", None),
@@ -25,8 +26,8 @@ ADMIN = [
     ("source", "/t/acme/sites/blog/source", "Last read", None),
     ("connectors", "/t/acme/connectors", "cn-web01", None),
     ("people", "/t/acme/people", "Jamie Lee", None),
-    ("activity", "/t/acme/activity", "Alex Morgan", None),
-    ("logs", "/t/acme/logs", "blog", None),
+    ("activity", "/t/acme/activity", "Alex Morgan", 1300),
+    ("logs", "/t/acme/logs", "blog", 1300),
     ("status", "/t/acme/status", "Company blog", None),
     ("settings-ai", "/t/acme/settings", "AI model", None),
     ("rename", "/t/acme/sites/portal/discovery", "Customer portal", "rename"),
@@ -65,11 +66,12 @@ def shoot(page, base, out, shots):
             except Exception as e:
                 print("warning: rename:", e)
         page.wait_for_timeout(600)  # fonts and the last request
-        if not action:
+        if action != "rename":
+            cap = action if isinstance(action, int) else 2400
             # the window as tall as the page (at most 2400 px), so that the
             # sidebar runs down the whole picture
             height = page.evaluate("document.documentElement.scrollHeight")
-            page.set_viewport_size({"width": SIZE["width"], "height": max(SIZE["height"], min(height, 2400))})
+            page.set_viewport_size({"width": SIZE["width"], "height": max(SIZE["height"], min(height, cap))})
             page.wait_for_timeout(300)
         page.screenshot(path=os.path.join(out, name + ".png"))
         print("took", name)

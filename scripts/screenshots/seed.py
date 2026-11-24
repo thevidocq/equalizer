@@ -211,6 +211,8 @@ def main(base, token, log):
     alex.call("PUT", "/v1/apps/blog/aliases", {"aliases": ["www.blog.acme.example"]})
     alex.call("PUT", "/v1/apps/blog/certificate", {"pem": certificate(["blog.acme.example", "www.blog.acme.example"])})
     alex.call("PATCH", "/v1/apps/blog", {"legacy_ip": "93.184.215.14"})
+    alex.call("PUT", "/v1/apps/portal/certificate", {"pem": certificate(["portal.acme.example"])})
+    alex.call("PATCH", "/v1/apps/portal", {"never_public": True})
     alex.call("PATCH", "/v1/apps/blog", {"discovery_schedule": "weekly", "discovery_hour": 3, "discovery_weekday": 1})
     print(json.dumps({"root": ROOT_ADMIN[0], "admin": "alex.morgan@acme.example", "viewer": "jamie.lee@acme.example",
                       "password": PASSWORD}))

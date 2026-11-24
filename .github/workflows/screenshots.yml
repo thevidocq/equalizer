@@ -9,6 +9,9 @@ on:
   push:
     branches: ["docs/screenshots-*"]
 
+permissions:
+  contents: write
+
 jobs:
   shoot:
     runs-on: ubuntu-latest
@@ -65,3 +68,15 @@ jobs:
         with:
           name: screenshots
           path: ${{ runner.temp }}/shots
+      # The images also land on the branch that asked for them, in
+      # docs/screenshots and the in-app help, to review in the pull request.
+      - name: Commit to the branch
+        if: success() && startsWith(github.ref_name, 'docs/screenshots-')
+        run: |
+          cp "$RUNNER_TEMP"/shots/*.png docs/screenshots/
+          (cd panel-ui && node scripts/sync-help.mjs)
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add docs/screenshots panel-ui/public/help-img panel-ui/src/features/help/content
+          git diff --cached --quiet || git commit -m "Take the screenshots again (CI)"
+          git push

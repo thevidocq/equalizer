@@ -22,7 +22,6 @@ ADMIN = [
     ("isolation", "/t/acme/sites/blog/isolation", "Isolation", None),
     ("certificate", "/t/acme/sites/blog/certificate", "Certificate", None),
     ("login", "/t/acme/sites/blog/login", "Login", None),
-    ("security", "/t/acme/sites/blog/security", "Security", None),
     ("source", "/t/acme/sites/blog/source", "Last read", None),
     ("connectors", "/t/acme/connectors", "cn-web01", None),
     ("people", "/t/acme/people", "Jamie Lee", None),
@@ -44,6 +43,7 @@ def login(page, base, email, password):
     page.get_by_label("Password").fill(password)
     page.get_by_role("button", name="Log in").click()
     page.wait_for_url(lambda u: "/login" not in u, timeout=15000)
+    print("logged in as", email, "at", page.url)
 
 
 def shoot(page, base, out, shots):
@@ -52,10 +52,13 @@ def shoot(page, base, out, shots):
         try:
             page.get_by_text(wait).first.wait_for(timeout=15000)
         except Exception:
-            print("warning:", name, "did not show", repr(wait))
+            print("warning:", name, "did not show", repr(wait), "at", page.url, "|", page.inner_text("body")[:300].replace("\n", " / "))
         if action == "rename":
-            page.get_by_role("button", name="Rename the site").click()
-            page.get_by_role("dialog").wait_for()
+            try:
+                page.get_by_role("button", name="Rename the site").click(timeout=10000)
+                page.get_by_role("dialog").wait_for(timeout=10000)
+            except Exception as e:
+                print("warning: rename:", e)
         page.wait_for_timeout(600)  # fonts and the last request
         page.screenshot(path=os.path.join(out, name + ".png"), full_page=True)
         print("took", name)

@@ -43,7 +43,7 @@ def login(page, base, email, password):
     page.get_by_label("Password").fill(password)
     page.get_by_role("button", name="Log in").click()
     page.wait_for_url(lambda u: "/login" not in u, timeout=15000)
-    print("logged in as", email, "at", page.url)
+    print("logged in as", email, "at", page.url, "cookies:", [c["name"] for c in page.context.cookies()])
 
 
 failed = []

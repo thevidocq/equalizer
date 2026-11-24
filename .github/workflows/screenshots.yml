@@ -42,7 +42,7 @@ jobs:
           for i in $(seq 60); do curl -fs http://127.0.0.1:3100/ready && break; sleep 2; done
       - name: Playwright
         run: |
-          pip install playwright==1.49.1
+          pip install playwright
           python -m playwright install --with-deps chromium
       - name: Panel UI
         working-directory: panel-ui

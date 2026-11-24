@@ -90,3 +90,66 @@ func TestLocalAndPrune(t *testing.T) {
 		t.Fatalf("left: %v", left)
 	}
 }
+
+// The listing decides what is copied: secrets, uploads and other files
+// never cross the network.
+func TestSMBWanted(t *testing.T) {
+	listing := strings.Join([]string{
+		"  .                                   D        0  Mon Nov 24 10:00:00 2026",
+		"  index.php                           A      418  Mon Nov 24 10:00:00 2026",
+		"  wp-config.php                       A     3000  Mon Nov 24 10:00:00 2026",
+		"  my file.php                         A      100  Mon Nov 24 10:00:00 2026",
+		"  odd;name.php                        A      100  Mon Nov 24 10:00:00 2026",
+		"  logo.png                            A     9000  Mon Nov 24 10:00:00 2026",
+		"  wp-content                          D        0  Mon Nov 24 10:00:00 2026",
+		"",
+		`\Blog\wp-content`,
+		"  plugin.php                          AR     200  Mon Nov 24 10:00:00 2026",
+		"  uploads                             D        0  Mon Nov 24 10:00:00 2026",
+		"",
+		`\Blog\wp-content\uploads`,
+		"  shell.php                           A      200  Mon Nov 24 10:00:00 2026",
+		"",
+		`\Other`,
+		"  x.php                               A      200  Mon Nov 24 10:00:00 2026",
+		"\t\t12345 blocks of size 4096. 100 blocks available",
+	}, "\r\n")
+	got := strings.Join(SMBWanted(listing, "/blog"), ",")
+	if got != "index.php,my file.php,wp-content/plugin.php" {
+		t.Fatalf("got %s", got)
+	}
+}
+
+// The configuration with credentials of every supported application, by
+// name, and a password written in a file with another name.
+func TestSecrets(t *testing.T) {
+	for _, rel := range []string{
+		"wp-config.php", "configuration.php", "sites/default/settings.php", "sites/default/settings.local.php",
+		"app/etc/env.php", "app/config/parameters.php", "config/settings.inc.php", "config.php", "admin/config.php",
+		"typo3conf/LocalConfiguration.php", "typo3conf/AdditionalConfiguration.php", "config/system/settings.php",
+		"config/system/additional.php", "LocalSettings.php", "include/db.php", "inc/dbconnect.php", "lib/database.php",
+		"Config.PHP", "secrets.php", ".env.production", "auth.json",
+	} {
+		if Wanted(rel, 10) {
+			t.Errorf("%s is read", rel)
+		}
+	}
+	for _, src := range []string{
+		`<?php define('DB_PASSWORD', 'hunter22');`,
+		`<?php $db_pass = "hunter22";`,
+		`<?php return ['password' => 'hunter22'];`,
+		`<?php $c = mysqli_connect("localhost", "root", "hunter22");`,
+		`<?php $pdo = new PDO('mysql:host=x', 'root', 'hunter22');`,
+	} {
+		if !SecretContent(src) {
+			t.Errorf("not caught: %s", src)
+		}
+	}
+	for _, src := range []string{
+		`<?php $password = $_POST['password'];`, `<?php $pass = '';`, `<?php $c = mysqli_connect($h, $u, $p);`,
+	} {
+		if SecretContent(src) {
+			t.Errorf("code without a password dropped: %s", src)
+		}
+	}
+}

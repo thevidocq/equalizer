@@ -50,6 +50,10 @@ func Read(root string, now time.Time) (*Summary, error) {
 			s.Files.Skipped++
 			return nil
 		}
+		if fetch.SecretContent(string(data)) { // a password in the code: dropped unread
+			s.Files.Skipped++
+			return nil
+		}
 		total += int64(len(data))
 		s.Files.Read++
 		s.file(rel, string(data))

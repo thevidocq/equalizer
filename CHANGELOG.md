@@ -116,6 +116,12 @@ it, 0.1.0 (`docs/releases/0.1.0.md`, tag on the merge of #39).
   tsc/vitest run in CI (no npm registry here); efficacy study rerun, the
   same numbers. The independent review agent stopped on a usage limit:
   reviewed by hand (it found the remote-shell path injection fixed above).
+  Never-read files completed for every supported application
+  (`fetch.SecretFiles`: Joomla, Drupal's `settings.local.php`, Magento,
+  PrestaShop, OpenCart, Moodle, phpBB, TYPO3, MediaWiki, and the usual
+  names of a custom site's database settings), a password written in the
+  code drops the file unread (`SecretContent`), names compared without
+  case, and smb lists the folder first and copies only wanted files.
   Seeding the exploration with code-only routes was dropped: WordPress's
   `/wp-json/` is closed to the exploration and opening PHP files no link
   points to may act on the site; they are reported instead (`unseen`).

@@ -18,9 +18,15 @@ never values, never secrets.
   - `smb`: smbclient with a read-only account; the password goes in a
     file only the reader reads, never on a command line.
   - `local`: the site's folder mounted read only at `/site`.
-- **Never read**: `wp-config.php`, `.env`, keys and certificates, other
-  configuration files with passwords, uploads, caches, version control,
-  `node_modules`; only `.php`, `.phtml`, `.inc`, `style.css` and
+- **Never read**: the files with credentials of every application
+  Equalizer supports, by name (`fetch.SecretFiles`: `wp-config.php`,
+  `configuration.php`, `settings*.php`, `env.php`, `parameters.php`,
+  `config.php`, `LocalSettings.php`, `LocalConfiguration.php`…), the
+  usual names of a custom site's database settings, `.env`, keys and
+  certificates; a file that holds a password written in the code is
+  dropped unread (`fetch.SecretContent`); uploads, caches, version
+  control, `node_modules`. Over sftp rsync excludes them; over smb the
+  folder is listed first and only wanted files are copied. Only `.php`, `.phtml`, `.inc`, `style.css` and
   `composer.lock`, up to 1 MiB each, 20 000 files, 200 MiB. Files fetched
   over sftp or smb are read in a temporary folder deleted after the read.
 - Patterns, not a PHP parser: what it cannot read it leaves out.

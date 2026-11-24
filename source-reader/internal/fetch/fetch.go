@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"path"
 	"path/filepath"
 	"regexp"
 	"strconv"
@@ -122,10 +123,10 @@ func RsyncArgs(s Spec, e Env, dir string) []string {
 	return append(args, s.Host+":"+src, dir+"/")
 }
 
-// smb copies the code files of the share's folder, one mask at a time,
-// then deletes at once what Wanted refuses (smbclient cannot skip a name).
-// The password goes in a file only the reader reads, never on the command
-// line.
+// smb lists the share's folder, then copies only the files the reader
+// reads: a secret file, an upload or anything else never crosses the
+// network. The password goes in a file only the reader reads, never on the
+// command line.
 func smb(ctx context.Context, s Spec, e Env, dir string) error {
 	auth := filepath.Join(dir, ".auth")
 	content := "username = " + s.Username + "\npassword = " + s.Password + "\n"
@@ -137,18 +138,75 @@ func smb(ctx context.Context, s Spec, e Env, dir string) error {
 	if err := os.MkdirAll(files, 0o700); err != nil {
 		return err
 	}
-	masks := []string{"*.php", "*.phtml", "*.inc", "style.css", "composer.lock"}
-	for _, m := range masks {
-		cmd := fmt.Sprintf(`prompt OFF; recurse ON; mask "%s"; lcd "%s"; cd "%s"; mget *`, m, files, s.Path)
+	client := func(cmd string) (string, error) {
 		args := []string{"//" + s.Host + "/" + s.Share, "-A", auth, "-c", cmd}
 		if s.Port != 0 {
 			args = append(args, "-p", strconv.Itoa(s.Port))
 		}
-		if err := run(ctx, "smbclient", args, []string{s.Password}); err != nil {
+		return output(ctx, "smbclient", args, []string{s.Password})
+	}
+	listing, err := client(fmt.Sprintf(`recurse ON; cd "%s"; ls`, smbPath(s.Path)))
+	if err != nil {
+		return err
+	}
+	wanted := SMBWanted(listing, s.Path)
+	// one batch of gets per command, short enough for smbclient
+	for start := 0; start < len(wanted); start += 100 {
+		end := min(start+100, len(wanted))
+		var cmd strings.Builder
+		cmd.WriteString("prompt OFF")
+		for _, rel := range wanted[start:end] {
+			local := filepath.Join(files, filepath.FromSlash(rel))
+			if err := os.MkdirAll(filepath.Dir(local), 0o700); err != nil {
+				return err
+			}
+			fmt.Fprintf(&cmd, `; get "%s" "%s"`, smbPath(path.Join(s.Path, rel)), local)
+		}
+		if _, err := client(cmd.String()); err != nil {
 			return err
 		}
 	}
 	return Prune(files)
+}
+
+func smbPath(p string) string { return strings.ReplaceAll(p, "/", `\`) }
+
+var (
+	smbDir   = regexp.MustCompile(`^\\(.*)$`)
+	smbEntry = regexp.MustCompile(`^  (.+?)\s+([ADHNRSI]+)\s+(\d+)\s+\w{3} \w{3} +\d`)
+)
+
+// SMBWanted reads smbclient's recursive listing of folder and returns the
+// files the reader reads, relative to folder, with "/". A name with a
+// character smbclient's command line would read as syntax is left out.
+func SMBWanted(listing, folder string) []string {
+	base := strings.Trim(smbPath(folder), `\`)
+	cur, out := "", []string{}
+	for _, line := range strings.Split(listing, "\n") {
+		line = strings.TrimRight(line, "\r")
+		if m := smbDir.FindStringSubmatch(line); m != nil {
+			d := strings.Trim(m[1], `\`)
+			if base != "" {
+				if !strings.EqualFold(d, base) && !strings.HasPrefix(strings.ToLower(d), strings.ToLower(base)+`\`) {
+					cur = "\x00"
+					continue
+				}
+				d = strings.TrimPrefix(d[len(base):], `\`)
+			}
+			cur = strings.ReplaceAll(d, `\`, "/")
+			continue
+		}
+		m := smbEntry.FindStringSubmatch(line)
+		if m == nil || cur == "\x00" || strings.Contains(m[2], "D") || strings.ContainsAny(m[1], "\";\\/\x00") {
+			continue
+		}
+		size, _ := strconv.ParseInt(m[3], 10, 64)
+		rel := path.Join(cur, m[1])
+		if Wanted(rel, size) && len(out) < MaxFiles {
+			out = append(out, rel)
+		}
+	}
+	return out
 }
 
 // Prune deletes what the reader must not read from a fetched folder.
@@ -173,9 +231,16 @@ func Prune(root string) error {
 
 // run runs a tool and returns its last words on failure, without secrets.
 func run(ctx context.Context, name string, args []string, secrets []string) error {
+	_, err := output(ctx, name, args, secrets)
+	return err
+}
+
+// output runs a tool and returns what it wrote; on failure, its last words
+// without secrets.
+func output(ctx context.Context, name string, args []string, secrets []string) (string, error) {
 	out, err := exec.CommandContext(ctx, name, args...).CombinedOutput()
 	if err == nil {
-		return nil
+		return string(out), nil
 	}
 	msg := strings.TrimSpace(string(out))
 	for _, s := range secrets {
@@ -186,5 +251,5 @@ func run(ctx context.Context, name string, args []string, secrets []string) erro
 	if len(msg) > 400 {
 		msg = msg[len(msg)-400:]
 	}
-	return fmt.Errorf("%s failed: %v: %s", name, err, msg)
+	return "", fmt.Errorf("%s failed: %v: %s", name, err, msg)
 }

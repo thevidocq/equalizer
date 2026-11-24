@@ -858,9 +858,27 @@ code instead of guessing.
 It runs next to the connector, never on the web server, and only calls
 the panel: no port is opened. It reads only code files (`.php`, `.phtml`,
 `.inc`, a theme's `style.css`, `composer.lock`), up to 1 MB each, 20 000
-files and 200 MB, and never `wp-config.php`, `.env`, keys and
-certificates, other configuration files with passwords, uploads, caches or
-version control. It sends a summary: entry points, the type the code gives
+files and 200 MB. It never reads uploads, caches, version control,
+dependencies, and never the files with credentials, by name, on any site:
+
+| Application | Never read |
+| --- | --- |
+| WordPress | `wp-config.php`, `wp-config-*.php` |
+| Joomla | `configuration.php` |
+| Drupal | `settings.php`, `settings.*.php` (`settings.local.php`) |
+| Magento | `app/etc/env.php`, `local.xml` |
+| PrestaShop | `app/config/parameters.php`, `parameters.yml`, `config/settings.inc.php` |
+| OpenCart, Moodle, phpBB | `config.php` (OpenCart's `admin/config.php` too), `config_*.php` |
+| TYPO3 | `LocalConfiguration.php`, `AdditionalConfiguration.php`, `config/system/settings.php`, `additional.php` |
+| MediaWiki | `LocalSettings.php` |
+| Any site | `.env*`, keys and certificates (`*.pem`, `*.key`, `*.p12`, `id_rsa*`…), `.htpasswd`, `auth.json`, and the usual names of a custom site's database settings: `config*.php`, `conf.php`, `db*.php`, `database*.php`, `connect*.php`, `conn*.php`, `settings*.php`, `secrets*.php`, `credentials*.php`, `parameters*.php` |
+
+A file with another name that holds a password written in the code (a
+`define` of a password, a variable or key named like one with a value, a
+database connection with its password) is dropped as soon as it is
+opened and nothing from it is used. Over SFTP and SMB the reader first
+lists the folder and copies only the files it reads: the others never
+cross the network. It sends a summary: entry points, the type the code gives
 each request key, the calls where a request value may do harm (file and
 line), the components and their versions. Names, types and places only:
 **the code, the values and the secrets never leave your network**. Files

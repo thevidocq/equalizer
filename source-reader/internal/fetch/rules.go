@@ -5,6 +5,7 @@ package fetch
 
 import (
 	"path"
+	"regexp"
 	"strings"
 )
 
@@ -20,10 +21,37 @@ const (
 var codeExt = map[string]bool{".php": true, ".phtml": true, ".inc": true}
 var codeNames = map[string]bool{"style.css": true, "composer.lock": true}
 
-// secret are files never read, whatever their extension: credentials,
-// keys and configuration with passwords.
-var secretNames = []string{"wp-config.php", "wp-config-*.php", "wp-config.*.php", ".env", ".env.*", "*.pem", "*.key", "*.p12", "*.pfx",
-	"id_rsa*", "id_ed25519*", ".htpasswd", "config.inc.php", "settings.php", "local.xml", "env.php", "parameters.yml", "configuration.php", "LocalConfiguration.php"}
+// SecretFiles are the files with credentials of each application Equalizer
+// supports, from their own documentation: never read, wherever they are.
+var SecretFiles = map[string][]string{
+	"wordpress":  {"wp-config.php", "wp-config-*.php", "wp-config.*.php"},
+	"joomla":     {"configuration.php", "configuration.php-*"},
+	"drupal":     {"settings.php", "settings.*.php", "settings-*.php"},
+	"magento":    {"env.php", "local.xml"},
+	"prestashop": {"parameters.php", "parameters.yml", "settings.inc.php"},
+	"opencart":   {"config.php"},
+	"typo3":      {"LocalConfiguration.php", "AdditionalConfiguration.php", "additional.php", "settings.php"},
+	"moodle":     {"config.php"},
+	"mediawiki":  {"LocalSettings.php", "LocalSettings.*.php"},
+	"phpbb":      {"config.php", "config_*.php"},
+	// a custom site: the names its database settings usually have
+	"generic": {"config.php", "config.inc.php", "config.*.php", "config_*.php", "config-*.php", "*.config.php", "*.conf.php",
+		"configuration*.php", "conf.php", "conf.inc.php", "db.php", "db.inc", "db.inc.php", "db_*.php", "db-*.php", "dbconfig*.php",
+		"dbconn*.php", "dbconnect*.php", "database*.php", "connect.php", "connection*.php", "conn.php", "conn_*.php", "config.inc",
+		"settings*.php", "secrets*.php", "credentials*.php", "credential*.php", "passwords*.php", "local_settings.php",
+		"localconfig*.php", "parameters*.php"},
+	// keys, certificates and environment files, on any site
+	"keys": {".env", ".env.*", "*.env", "*.pem", "*.key", "*.p12", "*.pfx", "*.jks", "*.kdbx", "id_rsa*", "id_ecdsa*", "id_ed25519*",
+		".htpasswd", ".netrc", ".pgpass", ".my.cnf", "auth.json"},
+}
+
+var secretNames = func() []string {
+	var out []string
+	for _, names := range SecretFiles {
+		out = append(out, names...)
+	}
+	return out
+}()
 
 // skipDirs are folders never entered: uploads, caches, version control,
 // dependencies installed by a tool (their versions come from the lock file).
@@ -57,10 +85,33 @@ func SkipDir(name string) bool {
 	return false
 }
 
-// Secret reports whether a file's name is one never read.
+// Secret reports whether a file's name is one never read; names are
+// compared without case (Windows servers, smb).
 func Secret(base string) bool {
+	low := strings.ToLower(base)
 	for _, p := range secretNames {
-		if ok, _ := path.Match(p, base); ok {
+		if ok, _ := path.Match(strings.ToLower(p), low); ok {
+			return true
+		}
+	}
+	return false
+}
+
+// A file whose name the lists above do not know but that holds a password
+// written in the code (a custom site's settings under another name): the
+// reader drops it at once, before reading anything in it.
+var secretContent = []*regexp.Regexp{
+	regexp.MustCompile(`(?i)define\(\s*['"][A-Z0-9_]*(PASS|PWD|SECRET|KEY|SALT|TOKEN)[A-Z0-9_]*['"]\s*,\s*['"][^'"]{3,}['"]`),
+	regexp.MustCompile(`(?i)\$[A-Za-z0-9_]*(pass|pwd|secret|apikey|api_key|token)[A-Za-z0-9_]*\s*=\s*['"][^'"]{3,}['"]`),
+	regexp.MustCompile(`(?i)['"][A-Za-z0-9_]*(pass|pwd|secret|apikey|api_key)[A-Za-z0-9_]*['"]\s*=>\s*['"][^'"]{3,}['"]`),
+	regexp.MustCompile(`(?i)(mysqli_connect|mysql_connect|mysql_pconnect|pg_connect|sqlsrv_connect|oci_connect|new\s+mysqli|new\s+PDO)\s*\([^)]*['"][^'"]+['"]\s*,\s*['"][^'"]+['"]\s*,\s*['"][^'"]{3,}['"]`),
+}
+
+// SecretContent reports whether a file's text holds a password written in
+// the code: such a file is dropped, never read further.
+func SecretContent(src string) bool {
+	for _, re := range secretContent {
+		if re.MatchString(src) {
 			return true
 		}
 	}

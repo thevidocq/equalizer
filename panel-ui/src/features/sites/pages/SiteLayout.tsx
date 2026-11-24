@@ -33,6 +33,7 @@ export function SiteLayout() {
         { to: `${base}/isolation`, label: "Isolation" },
         { to: `${base}/certificate`, label: "Certificate" },
         { to: `${base}/login`, label: "Login" },
+        { to: `${base}/security`, label: "Security" },
       ]} />
       <Outlet />
       <AssistantPanel key={app} tenant={tenant} app={app} siteName={site.data.name} mapVersion={site.data.published_version ?? null}

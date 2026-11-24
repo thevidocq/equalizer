@@ -35,6 +35,7 @@ import (
 	"github.com/thevidocq/equalizer/panel-api/internal/mail"
 	"github.com/thevidocq/equalizer/panel-api/internal/mapcheck"
 	"github.com/thevidocq/equalizer/panel-api/internal/mfa"
+	"github.com/thevidocq/equalizer/panel-api/internal/securityscan"
 	"github.com/thevidocq/equalizer/panel-api/internal/store"
 	"github.com/thevidocq/equalizer/panel-api/internal/ui"
 )
@@ -140,6 +141,7 @@ func run() error {
 		log.Warn("EQ_LOKI_URL not set: the Logs page is not available")
 	}
 	go scheduleDiscoveries(ctx, srv, log.With(slog.String("module", "discovery")))
+	go (&securityscan.Runner{Store: st, Clients: srv.ScannerFor, Log: log.With(slog.String("module", "security"))}).Run(ctx)
 	srv.MailAvailable = cfg.MailMode != "off"
 	if srv.MailAvailable {
 		go (&alerts.Runner{Store: st, Statuses: srv.SiteStatuses, Mail: sender, PanelURL: cfg.PanelURL,
@@ -220,6 +222,9 @@ func purge(ctx context.Context, s *auth.Sessions, st *store.Store, log *slog.Log
 			}
 			if err := st.PurgeAssistant(ctx); err != nil {
 				log.Warn("expired assistant conversations not purged", slog.String("error", err.Error()))
+			}
+			if _, err := st.PurgeSecurityScans(ctx); err != nil {
+				log.Warn("security scans older than a year not purged", slog.String("error", err.Error()))
 			}
 		}
 	}

@@ -135,12 +135,12 @@ func (s *Store) DeleteTenant(ctx context.Context, id string) error {
 		`DELETE FROM map_verifications WHERE app_id IN ` + apps,
 		`DELETE FROM discoveries WHERE app_id IN ` + apps,
 		`DELETE FROM map_versions WHERE app_id IN ` + apps,
-		`DELETE FROM apps WHERE tenant_id = $1`, // aliases, certificates, login, alerts: cascade
+		`DELETE FROM apps WHERE tenant_id = $1`, // aliases, certificates, login, alerts, security scans: cascade
 		`DELETE FROM connectors WHERE tenant_id = $1`,
 		`DELETE FROM invitations WHERE tenant_id = $1 OR invited_by IN ` + users,
 		`DELETE FROM audit WHERE tenant_id = $1 OR user_id IN ` + users,
 		`DELETE FROM users WHERE tenant_id = $1`, // sessions, password resets: cascade
-		`DELETE FROM tenants WHERE id = $1`,      // AI model, alert settings: cascade
+		`DELETE FROM tenants WHERE id = $1`,      // AI model, scanner, alert settings: cascade
 	} {
 		if _, err := tx.ExecContext(ctx, q, id); err != nil {
 			return err

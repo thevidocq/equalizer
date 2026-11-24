@@ -2137,6 +2137,94 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/tenants/{tenant}/scanner": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The tenant's vulnerability scanner (CVE Radar): its API address and whether a key is saved; the key is never returned, only its last 4 characters (tenant administrators) */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    tenant: components["parameters"]["tenant"];
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Configuration; endpoint null when none */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ScannerConfig"];
+                    };
+                };
+                403: components["responses"]["Error"];
+            };
+        };
+        /** Connect the scanner. The panel tries the address and key (it lists one target) before saving: 424 scanner_failed when the scanner refuses them. An empty api_key keeps the saved one, for the same endpoint only */
+        put: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    tenant: components["parameters"]["tenant"];
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["ScannerConfigUpdate"];
+                };
+            };
+            responses: {
+                /** @description Configuration */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ScannerConfig"];
+                    };
+                };
+                403: components["responses"]["Error"];
+                422: components["responses"]["Error"];
+                424: components["responses"]["Error"];
+            };
+        };
+        post?: never;
+        /** Disconnect the scanner and forget its key; past scans and findings stay */
+        delete: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    tenant: components["parameters"]["tenant"];
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Removed */
+                204: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/tenants/{tenant}/llm": {
         parameters: {
             query?: never;
@@ -2380,6 +2468,91 @@ export interface paths {
         };
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/apps/{app}/security": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The site's security scans (administrators and viewers): for the site through Equalizer (its public domain) and for the original site (the legacy site's own name, from the published map), the latest scan and its findings, each read against the published map */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    app: components["parameters"]["app"];
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Scans and findings */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["SecurityOverview"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/apps/{app}/security/scans": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Start a scan (tenant administrators): the scanner's target for the domain is created when missing; the panel follows the scan and reads its findings when it ends. The original site is scanned without Equalizer in front: confirm must be true (recorded in Activity); it needs a site reached directly whose name leads to public addresses only. 409 no_scanner, scan_in_progress or no_target; 424 scanner_failed when the scanner refuses; 429 when its limits are reached */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    app: components["parameters"]["app"];
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["SecurityScanStart"];
+                };
+            };
+            responses: {
+                /** @description Scan started */
+                202: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["SecurityScan"];
+                    };
+                };
+                403: components["responses"]["Error"];
+                409: components["responses"]["Error"];
+                422: components["responses"]["Error"];
+                424: components["responses"]["Error"];
+                429: components["responses"]["Error"];
+            };
+        };
         delete?: never;
         options?: never;
         head?: never;
@@ -4149,6 +4322,99 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        ScannerConfig: {
+            /** @description https base URL of the scanner's API */
+            endpoint: string | null;
+            has_api_key: boolean;
+            /** @description Last 4 characters of the saved key */
+            key_hint?: string | null;
+        };
+        ScannerConfigUpdate: {
+            /** @description https base URL of the scanner's API, port 443, never a private address */
+            endpoint: string;
+            /** @description Empty: keep the saved one */
+            api_key?: string;
+        };
+        SecurityScanStart: {
+            /**
+             * @description protected: the public domain, through Equalizer; original: the legacy site, without Equalizer
+             * @enum {string}
+             */
+            target: "protected" | "original";
+            /**
+             * @default standard
+             * @enum {string}
+             */
+            scan_type: "standard" | "deep";
+            /** @description Required true for the original site: it is yours, or its owner allowed the scan in writing */
+            confirm?: boolean;
+        };
+        SecurityScan: {
+            id: number;
+            /** @enum {string} */
+            target: "protected" | "original";
+            domain: string;
+            /** @enum {string} */
+            scan_type: "standard" | "deep";
+            /** @enum {string} */
+            status: "pending" | "running" | "completed" | "failed";
+            findings_count?: number | null;
+            /** @description The scanner's score of the target after the scan */
+            risk_score?: number | null;
+            error?: string | null;
+            requested_by?: string | null;
+            /** Format: date-time */
+            created_at: string;
+            /** Format: date-time */
+            completed_at?: string | null;
+        };
+        SecurityFinding: {
+            /** @description The scanner's id */
+            id: string;
+            /** @description The scanner's tool: nikto, nuclei, ports, testssl, headers… */
+            source: string;
+            title: string;
+            /** @enum {string} */
+            severity: "critical" | "high" | "medium" | "low" | "info";
+            cvss?: number | null;
+            cve: string[];
+            cwe: string[];
+            url?: string | null;
+            http_method?: string | null;
+            parameter?: string | null;
+            evidence?: string | null;
+            /** Format: date-time */
+            first_seen_at?: string | null;
+            /** Format: date-time */
+            last_seen_at?: string | null;
+            map: components["schemas"]["SecurityMapVerdict"];
+        };
+        /** @description How the gateway treats the finding's request under the published map, read when shown: refused: the gateway refuses it (nothing serves it, a method or an input the entry does not declare, a value its own check refuses); precise: a precise entry serves it and checks the parameter by its type; free_text: a precise entry serves it but the parameter is free text (markup and length are checked); area: only the generic area serves it, without a precise check (also a path value or a query key a precise entry does not take); asset: a static file; server: not about an address (ports, TLS, headers), the map has no say */
+        SecurityMapVerdict: {
+            /** @enum {string} */
+            verdict: "refused" | "precise" | "free_text" | "area" | "asset" | "server";
+            /** @description The map entry that serves the address (route, form, api or area id) */
+            entry?: string | null;
+            /** @description The parameter's type in that entry */
+            field_type?: string | null;
+        };
+        SecurityTarget: {
+            /** @enum {string} */
+            target: "protected" | "original";
+            domain?: string | null;
+            available: boolean;
+            /** @description Why this target cannot be scanned (no published map, the original site is reached through the connector or has no name of its own) */
+            reason?: string | null;
+            /** @description The latest scan */
+            scan?: components["schemas"]["SecurityScan"] | null;
+            /** @description Open findings of the latest completed scan */
+            findings: components["schemas"]["SecurityFinding"][];
+        };
+        SecurityOverview: {
+            /** @description Whether the tenant connected a scanner (Settings → Security scanner) */
+            configured: boolean;
+            targets: components["schemas"]["SecurityTarget"][];
+        };
         AssistantAsk: {
             /** @description One of yours about this site, to go on with it; omitted: a new one */
             conversation?: string;

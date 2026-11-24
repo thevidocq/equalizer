@@ -37,6 +37,7 @@ tags:
   - name: connectors
   - name: capacity
   - name: llm
+  - name: security
   - name: metrics
   - name: status
   - name: logs
@@ -965,6 +966,47 @@ paths:
             application/json:
               schema: { $ref: "#/components/schemas/AlertSettings" }
         "422": { $ref: "#/components/responses/Error" }
+  /tenants/{tenant}/scanner:
+    get:
+      tags: [security]
+      summary: >-
+        The tenant's vulnerability scanner (CVE Radar): its API address and whether a key is saved; the key is
+        never returned, only its last 4 characters (tenant administrators)
+      parameters: [{ $ref: "#/components/parameters/tenant" }]
+      responses:
+        "200":
+          description: Configuration; endpoint null when none
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ScannerConfig" }
+        "403": { $ref: "#/components/responses/Error" }
+    put:
+      tags: [security]
+      summary: >-
+        Connect the scanner. The panel tries the address and key (it lists one target) before saving: 424
+        scanner_failed when the scanner refuses them. An empty api_key keeps the saved one, for the same
+        endpoint only
+      parameters: [{ $ref: "#/components/parameters/tenant" }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/ScannerConfigUpdate" }
+      responses:
+        "200":
+          description: Configuration
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ScannerConfig" }
+        "403": { $ref: "#/components/responses/Error" }
+        "422": { $ref: "#/components/responses/Error" }
+        "424": { $ref: "#/components/responses/Error" }
+    delete:
+      tags: [security]
+      summary: Disconnect the scanner and forget its key; past scans and findings stay
+      parameters: [{ $ref: "#/components/parameters/tenant" }]
+      responses:
+        "204": { description: Removed }
   /tenants/{tenant}/llm:
     get:
       tags: [llm]
@@ -1082,6 +1124,46 @@ paths:
             application/json:
               schema: { $ref: "#/components/schemas/Discovery" }
         "404": { $ref: "#/components/responses/Error" }
+  /apps/{app}/security:
+    get:
+      tags: [security]
+      summary: >-
+        The site's security scans (administrators and viewers): for the site through Equalizer (its public
+        domain) and for the original site (the legacy site's own name, from the published map), the latest scan
+        and its findings, each read against the published map
+      parameters: [{ $ref: "#/components/parameters/app" }]
+      responses:
+        "200":
+          description: Scans and findings
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/SecurityOverview" }
+  /apps/{app}/security/scans:
+    post:
+      tags: [security]
+      summary: >-
+        Start a scan (tenant administrators): the scanner's target for the domain is created when missing; the
+        panel follows the scan and reads its findings when it ends. The original site is scanned without
+        Equalizer in front: confirm must be true (recorded in Activity); it needs a site reached directly whose
+        name leads to public addresses only. 409 no_scanner, scan_in_progress or no_target; 424 scanner_failed
+        when the scanner refuses; 429 when its limits are reached
+      parameters: [{ $ref: "#/components/parameters/app" }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/SecurityScanStart" }
+      responses:
+        "202":
+          description: Scan started
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/SecurityScan" }
+        "403": { $ref: "#/components/responses/Error" }
+        "409": { $ref: "#/components/responses/Error" }
+        "422": { $ref: "#/components/responses/Error" }
+        "424": { $ref: "#/components/responses/Error" }
+        "429": { $ref: "#/components/responses/Error" }
   /apps/{app}/assistant:
     post:
       tags: [assistant]
@@ -1837,6 +1919,89 @@ components:
               items: { type: array, items: { type: object } }
               next_cursor: { type: [string, "null"] }
   schemas:
+    ScannerConfig:
+      type: object
+      required: [endpoint, has_api_key]
+      properties:
+        endpoint: { type: [string, "null"], description: "https base URL of the scanner's API" }
+        has_api_key: { type: boolean }
+        key_hint: { type: [string, "null"], description: "Last 4 characters of the saved key" }
+    ScannerConfigUpdate:
+      type: object
+      required: [endpoint]
+      properties:
+        endpoint: { type: string, maxLength: 300, description: "https base URL of the scanner's API, port 443, never a private address" }
+        api_key: { type: string, writeOnly: true, maxLength: 300, description: "Empty: keep the saved one" }
+    SecurityScanStart:
+      type: object
+      required: [target]
+      properties:
+        target: { type: string, enum: [protected, original], description: "protected: the public domain, through Equalizer; original: the legacy site, without Equalizer" }
+        scan_type: { type: string, enum: [standard, deep], default: standard }
+        confirm: { type: boolean, description: "Required true for the original site: it is yours, or its owner allowed the scan in writing" }
+    SecurityScan:
+      type: object
+      required: [id, target, domain, scan_type, status, created_at]
+      properties:
+        id: { type: integer }
+        target: { type: string, enum: [protected, original] }
+        domain: { type: string }
+        scan_type: { type: string, enum: [standard, deep] }
+        status: { type: string, enum: [pending, running, completed, failed] }
+        findings_count: { type: [integer, "null"] }
+        risk_score: { type: [integer, "null"], minimum: 0, maximum: 100, description: "The scanner's score of the target after the scan" }
+        error: { type: [string, "null"] }
+        requested_by: { type: [string, "null"] }
+        created_at: { type: string, format: date-time }
+        completed_at: { type: [string, "null"], format: date-time }
+    SecurityFinding:
+      type: object
+      required: [id, source, title, severity, cve, cwe, map]
+      properties:
+        id: { type: string, description: "The scanner's id" }
+        source: { type: string, description: "The scanner's tool: nikto, nuclei, ports, testssl, headers…" }
+        title: { type: string }
+        severity: { type: string, enum: [critical, high, medium, low, info] }
+        cvss: { type: [number, "null"] }
+        cve: { type: array, items: { type: string } }
+        cwe: { type: array, items: { type: string } }
+        url: { type: [string, "null"] }
+        http_method: { type: [string, "null"] }
+        parameter: { type: [string, "null"] }
+        evidence: { type: [string, "null"] }
+        first_seen_at: { type: [string, "null"], format: date-time }
+        last_seen_at: { type: [string, "null"], format: date-time }
+        map: { $ref: "#/components/schemas/SecurityMapVerdict" }
+    SecurityMapVerdict:
+      type: object
+      required: [verdict]
+      description: >-
+        How the gateway treats the finding's request under the published map, read when shown: refused: the
+        gateway refuses it (nothing serves it, a method or an input the entry does not declare, a value its own
+        check refuses); precise: a precise entry serves it and checks the parameter by its type; free_text: a
+        precise entry serves it but the parameter is free text (markup and length are checked); area: only the
+        generic area serves it, without a precise check (also a path value or a query key a precise entry does
+        not take); asset: a static file; server: not about an address (ports, TLS, headers), the map has no say
+      properties:
+        verdict: { type: string, enum: [refused, precise, free_text, area, asset, server] }
+        entry: { type: [string, "null"], description: "The map entry that serves the address (route, form, api or area id)" }
+        field_type: { type: [string, "null"], description: "The parameter's type in that entry" }
+    SecurityTarget:
+      type: object
+      required: [target, available, findings]
+      properties:
+        target: { type: string, enum: [protected, original] }
+        domain: { type: [string, "null"] }
+        available: { type: boolean }
+        reason: { type: [string, "null"], description: "Why this target cannot be scanned (no published map, the original site is reached through the connector or has no name of its own)" }
+        scan: { oneOf: [{ $ref: "#/components/schemas/SecurityScan" }, { type: "null" }], description: "The latest scan" }
+        findings: { type: array, items: { $ref: "#/components/schemas/SecurityFinding" }, description: "Open findings of the latest completed scan" }
+    SecurityOverview:
+      type: object
+      required: [configured, targets]
+      properties:
+        configured: { type: boolean, description: "Whether the tenant connected a scanner (Settings → Security scanner)" }
+        targets: { type: array, items: { $ref: "#/components/schemas/SecurityTarget" } }
     AssistantAsk:
       type: object
       required: [text]

@@ -122,6 +122,16 @@ are kept in PostgreSQL for the person who had them only, as long as the
 tenant chooses (Settings, 1 to 365 days); the platform's Activity and
 the panel show them to nobody else.
 
+### Tenants' security scans
+
+A tenant can connect its own vulnerability scanner (CVE Radar, Settings →
+Security scanner) and scan its sites from their Security tab. panel-api
+calls the scanner's API on port 443 with the tenant's key (public
+addresses only) and polls running scans once a minute; nothing to set on
+the platform. The scanner's own requests reach the site through the
+gateway like any visitor's, so they show in the tenant's Logs. Scans and
+findings stay a year in PostgreSQL.
+
 ## Settings
 
 ### Main values in .env

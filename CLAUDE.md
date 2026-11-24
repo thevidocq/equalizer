@@ -86,6 +86,11 @@ A change is done only when, in the same PR, without being asked:
   `docker compose config --quiet`; CI builds the images.
 - The `gh` GraphQL API may be blocked: open PRs with the REST API
   (`gh api repos/thevidocq/equalizer/pulls`).
+- The npm registry may be blocked, so `npm run gen:api` cannot run:
+  `python3 scripts/openapi_ts.py schema/api/panel-api.yaml >
+  panel-ui/src/shared/api/schema.d.ts` emulates openapi-typescript 7 and
+  reproduces the committed file byte for byte. CI's `check:api` still
+  runs the real generator.
 
 ## Lab safety
 

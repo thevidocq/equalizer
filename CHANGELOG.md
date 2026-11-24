@@ -72,6 +72,8 @@ it, 0.1.0 (`docs/releases/0.1.0.md`, tag on the merge of #39).
   `schemeLoop` compares decoded paths.
   Sweep for the same mistake: the check now also compares redirects'
   destinations and form actions decoded (`_decoded` in `verify.py`).
+  Removed `gateway/attacklab`, a 12 MB binary committed by mistake on
+  2026-11-21 (built from `gateway/cmd/attacklab`), and ignored it.
 - **Why:** on wp.thevidocq.com the check flagged 272 of 300 pages as
   "links missing": the WordPress theme test data's Greek tag
   (`/tag/greek/%ce%b5…`, in every page's tag cloud) came out of the

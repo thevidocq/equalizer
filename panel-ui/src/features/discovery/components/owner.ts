@@ -1,7 +1,7 @@
 /** The plugin, theme or part of the site a file belongs to, from its path. */
 export function owner(file: string): string {
   const m = /^(?:wp-content\/)?(plugins|themes|modules|components|extensions)\/([^/]+)\//.exec(file);
-  if (m) return `${m[1].replace(/s$/, "")} ${m[2]}`;
+  if (m && m[1] && m[2]) return `${m[1].replace(/s$/, "")} ${m[2]}`;
   return "the site's own code";
 }
 

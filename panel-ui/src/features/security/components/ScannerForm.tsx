@@ -15,8 +15,9 @@ export function ScannerForm({ tenant }: { tenant: string }) {
     hasKey={current.data.has_api_key} hint={current.data.key_hint ?? null} status={current.data.status} />;
 }
 
+const NOT_CONNECTED: [IntegrationState, string] = ["not_connected", "Not connected"];
 const STATE: Record<string, [IntegrationState, string]> = {
-  connected: ["connected", "Connected"], not_connected: ["not_connected", "Not connected"], key_refused: ["error", "Key refused"],
+  connected: ["connected", "Connected"], not_connected: NOT_CONNECTED, key_refused: ["error", "Key refused"],
 };
 
 type FormProps = { tenant: string; endpoint: string; hasKey: boolean; hint: string | null; status: string };
@@ -38,7 +39,7 @@ function Form({ tenant, endpoint: saved, hasKey, hint, status }: FormProps) {
     <form onSubmit={submit} className="flex max-w-xl flex-col gap-4">
       <h2 className="text-base font-semibold">Security scanner</h2>
       <IntegrationCard logo="/brands/cve-radar.png" name="CVE Radar" description="Vulnerability scans of your sites, read against their maps"
-        state={(STATE[status] ?? STATE.not_connected)[0]} label={(STATE[status] ?? STATE.not_connected)[1]}
+        state={(STATE[status] ?? NOT_CONNECTED)[0]} label={(STATE[status] ?? NOT_CONNECTED)[1]}
         note={status === "key_refused" ? "CVE Radar refused the saved key at the last call (revoked, expired or without permissions): save a new one." : undefined} />
       <p className="text-sm text-ink-soft">
         Create the key in CVE Radar (API section) with the read, scan and write permissions. The panel tries the address and the

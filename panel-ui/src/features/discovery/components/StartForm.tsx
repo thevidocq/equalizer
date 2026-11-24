@@ -25,7 +25,7 @@ export function StartForm({ tenant, app, firstTime, aiState, isAdmin }: Props) {
   function submit(e: FormEvent) {
     e.preventDefault();
     start.mutate({
-      max_pages: Number(maxPages) || 500, mode: reach.mode, source: withSource,
+      use_ai: true, max_pages: Number(maxPages) || 500, mode: reach.mode, source: withSource,
       accounts: accounts.filter((a) => a.username.trim() !== ""),
       ...(firstTime ? { ...reach, connector_id: connector } : {}),
     }, { onSuccess: () => { setAccounts([]); toast("Discovery queued"); } });

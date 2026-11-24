@@ -89,7 +89,8 @@ it, 0.1.0 (`docs/releases/0.1.0.md`, tag on the merge of #39).
     status or type; `Measure.changing`. `attacks.values(base)` skips the
     40-digit probe on text types.
   - Panel: the identical-pages hint counts the pages that change by
-    themselves (`identicalHint`).
+    themselves (`identicalHint`); the Logs **Live** dot pulses while live
+    (`motion-safe:animate-ping`, still for reduced motion).
   - Tests: `test_slugs.py` (incl. Go/Python look-alike ranges agree),
     `test_verify.py`, `test_query_merge.py`, gateway `validate_test.go`,
     `templates_test.go`, `VerificationPanel.test.ts`.

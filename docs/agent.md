@@ -279,8 +279,10 @@ reader](../source-reader/README.md) after the AI review:
 
 - a query key or form field **the agent added** as free text (a person's
   entries are never touched) whose name the code always reads as an
-  integer, an email or one of a few values (`in_array`) gets that type,
-  when every value seen on the site fits; a key read as it is anywhere in
+  integer, an email or one of a few values (`in_array`, a list the code
+  accepts, not one it refuses) gets that type, when every value seen on
+  the site fits; a list of values needs values seen on the site, so a form
+  field gets a number or an email only; a key read as it is anywhere in
   the code, or with two types, stays free text. Keys a sanitizer only
   rewrites (`sanitize_title`, `sanitize_key`) are not narrowed: the code
   accepts anything there and fixes it;

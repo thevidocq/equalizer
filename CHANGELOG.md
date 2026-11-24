@@ -116,6 +116,16 @@ it, 0.1.0 (`docs/releases/0.1.0.md`, tag on the merge of #39).
   tsc/vitest run in CI (no npm registry here); efficacy study rerun, the
   same numbers. The independent review agent stopped on a usage limit:
   reviewed by hand (it found the remote-shell path injection fixed above).
+  The independent review, run again after the limit, found and the PR
+  fixes: an `in_array` cut at the line end or used as a refusal list could
+  become an enum (now a closed literal list the code accepts only, and an
+  enum only with values seen on the site, never for form fields); one long
+  plugin version failed the whole read (`fit` drops what the schema cannot
+  hold); an smb listing could point out of the work folder; no cap on the
+  bytes copied (`guarded` stops the copy at the read's limits); a reader's
+  error cut inside a character was refused by Postgres (`clip`); a race
+  could drop a discovery's read (the going read is locked); the PUT text
+  on the saved smb password; `openssh-keygen` in the image.
   Never-read files completed for every supported application
   (`fetch.SecretFiles`: Joomla, Drupal's `settings.local.php`, Magento,
   PrestaShop, OpenCart, Moodle, phpBB, TYPO3, MediaWiki, and the usual

@@ -2,7 +2,9 @@ package store
 
 import (
 	"context"
+	"database/sql"
 	"encoding/json"
+	"errors"
 	"time"
 
 	"github.com/lib/pq"
@@ -91,14 +93,29 @@ func (s *Store) StartDiscovery(ctx context.Context, n NewDiscovery) (Discovery, 
 		return Discovery{}, translate(err)
 	}
 	if n.Source {
-		// A read already going serves this discovery too.
-		if _, err := tx.ExecContext(ctx, `INSERT INTO source_reads (app_id, status, discovery_id, requested_by)
-			VALUES ($1, 'queued', $2, $3) ON CONFLICT (app_id) WHERE status IN ('queued', 'running') DO NOTHING`,
-			n.App, id, n.RequestedBy); err != nil {
-			return Discovery{}, err
+		// A read already going serves this discovery too: locked, so that it
+		// cannot end between finding it and linking it.
+		var read *int64
+		for try := 0; try < 3 && read == nil; try++ {
+			err := tx.QueryRowContext(ctx, `SELECT id FROM source_reads WHERE app_id = $1 AND status IN ('queued', 'running')
+				FOR UPDATE`, n.App).Scan(&read)
+			if err != nil && !errors.Is(err, sql.ErrNoRows) {
+				return Discovery{}, err
+			}
+			if read != nil {
+				break
+			}
+			err = tx.QueryRowContext(ctx, `INSERT INTO source_reads (app_id, status, discovery_id, requested_by)
+				VALUES ($1, 'queued', $2, $3) ON CONFLICT (app_id) WHERE status IN ('queued', 'running') DO NOTHING
+				RETURNING id`, n.App, id, n.RequestedBy).Scan(&read)
+			if err != nil && !errors.Is(err, sql.ErrNoRows) {
+				return Discovery{}, err
+			}
 		}
-		if _, err := tx.ExecContext(ctx, `UPDATE discoveries SET source_read = (SELECT id FROM source_reads
-			WHERE app_id = $1 AND status IN ('queued', 'running')) WHERE id = $2`, n.App, id); err != nil {
+		if read == nil {
+			return Discovery{}, ErrConflict
+		}
+		if _, err := tx.ExecContext(ctx, `UPDATE discoveries SET source_read = $2 WHERE id = $1`, id, *read); err != nil {
 			return Discovery{}, err
 		}
 	}

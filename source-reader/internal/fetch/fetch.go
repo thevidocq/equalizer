@@ -74,7 +74,7 @@ func Fetch(ctx context.Context, s Spec, e Env) (string, func(), error) {
 		ctx, cancel := context.WithTimeout(ctx, 20*time.Minute)
 		defer cancel()
 		if s.Method == "sftp" {
-			err = run(ctx, "rsync", RsyncArgs(s, e, dir), nil)
+			err = guarded(ctx, dir, func(ctx context.Context) error { return run(ctx, "rsync", RsyncArgs(s, e, dir), nil) })
 		} else {
 			err = smb(ctx, s, e, dir)
 		}
@@ -169,6 +169,44 @@ func smb(ctx context.Context, s Spec, e Env, dir string) error {
 	return Prune(files)
 }
 
+// guarded runs a copy and stops it once the folder holds more than the
+// read's limits: a huge site never fills the reader's disk.
+func guarded(ctx context.Context, dir string, copy func(context.Context) error) error {
+	ctx, cancel := context.WithCancel(ctx)
+	defer cancel()
+	over := make(chan bool, 1)
+	go func() {
+		t := time.NewTicker(2 * time.Second)
+		defer t.Stop()
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case <-t.C:
+				var n, bytes int64
+				_ = filepath.Walk(dir, func(_ string, info os.FileInfo, err error) error {
+					if err == nil && !info.IsDir() {
+						n, bytes = n+1, bytes+info.Size()
+					}
+					return nil
+				})
+				if n > MaxFiles || bytes > MaxBytes {
+					over <- true
+					cancel()
+					return
+				}
+			}
+		}
+	}()
+	err := copy(ctx)
+	select {
+	case <-over:
+		return fmt.Errorf("the site has more than %d code files or %d MB of them: the read stopped", MaxFiles, MaxBytes>>20)
+	default:
+		return err
+	}
+}
+
 func smbPath(p string) string { return strings.ReplaceAll(p, "/", `\`) }
 
 var (
@@ -181,7 +219,7 @@ var (
 // character smbclient's command line would read as syntax is left out.
 func SMBWanted(listing, folder string) []string {
 	base := strings.Trim(smbPath(folder), `\`)
-	cur, out := "", []string{}
+	cur, out, total := "", []string{}, int64(0)
 	for _, line := range strings.Split(listing, "\n") {
 		line = strings.TrimRight(line, "\r")
 		if m := smbDir.FindStringSubmatch(line); m != nil {
@@ -202,8 +240,12 @@ func SMBWanted(listing, folder string) []string {
 		}
 		size, _ := strconv.ParseInt(m[3], 10, 64)
 		rel := path.Join(cur, m[1])
-		if Wanted(rel, size) && len(out) < MaxFiles {
+		if strings.HasPrefix(rel, "/") || rel == ".." || strings.HasPrefix(rel, "../") || strings.Contains(rel, "/../") || m[1] == ".." {
+			continue // a listing that points out of the folder
+		}
+		if Wanted(rel, size) && len(out) < MaxFiles && total+size <= MaxBytes {
 			out = append(out, rel)
+			total += size
 		}
 	}
 	return out

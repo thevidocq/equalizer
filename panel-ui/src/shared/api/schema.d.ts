@@ -2506,7 +2506,7 @@ export interface paths {
                 };
             };
         };
-        /** How the source reader reaches the site's files (tenant administrators). Read only, always: sftp with the reader's own key, smb with a read-only account, or a folder mounted next to it. An empty password keeps the saved one, for the same host only */
+        /** How the source reader reaches the site's files (tenant administrators). Read only, always: sftp with the reader's own key, smb with a read-only account, or a folder mounted next to it. An empty password keeps the saved one, for the same smb host and user only */
         put: {
             parameters: {
                 query?: never;

@@ -130,6 +130,21 @@ it, 0.1.0 (`docs/releases/0.1.0.md`, tag on the merge of #39).
      entries with the code's parameter types) once the gateway's JSON API
      support can be checked on them.
   2. Other stacks (Drupal, Joomla, Laravel) in the extractor.
+### 2026-11-24 — Rename a protected site
+
+- **Branch:** feat/rename-site
+- **What:** contract: `name` in `PATCH /apps/{app}`; panel-api:
+  `store.RenameApp`, `patchApp` takes `name` (1 to 200 characters,
+  trimmed, alone or with the other settings), Activity `app.rename` with
+  the old and the new name; panel-ui: a pencil next to the site's name
+  (administrators; the same icon style as Help and Log out) opens a
+  dialog; `PageHeader` gains `titleAction`; Activity sentence. Tests:
+  `api/rename_test.go`, `describe.test.ts`. Docs: tenant manual (Add the
+  site) and the in-app help.
+- **Why:** the owner asked to rename a site after it is created.
+- **Status:** panel-api tests pass; panel-ui tsc/vitest run in CI.
+- **Next steps:** released with 0.2.29 (its release notes, once
+  feat/source-reader is merged).
 
 ### 2026-11-24 — Draft after a scan; the assistant reads scans; quick scans; 0.2.28
 

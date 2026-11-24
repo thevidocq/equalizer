@@ -195,3 +195,10 @@ func (s *Store) DeleteApp(ctx context.Context, id string) error {
 	}
 	return nil
 }
+
+// RenameApp changes the name a site is shown with; its id, domain and map
+// stay the same.
+func (s *Store) RenameApp(ctx context.Context, app, name string) error {
+	res, err := s.DB.ExecContext(ctx, `UPDATE apps SET name = $2 WHERE id = $1`, app, name)
+	return affected(res, err)
+}

@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"net/url"
 	"slices"
+	"strings"
 	"time"
 
 	"github.com/thevidocq/equalizer/panel-api/internal/auth"
@@ -33,13 +34,32 @@ func (s *Server) patchApp(w http.ResponseWriter, r *http.Request, u *auth.User) 
 		Weekday  *int            `json:"discovery_weekday"`
 		Scheme   *string         `json:"public_scheme"`
 		Never    *bool           `json:"never_public"`
+		Name     *string         `json:"name"`
 	}
 	if !decode(w, r, &in) {
 		return
 	}
-	if in.LegacyIP == nil && in.Schedule == nil && in.Scheme == nil && in.Never == nil {
+	if in.LegacyIP == nil && in.Schedule == nil && in.Scheme == nil && in.Never == nil && in.Name == nil {
 		fail(w, http.StatusUnprocessableEntity, "invalid", "nothing to change")
 		return
+	}
+	if in.Name != nil {
+		name := strings.TrimSpace(*in.Name)
+		if name == "" || len(name) > 200 {
+			fail(w, http.StatusUnprocessableEntity, "invalid", "name: between 1 and 200 characters")
+			return
+		}
+		if name != a.Name {
+			if err := s.Store.RenameApp(r.Context(), a.ID, name); err != nil {
+				s.storeError(w, r, err)
+				return
+			}
+			_ = s.Store.Record(r.Context(), &u.ID, &a.Tenant, "app.rename", a.ID, map[string]any{"from": a.Name, "to": name})
+		}
+		if in.LegacyIP == nil && in.Schedule == nil && in.Scheme == nil && in.Never == nil {
+			s.writeApp(w, r, a.ID)
+			return
+		}
 	}
 	if in.Scheme != nil && *in.Scheme != a.TLS.PublicScheme {
 		if err := s.setPublicScheme(r, a, *in.Scheme); err != nil {

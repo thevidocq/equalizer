@@ -50,6 +50,7 @@ Internet ──► gateway ──► tunnel-relay ◄══ outbound tunnel ═�
 | `gateway` | Go | Public traffic, areas and precise entries, rebuilding, faithful rendering, sessions with legacy cookies, optional OIDC login, rate limits | Signed map, events, metrics |
 | `tunnel-relay` | Go | Terminates connector tunnels, routes requests | `schema/tunnel/tunnel.md` |
 | `connector` | Go | Next to the legacy app; outbound tunnel; allowed destinations only | `schema/tunnel/tunnel.md` |
+| `source-reader` | Go | Optional, next to the connector: reads the site's code read only (SFTP with its own key, SMB, or a mounted folder) and sends the panel a summary, never code, values or secrets | `schema/source/summary.schema.json`, `schema/api/panel-api.yaml` (`/source/*`) |
 | `orchestrator` | Go | Applies the configured capacity (replicas, autoscaling, pools) | Desired state from panel-api |
 | `panel-api` | Go | Tenants, email invitations, users, sites, connectors, maps with approval, signing and rollback, templates, discovery jobs, review aid, tenant AI settings, site assistant, exposure checks, status, logs (from Loki), audit, platform/tenant privacy (done); capacity, metrics, SIEM (planned) | `schema/api/panel-api.yaml` |
 | `panel-ui` | TypeScript, React | Panel | Client generated from OpenAPI |
@@ -125,6 +126,23 @@ without Equalizer, and every parameter and field tried with an attack set on
 the gateway only (`POST /maps/try`, `schema/api/gateway-admin.yaml`). The
 draft comes with a measured score; the **Check this version on the site** button runs the checks
 again on a version changed by hand.
+
+### The source code
+
+A site may have a **source reader** (`source-reader/`): a container next to
+the connector that only calls the panel, with its site's token
+(`/v1/source/hello`, `/claim`, `/reads/{id}/result`). It fetches code files
+only (rsync over ssh with its own ed25519 key, smbclient, or a read-only
+mount), never secret files, and extracts a summary by patterns, not a PHP
+parser: WordPress REST routes, AJAX and admin-post actions, PHP files that
+run when opened, the type each sanitizer gives a request key, risky calls,
+components. The panel checks the summary against
+`schema/source/summary.schema.json` before storing it (a summary off the
+schema is refused and the read fails). A discovery started with `source`
+queues a read and is claimed only when the read ends or after 10 minutes;
+the agent narrows its own free-text keys and fields to the code's types
+and reports the rest (`StudySource`). The summary stays in the panel's
+database, last 20 reads per site.
 
 ## Platform and tenants
 

@@ -38,6 +38,7 @@ tags:
   - name: capacity
   - name: llm
   - name: security
+  - name: source
   - name: metrics
   - name: status
   - name: logs
@@ -1124,6 +1125,117 @@ paths:
             application/json:
               schema: { $ref: "#/components/schemas/Discovery" }
         "404": { $ref: "#/components/responses/Error" }
+  /apps/{app}/source:
+    get:
+      tags: [source]
+      summary: >-
+        The site's source reader: how it reaches the site's files (sftp, smb or a mounted folder), whether it is
+        installed and answering, its public key to authorise for sftp, and its last read. Never a password
+      parameters: [{ $ref: "#/components/parameters/app" }]
+      responses:
+        "200":
+          description: Source reader
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/SourceReader" }
+    put:
+      tags: [source]
+      summary: >-
+        How the source reader reaches the site's files (tenant administrators). Read only, always: sftp with
+        the reader's own key, smb with a read-only account, or a folder mounted next to it. An empty password
+        keeps the saved one, for the same host only
+      parameters: [{ $ref: "#/components/parameters/app" }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/SourceReaderUpdate" }
+      responses:
+        "200":
+          description: Source reader
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/SourceReader" }
+        "403": { $ref: "#/components/responses/Error" }
+        "422": { $ref: "#/components/responses/Error" }
+    delete:
+      tags: [source]
+      summary: Forget the source reader of the site, its token and its reads (tenant administrators)
+      parameters: [{ $ref: "#/components/parameters/app" }]
+      responses:
+        "204": { description: Removed }
+        "403": { $ref: "#/components/responses/Error" }
+  /apps/{app}/source/token:
+    post:
+      tags: [source]
+      summary: >-
+        A new token for the site's source reader, shown once with the lines that start it next to the
+        connector (tenant administrators); the previous token stops working
+      parameters: [{ $ref: "#/components/parameters/app" }]
+      responses:
+        "201":
+          description: Token
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/SourceToken" }
+        "403": { $ref: "#/components/responses/Error" }
+  /apps/{app}/source/reads:
+    post:
+      tags: [source]
+      summary: >-
+        Have the source reader read the site's files now (tenant administrators): it is the Test button too.
+        409 no_reader when it is not set up or not answering, read_in_progress when one goes on
+      parameters: [{ $ref: "#/components/parameters/app" }]
+      responses:
+        "202":
+          description: Queued
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/SourceRead" }
+        "403": { $ref: "#/components/responses/Error" }
+        "409": { $ref: "#/components/responses/Error" }
+  /source/hello:
+    post:
+      tags: [source]
+      summary: The source reader says it runs, its version and its public key (sftp)
+      security: [{ serviceToken: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/SourceHello" }
+      responses:
+        "204": { description: Recorded }
+        "401": { $ref: "#/components/responses/Error" }
+  /source/claim:
+    post:
+      tags: [source]
+      summary: The source reader takes its site's next read, with how to reach the files
+      security: [{ serviceToken: [] }]
+      responses:
+        "200":
+          description: Job
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/SourceJob" }
+        "204": { description: Nothing queued }
+        "401": { $ref: "#/components/responses/Error" }
+  /source/reads/{id}/result:
+    post:
+      tags: [source]
+      summary: The source reader's result of a read, a summary or an error
+      security: [{ serviceToken: [] }]
+      parameters: [{ name: id, in: path, required: true, schema: { type: integer } }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/SourceResult" }
+      responses:
+        "204": { description: Recorded }
+        "401": { $ref: "#/components/responses/Error" }
+        "404": { $ref: "#/components/responses/Error" }
+        "422": { $ref: "#/components/responses/Error" }
   /apps/{app}/security:
     get:
       tags: [security]
@@ -2524,6 +2636,7 @@ components:
       properties:
         use_ai: { type: boolean, default: true, description: "Ignored when the tenant has no AI model" }
         max_pages: { type: integer, minimum: 10, maximum: 2000, default: 500 }
+        source: { type: boolean, description: "Read the site's source code first (its source reader must be ready, 409 no_reader otherwise); the discovery waits for the read, 10 minutes at most" }
         account:
           type: [object, "null"]
           description: Test account to explore as a logged-in user; kept encrypted, deleted when the discovery ends
@@ -2553,6 +2666,7 @@ components:
         trigger: { enum: [manual, schedule] }
         use_ai: { type: boolean }
         with_account: { type: boolean }
+        with_source: { type: boolean, description: "The discovery asked for the site's source code; while queued it waits for the read" }
         requested_by: { type: [string, "null"] }
         created_at: { type: string, format: date-time }
         started_at: { type: [string, "null"], format: date-time }
@@ -2657,6 +2771,65 @@ components:
           type: object
           additionalProperties: { type: array, maxItems: 150, items: { type: string } }
           description: HTML pages studied with each test account and not anonymously
+        source: { $ref: "#/components/schemas/StudySource" }
+    StudySource:
+      type: object
+      description: >-
+        What the site's source code added to the discovery. Names, types and places only: the code never
+        leaves the site's network
+      properties:
+        status: { enum: [used, failed, late], description: "late: the read did not end within 10 minutes" }
+        error: { type: [string, "null"] }
+        stack: { type: string }
+        files: { type: integer, description: "Code files read" }
+        routes: { type: integer, description: "Entry points found in the code" }
+        unseen:
+          type: array
+          maxItems: 200
+          items:
+            type: object
+            required: [path, origin]
+            properties:
+              path: { type: string }
+              origin: { enum: [rest_route, wp_ajax, wp_ajax_nopriv, admin_post, php_file] }
+              action: { type: [string, "null"] }
+              public: { type: boolean, description: "Answers without a login" }
+          description: >-
+            Entry points in the code the exploration never opened: the site area serves them as they are, the
+            map does not narrow them yet
+        typed:
+          type: array
+          maxItems: 300
+          items:
+            type: object
+            required: [route, field, type]
+            properties:
+              route: { type: string }
+              field: { type: string }
+              type: { type: string, description: "The type the code gives the field: int, email, slug, enum…" }
+              where: { type: string, description: "file:line" }
+          description: Fields whose type comes from the code instead of the values seen
+        risks:
+          type: array
+          maxItems: 100
+          items:
+            type: object
+            required: [kind, where]
+            properties:
+              kind: { enum: [sql, eval, include, exec, unserialize, file_write] }
+              input: { type: [string, "null"] }
+              route: { type: [string, "null"] }
+              where: { type: string, description: "file:line" }
+          description: Calls where a request value may do harm; the map narrows what reaches them
+        components:
+          type: array
+          maxItems: 200
+          items:
+            type: object
+            properties:
+              name: { type: string }
+              kind: { type: string }
+              version: { type: [string, "null"] }
     Verification:
       type: object
       required: [version, status]
@@ -2740,6 +2913,86 @@ components:
         llm: { type: [object, "null"], additionalProperties: true, description: "provider, model, endpoint, api_key; null without AI" }
         max_pages: { type: integer }
         unmapped: { type: array, items: { type: object, additionalProperties: true } }
+        source: { type: [object, "null"], additionalProperties: true, description: "The site's source summary (schema/source/summary.schema.json) when the discovery asked for it and the read succeeded" }
+        source_status: { enum: [used, failed, late, null], description: "null: the discovery did not ask for the source; late: the read did not end within 10 minutes" }
+        source_error: { type: [string, "null"], description: "Why the read failed" }
+    SourceReader:
+      type: object
+      required: [configured, status]
+      properties:
+        configured: { type: boolean }
+        method: { type: [string, "null"], enum: [sftp, smb, local, null] }
+        host: { type: [string, "null"] }
+        port: { type: [integer, "null"] }
+        username: { type: [string, "null"] }
+        path: { type: [string, "null"], description: "The site's folder: on the host (sftp), in the share (smb), or mounted in the reader (local)" }
+        share: { type: [string, "null"], description: "smb: the share" }
+        has_password: { type: boolean }
+        status: { type: string, enum: [not_set_up, not_installed, waiting, ready], description: "not_set_up: no method; not_installed: no token or never heard; waiting: not heard for 2 minutes; ready: answering" }
+        public_key: { type: [string, "null"], description: "sftp: the reader's own key, to add to the read-only user's authorized_keys" }
+        version: { type: [string, "null"] }
+        last_seen: { type: [string, "null"], format: date-time }
+        last_read: { oneOf: [{ $ref: "#/components/schemas/SourceRead" }, { type: "null" }] }
+    SourceReaderUpdate:
+      type: object
+      required: [method, path]
+      properties:
+        method: { type: string, enum: [sftp, smb, local] }
+        host: { type: string, maxLength: 253 }
+        port: { type: integer, minimum: 1, maximum: 65535 }
+        username: { type: string, maxLength: 64 }
+        path: { type: string, maxLength: 300 }
+        share: { type: string, maxLength: 80 }
+        password: { type: string, writeOnly: true, maxLength: 200, description: "smb only; empty keeps the saved one" }
+    SourceToken:
+      type: object
+      required: [token, install]
+      properties:
+        token: { type: string }
+        install: { type: string, description: "The lines that start the reader next to the connector" }
+    SourceRead:
+      type: object
+      required: [id, status, created_at]
+      properties:
+        id: { type: integer }
+        status: { type: string, enum: [queued, running, done, failed] }
+        error: { type: [string, "null"] }
+        created_at: { type: string, format: date-time }
+        finished_at: { type: [string, "null"], format: date-time }
+        discovery: { type: [integer, "null"], description: "The discovery that asked for it" }
+        counts:
+          type: [object, "null"]
+          description: What the read found
+          properties:
+            files: { type: integer }
+            routes: { type: integer }
+            inputs: { type: integer }
+            risks: { type: integer }
+            components: { type: integer }
+            stack: { type: string }
+    SourceHello:
+      type: object
+      required: [version]
+      properties:
+        version: { type: string, maxLength: 40 }
+        public_key: { type: string, maxLength: 800, description: "ssh-ed25519 public key" }
+    SourceJob:
+      type: object
+      required: [id, method, path]
+      properties:
+        id: { type: integer }
+        method: { type: string, enum: [sftp, smb, local] }
+        host: { type: [string, "null"] }
+        port: { type: [integer, "null"] }
+        username: { type: [string, "null"] }
+        path: { type: string }
+        share: { type: [string, "null"] }
+        password: { type: [string, "null"] }
+    SourceResult:
+      type: object
+      properties:
+        summary: { type: object, additionalProperties: true, description: "schema/source/summary.schema.json" }
+        error: { type: string, maxLength: 1000 }
     Capacity:
       type: object
       properties:

@@ -53,6 +53,22 @@ def check_map_examples() -> list[str]:
     return errors
 
 
+def check_source_examples() -> list[str]:
+    """The source reader's summaries in schema/source/examples/ (written by
+    its tests from a fixture site) conform to the summary schema."""
+    errors: list[str] = []
+    validator = Draft202012Validator(load(SCHEMA_DIR / "source" / "summary.schema.json"))
+    for path in sorted((SCHEMA_DIR / "source" / "examples").glob("*.json")):
+        found = sorted(validator.iter_errors(load(path)), key=lambda e: list(e.path))
+        if found:
+            for err in found:
+                where = "/".join(str(p) for p in err.path) or "(root)"
+                errors.append(f"{path.relative_to(ROOT)} @ {where}: {err.message}")
+        else:
+            print(f"ok   example  {path.relative_to(ROOT)}")
+    return errors
+
+
 def check_openapi() -> list[str]:
     try:
         from openapi_spec_validator import validate
@@ -73,6 +89,7 @@ def check_copies() -> list[str]:
     errors: list[str] = []
     copies = {
         ROOT / "panel-api" / "internal" / "mapschema" / "gateway-map.schema.json": SCHEMA_DIR / "map" / "gateway-map.schema.json",
+        ROOT / "panel-api" / "internal" / "sourceschema" / "summary.schema.json": SCHEMA_DIR / "source" / "summary.schema.json",
     }
     for copy, source in copies.items():
         if not copy.exists():
@@ -85,7 +102,7 @@ def check_copies() -> list[str]:
 
 
 def main() -> int:
-    errors = check_json_schemas() + check_map_examples() + check_openapi() + check_copies()
+    errors = check_json_schemas() + check_map_examples() + check_source_examples() + check_openapi() + check_copies()
     if errors:
         print("\nERRORS:", file=sys.stderr)
         for err in errors:

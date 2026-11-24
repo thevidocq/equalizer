@@ -4,6 +4,7 @@ import { describeError } from "@/shared/api/errors";
 import { ReachFields, emptyReach, useChosenConnector, type Reach } from "@/features/connectors";
 import { useStartDiscovery } from "../hooks/useDiscovery";
 import { TestAccounts, type TestAccount } from "@/features/maps";
+import { useSource } from "@/features/source";
 
 type Props = { tenant: string; app: string; firstTime: boolean; aiState: "on" | "off" | "unknown"; isAdmin: boolean };
 
@@ -16,11 +17,15 @@ export function StartForm({ tenant, app, firstTime, aiState, isAdmin }: Props) {
   const [reach, setReach] = useState<Reach>(emptyReach);
   const [maxPages, setMaxPages] = useState("500");
   const connector = useChosenConnector(tenant, reach);
+  // checked by default once the source reader answers; grey until then
+  const ready = useSource(app).data?.status === "ready";
+  const [readSource, setReadSource] = useState<boolean | null>(null);
+  const withSource = ready && (readSource ?? true);
 
   function submit(e: FormEvent) {
     e.preventDefault();
     start.mutate({
-      use_ai: useAI, max_pages: Number(maxPages) || 500, mode: reach.mode,
+      use_ai: useAI, max_pages: Number(maxPages) || 500, mode: reach.mode, source: withSource,
       accounts: accounts.filter((a) => a.username.trim() !== ""),
       ...(firstTime ? { ...reach, connector_id: connector } : {}),
     }, { onSuccess: () => { setAccounts([]); toast("Discovery queued"); } });
@@ -42,6 +47,12 @@ export function StartForm({ tenant, app, firstTime, aiState, isAdmin }: Props) {
         <Notice tone="info">No AI model is configured for your organisation: the discovery runs without it.
           {isAdmin ? <> Set one in <a className="font-semibold text-signal hover:underline" href={`/t/${tenant}/settings`}>Settings</a>.</> : " Ask an administrator."}</Notice>
       ) : null}
+      <label className={`flex items-start gap-2 text-sm ${ready ? "" : "opacity-60"}`}>
+        <input type="checkbox" className="mt-1" disabled={!ready} checked={withSource} onChange={(e) => setReadSource(e.target.checked)} />
+        <span><span className="font-semibold">Read the site's source code</span>{" "}
+          <span className="text-ink-soft">{ready ? "first: fields get the code's types and the report lists what links do not show."
+            : <>needs the source reader, set up in the <a className="font-semibold text-signal hover:underline" href={`/t/${tenant}/sites/${app}/source`}>Source</a> tab.</>}</span></span>
+      </label>
       {firstTime ? (
         <ReachFields tenant={tenant} value={reach} onChange={setReach} />
       ) : null}

@@ -271,6 +271,29 @@ Deterministic, no AI needed:
   cookies came with it. Where the site's visitors
   have no login (TYPO3 out of the box), the report says `no_login_form`.
 
+### From the source code
+
+When the discovery asked for the site's source (`source_status: used`), the
+agent reads the summary of the site's [source
+reader](../source-reader/README.md) after the AI review:
+
+- a query key or form field **the agent added** as free text (a person's
+  entries are never touched) whose name the code always reads as an
+  integer, an email or one of a few values (`in_array`) gets that type,
+  when every value seen on the site fits; a key read as it is anywhere in
+  the code, or with two types, stays free text. Keys a sanitizer only
+  rewrites (`sanitize_title`, `sanitize_key`) are not narrowed: the code
+  accepts anything there and fixes it;
+- the report's `source` (`StudySource`) lists the fields typed, the entry
+  points never opened (REST routes, AJAX and admin-post actions, PHP files
+  that run when opened), the risky calls with file and line, and the
+  components. Nothing found only in the code is opened: a file no link
+  points to may act when opened, and `/wp-json/` stays closed like the
+  rest of WordPress's administration.
+
+A failed or late read (`failed`, `late`: not ended within 10 minutes)
+changes nothing and is reported with its reason.
+
 ### 3. Write the map
 
 Precise entries for every function understood. The `/` area stays in the

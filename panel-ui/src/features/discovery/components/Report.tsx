@@ -3,6 +3,7 @@ import { Notice, Spinner } from "@/shared/ui";
 import { STILL_OPEN } from "@/features/maps";
 import { DraftNotice } from "./DraftNotice";
 import { VisitorRequests } from "./VisitorRequests";
+import { FromSource } from "./FromSource";
 import type { Discovery } from "../hooks/useDiscovery";
 
 type R = Record<string, any>; // eslint-disable-line @typescript-eslint/no-explicit-any
@@ -43,7 +44,7 @@ export function Report({ d }: { d: Discovery }) {
     const path = typeof p.path === "string" ? p.path : "";
     return (
       <div className="flex flex-col gap-1 text-sm text-ink-soft">
-        <Spinner label={d.status === "queued" ? "Waiting to start…" : `Running: ${pages} ${pages === 1 ? "page" : "pages"} so far…`} />
+        <Spinner label={d.status === "queued" ? (d.with_source ? "Waiting for the source reader (10 minutes at most)…" : "Waiting to start…") : `Running: ${pages} ${pages === 1 ? "page" : "pages"} so far…`} />
         {d.status === "running" && doing ? (
           <p className="truncate pl-6" aria-live="polite">
             {doing}{path ? <> · <span className="font-mono text-[0.8125rem]">{path}</span></> : null}
@@ -80,6 +81,7 @@ export function Report({ d }: { d: Discovery }) {
       ) : (
         <List title="Not opened by the agent (still served, by the site area)" items={r.excluded} render={(i) => `${i.path}  ${i.reason}`} />
       )}
+      <FromSource source={r.source} />
       <VisitorRequests report={r} />
       <List title="Served by the site area, without typed checks" items={r.open ? [] : r.not_supported} render={(i) => `${i.path}  ${i.reason}`} />
       <List title="In the map, not seen any more" items={(r.not_seen_anymore ?? []).map((p: string) => ({ p }))} render={(i) => i.p} />

@@ -15,6 +15,7 @@ import { LogsPage } from "@/features/logs";
 import { PlatformStatusPage, StatusPage } from "@/features/status";
 import { LoginTab } from "@/features/sitelogin";
 import { SecurityTab } from "@/features/security";
+import { SourceTab } from "@/features/source";
 import { HelpPage } from "@/features/help";
 import { Shell } from "./Shell";
 import { Home } from "./Home";
@@ -55,6 +56,7 @@ export const router = createBrowserRouter([
           { path: "certificate", element: <CertificatePage /> },
           { path: "login", element: <LoginTab /> },
           { path: "security", element: <SecurityTab /> },
+          { path: "source", element: <SourceTab /> },
         ],
       },
       { path: "*", element: <p className="text-ink-soft">This page does not exist.</p> },

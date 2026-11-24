@@ -34,6 +34,10 @@ type discoveryJob struct {
 	LLM        map[string]any   `json:"llm"`
 	MaxPages   int              `json:"max_pages"`
 	Unmapped   []store.Unmapped `json:"unmapped"`
+	// The site's source summary, when the discovery asked for it.
+	Source       json.RawMessage `json:"source"`
+	SourceStatus *string         `json:"source_status"`
+	SourceError  *string         `json:"source_error"`
 }
 
 func (s *Server) claimDiscovery(w http.ResponseWriter, r *http.Request) {
@@ -76,6 +80,7 @@ func (s *Server) claimDiscovery(w http.ResponseWriter, r *http.Request) {
 		job.LLM = s.tenantModel(r, c.App.Tenant)
 	}
 	job.Unmapped, _ = s.Store.UnmappedOf(r.Context(), c.App.ID, 200)
+	s.jobSource(r, c, &job)
 	writeJSON(w, http.StatusOK, job)
 }
 
@@ -339,4 +344,29 @@ func truncate(s string, n int) string {
 		return s
 	}
 	return s[:n]
+}
+
+// jobSource gives the agent the summary of the discovery's read: used when
+// it is done, failed with its error, late when it is still going.
+func (s *Server) jobSource(r *http.Request, c store.Claim, job *discoveryJob) {
+	if c.SourceRead == nil {
+		return
+	}
+	status, msg := "late", "the source reader did not finish reading within 10 minutes"
+	read, err := s.Store.SourceReadByID(r.Context(), *c.SourceRead)
+	switch {
+	case err != nil:
+		status, msg = "failed", "the read was removed"
+	case read.Status == "done":
+		job.Source, status, msg = read.Summary, "used", ""
+	case read.Status == "failed":
+		status, msg = "failed", ""
+		if read.Error != nil {
+			msg = *read.Error
+		}
+	}
+	job.SourceStatus = &status
+	if msg != "" {
+		job.SourceError = &msg
+	}
 }

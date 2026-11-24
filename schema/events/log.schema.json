@@ -10,7 +10,7 @@
     "ts": { "type": "string", "format": "date-time" },
     "level": { "enum": ["debug", "info", "warn", "error"] },
     "service": {
-      "enum": ["gateway", "tunnel-relay", "connector", "orchestrator", "panel-api", "panel-ui", "agent"]
+      "enum": ["gateway", "tunnel-relay", "connector", "orchestrator", "panel-api", "panel-ui", "agent", "source-reader"]
     },
     "instance": { "type": "string" },
     "module": { "type": "string", "description": "Internal module, e.g. pipeline.rewrite" },

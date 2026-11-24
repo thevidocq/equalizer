@@ -24,6 +24,7 @@ type discoveryStart struct {
 	Address     string        `json:"address"`
 	Scheme      string        `json:"scheme"`
 	LegacyHost  string        `json:"legacy_host"`
+	Source      bool          `json:"source"`
 }
 
 // testAccount is one of the test accounts of a discovery.
@@ -70,6 +71,13 @@ func (s *Server) startDiscovery(w http.ResponseWriter, r *http.Request, u *auth.
 	}
 	n := store.NewDiscovery{App: a.ID, Trigger: "manual", MaxPages: in.MaxPages, Reach: reach, RequestedBy: &u.ID,
 		UseAI: (in.UseAI == nil || *in.UseAI) && s.hasLLM(r, a.Tenant)}
+	if in.Source {
+		if !s.sourceReady(r, a.ID) {
+			fail(w, http.StatusConflict, "no_reader", "the source reader of this site is not set up or not answering")
+			return
+		}
+		n.Source = true
+	}
 	accounts, msg := testAccounts(in)
 	if msg != "" {
 		fail(w, http.StatusUnprocessableEntity, "invalid", msg)
@@ -90,7 +98,7 @@ func (s *Server) startDiscovery(w http.ResponseWriter, r *http.Request, u *auth.
 		return
 	}
 	_ = s.Store.Record(r.Context(), &u.ID, &a.Tenant, "discovery.start", a.ID,
-		map[string]any{"id": d.ID, "use_ai": d.UseAI, "with_account": d.WithAccount})
+		map[string]any{"id": d.ID, "use_ai": d.UseAI, "with_account": d.WithAccount, "with_source": d.WithSource})
 	writeJSON(w, http.StatusCreated, d)
 }
 

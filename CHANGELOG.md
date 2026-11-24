@@ -63,6 +63,35 @@ it, 0.1.0 (`docs/releases/0.1.0.md`, tag on the merge of #39).
 
 ## Entries
 
+### 2026-11-24 — Screenshots taken in CI from a seeded panel; documents checked
+
+- **Branch:** docs/screenshots-refresh (on top of feat/source-reader and
+  feat/rename-site: merge it after them)
+- **What:**
+  - `scripts/screenshots/`: `stack.sh` (panel-api with throwaway keys,
+    serving the built UI), `seed.py` (the demo organisation Acme through
+    the panel's API: people, connector, two sites, discoveries with the
+    reports and maps of real lab studies in `fixtures/`, a verification,
+    a draft in review with the AI's summary, certificates, a source reader
+    with a read), `logs.py` (the gateway events of a real study into
+    Loki), `shoot.py` (Playwright, each picture as tall as its page).
+  - `.github/workflows/screenshots.yml`: on demand and on
+    `docs/screenshots-*` branches; commits the images and the in-app help
+    to the branch.
+  - All screenshots taken again (they showed the panel of a week ago: old
+    tabs, one test account, no Certificate, Security, Source); new
+    `source.png` and `rename.png` in the tenant manual; README gallery.
+  - panel-ui: a discovery's notice says when its draft is published,
+    rejected or replaced, instead of "Draft to review" for ever.
+  - Docs: discovery runs through the connector or directly (manual,
+    README).
+- **Why:** the owner found the screenshots on GitHub old; a picture taken
+  by hand goes stale, one taken by CI does not.
+- **Status:** the workflow passes and its images were reviewed. The
+  Security tab is not shot: a scan needs CVE Radar.
+- **Next steps:** run the workflow before each release (docs/screenshots-
+  branch), as part of the definition of done.
+
 ### 2026-11-24 — Rename a protected site
 
 - **Branch:** feat/rename-site

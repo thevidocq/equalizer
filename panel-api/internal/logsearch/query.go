@@ -38,6 +38,9 @@ type Filter struct {
 	Types  []string
 	Search string
 	Since  string // 1h, 24h, 7d, 30d
+	// From and To narrow the period to a window (a bar of the chart);
+	// zero: the whole period.
+	From, To time.Time
 }
 
 // Check validates the client's part of the filter.
@@ -55,6 +58,9 @@ func (f *Filter) Check() error {
 		if !slices.Contains(Types, t) {
 			return ErrFilter
 		}
+	}
+	if !f.From.IsZero() && !f.To.IsZero() && !f.To.After(f.From) {
+		return ErrFilter
 	}
 	if len(f.Search) > 200 || strings.ContainsAny(f.Search, "\x00\n\r") {
 		return ErrFilter

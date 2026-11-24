@@ -7,8 +7,13 @@ function time(ts: string, step: number) {
   return ts ? formatTick(new Date(ts), step >= 86400) : "";
 }
 
-/** Refused requests per interval: the latest interval stands out. */
-export function RefusedChart({ buckets, step }: { buckets: Bucket[]; step: number }) {
+type Props = { buckets: Bucket[]; step: number; picked?: string | null; onPick?: (b: Bucket) => void };
+
+/**
+ * Refused requests per interval: the latest interval stands out. A bar is a
+ * button: it shows the refused events of its interval.
+ */
+export function RefusedChart({ buckets, step, picked, onPick }: Props) {
   const peak = Math.max(1, ...buckets.map((b) => b.count));
   const total = buckets.reduce((s, b) => s + b.count, 0);
   const ticks = [0, Math.floor(buckets.length / 2), buckets.length - 1];
@@ -18,13 +23,16 @@ export function RefusedChart({ buckets, step }: { buckets: Bucket[]; step: numbe
         <span className="font-semibold text-ink">Refused per {labels[step] ?? "interval"}</span>
         <span className="tabular-nums">{total.toLocaleString("en")} in the period</span>
       </div>
-      <div className="flex h-16 items-end gap-[3px]" role="img"
+      <div className="flex h-16 items-end gap-[3px]" role="group"
         aria-label={`Refused requests per ${labels[step] ?? "interval"}, highest ${peak}`}>
         {buckets.map((b, i) => (
-          <div key={b.ts} title={`${time(b.ts, step)}: ${b.count} refused`}
-            className="min-w-1 flex-1 rounded-t-[2px]"
+          <button key={b.ts} type="button" disabled={!b.count || !onPick} onClick={() => onPick?.(b)}
+            title={`${time(b.ts, step)}: ${b.count} refused${b.count ? " (show them)" : ""}`}
+            aria-label={`${time(b.ts, step)}: ${b.count} refused`} aria-pressed={picked === b.ts}
+            className="min-w-1 flex-1 rounded-t-[2px] enabled:cursor-pointer enabled:hover:opacity-80"
             style={{ height: `${Math.max(b.count ? 4 : 1, Math.round((b.count / peak) * 100))}%`,
-              background: i === buckets.length - 1 ? "#b42318" : b.count ? "#e4a39c" : "#e3e8ed" }} />
+              opacity: picked && picked !== b.ts ? 0.35 : 1,
+              background: picked === b.ts || (!picked && i === buckets.length - 1) ? "#b42318" : b.count ? "#e4a39c" : "#e3e8ed" }} />
         ))}
       </div>
       {buckets.length ? (

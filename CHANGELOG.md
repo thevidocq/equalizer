@@ -19,7 +19,8 @@ Add a section at the top of "Entries" for every commit:
 
 ## Current project status
 
-Latest release: **0.2.29** (`docs/releases/0.2.29.md`); before it 0.2.28
+Latest release: **0.2.30** (`docs/releases/0.2.30.md`); before it 0.2.29
+(`docs/releases/0.2.29.md`), 0.2.28
 (`docs/releases/0.2.28.md`), 0.2.27
 (`docs/releases/0.2.27.md`), 0.2.26
 (`docs/releases/0.2.26.md`), 0.2.25
@@ -62,6 +63,57 @@ it, 0.1.0 (`docs/releases/0.1.0.md`, tag on the merge of #39).
 | tools (eqtool) | Map signing keys, form key, relay token, connector registration, map signing |
 
 ## Entries
+
+### 2026-11-24 — Cleaner discovery, honest source report, progress everywhere; 0.2.30
+
+- **Branch:** feat/cleaner-discovery
+- **What:**
+  - Discovery form: no "Use AI" checkbox (AI whenever the tenant has a
+    model; a soft amber `warning` Notice before, during and in the report
+    when there is none); test accounts and "Pages at most" in a
+    `Disclosure` (closed, the count on the closed line).
+  - Mobile: `TabNav` scrolls on its own row, the page stays the screen's
+    width.
+  - Logs: a bar of the refused chart is a button: the events of its
+    interval, refused kinds, a new query (`from`/`to` on
+    `/tenants/{tenant}/logs` and `/export`, `logsearch.Filter.From/To`),
+    the bar marked, a chip with ✕, Live paused, CSV following.
+  - Settings → Security scanner: `IntegrationCard` (CVE Radar, a dot and a
+    word): Connected / Not connected / Key refused, from the last real
+    call (`tenant_scanner.key_refused`, `checked_at`; set on save, scan
+    start and polling; `ScannerConfig.status`).
+  - Agent, browser: `EQ_BROWSER_PAGE_SECONDS` (20) per page; skipped pages
+    (time limit, error, browser crash) in `browser.skipped` with the limit,
+    in Still open (`browser_skipped`), logged; a crashed tab replaced;
+    "browser: page n of N" in the panel.
+  - Verifications say where they are: `POST
+    /internal/verifications/{id}/progress`, `Verification.progress`
+    (`VerificationProgress`), erased at the end; "verification started",
+    a log line every 50 pages; the panel shows "comparing pages…: page 120
+    of 349".
+  - Source reader: WordPress's core and bundled libraries give only their
+    versions; a PHP file is an entry point only when it acts at its top
+    level (`acts.go`, an approximation by braces, strings and comments); a
+    backtick is a command only around a request value. On the lab
+    WordPress: 600 entry points and 23 risks, all core noise, before; 0
+    after. Report: entry points and risks grouped by plugin or theme,
+    "first 200 of N" (`unseen_total`, `risks_total`, `where`); one merged
+    Components list (pages, code or both).
+  - Source tab: local method renamed "Folder on the same server (Docker
+    too)", with the site's container (`source_readers.container`); the
+    install command mounts it read only (`--volumes-from`, or the folder at
+    the same path) with `EQ_SOURCE_SITE=/`.
+  - Migration `0031_scanner_status_source_container.sql`. Docs: tenant and
+    admin manuals, help, agent.md, INSTALL, reader README, compose and
+    `.env.example`; release notes; version 0.2.30.
+- **Why:** the owner's first real runs (wp.thevidocq.com): a discovery
+  silent for 25 minutes in the browser, a verification with no progress,
+  a source report full of core noise and false "command run", a Docker
+  site needing hand-written mounts, and his requests on the form, the
+  logs chart and the scanner's card.
+- **Status:** Go and agent tests pass; panel-ui tsc/vitest in CI.
+- **Next steps:** routes of the other supported CMSs in the reader; the
+  map's Download menu; the SMB password only on the customer's machine.
 
 ### 2026-11-24 — Screenshots taken in CI from a seeded panel; documents checked
 

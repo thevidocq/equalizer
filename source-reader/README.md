@@ -38,3 +38,17 @@ Environment: `EQ_PANEL_URL`, `EQ_SOURCE_TOKEN`, `EQ_SOURCE_STATE`
 Tests: `go test ./...`; `go test ./internal/extract -update` rewrites
 `schema/source/examples/wordpress.json` from the fixture site, which
 `scripts/validate_schemas.py` checks against the schema.
+
+## What counts
+
+- **Known code is left out**: WordPress's core (`wp-admin/`,
+  `wp-includes/`, `index.php`, `xmlrpc.php`, the root `wp-*.php`) and the
+  libraries a plugin or theme ships (`vendor/`, `third-party/`,
+  `libraries/`…) give only their versions (`version.php`,
+  `composer.lock`): no entry points, inputs or risks from them.
+- **Entry points** are PHP files that act at their top level, outside
+  functions and classes: they read the request or make a risky call
+  (`acts.go`). Read from braces, strings and comments, not with a PHP
+  parser: an approximation.
+- **A backtick** is a command only around a request value; in a query it
+  quotes a name.

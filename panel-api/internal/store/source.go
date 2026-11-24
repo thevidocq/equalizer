@@ -15,7 +15,8 @@ type SourceReader struct {
 	Username  *string
 	Path      *string
 	Share     *string
-	Password  []byte // sealed
+	Container *string // local: the site's Docker container
+	Password  []byte  // sealed
 	HasToken  bool
 	PublicKey *string
 	Version   *string
@@ -37,9 +38,10 @@ type SourceRead struct {
 // SourceReaderOf returns a site's source reader, ErrNotFound without one.
 func (s *Store) SourceReaderOf(ctx context.Context, app string) (SourceReader, error) {
 	c := SourceReader{App: app}
-	err := s.DB.QueryRowContext(ctx, `SELECT method, host, port, username, path, share, password, token_hash IS NOT NULL,
+	err := s.DB.QueryRowContext(ctx, `SELECT method, host, port, username, path, share, container, password, token_hash IS NOT NULL,
 		public_key, version, last_seen FROM source_readers WHERE app_id = $1`, app).
-		Scan(&c.Method, &c.Host, &c.Port, &c.Username, &c.Path, &c.Share, &c.Password, &c.HasToken, &c.PublicKey, &c.Version, &c.LastSeen)
+		Scan(&c.Method, &c.Host, &c.Port, &c.Username, &c.Path, &c.Share, &c.Container, &c.Password, &c.HasToken, &c.PublicKey,
+			&c.Version, &c.LastSeen)
 	return c, translate(err)
 }
 
@@ -47,11 +49,11 @@ func (s *Store) SourceReaderOf(ctx context.Context, app string) (SourceReader, e
 // keeps the saved one.
 func (s *Store) SetSourceReader(ctx context.Context, c SourceReader) error {
 	_, err := s.DB.ExecContext(ctx, `
-		INSERT INTO source_readers (app_id, method, host, port, username, path, share, password)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+		INSERT INTO source_readers (app_id, method, host, port, username, path, share, password, container)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
 		ON CONFLICT (app_id) DO UPDATE SET method = $2, host = $3, port = $4, username = $5, path = $6, share = $7,
-			password = COALESCE($8, source_readers.password), updated_at = now()`,
-		c.App, c.Method, c.Host, c.Port, c.Username, c.Path, c.Share, c.Password)
+			password = COALESCE($8, source_readers.password), container = $9, updated_at = now()`,
+		c.App, c.Method, c.Host, c.Port, c.Username, c.Path, c.Share, c.Password, c.Container)
 	return translate(err)
 }
 

@@ -271,6 +271,26 @@ Deterministic, no AI needed:
   cookies came with it. Where the site's visitors
   have no login (TYPO3 out of the box), the report says `no_login_form`.
 
+### Pages in the browser, and progress
+
+The browser opens up to 40 pages per pass (`BROWSER_PAGES`). Each gets
+`EQ_BROWSER_PAGE_SECONDS` (20 by default, 5 to 120), loading and settling
+included. A page still loading then, failing or crashing the browser is
+skipped and accounted for: `browser.skipped` in the report (path, reason
+`time_limit`, `error` or `browser_failed`, seconds, test account) with
+`browser.page_seconds`, a `browser_skipped` entry in Still open (the page
+was crawled and mapped; the requests its scripts make were not seen, so
+the site area serves them), and a log line per pass with the count. After
+a crash the browser goes on in a new tab. The panel shows "browser: page n
+of N".
+
+A verification tells the panel where it is
+(`POST /internal/verifications/{id}/progress`, `VerificationProgress`):
+pages compared, entries attacked, files, and the corrected version's new
+check, per test account, at most every 2 seconds; the log has "verification
+started", a line every 50 pages and "verification finished". The progress
+is erased when the result arrives.
+
 ### From the source code
 
 When the discovery asked for the site's source (`source_status: used`), the
@@ -288,8 +308,12 @@ reader](../source-reader/README.md) after the AI review:
   accepts anything there and fixes it;
 - the report's `source` (`StudySource`) lists the fields typed, the entry
   points never opened (REST routes, AJAX and admin-post actions, PHP files
-  that run when opened), the risky calls with file and line, and the
-  components. Nothing found only in the code is opened: a file no link
+  that run when opened; first 200, `unseen_total` counts them all), the
+  risky calls with file and line (`risks_total`), and the components, which
+  the panel merges with the crawl's. The reader leaves out WordPress's core
+  and the libraries plugins ship (only their versions count), and counts a
+  PHP file as an entry point only when it acts at its top level (reads the
+  request or makes a risky call outside functions and classes). Nothing found only in the code is opened: a file no link
   points to may act when opened, and `/wp-json/` stays closed like the
   rest of WordPress's administration.
 

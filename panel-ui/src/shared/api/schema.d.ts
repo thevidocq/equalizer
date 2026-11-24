@@ -3329,6 +3329,46 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/internal/verifications/{id}/progress": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Where a running verification is (VerificationProgress) */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: components["parameters"]["id"];
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["VerificationProgress"];
+                };
+            };
+            responses: {
+                /** @description Saved */
+                204: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/internal/verifications/{id}/result": {
         parameters: {
             query?: never;
@@ -4435,6 +4475,10 @@ export interface paths {
                     /** @description Text the event must contain (IP address, path, request ID) */
                     q?: components["parameters"]["logSearch"];
                     since?: components["parameters"]["logSince"];
+                    /** @description Only events at or after this moment, within the period (a bar of the refused chart) */
+                    from?: components["parameters"]["logFrom"];
+                    /** @description Only events before this moment */
+                    to?: components["parameters"]["logTo"];
                     /** @description Cursor from next_cursor (older events) */
                     before?: string;
                 };
@@ -4534,6 +4578,10 @@ export interface paths {
                     /** @description Text the event must contain (IP address, path, request ID) */
                     q?: components["parameters"]["logSearch"];
                     since?: components["parameters"]["logSince"];
+                    /** @description Only events at or after this moment, within the period (a bar of the refused chart) */
+                    from?: components["parameters"]["logFrom"];
+                    /** @description Only events before this moment */
+                    to?: components["parameters"]["logTo"];
                 };
                 header?: never;
                 path: {
@@ -4620,6 +4668,16 @@ export interface components {
             /** @description https base URL of the scanner's API */
             endpoint: string | null;
             has_api_key: boolean;
+            /**
+             * @description From the last real call to the scanner (saving, a scan, reading its results): key_refused when it answered 401 or 403
+             * @enum {unknown}
+             */
+            status: "not_connected" | "connected" | "key_refused";
+            /**
+             * Format: date-time
+             * @description When that call was made
+             */
+            checked_at?: string | null;
             /** @description Last 4 characters of the saved key */
             key_hint?: string | null;
         };
@@ -5351,7 +5409,7 @@ export interface components {
             /** @description A path left to the area, or entry.field */
             target: string;
             /** @enum {unknown} */
-            reason: "not_reached" | "legacy_error" | "action_not_performed" | "cannot_narrow" | "accepts_markup" | "accepts_sql" | "accepts_template" | "accepts_path" | "accepts_shell" | "other";
+            reason: "not_reached" | "legacy_error" | "action_not_performed" | "browser_skipped" | "cannot_narrow" | "accepts_markup" | "accepts_sql" | "accepts_template" | "accepts_path" | "accepts_shell" | "other";
             detail?: string;
         };
         BrokenPage: {
@@ -5404,7 +5462,13 @@ export interface components {
                 action?: string | null;
                 /** @description Answers without a login */
                 public?: boolean;
+                /** @description file:line */
+                where?: string;
             }[];
+            /** @description All of them, when the list holds only the first 200 */
+            unseen_total?: number;
+            /** @description All of them, when the list holds only the first 100 */
+            risks_total?: number;
             /** @description Fields whose type comes from the code instead of the values seen */
             typed?: {
                 route: string;
@@ -5433,6 +5497,8 @@ export interface components {
             version: number;
             /** @enum {unknown} */
             status: "queued" | "running" | "done" | "failed";
+            /** @description While running */
+            progress?: components["schemas"]["VerificationProgress"] | null;
             requested_by?: string | null;
             /** Format: date-time */
             created_at?: string;
@@ -5449,6 +5515,17 @@ export interface components {
             before?: components["schemas"]["StudyScore"] | null;
             /** @description Test accounts the pages behind a login were verified with */
             accounts?: string[];
+        };
+        VerificationProgress: {
+            /**
+             * @description pages: compared with and without Equalizer; attacks: tried on each input; files: the files pages load; correcting: a corrected version checked again
+             * @enum {unknown}
+             */
+            step: "pages" | "attacks" | "files" | "correcting";
+            done: number;
+            total: number;
+            /** @description The test account whose pages are checked; null: anonymous */
+            account?: string | null;
         };
         Correction: {
             /** @description Map entry, or entry.field */
@@ -5550,6 +5627,8 @@ export interface components {
             path?: string | null;
             /** @description smb: the share */
             share?: string | null;
+            /** @description local: the site's Docker container, whose volumes the reader takes */
+            container?: string | null;
             has_password?: boolean;
             /**
              * @description not_set_up: no method; not_installed: no token or never heard; waiting: not heard for 2 minutes; ready: answering
@@ -5573,10 +5652,12 @@ export interface components {
             share?: string;
             /** @description smb only; empty keeps the saved one */
             password?: string;
+            /** @description local only: the Docker container of the site; the reader then takes its volumes, read only. Empty: the folder of the host, mounted read only at the same path */
+            container?: string;
         };
         SourceToken: {
             token: string;
-            /** @description The lines that start the reader next to the connector */
+            /** @description The command that starts the reader next to the connector, with the site's folder or container mounted read only when the method is local */
             install: string;
         };
         SourceRead: {
@@ -5720,6 +5801,10 @@ export interface components {
         /** @description Text the event must contain (IP address, path, request ID) */
         logSearch: string;
         logSince: "1h" | "24h" | "7d" | "30d";
+        /** @description Only events at or after this moment, within the period (a bar of the refused chart) */
+        logFrom: string;
+        /** @description Only events before this moment */
+        logTo: string;
         app: string;
         tenant: string;
         id: string;

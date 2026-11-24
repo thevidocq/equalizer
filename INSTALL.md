@@ -62,7 +62,7 @@ VPN or an SSH tunnel.
 ```bash
 git clone https://github.com/thevidocq/equalizer.git
 cd equalizer
-git checkout v0.2.29        # a release; main is the development version
+git checkout v0.2.30        # a release; main is the development version
 ```
 
 Releases and what they contain: `docs/releases/`.
@@ -86,7 +86,7 @@ Main values in `.env`:
 
 | Variable | Example | Meaning |
 | --- | --- | --- |
-| `EQ_VERSION` | `0.2.29` | Release being installed (shown by the services; `dev` when unset) |
+| `EQ_VERSION` | `0.2.30` | Release being installed (shown by the services; `dev` when unset) |
 | `EQ_RELAY_DOMAIN` | `relay.example.com` | Public domain of the relay, where connectors open their tunnel |
 | `EQ_PANEL_DOMAIN` | `panel.example.com` | Public domain of the panel (customers, invitation links) |
 | `EQ_ACME_EMAIL` | `admin@example.com` | Email for Let's Encrypt |
@@ -94,6 +94,7 @@ Main values in `.env`:
 | `EQ_OUTBOUND_IPS` | `203.0.113.5` | The address(es) this server connects from, shown to customers who reach a site directly. Empty: worked out from the panel and relay names — wrong when the panel is behind Cloudflare (it would show Cloudflare's addresses), so set it then. Find it with `curl -4 ifconfig.me` on the VPS |
 | `EQ_EXPOSURE_INTERVAL` | `1h` | How often protected sites are checked on their old IP |
 | `EQ_GATEWAY_REPLICAS` | `2` | Gateway replicas |
+| `EQ_DISCOVERY_BROWSER_PAGE_SECONDS` | `20` | Seconds a page gets in the discovery's browser before it is skipped (5 to 120); skipped pages are listed in the report |
 | `EQ_LOG_LEVEL` | `info` | Log level (`debug`, `info`, `warn`, `error`) |
 | `EQ_MAP_KEY_ID` | `k1` | Identifier of the map signing key |
 | `EQ_GRAFANA_PASSWORD` | *(choose one)* | Password of the Grafana `admin` user |
@@ -256,7 +257,7 @@ docker run -d --name eq-connector --restart unless-stopped --network host \
 - For an `https` legacy app with a self-signed certificate: mount its CA and
   set `EQ_LEGACY_CA_FILE`, or as a last resort `EQ_LEGACY_INSECURE_TLS=true`.
 - Use the connector of the same release as the platform:
-  `ghcr.io/thevidocq/equalizer-connector:0.2.29` (`latest` follows `main`).
+  `ghcr.io/thevidocq/equalizer-connector:0.2.30` (`latest` follows `main`).
 - The image is published by CI on every merge to `main` and on every
   release tag. GitHub packages
   start private: make `equalizer-connector` public in the repository's
@@ -285,7 +286,10 @@ docker run -d --name eq-source-reader --restart unless-stopped \
 ```
 
 - The volume keeps the reader's ssh key and the servers' keys it learnt.
-- For a folder on the same machine add `-v /var/www/html:/site:ro`.
+- For a site on the same machine, choose **Folder on the same server** in
+  the Source tab, with its container when it runs in Docker: the command
+  then mounts it read only (`--volumes-from <container>:ro`, or the folder
+  at the same path) and sets `EQ_SOURCE_SITE=/`.
 - It only calls the panel (`EQ_PANEL_URL`); no port is opened.
 
 ## 8. Checks
@@ -305,9 +309,9 @@ Move to the new release, set it in `.env`, rebuild:
 
 ```bash
 git fetch --tags
-git checkout v0.2.29            # the release to install
+git checkout v0.2.30            # the release to install
 cd deploy/compose
-sed -i 's/^EQ_VERSION=.*/EQ_VERSION=0.2.29/' .env
+sed -i 's/^EQ_VERSION=.*/EQ_VERSION=0.2.30/' .env
 docker compose pull            # third-party images (Caddy, Postgres, …)
 docker compose up -d --build
 ```
@@ -317,7 +321,7 @@ connectors to the same release: on each connector's server, recreate it
 with the same settings (token included) and the new image:
 
 ```bash
-v=0.2.29   # the release you are installing
+v=0.2.30   # the release you are installing
 docker pull ghcr.io/thevidocq/equalizer-connector:$v
 docker inspect eq-connector --format '{{range .Config.Env}}{{println .}}{{end}}' | grep '^EQ_' > ~/eq-connector.env
 chmod 600 ~/eq-connector.env      # it holds the connector token

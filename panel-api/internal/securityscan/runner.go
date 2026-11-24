@@ -21,6 +21,7 @@ type Store interface {
 	CompleteSecurityScan(ctx context.Context, id int64, risk *int, findings []store.SecurityFinding, note *string) (bool, error)
 	Record(ctx context.Context, userID *int64, tenant *string, action, target string, detail map[string]any) error
 	PendingSecurityDrafts(ctx context.Context, limit int) ([]int64, error)
+	ScannerAnswered(ctx context.Context, tenant string, refused bool) error
 }
 
 // Clients opens a tenant's scanner; store.ErrNotFound when it has none.
@@ -110,6 +111,9 @@ func (r *Runner) Poll(ctx context.Context, sc store.SecurityScan) {
 	}
 	remote, err := c.GetScan(ctx, sc.RemoteScan)
 	var se *cveradar.Error
+	if refused := errors.As(err, &se) && (se.Status == http.StatusUnauthorized || se.Status == http.StatusForbidden); refused || err == nil {
+		_ = r.Store.ScannerAnswered(ctx, sc.Tenant, refused)
+	}
 	switch {
 	case errors.As(err, &se) && (se.Status == http.StatusNotFound || se.Status == http.StatusUnauthorized || se.Status == http.StatusForbidden):
 		r.fail(ctx, sc, "the scanner no longer knows this scan or this key: "+se.Error())

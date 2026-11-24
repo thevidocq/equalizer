@@ -61,6 +61,8 @@ class CrawlResult:
     script_requests: set = field(default_factory=set)  # GET path?query made by the pages' scripts
     script_refused: set = field(default_factory=set)  # (method, path) the read-only guard kept in
     browser_pages: int = 0
+    browser_skipped: list = field(default_factory=list)  # {path, reason, seconds, detail, account}
+    browser_page_seconds: int = 0  # the limit used, for the report
 
 
 def shape(pq: str) -> str:
@@ -115,8 +117,14 @@ class Crawler(LoginMixin):
                  if self.label in s.seen_by and s.status < 400 and s.ctype == "text/html"][:BROWSER_PAGES]
         host = urllib.parse.urlsplit(self.f.base_url).netloc
         self.say(f"opening {len(pages)} pages in the browser to see what their scripts load")
-        seen = browser.study(self.f, host, pages, self.log, self._allowed_quiet, self.browser.get("executable", ""))
+        seen = browser.study(self.f, host, pages, self.log, self._allowed_quiet, self.browser.get("executable", ""),
+                             self.browser.get("page_seconds", browser.PAGE_SECONDS),
+                             lambda n, total, pq: self.say(f"browser: page {n + 1} of {total}", pq))
         self.r.browser_pages += seen.pages
+        self.r.browser_page_seconds = self.browser.get("page_seconds", browser.PAGE_SECONDS)
+        self.r.browser_skipped += [dict(s, account=self.label) for s in seen.skipped]
+        if seen.skipped:
+            self.log.info("browser pages skipped", account=self.label, skipped=len(seen.skipped), of=len(pages))
         self.r.script_refused |= seen.refused
         new = []
         for pq in sorted(seen.requested - set(self.r.pages) - set(pages)):

@@ -145,6 +145,7 @@ findings stay a year in PostgreSQL.
 | `EQ_BEHIND_CLOUDFLARE` | `true` only when protected sites are reachable through Cloudflare alone: the IP is read from `CF-Connecting-IP` |
 | `EQ_DIRECT_DESTINATIONS` | Lab only: destinations a map may reach without a connector |
 | `EQ_EXPOSURE_INTERVAL` | How often protected sites are checked on their old IP |
+| `EQ_DISCOVERY_BROWSER_PAGE_SECONDS` | Seconds a page gets in the discovery's browser before it is skipped (20; 5 to 120). Skipped pages are listed in the report |
 | `EQ_LOG_LEVEL` | `debug`, `info`, `warn`, `error` |
 
 Change a value, then `docker compose up -d`. The full list is in

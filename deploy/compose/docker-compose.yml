@@ -192,6 +192,8 @@ services:
       EQ_LOG_LEVEL: ${EQ_LOG_LEVEL:-info}
       # The study's real browser (headless Chromium in the image): auto, off
       EQ_BROWSER: ${EQ_DISCOVERY_BROWSER:-auto}
+      # Seconds a page gets in the browser before it is skipped (5-120); skipped pages are in the report
+      EQ_BROWSER_PAGE_SECONDS: ${EQ_DISCOVERY_BROWSER_PAGE_SECONDS:-20}
       # Verifications try drafts on the gateway's admin endpoint (internal only)
       EQ_GATEWAY_ADMIN_URL: http://gateway:9090
       HOME: /tmp

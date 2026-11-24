@@ -51,7 +51,9 @@ var risky = []struct {
 	{"sql", regexp.MustCompile(`(?i)(\$wpdb\s*->\s*(query|get_results|get_row|get_var|get_col)|\b(mysqli_query|mysql_query|pg_query)|->\s*query)\s*\(`)},
 	{"eval", regexp.MustCompile(`(?i)\b(eval|assert|create_function)\s*\(`)},
 	{"include", regexp.MustCompile(`(?i)\b(include|include_once|require|require_once)\b[\s(]*[^;]*\$_(GET|POST|REQUEST)`)},
-	{"exec", regexp.MustCompile("(?i)(\\b(exec|system|shell_exec|passthru|popen|proc_open|pcntl_exec)\\s*\\(|`)")},
+	// a backtick runs a command only around a request value: in a query it
+	// quotes a table or column name
+	{"exec", regexp.MustCompile("(?i)(\\b(exec|system|shell_exec|passthru|popen|proc_open|pcntl_exec)\\s*\\(|`[^`]*\\$_(GET|POST|REQUEST|COOKIE)[^`]*`)")},
 	{"unserialize", regexp.MustCompile(`(?i)\b(unserialize|maybe_unserialize)\s*\(`)},
 	{"file_write", regexp.MustCompile(`(?i)\b(file_put_contents|fwrite|move_uploaded_file|copy)\s*\(`)},
 }

@@ -56,6 +56,14 @@ class Panel:
         status, signed = self._post(f"/v1/internal/verifications/{job_id}/try-map", {"document": document})
         return signed if status == 200 else None
 
+    def verification_progress(self, job_id: int, step: str, done: int, total: int, account=None) -> None:
+        """Where the verification is; a courtesy: a failure changes nothing."""
+        try:
+            self._post(f"/v1/internal/verifications/{job_id}/progress",
+                       {"step": step, "done": min(done, total), "total": total, "account": account})
+        except Exception:  # noqa: BLE001
+            pass
+
     def verification_result(self, job_id: int, score=None, broken=None, still_open=None, error=None,
                             document=None, corrections=None, before=None):
         body = {"score": score, "broken": (broken or [])[:500], "open": (still_open or [])[:1000]}

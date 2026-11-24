@@ -65,9 +65,11 @@ class SourceTest(unittest.TestCase):
         self.assertEqual({(t["field"], t["type"]) for t in s["typed"]}, {("id", "int"), ("order", "enum"), ("email", "email")})
         self.assertIn({"kind": "include", "input": "page", "route": "/wp-content/plugins/demo/direct.php",
                        "where": "wp-content/plugins/demo/direct.php:3"}, s["risks"])
-        self.assertIn({"path": "/wp-content/plugins/demo/direct.php", "origin": "php_file", "action": None, "public": True},
-                      s["unseen"])
-        self.assertIn({"path": "/wp-json/demo/v1/status", "origin": "rest_route", "action": None, "public": True}, s["unseen"])
+        self.assertIn({"path": "/wp-content/plugins/demo/direct.php", "origin": "php_file", "action": None, "public": True,
+                       "where": "wp-content/plugins/demo/direct.php:1"}, s["unseen"])
+        self.assertEqual((s["unseen_total"], s["risks_total"]), (len(s["unseen"]), len(s["risks"])))
+        self.assertIn({"path": "/wp-json/demo/v1/status", "origin": "rest_route", "action": None, "public": True,
+                       "where": "wp-content/plugins/demo/demo.php:40"}, s["unseen"])
 
     def test_values_seen_must_fit(self):
         doc = draft()

@@ -46,9 +46,10 @@ func TestEvents(t *testing.T) {
 			"status": 403, "detail": map[string]any{"field": "q", "value": "secret"}})
 		return string(b)
 	}
-	var queries []string
+	var queries, windows []string
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		queries = append(queries, r.URL.Query().Get("query"))
+		windows = append(windows, r.URL.Query().Get("start")+"-"+r.URL.Query().Get("end"))
 		switch {
 		case r.URL.Path == "/loki/api/v1/query":
 			_, _ = w.Write([]byte(`{"data":{"result":[{"metric":{"type":"request.blocked"},"value":[1,"12"]}]}}`))
@@ -86,6 +87,23 @@ func TestEvents(t *testing.T) {
 	counts, buckets, err := l.Stats(context.Background(), f)
 	if err != nil || counts["request.blocked"] != 12 || len(buckets) != 24 || buckets[len(buckets)-2].Count != 5 {
 		t.Fatalf("stats: %v %+v %v", counts, buckets, err)
+	}
+
+	// a bar of the chart: the events of that hour only
+	w := Filter{Tenant: "acme", From: now.Add(-3 * time.Hour), To: now.Add(-2 * time.Hour)}
+	if err := w.Check(); err != nil {
+		t.Fatal(err)
+	}
+	if _, _, err := l.Events(context.Background(), w, 0, 3); err != nil {
+		t.Fatal(err)
+	}
+	want := itoa(now.Add(-3*time.Hour).UnixNano()) + "-" + itoa(now.Add(-2*time.Hour).UnixNano())
+	if windows[len(windows)-1] != want {
+		t.Fatalf("window %s, want %s", windows[len(windows)-1], want)
+	}
+	bad := Filter{Tenant: "acme", From: now, To: now.Add(-time.Hour)}
+	if bad.Check() == nil {
+		t.Error("a window that ends before it starts")
 	}
 
 	srv.Close()

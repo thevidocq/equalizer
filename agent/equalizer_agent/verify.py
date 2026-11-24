@@ -13,6 +13,7 @@ broke and the inputs still open, each with its reason."""
 
 import difflib
 import re
+import time
 import urllib.parse
 from html.parser import HTMLParser
 
@@ -226,13 +227,27 @@ def _words_apart(a: list, b: list) -> str:
 
 
 class Run:
-    def __init__(self, job: dict, cfg, log):
+    def __init__(self, job: dict, cfg, log, progress=None):
         self.job, self.log, self.cfg = job, log, cfg
+        self.progress = progress  # progress(step, done, total, account): the panel's view of where it is
+        self.step = "pages"
+        self._told = 0.0
         self.f = Fetcher(job["base_url"], job["reach"], job["tenant"], cfg.relay_url, cfg.relay_token, cfg.direct, cfg.rate)
         meta = job["document"].get("meta") or {}
         self.hosts = tuple(h for h in (urllib.parse.urlsplit(job["base_url"]).netloc, meta.get("public_domain"),
                                        *(meta.get("aliases") or [])) if h)
         self.f.add_hosts(self.hosts)
+
+    def tell(self, step: str, done: int, total: int, account=None, force: bool = False) -> None:
+        """Tells the panel where the check is, at most every 2 seconds; the
+        log every 50 pages."""
+        if step == "pages" and done and done % 50 == 0:
+            self.log.info("verification progress", verification=self.job["id"], step=step, done=done, total=total,
+                          account=account)
+        now = time.monotonic()
+        if self.progress and (force or now - self._told >= 2):
+            self._told = now
+            self.progress("correcting" if self.step == "correcting" and step == "pages" else step, done, total, account)
 
     def measure(self, doc: dict, try_map: dict) -> Measure:
         """Both checks of one version: public pages, then each test account's."""
@@ -258,17 +273,20 @@ class Run:
                 c.cms = self.job.get("kind")
                 c.login_only(next(a for a in self.job["accounts"] if a["label"] == label), self.job["pages"])
                 session = dict(session, legacy_cookies=dict(self.f.cookies))
-            rendered = self._pages(gw, m, pages, jar, session)
-            self._routes(gw, doc, m, pages, jar)
-            self._forms(gw, doc, m, rendered)
+            rendered = self._pages(gw, m, pages, jar, session, label)
+            self.tell("attacks", 0, len(doc.get("routes", [])) + len(doc.get("forms", [])), label, force=True)
+            self._routes(gw, doc, m, pages, jar, label)
+            self._forms(gw, doc, m, rendered, label)
             self.f.cookies = {}
+        self.tell("files", 0, 1, None, force=True)
         verifyassets.check(gw, self.f, doc, m, m.files, self.job.get("kind"))  # public files, as an anonymous visitor
         return m
 
     # --- 1. the site still works -------------------------------------------
-    def _pages(self, gw, m, pages, jar, session) -> dict:
+    def _pages(self, gw, m, pages, jar, session, label=None) -> dict:
         rendered = {}
-        for pq in pages:
+        for n, pq in enumerate(pages):
+            self.tell("pages", n, len(pages), label, force=n == 0)
             try:
                 direct = self.f.get(pq)
                 via = gw.preview(pq, jar.header(), session=session if not jar.cookies else None)
@@ -334,8 +352,10 @@ class Run:
         m.open.append({"kind": "input", "target": target, "reason": let_through[0],
                        "detail": "also " + ", ".join(others) if others else ""})
 
-    def _routes(self, gw, doc, m, pages, jar):
-        for r in doc.get("routes", []):
+    def _routes(self, gw, doc, m, pages, jar, label=None):
+        total = len(doc.get("routes", [])) + len(doc.get("forms", []))
+        for n, r in enumerate(doc.get("routes", [])):
+            self.tell("attacks", n, total, label)
             if r.get("method", "GET") != "GET":
                 continue
             sample = next((pq for pq in pages if mapbuild.fits(doc, r, pq.split("?")[0])), None)
@@ -362,8 +382,10 @@ class Run:
                     self._tried(m, r["id"] + "." + pat.strip("{}"), send,
                                 _base(doc, (r.get("params") or {}).get(pat.strip("{}"), {})))
 
-    def _forms(self, gw, doc, m, rendered):
-        for fm in doc.get("forms", []):
+    def _forms(self, gw, doc, m, rendered, label=None):
+        routes = len(doc.get("routes", []))
+        for n, fm in enumerate(doc.get("forms", [])):
+            self.tell("attacks", routes + n, routes + len(doc.get("forms", [])), label)
             fields = fm.get("fields") or {}
             # the page's form that posts to this entry (another form with the
             # same field names, such as a search, carries another token)
@@ -424,8 +446,10 @@ def _public(m: Measure) -> dict:
 
 
 def run(job: dict, cfg, panel, log) -> None:
+    log.info("verification started", verification=job["id"], app=job["app"], version=job["version"],
+             pages=len(job.get("pages") or []), accounts=len(job.get("accounts") or []))
     try:
-        r = Run(job, cfg, log)
+        r = Run(job, cfg, log, lambda step, done, total, account: panel.verification_progress(job["id"], step, done, total, account))
     except ReachError as e:
         panel.verification_result(job["id"], error=str(e))
         return
@@ -434,6 +458,7 @@ def run(job: dict, cfg, panel, log) -> None:
         first = r.measure(doc, tm)
         last, corrections = first, []
         if job.get("correct"):
+            r.step = "correcting"
             doc, last, corrections = correct.loop(job, doc, first, r, panel, log)
     except TryError as e:
         panel.verification_result(job["id"], error=str(e))

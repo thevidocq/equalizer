@@ -11,3 +11,5 @@ export { formatDate, formatDay, formatTick, isTimeZone, setTimeZone, startOfDay,
 export { Logo, LogoMark } from "./Logo";
 export { BrandBanner } from "./BrandBanner";
 export { Spinner } from "./Spinner";
+export { Disclosure } from "./Disclosure";
+export { IntegrationCard, type IntegrationState } from "./IntegrationCard";

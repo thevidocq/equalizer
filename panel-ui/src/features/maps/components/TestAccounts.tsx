@@ -4,15 +4,15 @@ export type TestAccount = { label: string; username: string; password: string };
 
 const MAX = 3;
 
-type Props = { value: TestAccount[]; onChange: (v: TestAccount[]) => void };
+type Props = { value: TestAccount[]; onChange: (v: TestAccount[]) => void; bare?: boolean };
 
 /** Up to three test accounts, each explored in its own pass. */
-export function TestAccounts({ value, onChange }: Props) {
+export function TestAccounts({ value, onChange, bare }: Props) {
   const rows = value.length ? value : [{ label: "", username: "", password: "" }];
   const set = (n: number, patch: Partial<TestAccount>) => onChange(rows.map((r, i) => (i === n ? { ...r, ...patch } : r)));
   return (
     <fieldset className="flex flex-col gap-3">
-      <legend className="text-sm font-semibold">Test accounts (optional)</legend>
+      {bare ? null : <legend className="text-sm font-semibold">Test accounts (optional)</legend>}
       <p className="max-w-prose text-sm text-ink-soft">
         Each account is explored in its own pass, to reach the pages behind its login (for example a customer and an
         administrator). Give accounts with the fewest permissions that still see those pages. Passwords are kept encrypted

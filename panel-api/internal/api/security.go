@@ -266,6 +266,10 @@ func (s *Server) startSecurityScan(w http.ResponseWriter, r *http.Request, u *au
 	if err == nil {
 		scan, err = client.StartScan(ctx, target.ID, in.ScanType)
 	}
+	var se *cveradar.Error
+	if refused := errors.As(err, &se) && (se.Status == http.StatusUnauthorized || se.Status == http.StatusForbidden); refused || err == nil {
+		_ = s.Store.ScannerAnswered(context.WithoutCancel(r.Context()), a.Tenant, refused)
+	}
 	if err != nil {
 		_ = s.Store.DropSecurityScan(context.WithoutCancel(r.Context()), reserved)
 		scannerFailure(w, err)

@@ -2,7 +2,8 @@ import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from "@tansta
 import { api, unwrap } from "@/shared/api/client";
 import type { EventType, Since } from "../components/kinds";
 
-export type LogFilter = { app: string; types: EventType[]; q: string; since: Since };
+/** from/to: one bar of the refused chart; absent: the whole period. */
+export type LogFilter = { app: string; types: EventType[]; q: string; since: Since; from?: string; to?: string };
 
 function query(f: LogFilter, withTypes: boolean) {
   return {
@@ -10,6 +11,9 @@ function query(f: LogFilter, withTypes: boolean) {
     q: f.q || undefined,
     since: f.since,
     types: withTypes && f.types.length ? f.types.join(",") : undefined,
+    // the window narrows the events, never the counts and the chart of the period
+    from: withTypes ? f.from : undefined,
+    to: withTypes ? f.to : undefined,
   };
 }
 

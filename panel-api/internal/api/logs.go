@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/thevidocq/equalizer/panel-api/internal/auth"
 	"github.com/thevidocq/equalizer/panel-api/internal/logsearch"
@@ -33,6 +34,16 @@ func (s *Server) logFilter(w http.ResponseWriter, r *http.Request, u *auth.User)
 	f := logsearch.Filter{Tenant: tenant, App: q.Get("app"), Search: q.Get("q"), Since: q.Get("since")}
 	if t := q.Get("types"); t != "" {
 		f.Types = strings.Split(t, ",")
+	}
+	for name, at := range map[string]*time.Time{"from": &f.From, "to": &f.To} {
+		if v := q.Get(name); v != "" {
+			t, err := time.Parse(time.RFC3339, v)
+			if err != nil {
+				fail(w, http.StatusUnprocessableEntity, "invalid", name+": a moment such as 2026-11-24T20:00:00Z")
+				return logsearch.Filter{}, false
+			}
+			*at = t
+		}
 	}
 	if err := f.Check(); err != nil {
 		fail(w, http.StatusUnprocessableEntity, "invalid", "Unknown filter value.")

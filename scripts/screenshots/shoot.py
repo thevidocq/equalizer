@@ -46,13 +46,17 @@ def login(page, base, email, password):
     print("logged in as", email, "at", page.url)
 
 
+failed = []
+
+
 def shoot(page, base, out, shots):
     for name, path, wait, action in shots:
         page.goto(base + path)
         try:
             page.get_by_text(wait).first.wait_for(timeout=15000)
         except Exception:
-            print("warning:", name, "did not show", repr(wait), "at", page.url, "|", page.inner_text("body")[:300].replace("\n", " / "))
+            failed.append(name)
+            print("error:", name, "did not show", repr(wait), "at", page.url, "|", page.inner_text("body")[:300].replace("\n", " / "))
         if action == "rename":
             try:
                 page.get_by_role("button", name="Rename the site").click(timeout=10000)
@@ -84,6 +88,8 @@ def main(base, accounts, out):
         login(page, base, acc["root"], acc["password"])
         shoot(page, base, out, ROOT)
         browser.close()
+    if failed:
+        sys.exit("pages that did not load: " + ", ".join(failed))
 
 
 if __name__ == "__main__":

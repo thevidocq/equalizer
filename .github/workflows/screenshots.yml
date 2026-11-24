@@ -44,25 +44,25 @@ jobs:
         run: |
           pip install playwright==1.49.1
           python -m playwright install --with-deps chromium
-      - name: Panel API with the demo organisation
-        env:
-          EQ_DATABASE_URL: postgres://eq@127.0.0.1:5432/equalizer?sslmode=disable
-          EQ_LOKI_URL: http://127.0.0.1:3100
-        run: |
-          scripts/screenshots/stack.sh "$RUNNER_TEMP/run"
-          python3 scripts/screenshots/logs.py http://127.0.0.1:3100
       - name: Panel UI
         working-directory: panel-ui
         run: |
           npm ci --no-audit --no-fund
           npm run build
-          EQ_PANEL_API=http://127.0.0.1:8080 nohup npx vite preview --port 4173 --strictPort > "$RUNNER_TEMP/ui.log" 2>&1 &
-          for i in $(seq 60); do curl -fs http://localhost:4173/login >/dev/null && break; sleep 1; done
+      # panel-api serves the UI itself (EQ_UI_DIR): one origin, as behind Caddy
+      - name: Panel with the demo organisation
+        env:
+          EQ_DATABASE_URL: postgres://eq@127.0.0.1:5432/equalizer?sslmode=disable
+          EQ_LOKI_URL: http://127.0.0.1:3100
+          EQ_UI_DIR: ${{ github.workspace }}/panel-ui/dist
+        run: |
+          scripts/screenshots/stack.sh "$RUNNER_TEMP/run"
+          python3 scripts/screenshots/logs.py http://127.0.0.1:3100
       - name: Screenshots
-        run: python3 scripts/screenshots/shoot.py http://localhost:4173 "$RUNNER_TEMP/run/accounts.json" "$RUNNER_TEMP/shots"
+        run: python3 scripts/screenshots/shoot.py http://localhost:8080 "$RUNNER_TEMP/run/accounts.json" "$RUNNER_TEMP/shots"
       - name: Logs on failure
         if: failure()
-        run: tail -50 "$RUNNER_TEMP/run/panel-api.log" "$RUNNER_TEMP/ui.log" || true
+        run: tail -50 "$RUNNER_TEMP/run/panel-api.log" || true
       - uses: actions/upload-artifact@v4
         if: always()
         with:

@@ -1102,6 +1102,8 @@ export interface paths {
             requestBody: {
                 content: {
                     "application/json": {
+                        /** @description The name the site is shown with; its address, domain and map stay the same */
+                        name?: string;
                         /** @enum {unknown} */
                         discovery_schedule?: "off" | "daily" | "weekly";
                         /** @description Hour of the day of continuous discovery, in the time zone of the person who sets it (with discovery_schedule) */

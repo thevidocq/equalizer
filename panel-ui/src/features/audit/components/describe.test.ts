@@ -34,6 +34,8 @@ describe("describeEntry", () => {
       .toBe("The agent finished the discovery of shop: draft version 5 is ready to review");
     expect(describeEntry({ id: 5, ts: "", action: "app.never_public", target: "shop", user: "a@acme.test", detail: { never_public: true } }))
       .toBe("a@acme.test marked shop as never reachable from the internet");
+    expect(describeEntry({ id: 9, ts: "", action: "app.rename", target: "shop", user: "a@acme.test", detail: { from: "Shop", to: "Main shop" } }))
+      .toBe('a@acme.test renamed shop from "Shop" to "Main shop"');
     const sent = { id: 6, ts: "", action: "alert.sent", target: "", user: null,
       detail: { alerts: [{ site: "Shop", check: "Connector", down: true }], to: ["a@acme.test"] } };
     expect(describeEntry(sent)).toBe("Equalizer emailed a@acme.test: Connector failing on Shop");

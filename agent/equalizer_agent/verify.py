@@ -40,8 +40,8 @@ class _Page(HTMLParser):
         address for a browser and for the site."""
         u = urllib.parse.urlsplit(href)
         if u.netloc:  # the legacy host or the public one: the path is what counts
-            return urllib.parse.unquote(u.path or "/", errors="surrogateescape")
-        return urllib.parse.unquote(urllib.parse.urlsplit(urllib.parse.urljoin(self.base, href)).path or "/", errors="surrogateescape")
+            return _decoded(u.path or "/")
+        return _decoded(urllib.parse.urlsplit(urllib.parse.urljoin(self.base, href)).path or "/")
 
     def handle_starttag(self, tag, attrs):
         a = dict(attrs)
@@ -67,6 +67,12 @@ class _Page(HTMLParser):
     def handle_data(self, data):
         if not self._skip:
             self.words.extend(data.split())
+
+
+def _decoded(path: str) -> str:
+    """A path as the site reads it: %ce%b5, %CE%B5 and the raw letter are
+    the same address."""
+    return urllib.parse.unquote(path, errors="surrogateescape")
 
 
 def _charset(content_type: str) -> str:
@@ -108,8 +114,8 @@ def _slash_redirect(direct) -> bool:
     final slash."""
     if not 300 <= direct.status < 400 or not direct.location:
         return False
-    there = urllib.parse.urlsplit(direct.location).path
-    here = urllib.parse.urlsplit(direct.url).path
+    there = _decoded(urllib.parse.urlsplit(direct.location).path)
+    here = _decoded(urllib.parse.urlsplit(direct.url).path)
     return there != here and there.rstrip("/") == here.rstrip("/")
 
 
@@ -124,8 +130,8 @@ def compare(direct, via, hosts: tuple = ()) -> tuple:
     if resp.get("status") != direct.status:
         return "status", "%s directly, %s through Equalizer" % (direct.status, resp.get("status"))
     if 300 <= direct.status < 400:  # the same place, wherever each says it is
-        there = urllib.parse.urlsplit(direct.location).path
-        here = urllib.parse.urlsplit((resp.get("headers") or {}).get("Location", "")).path
+        there = _decoded(urllib.parse.urlsplit(direct.location).path)
+        here = _decoded(urllib.parse.urlsplit((resp.get("headers") or {}).get("Location", "")).path)
         return ("", "") if there == here else ("status", "redirects to %s instead of %s" % (here, there))
     if direct.content_type != "text/html":
         return "", ""
@@ -333,7 +339,7 @@ class Run:
 
 
 def _action_path(page_pq: str, action: str) -> str:
-    return urllib.parse.urlsplit(urllib.parse.urljoin(page_pq, action or page_pq)).path or "/"
+    return _decoded(urllib.parse.urlsplit(urllib.parse.urljoin(page_pq, action or page_pq)).path or "/")
 
 
 def _public(m: Measure) -> dict:

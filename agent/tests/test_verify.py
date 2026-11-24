@@ -48,6 +48,8 @@ class CompareTest(unittest.TestCase):
         d = Response(200, {"content-type": "text/html"}, b'<a href="/tag/%ce%b5%cf%80/">T</a>', "http://legacy:8080/")
         self.assertEqual(verify.compare(d, via(b'<a href="/tag/%CE%B5%CF%80/">T</a>')), ("", ""))
         self.assertEqual(verify.compare(d, via(b'<a href="/tag/other/">T</a>'))[0], "links")
+        r = direct(b"", 301, location="http://legacy:8080/tag/%ce%b5/")
+        self.assertEqual(verify.compare(r, via(b"", 301, {"Location": "/tag/%CE%B5/"})), ("", ""))
 
     def test_a_final_slash_is_the_same_page(self):
         """Magento links to /page/ and answers 301 to /page; the gateway

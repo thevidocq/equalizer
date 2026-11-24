@@ -13,7 +13,8 @@ through the panel's own API, never by hand:
 - `logs.py`: the gateway's security events of a real study, into Loki;
 - `shoot.py`: the pages, with Playwright, at 1360 px.
 
-CI runs it (`.github/workflows/screenshots.yml`) on demand and on
-`docs/screenshots-*` branches, and keeps the images as an artifact: review
-them, copy them to `docs/screenshots`, then `cd panel-ui && npm run
-sync:help`.
+CI runs it (`.github/workflows/screenshots.yml`): on a push to a
+`docs/screenshots-*` branch it checks that every page loads; run by hand
+on such a branch (`gh workflow run screenshots.yml --ref <branch>`), it
+also commits the images and the in-app help to it. Then push any commit
+of your own to the branch, so that its pull request has its checks.

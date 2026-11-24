@@ -1,7 +1,8 @@
 # Takes the manuals' screenshots from the panel of this commit, filled with
-# the demo organisation (scripts/screenshots). Runs on demand and on
-# docs/screenshots-* branches; the images are an artifact to review and
-# commit to docs/screenshots (then `npm run sync:help`).
+# the demo organisation (scripts/screenshots). On a push to a
+# docs/screenshots-* branch it checks that every page still loads; run by
+# hand on such a branch (gh workflow run screenshots.yml --ref <branch>),
+# it also commits the images to it.
 name: Screenshots
 
 on:
@@ -68,10 +69,12 @@ jobs:
         with:
           name: screenshots
           path: ${{ runner.temp }}/shots
-      # The images also land on the branch that asked for them, in
-      # docs/screenshots and the in-app help, to review in the pull request.
+      # Run by hand on a docs/screenshots-* branch, the images also land on
+      # it, in docs/screenshots and the in-app help, to review in its pull
+      # request. Never on a push: a commit made here starts no checks, and
+      # a pull request whose last commit has none cannot be merged.
       - name: Commit to the branch
-        if: success() && startsWith(github.ref_name, 'docs/screenshots-')
+        if: success() && github.event_name == 'workflow_dispatch' && startsWith(github.ref_name, 'docs/screenshots-')
         run: |
           cp "$RUNNER_TEMP"/shots/*.png docs/screenshots/
           (cd panel-ui && node scripts/sync-help.mjs)

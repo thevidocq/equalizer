@@ -45,7 +45,7 @@ every site the lab can build.
 Run again for 0.2.15 (23 Nov 2026): the same numbers on every line, all
 guarantees hold (0.2.15 adds the panel's assistant and does not change
 the gateway or the agent's maps). Run again for 0.2.16 to 0.2.25: the same.
-Run again for 0.2.26, 0.2.27 and 0.2.28 (24 Nov 2026; 0.2.27 and 0.2.28 add the panel's security scans and their drafts and change neither the gateway nor the maps the agent writes): attacks on path parameters blocked
+Run again for 0.2.26, 0.2.27, 0.2.28 and 0.2.29 (24 Nov 2026; 0.2.27 and 0.2.28 add the panel's security scans and their drafts, 0.2.29 the source reader, used by a discovery only when the site has one: none changes the gateway or the maps the agent writes without it): attacks on path parameters blocked
 110 of 160 instead of 103 (WordPress 96 of 140, Drupal 14 of 20: the
 templates' slugs now refuse spaces, `;`, `|` and `$( )`), every page still
 the same as on the site, every other line the same, all guarantees hold.

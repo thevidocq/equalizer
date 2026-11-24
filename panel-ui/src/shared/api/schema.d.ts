@@ -2476,6 +2476,298 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/apps/{app}/source": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The site's source reader: how it reaches the site's files (sftp, smb or a mounted folder), whether it is installed and answering, its public key to authorise for sftp, and its last read. Never a password */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    app: components["parameters"]["app"];
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Source reader */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["SourceReader"];
+                    };
+                };
+            };
+        };
+        /** How the source reader reaches the site's files (tenant administrators). Read only, always: sftp with the reader's own key, smb with a read-only account, or a folder mounted next to it. An empty password keeps the saved one, for the same smb host and user only */
+        put: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    app: components["parameters"]["app"];
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["SourceReaderUpdate"];
+                };
+            };
+            responses: {
+                /** @description Source reader */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["SourceReader"];
+                    };
+                };
+                403: components["responses"]["Error"];
+                422: components["responses"]["Error"];
+            };
+        };
+        post?: never;
+        /** Forget the source reader of the site, its token and its reads (tenant administrators) */
+        delete: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    app: components["parameters"]["app"];
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Removed */
+                204: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                403: components["responses"]["Error"];
+            };
+        };
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/apps/{app}/source/token": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** A new token for the site's source reader, shown once with the lines that start it next to the connector (tenant administrators); the previous token stops working */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    app: components["parameters"]["app"];
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Token */
+                201: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["SourceToken"];
+                    };
+                };
+                403: components["responses"]["Error"];
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/apps/{app}/source/reads": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Have the source reader read the site's files now (tenant administrators): it is the Test button too. 409 no_reader when it is not set up or not answering, read_in_progress when one goes on */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    app: components["parameters"]["app"];
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Queued */
+                202: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["SourceRead"];
+                    };
+                };
+                403: components["responses"]["Error"];
+                409: components["responses"]["Error"];
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/source/hello": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** The source reader says it runs, its version and its public key (sftp) */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["SourceHello"];
+                };
+            };
+            responses: {
+                /** @description Recorded */
+                204: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                401: components["responses"]["Error"];
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/source/claim": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** The source reader takes its site's next read, with how to reach the files */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Job */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["SourceJob"];
+                    };
+                };
+                /** @description Nothing queued */
+                204: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                401: components["responses"]["Error"];
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/source/reads/{id}/result": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** The source reader's result of a read, a summary or an error */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: number;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["SourceResult"];
+                };
+            };
+            responses: {
+                /** @description Recorded */
+                204: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                401: components["responses"]["Error"];
+                404: components["responses"]["Error"];
+                422: components["responses"]["Error"];
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/apps/{app}/security": {
         parameters: {
             query?: never;
@@ -4945,6 +5237,8 @@ export interface components {
             use_ai: boolean;
             /** @default 500 */
             max_pages: number;
+            /** @description Read the site's source code first (its source reader must be ready, 409 no_reader otherwise); the discovery waits for the read, 10 minutes at most */
+            source?: boolean;
             /** @description Test account to explore as a logged-in user; kept encrypted, deleted when the discovery ends */
             account?: {
                 username?: string;
@@ -4976,6 +5270,8 @@ export interface components {
             trigger?: "manual" | "schedule";
             use_ai?: boolean;
             with_account?: boolean;
+            /** @description The discovery asked for the site's source code; while queued it waits for the read */
+            with_source?: boolean;
             requested_by?: string | null;
             /** Format: date-time */
             created_at: string;
@@ -5083,8 +5379,55 @@ export interface components {
             pages_by_account?: {
                 [key: string]: string[];
             };
+            source?: components["schemas"]["StudySource"];
         } & {
             [key: string]: unknown;
+        };
+        /** @description What the site's source code added to the discovery. Names, types and places only: the code never leaves the site's network */
+        StudySource: {
+            /**
+             * @description late: the read did not end within 10 minutes
+             * @enum {unknown}
+             */
+            status?: "used" | "failed" | "late";
+            error?: string | null;
+            stack?: string;
+            /** @description Code files read */
+            files?: number;
+            /** @description Entry points found in the code */
+            routes?: number;
+            /** @description Entry points in the code the exploration never opened: the site area serves them as they are, the map does not narrow them yet */
+            unseen?: {
+                path: string;
+                /** @enum {unknown} */
+                origin: "rest_route" | "wp_ajax" | "wp_ajax_nopriv" | "admin_post" | "php_file";
+                action?: string | null;
+                /** @description Answers without a login */
+                public?: boolean;
+            }[];
+            /** @description Fields whose type comes from the code instead of the values seen */
+            typed?: {
+                route: string;
+                field: string;
+                /** @description The type the code gives the field: int, email, slug, enum… */
+                type: string;
+                /** @description file:line */
+                where?: string;
+            }[];
+            /** @description Calls where a request value may do harm; the map narrows what reaches them */
+            risks?: {
+                /** @enum {unknown} */
+                kind: "sql" | "eval" | "include" | "exec" | "unserialize" | "file_write";
+                input?: string | null;
+                route?: string | null;
+                /** @description file:line */
+                where: string;
+            }[];
+            components?: {
+                name?: string;
+                kind?: string;
+                version?: string | null;
+            }[];
         };
         Verification: {
             version: number;
@@ -5184,6 +5527,101 @@ export interface components {
             unmapped?: {
                 [key: string]: unknown;
             }[];
+            /** @description The site's source summary (schema/source/summary.schema.json) when the discovery asked for it and the read succeeded */
+            source?: {
+                [key: string]: unknown;
+            } | null;
+            /**
+             * @description null: the discovery did not ask for the source; late: the read did not end within 10 minutes
+             * @enum {unknown}
+             */
+            source_status?: "used" | "failed" | "late" | null;
+            /** @description Why the read failed */
+            source_error?: string | null;
+        };
+        SourceReader: {
+            configured: boolean;
+            /** @enum {string|null} */
+            method?: "sftp" | "smb" | "local" | null;
+            host?: string | null;
+            port?: number | null;
+            username?: string | null;
+            /** @description The site's folder: on the host (sftp), in the share (smb), or mounted in the reader (local) */
+            path?: string | null;
+            /** @description smb: the share */
+            share?: string | null;
+            has_password?: boolean;
+            /**
+             * @description not_set_up: no method; not_installed: no token or never heard; waiting: not heard for 2 minutes; ready: answering
+             * @enum {string}
+             */
+            status: "not_set_up" | "not_installed" | "waiting" | "ready";
+            /** @description sftp: the reader's own key, to add to the read-only user's authorized_keys */
+            public_key?: string | null;
+            version?: string | null;
+            /** Format: date-time */
+            last_seen?: string | null;
+            last_read?: components["schemas"]["SourceRead"] | null;
+        };
+        SourceReaderUpdate: {
+            /** @enum {string} */
+            method: "sftp" | "smb" | "local";
+            host?: string;
+            port?: number;
+            username?: string;
+            path: string;
+            share?: string;
+            /** @description smb only; empty keeps the saved one */
+            password?: string;
+        };
+        SourceToken: {
+            token: string;
+            /** @description The lines that start the reader next to the connector */
+            install: string;
+        };
+        SourceRead: {
+            id: number;
+            /** @enum {string} */
+            status: "queued" | "running" | "done" | "failed";
+            error?: string | null;
+            /** Format: date-time */
+            created_at: string;
+            /** Format: date-time */
+            finished_at?: string | null;
+            /** @description The discovery that asked for it */
+            discovery?: number | null;
+            /** @description What the read found */
+            counts?: {
+                files?: number;
+                routes?: number;
+                inputs?: number;
+                risks?: number;
+                components?: number;
+                stack?: string;
+            } | null;
+        };
+        SourceHello: {
+            version: string;
+            /** @description ssh-ed25519 public key */
+            public_key?: string;
+        };
+        SourceJob: {
+            id: number;
+            /** @enum {string} */
+            method: "sftp" | "smb" | "local";
+            host?: string | null;
+            port?: number | null;
+            username?: string | null;
+            path: string;
+            share?: string | null;
+            password?: string | null;
+        };
+        SourceResult: {
+            /** @description schema/source/summary.schema.json */
+            summary?: {
+                [key: string]: unknown;
+            };
+            error?: string;
         };
         Capacity: {
             replicas_min?: number;

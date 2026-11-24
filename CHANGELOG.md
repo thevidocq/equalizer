@@ -19,7 +19,8 @@ Add a section at the top of "Entries" for every commit:
 
 ## Current project status
 
-Latest release: **0.2.28** (`docs/releases/0.2.28.md`); before it 0.2.27
+Latest release: **0.2.29** (`docs/releases/0.2.29.md`); before it 0.2.28
+(`docs/releases/0.2.28.md`), 0.2.27
 (`docs/releases/0.2.27.md`), 0.2.26
 (`docs/releases/0.2.26.md`), 0.2.25
 (`docs/releases/0.2.25.md`), 0.2.24
@@ -52,15 +53,93 @@ it, 0.1.0 (`docs/releases/0.1.0.md`, tag on the merge of #39).
 | gateway | Areas (whole site served, admin included, every request rebuilt), OIDC login (off by default), map check for the panel, JSON APIs, many sites by host, virtual hosts (`reach.address`), GET routes, assets and urlencoded POST forms in direct or connector mode, validation, faithful rendering (UTF-8, cleanup, form binding, URL rewriting, redirects), pass-through login with sessions in Redis (remember me, public legacy cookies in the browser), real client IP to the legacy app, app headers, SSE, streamed uploads up to 1 GB, single-byte charsets, rate limits and behaviour rules, file uploads (real type, size, image rebuild; no virus scan) |
 | tunnel-relay | Token-authenticated tunnels, forwarding with tenant check, admin endpoints; several replicas with handover |
 | connector | Outbound tunnel, local allowlist, reconnection; one per server, virtual hosts |
+| source-reader | Optional, next to the connector: reads a site's code read only (SFTP with its own key, SMB, mounted folder), WordPress and PHP extraction by patterns, sends a summary (never code, values, secrets) |
 | orchestrator | Not implemented yet |
-| panel-api | Discovery jobs and continuous discovery, tenant AI settings, site assistant (tenant's model with read tools and checked proposals), map templates per CMS, auth with mandatory TOTP, tenants, email invitations, tenant connectors, map reach checks, exposure check, Logs page backend (Loki), status page, platform/tenant privacy, users, sites, connectors, maps with approval and signing, audit, internal endpoints |
-| panel-ui | Site assistant (Ask AI side panel, proposals to drafts), logo (sidebar, login), discovery tab and tenant AI settings, login, joining by invitation, platform tenant overview, sites with isolation and certificate, tenant connectors, people with invitations, maps with editor, approval, import and export, activity, logs, status |
-| agent | Study: read-only crawl and real browser through the connector, test accounts, typed form fields, administrations read-only where proven, profiles for ten web applications, verification of every draft on the gateway with self-correction, IDOR proposals, optional AI review with the tenant's model |
+| panel-api | Source readers (settings, tokens, reads, summaries checked against their schema), discovery jobs and continuous discovery, tenant AI settings, site assistant (tenant's model with read tools and checked proposals), map templates per CMS, auth with mandatory TOTP, tenants, email invitations, tenant connectors, map reach checks, exposure check, Logs page backend (Loki), status page, platform/tenant privacy, users, sites, connectors, maps with approval and signing, audit, internal endpoints |
+| panel-ui | Source tab and discovery from the source, site assistant (Ask AI side panel, proposals to drafts), logo (sidebar, login), discovery tab and tenant AI settings, login, joining by invitation, platform tenant overview, sites with isolation and certificate, tenant connectors, people with invitations, maps with editor, approval, import and export, activity, logs, status |
+| agent | Types from the site's source summary, study: read-only crawl and real browser through the connector, test accounts, typed form fields, administrations read-only where proven, profiles for ten web applications, verification of every draft on the gateway with self-correction, IDOR proposals, optional AI review with the tenant's model |
 | deploy/compose | Caddy (protected sites use the certificate uploaded in the panel, Let's Encrypt only for relay and panel), SMTP settings, gateway (2 replicas), Redis, PostgreSQL, panel-api, panel-ui, tunnel-relay, Vector, Loki, Grafana; statically validated |
 | tools (eqtool) | Map signing keys, form key, relay token, connector registration, map signing |
 
 ## Entries
 
+### 2026-11-24 — Source reader: the site's code in discoveries; 0.2.29
+
+- **Branch:** feat/source-reader
+- **What:**
+  - Contract: `schema/source/summary.schema.json` (`source-summary/1.0`:
+    routes, inputs with the code's type, risky calls, components; no field
+    for code or values) with `examples/wordpress.json`, checked by
+    `scripts/validate_schemas.py` together with panel-api's embedded copy;
+    `panel-api.yaml`: tag `source`, `GET|PUT|DELETE /apps/{app}/source`,
+    `POST /apps/{app}/source/token`, `POST /apps/{app}/source/reads`,
+    reader endpoints `/source/hello|claim|reads/{id}/result` (the site's
+    token), `DiscoveryStart.source`, `Discovery.with_source`,
+    `DiscoveryJob.source|source_status|source_error`, `StudySource` in the
+    report; log service `source-reader`. `schema.d.ts` regenerated.
+  - `source-reader/` (new Go module, no dependencies): config, panel
+    client, ed25519 key made once (`ssh-keygen`), fetch (rsync over ssh
+    with known hosts learnt then checked, smbclient with an auth file,
+    mounted folder; code files only, secret names and folders excluded
+    before any include; limits 1 MiB, 20 000 files, 200 MiB; work folder
+    deleted; host, user, path and share by allowlist, the same as the
+    panel's, and rsync `--protect-args`, so nothing reaches the server's
+    shell or smbclient's command string), extraction (WordPress REST/AJAX/admin-post, direct PHP
+    files, sanitizer types, risky calls with a superglobal, components,
+    composer.lock), Dockerfile (alpine, non-root), README. CI: Go matrix,
+    image build, publish.
+  - panel-api: migration `0030_source_readers.sql`; `store/source.go`;
+    `api/source.go` (settings checked; smb password sealed, kept only for
+    the same host and user; token and install command; Read now) and
+    `api/source_reader.go` (token auth per site, hello with the public
+    key, claim, result checked by `internal/sourceschema`, refused off
+    schema); a discovery with `source` queues a read and is claimed when
+    the read ends or after 10 minutes; `/v1/source/` needs no CSRF header
+    (token, no cookie); last 20 reads per site kept.
+  - agent: `source.py` narrows the agent's own free-text query keys and
+    form fields to the code's int, email or enum when the code reads the
+    name one way only and the values seen fit; report `source` with typed
+    fields, entry points never opened, risks, components.
+  - panel-ui: `features/source` (Source tab: method form, reader status
+    with its key and the command, last read, Read now, remove); discovery
+    checkbox **Read the site's source code** (grey until the reader is
+    ready, checked by default); report section **From the source code**;
+    queued text while waiting for the reader.
+  - Docs: tenant manual (The source reader, Discovery) and in-app help,
+    `docs/architecture.md`, `docs/agent.md`, `INSTALL.md`, README,
+    `docs/releases/0.2.29.md`; version 0.2.29.
+- **Why:** the owner asked for an optional reader of the site's code that
+  gives discoveries what links do not show, without the code leaving the
+  customer's network.
+- **Status:** source-reader, panel-api and agent tests pass; reader binary
+  checked end to end against a fake panel (local method); panel-ui
+  tsc/vitest run in CI (no npm registry here); efficacy study rerun, the
+  same numbers. The independent review agent stopped on a usage limit:
+  reviewed by hand (it found the remote-shell path injection fixed above).
+  The independent review, run again after the limit, found and the PR
+  fixes: an `in_array` cut at the line end or used as a refusal list could
+  become an enum (now a closed literal list the code accepts only, and an
+  enum only with values seen on the site, never for form fields); one long
+  plugin version failed the whole read (`fit` drops what the schema cannot
+  hold); an smb listing could point out of the work folder; no cap on the
+  bytes copied (`guarded` stops the copy at the read's limits); a reader's
+  error cut inside a character was refused by Postgres (`clip`); a race
+  could drop a discovery's read (the going read is locked); the PUT text
+  on the saved smb password; `openssh-keygen` in the image.
+  Never-read files completed for every supported application
+  (`fetch.SecretFiles`: Joomla, Drupal's `settings.local.php`, Magento,
+  PrestaShop, OpenCart, Moodle, phpBB, TYPO3, MediaWiki, and the usual
+  names of a custom site's database settings), a password written in the
+  code drops the file unread (`SecretContent`), names compared without
+  case, and smb lists the folder first and copies only wanted files.
+  Seeding the exploration with code-only routes was dropped: WordPress's
+  `/wp-json/` is closed to the exploration and opening PHP files no link
+  points to may act on the site; they are reported instead (`unseen`).
+- **Next steps:**
+  1. Precise map entries for code-only entry points (REST routes as `api`
+     entries with the code's parameter types) once the gateway's JSON API
+     support can be checked on them.
+  2. Other stacks (Drupal, Joomla, Laravel) in the extractor.
 ### 2026-11-24 — Rename a protected site
 
 - **Branch:** feat/rename-site

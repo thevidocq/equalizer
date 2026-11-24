@@ -3,7 +3,7 @@
 import re
 import urllib.parse
 
-from . import browser, crawler, fingerprint, mapbuild, rules, visitors
+from . import browser, crawler, fingerprint, mapbuild, rules, source, visitors
 from .fetch import Fetcher, ReachError
 from .llm import LLMError, provider
 from .llm.refine import refine
@@ -106,6 +106,8 @@ def run(job: dict, cfg, panel, log) -> None:
         report["coverage_note"] = "after AI review"
     elif "ai" not in report:
         report["ai"] = {"used": False, "reason": "no AI model configured for this tenant" if not job.get("llm") else "off"}
+    # the code's types after the AI review: they are evidence, its guesses are not
+    source.apply(report, doc, job, samples, {pq.split("?")[0] for pq in result.pages})
     try:  # after the AI review, on the draft's final routes
         c.say("checking what visitors asked for")
         visitors.apply(report, doc, job.get("unmapped", []), result, f, fp.cms)

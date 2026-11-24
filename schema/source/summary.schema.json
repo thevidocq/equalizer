@@ -1,0 +1,103 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://equalizer.ai/schema/source/summary.schema.json",
+  "title": "Source summary",
+  "description": "What the source reader learns from a site's code, read where the site lives: entry points, the type the code gives each input, where an input reaches a risky call, components and versions. Names, types and paths only: never code, never values, never secrets. The source reader sends it to the panel, the panel to the agent.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "read_at", "stack", "files", "routes", "inputs", "risks", "components"],
+  "properties": {
+    "schema": { "const": "source-summary/1.0" },
+    "read_at": { "type": "string", "format": "date-time" },
+    "stack": { "type": "string", "enum": ["wordpress", "php", "unknown"], "description": "What the reader recognised" },
+    "files": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["read", "skipped"],
+      "properties": {
+        "read": { "type": "integer", "minimum": 0 },
+        "skipped": { "type": "integer", "minimum": 0, "description": "Too large, secrets, uploads, caches, not code" },
+        "truncated": { "type": "boolean", "description": "The reader stopped at its limits" }
+      }
+    },
+    "routes": {
+      "type": "array",
+      "maxItems": 2000,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["path", "methods", "origin", "where"],
+        "properties": {
+          "path": { "type": "string", "maxLength": 300, "description": "Public path as the map writes it ({name} for a parameter), or the AJAX endpoint with its action" },
+          "methods": { "type": "array", "items": { "enum": ["GET", "POST", "PUT", "PATCH", "DELETE"] } },
+          "origin": { "enum": ["rest_route", "wp_ajax", "wp_ajax_nopriv", "admin_post", "php_file"] },
+          "action": { "type": "string", "maxLength": 100, "description": "wp_ajax and admin_post: the action value" },
+          "public": { "type": "boolean", "description": "Reachable without logging in (wp_ajax_nopriv, a REST route whose permission callback is __return_true)" },
+          "params": { "type": "object", "additionalProperties": { "$ref": "#/$defs/codeType" }, "description": "Path parameters and their type" },
+          "where": { "$ref": "#/$defs/where" }
+        }
+      }
+    },
+    "inputs": {
+      "type": "array",
+      "maxItems": 5000,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["name", "source", "type", "where"],
+        "properties": {
+          "name": { "type": "string", "maxLength": 100, "description": "The query or form key" },
+          "source": { "enum": ["query", "body", "request"], "description": "$_GET, $_POST, $_REQUEST" },
+          "type": { "$ref": "#/$defs/codeType" },
+          "values": { "type": "array", "maxItems": 50, "items": { "type": "string", "maxLength": 100 }, "description": "enum: the values the code compares it with" },
+          "route": { "type": "string", "maxLength": 300, "description": "The route of the file or handler that reads it, when known" },
+          "where": { "$ref": "#/$defs/where" }
+        }
+      }
+    },
+    "risks": {
+      "type": "array",
+      "maxItems": 2000,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["kind", "where"],
+        "properties": {
+          "kind": { "enum": ["sql", "eval", "include", "exec", "unserialize", "file_write"] },
+          "input": { "type": "string", "maxLength": 100, "description": "The request key that reaches the call, when the reader sees it" },
+          "route": { "type": "string", "maxLength": 300 },
+          "where": { "$ref": "#/$defs/where" }
+        }
+      }
+    },
+    "components": {
+      "type": "array",
+      "maxItems": 500,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["name", "kind"],
+        "properties": {
+          "name": { "type": "string", "maxLength": 120 },
+          "kind": { "enum": ["core", "plugin", "theme", "library"] },
+          "version": { "type": ["string", "null"], "maxLength": 40 }
+        }
+      }
+    }
+  },
+  "$defs": {
+    "codeType": {
+      "enum": ["int", "bool", "email", "url", "key", "slug", "enum", "text", "html", "unknown"],
+      "description": "What the code makes of the input: int (absint, intval, (int)), bool, email (sanitize_email, is_email), url (esc_url_raw), key (sanitize_key: a-z, 0-9, _ and -), slug (sanitize_title), enum (compared with fixed values), text (sanitize_text_field), html (wp_kses), unknown (used raw)"
+    },
+    "where": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["file", "line"],
+      "properties": {
+        "file": { "type": "string", "maxLength": 300, "description": "Relative to the site's folder" },
+        "line": { "type": "integer", "minimum": 1 }
+      }
+    }
+  }
+}

@@ -229,6 +229,9 @@ func purge(ctx context.Context, s *auth.Sessions, st *store.Store, log *slog.Log
 			if _, err := st.PurgeSecurityScans(ctx); err != nil {
 				log.Warn("security scans older than a year not purged", slog.String("error", err.Error()))
 			}
+			if err := st.PurgeSourceReads(ctx); err != nil {
+				log.Warn("old source reads not purged", slog.String("error", err.Error()))
+			}
 		}
 	}
 }

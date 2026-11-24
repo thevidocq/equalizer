@@ -1,0 +1,211 @@
+{
+  "schema": "source-summary/1.0",
+  "read_at": "2026-11-24T16:00:00Z",
+  "stack": "wordpress",
+  "files": {
+    "read": 6,
+    "skipped": 2
+  },
+  "routes": [
+    {
+      "path": "/wp-admin/admin-ajax.php",
+      "methods": [
+        "GET",
+        "POST"
+      ],
+      "origin": "wp_ajax",
+      "action": "demo_save",
+      "where": {
+        "file": "wp-content/plugins/demo/demo.php",
+        "line": 9
+      }
+    },
+    {
+      "path": "/wp-admin/admin-ajax.php",
+      "methods": [
+        "GET",
+        "POST"
+      ],
+      "origin": "wp_ajax_nopriv",
+      "action": "demo_search",
+      "public": true,
+      "where": {
+        "file": "wp-content/plugins/demo/demo.php",
+        "line": 8
+      }
+    },
+    {
+      "path": "/wp-admin/admin-post.php",
+      "methods": [
+        "GET",
+        "POST"
+      ],
+      "origin": "admin_post",
+      "action": "demo_export",
+      "where": {
+        "file": "wp-content/plugins/demo/demo.php",
+        "line": 10
+      }
+    },
+    {
+      "path": "/wp-content/plugins/demo/direct.php",
+      "methods": [
+        "GET",
+        "POST"
+      ],
+      "origin": "php_file",
+      "public": true,
+      "where": {
+        "file": "wp-content/plugins/demo/direct.php",
+        "line": 1
+      }
+    },
+    {
+      "path": "/wp-json/demo/v1/items/{id}",
+      "methods": [
+        "GET"
+      ],
+      "origin": "rest_route",
+      "public": true,
+      "params": {
+        "id": "int"
+      },
+      "where": {
+        "file": "wp-content/plugins/demo/demo.php",
+        "line": 13
+      }
+    },
+    {
+      "path": "/wp-json/demo/v1/items",
+      "methods": [
+        "POST"
+      ],
+      "origin": "rest_route",
+      "where": {
+        "file": "wp-content/plugins/demo/demo.php",
+        "line": 18
+      }
+    }
+  ],
+  "inputs": [
+    {
+      "name": "email",
+      "source": "body",
+      "type": "email",
+      "where": {
+        "file": "wp-content/plugins/demo/demo.php",
+        "line": 28
+      }
+    },
+    {
+      "name": "id",
+      "source": "query",
+      "type": "int",
+      "where": {
+        "file": "wp-content/plugins/demo/demo.php",
+        "line": 26
+      }
+    },
+    {
+      "name": "label",
+      "source": "query",
+      "type": "unknown",
+      "where": {
+        "file": "wp-content/plugins/demo/guarded.php",
+        "line": 3
+      }
+    },
+    {
+      "name": "name",
+      "source": "query",
+      "type": "unknown",
+      "route": "/wp-content/plugins/demo/direct.php",
+      "where": {
+        "file": "wp-content/plugins/demo/direct.php",
+        "line": 2
+      }
+    },
+    {
+      "name": "order",
+      "source": "query",
+      "type": "enum",
+      "values": [
+        "asc",
+        "desc"
+      ],
+      "where": {
+        "file": "wp-content/plugins/demo/demo.php",
+        "line": 29
+      }
+    },
+    {
+      "name": "page",
+      "source": "query",
+      "type": "unknown",
+      "route": "/wp-content/plugins/demo/direct.php",
+      "where": {
+        "file": "wp-content/plugins/demo/direct.php",
+        "line": 3
+      }
+    },
+    {
+      "name": "q",
+      "source": "body",
+      "type": "text",
+      "where": {
+        "file": "wp-content/plugins/demo/demo.php",
+        "line": 27
+      }
+    },
+    {
+      "name": "raw",
+      "source": "query",
+      "type": "unknown",
+      "where": {
+        "file": "wp-content/plugins/demo/demo.php",
+        "line": 30
+      }
+    }
+  ],
+  "risks": [
+    {
+      "kind": "sql",
+      "input": "raw",
+      "where": {
+        "file": "wp-content/plugins/demo/demo.php",
+        "line": 30
+      }
+    },
+    {
+      "kind": "include",
+      "input": "page",
+      "route": "/wp-content/plugins/demo/direct.php",
+      "where": {
+        "file": "wp-content/plugins/demo/direct.php",
+        "line": 3
+      }
+    }
+  ],
+  "components": [
+    {
+      "name": "library:guzzlehttp/guzzle",
+      "kind": "library",
+      "version": "7.8.1"
+    },
+    {
+      "name": "plugin:demo",
+      "kind": "plugin",
+      "version": "1.2.3"
+    },
+    {
+      "name": "theme:twentyx",
+      "kind": "theme",
+      "version": "2.0"
+    },
+    {
+      "name": "wordpress",
+      "kind": "core",
+      "version": "6.4.2"
+    }
+  ]
+}

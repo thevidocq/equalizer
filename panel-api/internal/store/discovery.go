@@ -2,7 +2,9 @@ package store
 
 import (
 	"context"
+	"database/sql"
 	"encoding/json"
+	"errors"
 	"time"
 
 	"github.com/lib/pq"
@@ -48,6 +50,7 @@ type Discovery struct {
 	Trigger      string          `json:"trigger"`
 	UseAI        bool            `json:"use_ai"`
 	WithAccount  bool            `json:"with_account"`
+	WithSource   bool            `json:"with_source"`
 	RequestedBy  *string         `json:"requested_by"`
 	CreatedAt    time.Time       `json:"created_at"`
 	StartedAt    *time.Time      `json:"started_at"`
@@ -69,28 +72,66 @@ type NewDiscovery struct {
 	// AccountsSecret holds every test account, sealed (JSON list).
 	AccountsSecret []byte
 	RequestedBy    *int64
+	// Source has the site's source reader read the files first; the
+	// discovery waits for the read (see ClaimDiscovery).
+	Source bool
 }
 
 // StartDiscovery queues a discovery; ErrConflict while another is active.
 func (s *Store) StartDiscovery(ctx context.Context, n NewDiscovery) (Discovery, error) {
+	tx, err := s.DB.BeginTx(ctx, nil)
+	if err != nil {
+		return Discovery{}, err
+	}
+	defer tx.Rollback()
 	var id int64
-	err := s.DB.QueryRowContext(ctx, `
+	err = tx.QueryRowContext(ctx, `
 		INSERT INTO discoveries (app_id, trigger, use_ai, max_pages, reach, account_user, account_secret, accounts_secret, requested_by)
 		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING id`,
 		n.App, n.Trigger, n.UseAI, n.MaxPages, []byte(n.Reach), n.AccountUser, n.AccountSecret, n.AccountsSecret, n.RequestedBy).Scan(&id)
 	if err != nil {
 		return Discovery{}, translate(err)
 	}
+	if n.Source {
+		// A read already going serves this discovery too: locked, so that it
+		// cannot end between finding it and linking it.
+		var read *int64
+		for try := 0; try < 3 && read == nil; try++ {
+			err := tx.QueryRowContext(ctx, `SELECT id FROM source_reads WHERE app_id = $1 AND status IN ('queued', 'running')
+				FOR UPDATE`, n.App).Scan(&read)
+			if err != nil && !errors.Is(err, sql.ErrNoRows) {
+				return Discovery{}, err
+			}
+			if read != nil {
+				break
+			}
+			err = tx.QueryRowContext(ctx, `INSERT INTO source_reads (app_id, status, discovery_id, requested_by)
+				VALUES ($1, 'queued', $2, $3) ON CONFLICT (app_id) WHERE status IN ('queued', 'running') DO NOTHING
+				RETURNING id`, n.App, id, n.RequestedBy).Scan(&read)
+			if err != nil && !errors.Is(err, sql.ErrNoRows) {
+				return Discovery{}, err
+			}
+		}
+		if read == nil {
+			return Discovery{}, ErrConflict
+		}
+		if _, err := tx.ExecContext(ctx, `UPDATE discoveries SET source_read = $2 WHERE id = $1`, id, *read); err != nil {
+			return Discovery{}, err
+		}
+	}
+	if err := tx.Commit(); err != nil {
+		return Discovery{}, translate(err)
+	}
 	return s.Discovery(ctx, n.App, id)
 }
 
-const discoveryColumns = `d.id, d.app_id, d.status, d.trigger, d.use_ai, d.account_user IS NOT NULL, u.email,
+const discoveryColumns = `d.id, d.app_id, d.status, d.trigger, d.use_ai, d.account_user IS NOT NULL, d.source_read IS NOT NULL, u.email,
 	d.created_at, d.started_at, d.finished_at, d.progress, d.report, d.draft_version, d.error`
 
 func scanDiscovery(row scanner) (Discovery, error) {
 	var d Discovery
 	var progress, report []byte
-	err := row.Scan(&d.ID, &d.App, &d.Status, &d.Trigger, &d.UseAI, &d.WithAccount, &d.RequestedBy,
+	err := row.Scan(&d.ID, &d.App, &d.Status, &d.Trigger, &d.UseAI, &d.WithAccount, &d.WithSource, &d.RequestedBy,
 		&d.CreatedAt, &d.StartedAt, &d.FinishedAt, &progress, &report, &d.DraftVersion, &d.Error)
 	d.Progress = progress
 	if report != nil {
@@ -137,10 +178,12 @@ type Claim struct {
 	AccountUser    *string
 	AccountSecret  []byte
 	AccountsSecret []byte
+	SourceRead     *int64
 }
 
-// ClaimDiscovery marks the oldest queued discovery running and returns it;
-// ErrNotFound when none. A run silent for two hours is failed first.
+// ClaimDiscovery marks the oldest queued discovery ready to run running
+// and returns it; ErrNotFound when none. A run silent for two hours is
+// failed first.
 func (s *Store) ClaimDiscovery(ctx context.Context) (Claim, error) {
 	if _, err := s.DB.ExecContext(ctx, `
 		UPDATE discoveries SET status = 'failed', error = 'the agent stopped answering', finished_at = now(),
@@ -149,11 +192,15 @@ func (s *Store) ClaimDiscovery(ctx context.Context) (Claim, error) {
 		return Claim{}, err
 	}
 	var c Claim
+	// A discovery that asked for the source waits for its read to end,
+	// 10 minutes at most; it then runs without the summary.
 	err := s.DB.QueryRowContext(ctx, `
 		UPDATE discoveries SET status = 'running', started_at = now()
-		WHERE id = (SELECT id FROM discoveries WHERE status = 'queued' ORDER BY id FOR UPDATE SKIP LOCKED LIMIT 1)
-		RETURNING id, app_id, use_ai, max_pages, reach, account_user, account_secret, accounts_secret`).
-		Scan(&c.ID, &c.App.ID, &c.UseAI, &c.MaxPages, &c.Reach, &c.AccountUser, &c.AccountSecret, &c.AccountsSecret)
+		WHERE id = (SELECT d.id FROM discoveries d LEFT JOIN source_reads r ON r.id = d.source_read
+			WHERE d.status = 'queued' AND (r.id IS NULL OR r.status IN ('done', 'failed') OR d.created_at < now() - interval '10 minutes')
+			ORDER BY d.id FOR UPDATE OF d SKIP LOCKED LIMIT 1)
+		RETURNING id, app_id, use_ai, max_pages, reach, account_user, account_secret, accounts_secret, source_read`).
+		Scan(&c.ID, &c.App.ID, &c.UseAI, &c.MaxPages, &c.Reach, &c.AccountUser, &c.AccountSecret, &c.AccountsSecret, &c.SourceRead)
 	if err != nil {
 		return Claim{}, translate(err)
 	}

@@ -130,6 +130,11 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("DELETE /v1/tenants/{tenant}/scanner", s.authed(s.deleteScanner))
 	mux.HandleFunc("GET /v1/apps/{app}/security", s.authed(s.getSecurity))
 	mux.HandleFunc("POST /v1/apps/{app}/security/scans", s.authed(s.startSecurityScan))
+	mux.HandleFunc("GET /v1/apps/{app}/source", s.authed(s.getSource))
+	mux.HandleFunc("PUT /v1/apps/{app}/source", s.authed(s.putSource))
+	mux.HandleFunc("DELETE /v1/apps/{app}/source", s.authed(s.deleteSource))
+	mux.HandleFunc("POST /v1/apps/{app}/source/token", s.authed(s.sourceToken))
+	mux.HandleFunc("POST /v1/apps/{app}/source/reads", s.authed(s.startSourceRead))
 	mux.HandleFunc("GET /v1/tenants/{tenant}/llm", s.authed(s.getLLM))
 	mux.HandleFunc("PUT /v1/tenants/{tenant}/llm", s.authed(s.putLLM))
 	mux.HandleFunc("DELETE /v1/tenants/{tenant}/llm", s.authed(s.deleteLLM))
@@ -178,6 +183,10 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("POST /v1/internal/reviews/{id}/result", s.internal(s.reviewResult))
 	mux.HandleFunc("GET /v1/internal/connectors", s.internal(s.internalConnectors))
 	mux.HandleFunc("GET /v1/internal/oidc", s.internal(s.internalOIDC))
+	// The source reader, with its site's token
+	mux.HandleFunc("POST /v1/source/hello", s.sourceReader(s.sourceHello))
+	mux.HandleFunc("POST /v1/source/claim", s.sourceReader(s.sourceClaim))
+	mux.HandleFunc("POST /v1/source/reads/{id}/result", s.sourceReader(s.sourceResult))
 	mux.HandleFunc("/v1/", func(w http.ResponseWriter, r *http.Request) { fail(w, http.StatusNotFound, "not_found", "") })
 	if s.UI != nil {
 		mux.Handle("/", s.UI)
@@ -261,8 +270,10 @@ func unsafeMethod(m string) bool {
 	return m != http.MethodGet && m != http.MethodHead && m != http.MethodOptions
 }
 
+// isInternal tells the calls of services, with a token and no cookie: no
+// cross-site form can make them.
 func isInternal(r *http.Request) bool {
-	return len(r.URL.Path) >= len("/v1/internal/") && r.URL.Path[:len("/v1/internal/")] == "/v1/internal/"
+	return strings.HasPrefix(r.URL.Path, "/v1/internal/") || strings.HasPrefix(r.URL.Path, "/v1/source/")
 }
 
 func newRequestID() string {

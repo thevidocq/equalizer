@@ -29,7 +29,7 @@ organisation.
 - **Status**, **Connectors**, **People**, **Activity**, **Logs**,
   **Settings**: some pages depend on your role.
 - A site has these tabs: **Discovery**, **Map**, **Isolation**,
-  **Certificate**, **Login**, **Security**. Discovery comes first: it is where a new site
+  **Certificate**, **Login**, **Security**, **Source**. Discovery comes first: it is where a new site
   starts. **Ask AI** in a site's header opens [the assistant](#the-assistant).
   An administrator deletes a site from the list of **Protected sites**
   (**Delete** on its row); it asks you to type the site's name to confirm,
@@ -228,6 +228,19 @@ length, limits, pattern, choices) and gives each the narrowest check that
 allows: a list of values, a number with its range, an email, a phone, a
 pattern. Free-text fields refuse HTML and template code; fields holding a
 name or a code also refuse SQL delimiters.
+
+**Read the site's source code** (checked by default once the site's
+[source reader](#the-source-reader) answers; grey until then): the
+discovery first has the reader read the site's code, and waits for it, 10
+minutes at most. A field the agent would leave as free text gets the
+code's type when the code always reads it as a number, an email or one of
+a few values, and the values seen on the site fit; a field the code reads
+as it is anywhere stays free text. The report gains **From the source
+code**: the fields typed by the code, the entry points no link shows (REST
+routes, AJAX actions, PHP files that run when opened: the site area serves
+them as they are), the calls where a request value may do harm, with file
+and line, and the components. If the read fails or takes longer, the
+discovery runs without it and says why.
 
 It also finds every file the pages load (stylesheets, scripts, images,
 fonts, videos, documents), including those named only in stylesheets,
@@ -837,6 +850,69 @@ server. The draft is made in the name of the person who started the scan,
 while they are an administrator. Ask the assistant about any finding: it
 reads the scans too (the 20 most severe of each target, never their
 evidence, which may hold cookies or tokens).
+
+## The source reader
+
+Optional. The **Source** tab of a site sets up a small program, the source
+reader, that reads the site's code and tells Equalizer what it found, so
+that a discovery sees what the links do not show and types fields from the
+code instead of guessing.
+
+### What it reads and what it sends
+
+It runs next to the connector, never on the web server, and only calls
+the panel: no port is opened. It reads only code files (`.php`, `.phtml`,
+`.inc`, a theme's `style.css`, `composer.lock`), up to 1 MB each, 20 000
+files and 200 MB. It never reads uploads, caches, version control,
+dependencies, and never the files with credentials, by name, on any site:
+
+| Application | Never read |
+| --- | --- |
+| WordPress | `wp-config.php`, `wp-config-*.php` |
+| Joomla | `configuration.php` |
+| Drupal | `settings.php`, `settings.*.php` (`settings.local.php`) |
+| Magento | `app/etc/env.php`, `local.xml` |
+| PrestaShop | `app/config/parameters.php`, `parameters.yml`, `config/settings.inc.php` |
+| OpenCart, Moodle, phpBB | `config.php` (OpenCart's `admin/config.php` too), `config_*.php` |
+| TYPO3 | `LocalConfiguration.php`, `AdditionalConfiguration.php`, `config/system/settings.php`, `additional.php` |
+| MediaWiki | `LocalSettings.php` |
+| Any site | `.env*`, keys and certificates (`*.pem`, `*.key`, `*.p12`, `id_rsa*`…), `.htpasswd`, `auth.json`, and the usual names of a custom site's database settings: `config*.php`, `conf.php`, `db*.php`, `database*.php`, `connect*.php`, `conn*.php`, `settings*.php`, `secrets*.php`, `credentials*.php`, `parameters*.php` |
+
+A file with another name that holds a password written in the code (a
+`define` of a password, a variable or key named like one with a value, a
+database connection with its password) is dropped as soon as it is
+opened and nothing from it is used. Over SFTP and SMB the reader first
+lists the folder and copies only the files it reads: the others never
+cross the network. It sends a summary: entry points, the type the code gives
+each request key, the calls where a request value may do harm (file and
+line), the components and their versions. Names, types and places only:
+**the code, the values and the secrets never leave your network**. Files
+copied over SFTP or SMB are read in a temporary folder deleted after each
+read.
+
+### Set it up
+
+1. **How the reader reaches the files** (administrators), always read only:
+   - **SFTP (SSH)**: server, port, user and the site's folder. Make a user
+     that can only read that folder. The reader makes its own key at its
+     first start; the tab then shows it: add that line to the user's
+     `~/.ssh/authorized_keys`. The server's key is learnt the first time
+     and checked after.
+   - **Windows share (SMB)**: server, share, user, password and the folder
+     in the share. Use an account that can only read the share; the
+     password is encrypted and never shown again, and serves only the same
+     server and user.
+   - **Folder mounted next to the reader**: mount the site's folder read
+     only in the reader's container at `/site`
+     (`-v /var/www/html:/site:ro`) and give the folder under `/site`.
+2. **Make token and command**, then run the command on the connector's
+   server. The token is shown once; a new one stops the old one.
+3. The tab says **Ready** once the reader answers (it calls every minute).
+   **Read now** reads the files and shows what was found, or why it failed:
+   it is also the test of the settings.
+
+**Remove the reader** forgets the settings, the token and the reads.
+Viewers see the tab, not the settings form.
 
 ## Settings
 

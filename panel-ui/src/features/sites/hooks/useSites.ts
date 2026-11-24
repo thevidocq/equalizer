@@ -38,3 +38,15 @@ export function useDeleteApp(tenant: string, app: string) {
     },
   });
 }
+
+/** Changes the name a site is shown with (tenant administrators). */
+export function useRenameApp(tenant: string, app: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (name: string) => unwrap(api.PATCH("/apps/{app}", { params: { path: { app } }, body: { name } })),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["app", app] });
+      qc.invalidateQueries({ queryKey: ["apps", tenant] });
+    },
+  });
+}

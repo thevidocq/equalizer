@@ -111,6 +111,11 @@ the discovery agent what to expect; what the agent does for each one, and
 what the lab has proven, is in the
 [compatibility matrix](../compatibility.md).
 
+The name can be changed later: the pencil next to it at the top of the
+site (administrators) renames it. Only the name shown in the panel and in
+emails changes: the domain, the site's address in the panel and the map
+stay the same. Activity records the old and the new name.
+
 ### Install a connector
 
 One connector per server: it serves every site on that server.

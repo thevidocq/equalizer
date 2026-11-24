@@ -626,6 +626,9 @@ Only the site you are on, and only what you could read yourself:
 - **The last discovery's report**: the CMS and its version, the plugins,
   themes and libraries with their versions, pages found, what is still
   open and why, what was kept out, what was added from visitors' requests.
+- **The security scans** of the [Security tab](#security-scans): each
+  finding, how severe, what the map does with it, and the draft built to
+  close it.
 - **This guide**, to answer how to do something in the panel.
 - **The logs** of the site, up to 30 days: what was served and refused,
   why, on which entry, how many different visitors.
@@ -642,8 +645,14 @@ It looks these up before it answers, and says so when they do not tell.
 - **What the site runs**: "Which WordPress version and which plugins?",
   "Is anything in the report outdated?". It gives the versions the
   discovery found and says when one looks old. It names a vulnerability
-  only when the report lists it among the known issues; it does not
-  search for vulnerabilities (CVEs) and never invents one.
+  only when the report lists it among the known issues or a security scan
+  found it; it does not search for vulnerabilities (CVEs) itself and never
+  invents one.
+- **About the security scans**: "What is still open on this site?", "Is
+  this finding serious?", "How do I close the robots.txt one?". It reads
+  the Security tab: each finding, how severe, what the map does with it,
+  whether the draft built after the scan closes it (and where to review
+  that draft), and what is left to fix on the server and how.
 - **About the versions of the map**: "What changed in version 6?",
   "Which version is waiting for review, and is it safe?", "How did the
   check of version 5 go?".
@@ -755,8 +764,9 @@ published map.
   handed to the scanner.
 
 Both need a published map. Administrators scan; viewers read. **Scan now**
-offers a **standard** scan (a few minutes) or a **deep** one (longer, more
-requests). One scan per target at a time; each counts against your CVE
+offers a **quick** scan (seconds: headers, HTTPS, cookies, email DNS,
+technologies, exposed files), a **standard** one (a few minutes) or a
+**deep** one (longer, more requests). One scan per target at a time; each counts against your CVE
 Radar limits (20 scans a day). The tab follows the scan and shows the
 findings when it ends; a scan that does not end within two hours fails.
 The scanner creates its own record of the domain the first time, without
@@ -787,6 +797,32 @@ On the card of each target, the findings by severity and how many the map
 leaves open (through Equalizer) or would close (original site): the
 number to compare before and after. The scanner's risk score (0 to 100)
 is shown too. Findings older than a year are deleted, as the scanner does.
+
+### The draft that closes what it can
+
+When a scan ends, of either target, Equalizer builds by itself **one map
+draft** with what closes the findings the map serves as **Free text**: the
+text rule that refuses that kind of attack on that input (markup for
+cross-site scripting, SQL characters for SQL injection, template
+sequences for template injection), read from the weakness the scanner
+names. It goes where every draft goes, in the **Map** tab:
+
+- on the latest draft if there is one (it takes its place, so there is
+  still one draft to review), otherwise on the published map; not while a
+  version is in review or a draft is being checked: then the card says so
+  and the next scan tries again;
+- its note says it comes from the scan and what it closes;
+- the agent checks it on the site like any draft, so a rule that would
+  break real pages shows in **Broken by this version** before you publish;
+- it is yours to review and publish; nothing changes on the site before.
+
+In the Security tab the card of the target says which draft it built and
+what it closes (or why it built none), and each finding it closes says
+**Closed in draft N**, linked to it in the Map tab. **Area only** findings
+need a precise entry, which a discovery adds; **Server** ones are fixed on
+the server. The draft is made in the name of the person who started the
+scan, while they are an administrator. Ask the assistant about any
+finding: it reads the scans too.
 
 ## Settings
 

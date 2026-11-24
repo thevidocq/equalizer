@@ -1,3 +1,4 @@
+import { Link } from "react-router";
 import { formatDate } from "@/shared/ui";
 import type { SecurityTarget } from "../hooks/useSecurity";
 import { ScanButton } from "./ScanButton";
@@ -11,7 +12,9 @@ const blurbs = {
 const states = { pending: "Waiting to start", running: "Scanning…", completed: "Done", failed: "Failed" };
 
 /** One target of the scans: its latest scan, the findings by severity, the button to scan. */
-export function TargetCard({ app, t, canScan, configured }: { app: string; t: SecurityTarget; canScan: boolean; configured: boolean }) {
+export function TargetCard({ app, t, canScan, configured, mapBase }: {
+  app: string; t: SecurityTarget; canScan: boolean; configured: boolean; mapBase: string;
+}) {
   const scan = t.scan ?? null;
   const going = scan?.status === "pending" || scan?.status === "running";
   const counts = bySeverity(t.findings);
@@ -32,6 +35,14 @@ export function TargetCard({ app, t, canScan, configured }: { app: string; t: Se
           </p>
           {scan.error ? <p className="text-state-rejected">{scan.error}</p> : null}
           {scan.risk_score != null ? <p>Risk score: <span className="font-semibold">{scan.risk_score}</span>/100</p> : null}
+          {scan.draft_version != null ? (
+            <p className="mt-1">
+              <Link className="font-medium text-signal hover:underline" to={`${mapBase}/${scan.draft_version}`}>
+                Draft version {scan.draft_version}
+              </Link>{" "}
+              in the Map tab closes what the map can close: review it and publish it there.
+            </p>
+          ) : scan.draft_note ? <p className="mt-1 text-ink-soft">{scan.draft_note}</p> : null}
         </div>
       ) : <p className="text-sm text-ink-soft">Never scanned.</p>}
       {counts.length ? (

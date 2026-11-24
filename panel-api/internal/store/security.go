@@ -64,8 +64,11 @@ type SecurityScan struct {
 	RiskScore     *int       `json:"risk_score"`
 	Error         *string    `json:"error"`
 	RequestedBy   *string    `json:"requested_by"`
+	RequestedByID *int64     `json:"-"`
 	CreatedAt     time.Time  `json:"created_at"`
 	CompletedAt   *time.Time `json:"completed_at"`
+	DraftVersion  *int       `json:"draft_version"`
+	DraftNote     *string    `json:"draft_note"`
 }
 
 // SecurityFinding is a finding of a scan, as the scanner gave it.
@@ -85,12 +88,14 @@ type SecurityFinding struct {
 }
 
 const scanColumns = `sc.id, sc.app_id, a.tenant_id, sc.target, sc.domain, sc.scan_type, sc.status, sc.remote_target,
-	sc.remote_scan, sc.findings_count, sc.risk_score, sc.error, u.email, sc.created_at, sc.completed_at`
+	sc.remote_scan, sc.findings_count, sc.risk_score, sc.error, u.email, sc.requested_by, sc.created_at, sc.completed_at,
+	sc.draft_version, sc.draft_note`
 
 func scanScan(row interface{ Scan(...any) error }) (SecurityScan, error) {
 	var c SecurityScan
 	err := row.Scan(&c.ID, &c.App, &c.Tenant, &c.Target, &c.Domain, &c.ScanType, &c.Status, &c.RemoteTarget,
-		&c.RemoteScan, &c.FindingsCount, &c.RiskScore, &c.Error, &c.RequestedBy, &c.CreatedAt, &c.CompletedAt)
+		&c.RemoteScan, &c.FindingsCount, &c.RiskScore, &c.Error, &c.RequestedBy, &c.RequestedByID, &c.CreatedAt, &c.CompletedAt,
+		&c.DraftVersion, &c.DraftNote)
 	return c, err
 }
 
@@ -104,6 +109,11 @@ func (s *Store) AddSecurityScan(ctx context.Context, c SecurityScan, by int64) (
 	if err != nil {
 		return c, translate(err) // ErrConflict: a scan of this target is going on
 	}
+	return s.securityScan(ctx, id)
+}
+
+// SecurityScanByID reads one scan.
+func (s *Store) SecurityScanByID(ctx context.Context, id int64) (SecurityScan, error) {
 	return s.securityScan(ctx, id)
 }
 
@@ -201,35 +211,37 @@ func (s *Store) FailSecurityScan(ctx context.Context, id int64, reason string) e
 }
 
 // CompleteSecurityScan ends a scan with its findings, in one transaction.
-// note says what to know about a scan that completed (findings cut).
-func (s *Store) CompleteSecurityScan(ctx context.Context, id int64, risk *int, findings []SecurityFinding, note *string) error {
+// note says what to know about a scan that completed (findings cut). done
+// is false when the scan had ended already (another replica, a quick scan
+// followed twice): then nothing is written.
+func (s *Store) CompleteSecurityScan(ctx context.Context, id int64, risk *int, findings []SecurityFinding, note *string) (done bool, err error) {
 	tx, err := s.DB.BeginTx(ctx, nil)
 	if err != nil {
-		return err
+		return false, err
 	}
 	defer tx.Rollback()
 	res, err := tx.ExecContext(ctx, `UPDATE security_scans SET status = 'completed', findings_count = $2, risk_score = $3,
 		error = $4, completed_at = now() WHERE id = $1 AND status IN ('pending', 'running')`, id, len(findings), risk, note)
 	if err != nil {
-		return err
+		return false, err
 	}
 	if n, _ := res.RowsAffected(); n == 0 {
-		return nil // another replica completed it
+		return false, nil
 	}
 	stmt, err := tx.PrepareContext(ctx, `INSERT INTO security_findings (scan_id, remote_id, source, title, severity, cvss,
 		cve, cwe, url, http_method, parameter, evidence, first_seen_at, last_seen_at)
 		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14) ON CONFLICT DO NOTHING`)
 	if err != nil {
-		return err
+		return false, err
 	}
 	defer stmt.Close()
 	for _, f := range findings {
 		if _, err := stmt.ExecContext(ctx, id, f.RemoteID, f.Source, f.Title, f.Severity, f.CVSS, pq.Array(f.CVE),
 			pq.Array(f.CWE), f.URL, f.HTTPMethod, f.Parameter, f.Evidence, f.FirstSeenAt, f.LastSeenAt); err != nil {
-			return err
+			return false, err
 		}
 	}
-	return tx.Commit()
+	return true, tx.Commit()
 }
 
 // SecurityFindings returns the findings of a scan, the most severe first.
@@ -265,4 +277,52 @@ func (s *Store) PurgeSecurityScans(ctx context.Context) (int64, error) {
 		return 0, err
 	}
 	return res.RowsAffected()
+}
+
+// SecurityFix is the draft change that closes a finding.
+type SecurityFix struct {
+	Version int    `json:"version"`
+	Change  string `json:"change"`
+}
+
+// SetSecurityDraft records the draft built from a scan (nil: none) and why.
+func (s *Store) SetSecurityDraft(ctx context.Context, scan int64, version *int, note string, fixes map[string]string) error {
+	tx, err := s.DB.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+	if _, err := tx.ExecContext(ctx, `UPDATE security_scans SET draft_version = $2, draft_note = $3 WHERE id = $1`,
+		scan, version, note); err != nil {
+		return err
+	}
+	for id, change := range fixes {
+		if version == nil {
+			break
+		}
+		if _, err := tx.ExecContext(ctx, `INSERT INTO security_fixes (scan_id, remote_id, version, change) VALUES ($1, $2, $3, $4)
+			ON CONFLICT (scan_id, remote_id) DO UPDATE SET version = $3, change = $4`, scan, id, *version, change); err != nil {
+			return err
+		}
+	}
+	return tx.Commit()
+}
+
+// SecurityFixes returns the draft changes of a scan, by finding.
+func (s *Store) SecurityFixes(ctx context.Context, scan int64) (map[string]SecurityFix, error) {
+	rows, err := s.DB.QueryContext(ctx, `SELECT remote_id, version, change FROM security_fixes WHERE scan_id = $1`, scan)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	out := map[string]SecurityFix{}
+	for rows.Next() {
+		var id string
+		var f SecurityFix
+		if err := rows.Scan(&id, &f.Version, &f.Change); err != nil {
+			return nil, err
+		}
+		out[id] = f
+	}
+	return out, rows.Err()
 }

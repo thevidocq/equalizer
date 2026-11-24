@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { Link } from "react-router";
 import { Table, type Column } from "@/shared/ui";
 import type { SecurityFinding } from "../hooks/useSecurity";
 import { severityStyle, shortURL, verdictOf } from "./verdicts";
@@ -6,7 +7,9 @@ import { severityStyle, shortURL, verdictOf } from "./verdicts";
 const tones = { good: "text-state-published", warn: "text-state-review", plain: "text-ink-soft" };
 
 /** The findings of a scan, the most severe first, each with what the map does with it. */
-export function FindingsTable({ findings, target, caption }: { findings: SecurityFinding[]; target: "protected" | "original"; caption: string }) {
+export function FindingsTable({ findings, target, caption, mapBase }: {
+  findings: SecurityFinding[]; target: "protected" | "original"; caption: string; mapBase: string;
+}) {
   const [open, setOpen] = useState<string | null>(null);
   const columns: Column<SecurityFinding>[] = [
     { header: "Severity", className: "w-24", cell: (f) => (
@@ -26,7 +29,16 @@ export function FindingsTable({ findings, target, caption }: { findings: Securit
     ) },
     { header: "With Equalizer", className: "w-40", cell: (f) => {
       const v = verdictOf(f, target);
-      return <span className={`font-medium ${tones[v.tone]}`} title={v.why}>{v.label}</span>;
+      return (
+        <div className="flex flex-col">
+          <span className={`font-medium ${tones[v.tone]}`} title={v.why}>{v.label}</span>
+          {f.fix ? (
+            <Link className="text-xs text-signal hover:underline" to={`${mapBase}/${f.fix.version}`} title={f.fix.change}>
+              Closed in draft {f.fix.version}
+            </Link>
+          ) : null}
+        </div>
+      );
     } },
   ];
   return <Table rows={findings} columns={columns} rowKey={(f) => f.id} caption={caption} />;
@@ -37,6 +49,7 @@ function Detail({ f, target }: { f: SecurityFinding; target: "protected" | "orig
   return (
     <div className="mt-1 flex flex-col gap-1 text-xs">
       <p>{v.why}{f.map.entry ? ` Entry: ${f.map.entry}${f.map.field_type ? `, type ${f.map.field_type}` : ""}.` : ""}</p>
+      {f.fix ? <p>Draft {f.fix.version}: {f.fix.change}.</p> : null}
       <p className="text-ink-soft">
         Found by {f.source}
         {f.cvss != null ? ` · CVSS ${f.cvss}` : ""}

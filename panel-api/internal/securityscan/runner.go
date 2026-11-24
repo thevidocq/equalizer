@@ -18,7 +18,7 @@ type Store interface {
 	ClaimSecurityScans(ctx context.Context, limit int) ([]store.SecurityScan, error)
 	SetSecurityScanStatus(ctx context.Context, id int64, status string) error
 	FailSecurityScan(ctx context.Context, id int64, reason string) error
-	CompleteSecurityScan(ctx context.Context, id int64, risk *int, findings []store.SecurityFinding, note *string) error
+	CompleteSecurityScan(ctx context.Context, id int64, risk *int, findings []store.SecurityFinding, note *string) (bool, error)
 	Record(ctx context.Context, userID *int64, tenant *string, action, target string, detail map[string]any) error
 }
 
@@ -32,6 +32,9 @@ type Runner struct {
 	Clients Clients
 	Log     *slog.Logger
 	GiveUp  time.Duration // a scan without an end after this fails; 0: 2 hours
+	// AfterComplete runs once a scan's findings are saved (the map draft
+	// that closes them); nil: nothing.
+	AfterComplete func(ctx context.Context, scan int64)
 }
 
 const (
@@ -77,6 +80,14 @@ func (r *Runner) Once(ctx context.Context) {
 		}(sc)
 	}
 	wg.Wait()
+}
+
+// Follow polls one scan now, with the same deadline as a round (a quick
+// scan the scanner already ended).
+func (r *Runner) Follow(ctx context.Context, sc store.SecurityScan) {
+	ctx, cancel := context.WithTimeout(ctx, pollTimeout)
+	defer cancel()
+	r.Poll(ctx, sc)
 }
 
 // Poll reads one scan's status and records what changed.
@@ -153,8 +164,15 @@ func (r *Runner) complete(ctx context.Context, c *cveradar.Client, sc store.Secu
 	for _, v := range vulns {
 		findings = append(findings, Finding(v))
 	}
-	if err := r.Store.CompleteSecurityScan(ctx, sc.ID, risk, findings, note); err != nil {
+	done, err := r.Store.CompleteSecurityScan(ctx, sc.ID, risk, findings, note)
+	if err != nil {
 		return err
+	}
+	if !done {
+		return nil // ended by another poll, which builds the draft and records it
+	}
+	if r.AfterComplete != nil {
+		r.AfterComplete(ctx, sc.ID)
 	}
 	tenant := sc.Tenant
 	_ = r.Store.Record(ctx, nil, &tenant, "security.scan_completed", sc.App,

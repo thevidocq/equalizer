@@ -132,9 +132,12 @@ func TestSourceReader(t *testing.T) {
 	if !strings.Contains(dock.Install, "--volumes-from wp:ro") || !strings.Contains(dock.Install, "EQ_SOURCE_SITE=/ ") {
 		t.Fatalf("docker install: %s", dock.Install)
 	}
-	boss.must(200, "PUT", "/v1/apps/blog/source", map[string]any{"method": "local", "path": "/srv/blog"}, nil)
+	for _, p := range []string{"/", "/etc", "/root/site", "/var", "/proc/1"} {
+		boss.must(422, "PUT", "/v1/apps/blog/source", map[string]any{"method": "local", "path": p}, nil)
+	}
+	boss.must(200, "PUT", "/v1/apps/blog/source", map[string]any{"method": "local", "path": "/srv/my blog"}, nil)
 	boss.must(201, "POST", "/v1/apps/blog/source/token", nil, &dock)
-	if !strings.Contains(dock.Install, "-v /srv/blog:/srv/blog:ro") || strings.Contains(dock.Install, "volumes-from") {
+	if !strings.Contains(dock.Install, "-v '/srv/my blog:/srv/my blog:ro'") || strings.Contains(dock.Install, "volumes-from") {
 		t.Fatalf("folder install: %s", dock.Install)
 	}
 	tok.Token = dock.Token

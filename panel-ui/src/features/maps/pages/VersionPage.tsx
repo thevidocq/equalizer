@@ -1,5 +1,5 @@
 import { Link, useParams } from "react-router";
-import { Button, Notice, formatDate } from "@/shared/ui";
+import { Notice, formatDate } from "@/shared/ui";
 import { describeError } from "@/shared/api/errors";
 import { hasRole, useMe } from "@/features/auth";
 import { useMapVersion } from "../hooks/useMaps";
@@ -8,7 +8,7 @@ import { VersionActions } from "../components/VersionActions";
 import { toEditorYaml } from "../components/yaml";
 import { ReviewPanel } from "../components/ReviewPanel";
 import { VerificationPanel } from "../components/VerificationPanel";
-import { exportMap } from "../components/mapFile";
+import { DownloadMenu } from "../components/DownloadMenu";
 
 export function VersionPage() {
   const { tenant = "", app = "", version = "0" } = useParams();
@@ -49,9 +49,7 @@ export function VersionPage() {
           {v.data.published_at ? (<><dt className="text-ink-soft">Published</dt><dd>{formatDate(v.data.published_at)}</dd></>) : null}
         </dl>
         <VersionActions v={v.data} tenant={tenant} me={me.data} />
-        <div>
-          <Button onClick={() => exportMap(app, v.data.version, v.data.document as Record<string, unknown>)}>Download as YAML</Button>
-        </div>
+        <DownloadMenu app={app} version={v.data.version} doc={v.data.document as Record<string, unknown>} />
         {canEdit ? (
           <Link to={`../new?from=${v.data.version}`} relative="path" className="text-sm text-signal hover:underline">
             Start a new version from this one

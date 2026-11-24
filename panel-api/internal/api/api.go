@@ -153,6 +153,7 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("GET /v1/apps/{app}/maps", s.authed(s.listMaps))
 	mux.HandleFunc("POST /v1/apps/{app}/maps", s.authed(s.createMap))
 	mux.HandleFunc("GET /v1/apps/{app}/maps/{version}", s.authed(s.getMap))
+	mux.HandleFunc("GET /v1/apps/{app}/maps/{version}/export", s.authed(s.exportMap))
 	mux.HandleFunc("GET /v1/apps/{app}/maps/{version}/review", s.authed(s.getReview))
 	mux.HandleFunc("POST /v1/apps/{app}/maps/{version}/review", s.authed(s.askReview))
 	mux.HandleFunc("POST /v1/apps/{app}/maps/{version}/{action}", s.authed(s.mapAction))

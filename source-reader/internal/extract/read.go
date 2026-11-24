@@ -4,7 +4,9 @@ import (
 	"encoding/json"
 	"io/fs"
 	"os"
+	"path"
 	"path/filepath"
+	"slices"
 	"sort"
 	"strings"
 	"time"
@@ -16,8 +18,8 @@ import (
 func Read(root string, now time.Time) (*Summary, error) {
 	s := &Summary{Schema: "source-summary/1.0", ReadAt: now.UTC(), Stack: "unknown",
 		Routes: []Route{}, Inputs: []Input{}, Risks: []Risk{}, Components: []Component{}}
-	if _, err := os.Stat(filepath.Join(root, "wp-includes", "version.php")); err == nil {
-		s.Stack = "wordpress"
+	if s.app = detect(root); s.app != nil {
+		s.Stack = s.app.name
 	}
 	var total int64
 	err := filepath.WalkDir(root, func(p string, d fs.DirEntry, err error) error {
@@ -41,6 +43,10 @@ func Read(root string, now time.Time) (*Summary, error) {
 			s.Files.Skipped++
 			return nil
 		}
+		if s.known(rel) {
+			s.Files.Known++
+			return nil
+		}
 		if s.Files.Read >= fetch.MaxFiles || total+info.Size() > fetch.MaxBytes {
 			s.Files.Truncated = true
 			return filepath.SkipAll
@@ -56,11 +62,15 @@ func Read(root string, now time.Time) (*Summary, error) {
 		}
 		total += int64(len(data))
 		s.Files.Read++
+		s.file0 = rel
 		s.file(rel, string(data))
 		return nil
 	})
 	if err != nil {
 		return nil, err
+	}
+	if s.app != nil && s.app.finish != nil {
+		s.app.finish(s, s.app)
 	}
 	if s.Stack == "unknown" && s.sawPHP {
 		s.Stack = "php"
@@ -70,39 +80,64 @@ func Read(root string, now time.Time) (*Summary, error) {
 	return s, nil
 }
 
-// file reads one file by its kind.
+// file reads one file by its kind: what the application declares in it,
+// then, for PHP outside the application's core, its entry point, inputs and
+// risky calls.
 func (s *Summary) file(rel, src string) {
-	switch filepath.Base(rel) {
-	case "composer.lock":
-		s.composer(src)
+	a := s.app
+	in, ok := a.within(rel)
+	s.owner = ""
+	if ok && a.owner != nil {
+		if kind, name := a.owner(a, in); name != "" {
+			s.owner = kind + " " + name
+		}
+	}
+	if path.Base(rel) == "composer.lock" {
+		s.composer(rel, src)
 		return
-	case "style.css":
-		s.component(rel, src)
+	}
+	core := ok && a.core != nil && a.core(a, in)
+	if ok && a.meta != nil {
+		a.meta(s, a, in, src)
+	}
+	if ok && !core && !library(rel) && a.file != nil {
+		a.file(s, a, in, src)
+	}
+	if !isPHP(rel) {
 		return
 	}
 	s.sawPHP = true
-	if s.Stack == "wordpress" {
-		s.component(rel, src)
-	}
-	if library(s.Stack, rel) {
-		return // known code: only its version (version.php, composer.lock)
-	}
-	if s.Stack == "wordpress" {
-		s.wordpressFile(rel, src)
+	if core || library(rel) {
+		return // known code: only its version
 	}
 	route := ""
-	if acts(src) {
-		route = directRoute(s.Stack, rel, src)
+	switch {
+	case strings.ToLower(path.Ext(rel)) != ".php":
+	case ok && a.direct != nil:
+		if a.direct(a, in, src) {
+			route = a.path(in)
+		}
+	case ok:
+		if acts(src) {
+			route = a.path(in)
+		}
+	case a != nil && a.web: // outside the web server's root: no browser opens it
+	case acts(src):
+		route = "/" + rel
 	}
-	if route != "" && len(s.Routes) < maxRoutes {
-		s.Routes = append(s.Routes, Route{Path: route, Methods: []string{"GET", "POST"}, Origin: "php_file", Public: true,
-			Where: Where{File: rel, Line: 1}})
+	if route != "" {
+		s.declared(Route{Path: route, Methods: []string{"GET", "POST"}, Origin: "php_file", Public: true, Where: s.at(1)})
 	}
 	s.phpFile(rel, src, route)
 }
 
+// at is a line of the file being read.
+func (s *Summary) at(line int) Where {
+	return Where{File: s.file0, Line: line, Owner: s.owner}
+}
+
 // composer reads the libraries of a composer.lock.
-func (s *Summary) composer(src string) {
+func (s *Summary) composer(rel, src string) {
 	var lock struct {
 		Packages []struct {
 			Name    string `json:"name"`
@@ -117,6 +152,9 @@ func (s *Summary) composer(src string) {
 			continue
 		}
 		v := strings.TrimPrefix(p.Version, "v")
+		if s.app != nil && slices.Contains(s.app.corePackages, p.Name) && (rel == "composer.lock" || rel == s.app.base+"composer.lock") {
+			s.version(s.app.name, v)
+		}
 		c := Component{Name: "library:" + p.Name, Kind: "library"}
 		if v != "" && len(v) <= 40 {
 			c.Version = &v
@@ -127,10 +165,14 @@ func (s *Summary) composer(src string) {
 
 // sort makes two reads of the same files give the same summary.
 func (s *Summary) sort() {
-	sort.SliceStable(s.Routes, func(i, j int) bool {
-		a, b := s.Routes[i], s.Routes[j]
-		return a.Path+a.Action+a.Where.File < b.Path+b.Action+b.Where.File
-	})
+	key := func(r Route) string {
+		k := r.Path + "\x00" + r.Action + "\x00" + strings.Join(r.Methods, ",")
+		for _, q := range sortedKeys(r.Query) {
+			k += "\x00" + q + "=" + r.Query[q]
+		}
+		return k + "\x00" + r.Where.File
+	}
+	sort.SliceStable(s.Routes, func(i, j int) bool { return key(s.Routes[i]) < key(s.Routes[j]) })
 	sort.SliceStable(s.Inputs, func(i, j int) bool {
 		a, b := s.Inputs[i], s.Inputs[j]
 		return a.Name+a.Source+a.Where.File < b.Name+b.Source+b.Where.File ||
@@ -150,21 +192,25 @@ func (s *Summary) fit() {
 	short := func(v string, n int) bool { return len(v) <= n }
 	routes := s.Routes[:0]
 	for _, r := range s.Routes {
-		if short(r.Path, 300) && short(r.Action, 100) && short(r.Where.File, 300) {
+		ok := short(r.Path, 300) && short(r.Action, 100) && short(r.Where.File, 300) && short(r.Where.Owner, 140) && len(r.Query) <= 5
+		for k, v := range r.Query {
+			ok = ok && short(k, 100) && short(v, 100)
+		}
+		if ok {
 			routes = append(routes, r)
 		}
 	}
 	s.Routes = routes
 	inputs := s.Inputs[:0]
 	for _, in := range s.Inputs {
-		if short(in.Name, 100) && short(in.Route, 300) && short(in.Where.File, 300) {
+		if short(in.Name, 100) && short(in.Route, 300) && short(in.Where.File, 300) && short(in.Where.Owner, 140) {
 			inputs = append(inputs, in)
 		}
 	}
 	s.Inputs = inputs
 	risks := s.Risks[:0]
 	for _, r := range s.Risks {
-		if short(r.Input, 100) && short(r.Route, 300) && short(r.Where.File, 300) {
+		if short(r.Input, 100) && short(r.Route, 300) && short(r.Where.File, 300) && short(r.Where.Owner, 140) {
 			risks = append(risks, r)
 		}
 	}

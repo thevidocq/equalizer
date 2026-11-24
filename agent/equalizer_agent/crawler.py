@@ -119,7 +119,7 @@ class Crawler(LoginMixin):
         self.say(f"opening {len(pages)} pages in the browser to see what their scripts load")
         seen = browser.study(self.f, host, pages, self.log, self._allowed_quiet, self.browser.get("executable", ""),
                              self.browser.get("page_seconds", browser.PAGE_SECONDS),
-                             lambda n, total, pq: self.say(f"browser: page {n + 1} of {total}", pq))
+                             lambda n, total, pq: self.say(f"browser: page {n + 1} of {total}", pq, force=n == 0))
         self.r.browser_pages += seen.pages
         self.r.browser_page_seconds = self.browser.get("page_seconds", browser.PAGE_SECONDS)
         self.r.browser_skipped += [dict(s, account=self.label) for s in seen.skipped]

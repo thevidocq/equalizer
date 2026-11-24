@@ -9,17 +9,24 @@ import (
 	"strings"
 )
 
-// Limits of one read.
+// Limits of one read. The copy's are wider than the study's: an
+// application's core (Moodle's, Magento's) has tens of thousands of files
+// the reader only takes the version from, and it must reach the site's own
+// code past them.
 const (
-	MaxFileSize = 1 << 20   // a larger file is not code a person wrote
-	MaxFiles    = 20000     // past this the summary says it was cut
-	MaxBytes    = 200 << 20 // all files together
+	MaxFileSize  = 1 << 20   // a larger file is not code a person wrote
+	MaxFiles     = 20000     // files studied: past this the summary says it was cut
+	MaxBytes     = 200 << 20 // studied, all files together
+	MaxCopyFiles = 150000    // files copied from the server
+	MaxCopyBytes = 1 << 30   // copied, all files together
 )
 
-// codeNames are the files the reader reads: code, and the few files that
-// say what a component is (style.css headers, composer.lock).
-var codeExt = map[string]bool{".php": true, ".phtml": true, ".inc": true}
-var codeNames = map[string]bool{"style.css": true, "composer.lock": true}
+// codeExt and codeNames are the files the reader reads: code, and the few
+// files that say what a component is or where an application's entry
+// points are (style.css headers, composer files, routing files, manifests).
+var codeExt = map[string]bool{".php": true, ".phtml": true, ".inc": true, ".module": true}
+var codeNames = []string{"style.css", "composer.lock", "composer.json", "*.routing.yml", "routing.yml", "routes.xml",
+	"webapi.xml", "extension.json", "skin.json", "*.info.yml", "*.info", "install.json"}
 
 // SecretFiles are the files with credentials of each application Equalizer
 // supports, from their own documentation: never read, wherever they are.
@@ -54,8 +61,9 @@ var secretNames = func() []string {
 }()
 
 // skipDirs are folders never entered: uploads, caches, version control,
-// dependencies installed by a tool (their versions come from the lock file).
-var skipDirs = []string{".git", ".svn", ".hg", "node_modules", "uploads", "cache", "caches", "tmp", "temp", "backup", "backups", ".well-known"}
+// dependencies installed by a tool (their versions come from composer.lock).
+var skipDirs = []string{".git", ".svn", ".hg", "node_modules", "vendor", "bower_components", "uploads", "cache", "caches", "tmp",
+	"temp", "backup", "backups", ".well-known"}
 
 // Wanted reports whether a file (path relative to the site's folder, with
 // "/") is one the reader reads.
@@ -72,7 +80,15 @@ func Wanted(rel string, size int64) bool {
 	if Secret(base) {
 		return false
 	}
-	return codeExt[strings.ToLower(path.Ext(base))] || codeNames[base]
+	if codeExt[strings.ToLower(path.Ext(base))] {
+		return true
+	}
+	for _, n := range codeNames {
+		if ok, _ := path.Match(n, base); ok {
+			return true
+		}
+	}
+	return false
 }
 
 // SkipDir reports whether a folder's name is one never entered.

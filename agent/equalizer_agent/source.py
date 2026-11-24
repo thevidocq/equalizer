@@ -14,7 +14,8 @@ values. The discovery uses it for:
   or an email only. Only
   entries the agent writes are touched; a person's never are.
 - the report: entry points the exploration never opened (REST routes,
-  AJAX actions, PHP files that run when opened), the calls where a request
+  AJAX actions, the routes each application declares, PHP files that run
+  when opened), the calls where a request
   value may do harm, the components. Nothing found only in the code is
   opened: a file no link points to may act when opened, and the
   administration paths stay closed to the exploration.
@@ -53,7 +54,7 @@ def _code_types(summary: dict) -> dict:
         routes = {i.get("route") for i in items}
         w = items[0].get("where") or {}
         out[key] = (kind, list(values), "%s:%s" % (w.get("file", "?"), w.get("line", "?")),
-                    next(iter(routes)) if len(routes) == 1 else None)
+                    next(iter(routes)) if len(routes) == 1 else None, w.get("owner"))
     return out
 
 
@@ -119,7 +120,7 @@ def apply(report: dict, doc: dict, job: dict, samples: dict, opened: set) -> Non
                 continue
             new.update({k: q[k] for k in ("required",) if k in q})
             e["query"][m.group(1)] = new
-            out["typed"].append({"route": e.get("path", ""), "field": legacy, "type": t[0], "where": t[2]})
+            out["typed"].append({"route": e.get("path", ""), "field": legacy, "type": t[0], "where": t[2], "owner": t[4]})
             _close(report, e["id"] + "." + m.group(1))
     for f in doc.get("forms", []):
         if f.get("origin") != "agent":
@@ -138,31 +139,55 @@ def apply(report: dict, doc: dict, job: dict, samples: dict, opened: set) -> Non
                 continue
             new["required"] = spec.get("required", False)
             f["fields"][m.group(1)] = new
-            out["typed"].append({"route": f.get("route", ""), "field": legacy, "type": t[0], "where": t[2]})
+            out["typed"].append({"route": f.get("route", ""), "field": legacy, "type": t[0], "where": t[2], "owner": t[4]})
             _close(report, f["id"] + "." + m.group(1))
     out["typed"] = out["typed"][:300]
     out["risks_total"] = len(summary.get("risks") or [])
     out["risks"] = [{"kind": r.get("kind"), "input": r.get("input"), "route": r.get("route"),
-                     "where": "%s:%s" % ((r.get("where") or {}).get("file", "?"), (r.get("where") or {}).get("line", "?"))}
+                     "where": _where(r.get("where")), "owner": (r.get("where") or {}).get("owner")}
                     for r in (summary.get("risks") or [])][:100]
+    out["known"] = (summary.get("files") or {}).get("known", 0)
     out["components"] = [{"name": c.get("name"), "kind": c.get("kind"), "version": c.get("version")}
                          for c in (summary.get("components") or [])][:200]
     out["unseen"], out["unseen_total"] = _unseen(summary, opened)
     report["source"] = out
 
 
+def _where(w) -> str:
+    w = w or {}
+    return "%s:%s" % (w.get("file", "?"), w.get("line", "?"))
+
+
 def _unseen(summary: dict, opened: set) -> list:
+    """Entry points the exploration never opened. One with a query (an
+    AJAX action, a Joomla component, an OpenCart route) is opened when a
+    page the exploration studied carries that query."""
     out, seen = [], set()
     for r in summary.get("routes") or []:
         p = r.get("path") or ""
-        key = (p, r.get("origin"), r.get("action"))
-        if key in seen or "{" not in p and p in opened and not r.get("action"):
+        query = r.get("query") or ({"action": r["action"]} if r.get("action") else None)
+        key = (p, r.get("origin"), tuple(sorted((query or {}).items())), tuple(r.get("methods") or []))
+        if key in seen or "{" not in p and _opened(p, query, opened):
             continue
         seen.add(key)
         w = r.get("where") or {}
-        out.append({"path": p, "origin": r.get("origin"), "action": r.get("action"), "public": bool(r.get("public")),
-                    "where": "%s:%s" % (w.get("file", "?"), w.get("line", "?"))})
+        out.append({"path": p, "origin": r.get("origin"), "action": r.get("action"), "query": query,
+                    "methods": r.get("methods") or [], "public": bool(r.get("public")), "where": _where(w),
+                    "owner": w.get("owner")})
     return out[:200], len(out)
+
+
+def _opened(path: str, query, opened: set) -> bool:
+    if not query:
+        return path in opened
+    for o in opened:
+        p, _, q = o.partition("?")
+        if p != path:
+            continue
+        have = dict(kv.partition("=")[::2] for kv in q.split("&") if kv)
+        if all(have.get(k) == v for k, v in query.items()):
+            return True
+    return False
 
 
 def _close(report: dict, target: str) -> None:

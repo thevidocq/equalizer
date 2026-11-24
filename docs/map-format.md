@@ -568,8 +568,18 @@ only for visitors who passed the provider.
 
 ## Import and export
 
-Every version can be downloaded as YAML (**Download as YAML**), without the
-meta the panel owns. **New version → Import a map file** loads a YAML or
+Every version can be downloaded (**Download**) as YAML or JSON, without
+the meta the panel owns, or written for another tool: OpenAPI 3.0.3 (each
+route, form and API entry with its parameters as JSON Schema: `int` with
+`minimum`/`maximum`, `enum`, `date`, `bool`, strings with `maxLength` and
+the pattern or charset; rules, roles and file types as `x-equalizer-`
+extensions; areas in `x-equalizer-areas`) or ModSecurity rules
+(ModSecurity v3, Coraza; `GET /v1/apps/{app}/maps/{version}/export`). The
+rules set `tx.eq_entry` from the method and path of each entry (a path
+parameter held to its type), refuse what matched none (404), and on each
+entry refuse an unknown key, field or file and a value outside its check
+(403); assets check the response's `Content-Type`. They keep the checks,
+not the rebuilding: the file's comments list what is lost. **New version → Import a map file** loads a YAML or
 JSON map into the editor, for a backup, a move from a test site to the real
 one, or a site like another: tenant, site and domain are set from the site
 it is imported into, and the draft gets the same checks (schema, reach,

@@ -311,3 +311,38 @@ func TestProviderErrorsInWords(t *testing.T) {
 		t.Fatal("a plain http local endpoint was accepted")
 	}
 }
+
+// cut answers with text cut at the provider's limit, twice, then whole.
+type cut struct{ n int }
+
+func (c *cut) Chat(_ context.Context, _ string, turns []Turn, _ []Tool) (Reply, error) {
+	c.n++
+	switch c.n {
+	case 1:
+		return Reply{Text: "Il campo è aperto, quindi non ch", Cut: true}, nil
+	case 2:
+		if turns[len(turns)-1].Role != "user" || turns[len(turns)-2].Text != "Il campo è aperto, quindi non ch" {
+			return Reply{}, errors.New("not asked to go on")
+		}
+		return Reply{Text: "iude nulla."}, nil
+	}
+	return Reply{Text: "?"}, nil
+}
+
+func TestCutAnswersGoOn(t *testing.T) {
+	ans, err := Run(context.Background(), &cut{}, &src{}, NewMasker(nil), "blog", "blog.example", "2026-11-24", []Turn{{Role: "user", Text: "ciao"}})
+	if err != nil || ans.Text != "Il campo è aperto, quindi non chiude nulla." {
+		t.Fatalf("%q %v", ans.Text, err)
+	}
+	always := modelFunc(func([]Turn) Reply { return Reply{Text: "a", Cut: true} })
+	ans, _ = Run(context.Background(), always, &src{}, NewMasker(nil), "blog", "blog.example", "2026-11-24", []Turn{{Role: "user", Text: "ciao"}})
+	if !strings.HasPrefix(ans.Text, "aaa…") || !strings.Contains(ans.Text, "ask for the rest") {
+		t.Fatalf("%q", ans.Text)
+	}
+}
+
+type modelFunc func([]Turn) Reply
+
+func (f modelFunc) Chat(_ context.Context, _ string, turns []Turn, _ []Tool) (Reply, error) {
+	return f(turns), nil
+}

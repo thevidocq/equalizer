@@ -17,19 +17,25 @@ type Summary struct {
 	Risks      []Risk      `json:"risks"`
 	Components []Component `json:"components"`
 	sawPHP     bool
+	app        *app   // the application found, nil for a custom site
+	owner      string // the extension of the file being read
+	file0      string // the file being read
+	routeSeen  map[string]bool
 }
 
 // Files counts what was read.
 type Files struct {
 	Read      int  `json:"read"`
 	Skipped   int  `json:"skipped"`
+	Known     int  `json:"known,omitempty"`
 	Truncated bool `json:"truncated,omitempty"`
 }
 
 // Where is a place in the code: file relative to the site, line.
 type Where struct {
-	File string `json:"file"`
-	Line int    `json:"line"`
+	File  string `json:"file"`
+	Line  int    `json:"line"`
+	Owner string `json:"owner,omitempty"`
 }
 
 // Route is an entry point the code declares.
@@ -38,6 +44,7 @@ type Route struct {
 	Methods []string          `json:"methods"`
 	Origin  string            `json:"origin"`
 	Action  string            `json:"action,omitempty"`
+	Query   map[string]string `json:"query,omitempty"`
 	Public  bool              `json:"public,omitempty"`
 	Params  map[string]string `json:"params,omitempty"`
 	Where   Where             `json:"where"`

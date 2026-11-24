@@ -3,6 +3,8 @@
 import os
 from dataclasses import dataclass, field
 
+from .log import Logger
+
 
 def _secret(name: str) -> str:
     value = os.environ.get(name, "").strip()
@@ -33,21 +35,33 @@ class Config:
     gateway_url: str = "http://gateway:9090"  # the gateway's admin endpoint, for verifications
 
 
+def _number(name: str, default: float, low: float, high: float) -> float:
+    """A number setting, kept within its bounds; a value that is not a
+    number is the default, said in the agent's log at start."""
+    raw = os.environ.get(name, "").strip()
+    try:
+        v = float(raw) if raw else default
+    except ValueError:
+        Logger(os.environ.get("HOSTNAME", "agent")).warn("a setting is not a number: its default is used", setting=name)
+        v = default
+    return min(high, max(low, v))
+
+
 def from_env() -> Config:
     c = Config(
         panel_url=os.environ.get("EQ_PANEL_URL", Config.panel_url).rstrip("/"),
         panel_token=_secret("EQ_INTERNAL_TOKEN"),
         relay_url=os.environ.get("EQ_RELAY_URL", Config.relay_url).rstrip("/"),
         relay_token=_secret("EQ_RELAY_TOKEN"),
-        poll_seconds=float(os.environ.get("EQ_POLL_SECONDS", "10")),
-        rate=float(os.environ.get("EQ_RATE", "2")),
+        poll_seconds=_number("EQ_POLL_SECONDS", 10.0, 1, 3600),
+        rate=_number("EQ_RATE", 2.0, 0.1, 100),
         direct={d.strip().lower() for d in os.environ.get("EQ_DIRECT_DESTINATIONS", "").split(",") if d.strip()},
         allow_private_llm=os.environ.get("EQ_AGENT_ALLOW_PRIVATE_LLM", "") == "true",
         log_level=os.environ.get("EQ_LOG_LEVEL", "info"),
         instance=os.environ.get("HOSTNAME", "agent"),
         browser=os.environ.get("EQ_BROWSER", "auto").strip().lower(),
         browser_path=os.environ.get("EQ_BROWSER_PATH", "").strip(),
-        browser_page_seconds=min(120, max(5, int(os.environ.get("EQ_BROWSER_PAGE_SECONDS", "20") or 20))),
+        browser_page_seconds=int(_number("EQ_BROWSER_PAGE_SECONDS", 20, 5, 120)),
         gateway_url=os.environ.get("EQ_GATEWAY_ADMIN_URL", Config.gateway_url).rstrip("/"),
     )
     if len(c.panel_token) < 32:

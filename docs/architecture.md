@@ -133,10 +133,15 @@ A site may have a **source reader** (`source-reader/`): a container next to
 the connector that only calls the panel, with its site's token
 (`/v1/source/hello`, `/claim`, `/reads/{id}/result`). It fetches code files
 only (rsync over ssh with its own ed25519 key, smbclient, or a read-only
-mount), never secret files, and extracts a summary by patterns, not a PHP
-parser: WordPress REST routes, AJAX and admin-post actions, PHP files that
-run when opened, the type each sanitizer gives a request key, risky calls,
-components. The panel checks the summary against
+mount), never secret files nor `vendor/`, and extracts a summary by
+patterns, not a PHP parser: the entry points each supported application
+declares (WordPress REST routes and AJAX actions, Drupal and phpBB routing
+files, Joomla components and web services, Magento controllers and web
+API, PrestaShop module controllers, OpenCart routes, TYPO3 eID and backend
+routes, MediaWiki special pages, API modules and REST routes, Moodle
+services), PHP files that run when opened, the type each sanitizer gives a
+request key, risky calls, components. Each application's core is known
+code: only its version is read. The panel checks the summary against
 `schema/source/summary.schema.json` before storing it (a summary off the
 schema is refused and the read fails). A discovery started with `source`
 queues a read and is claimed only when the read ends or after 10 minutes;

@@ -27,7 +27,7 @@ WORDS = {"accepts_sql": "SQL", "accepts_markup": "HTML", "accepts_template": "te
          "accepts_shell": "shell characters", "other": "out-of-type values"}
 TEXT_SIMILAR = 0.97  # dates, counters and tokens differ between two loads
 SELF_FLOOR = 0.8  # two loads less alike than this are not the same page
-LINKS_VARYING = 0.3  # at most this share of the links may change by itself
+AGAIN = 3  # more loads of a page that differs, to tell what the site varies by itself
 
 
 class _Page(HTMLParser):
@@ -112,19 +112,26 @@ def _unslashed(links: set) -> set:
     return {p.rstrip("/") or "/" for p in links}
 
 
-def _stable(a, c) -> tuple:
-    """What the site does not vary between two loads a and c: (its words,
-    the links it shows or hides), or (None, set()) when the two loads are
-    too far apart to be the same page (a login wall, a challenge)."""
-    if _ratio(a.words, c.words) < SELF_FLOOR:
-        return None, set()
-    m = difflib.SequenceMatcher(None, a.words, c.words, autojunk=False)
-    words = [w for blk in m.get_matching_blocks() for w in a.words[blk.a:blk.a + blk.size]]
-    la, lc = _unslashed(a.links), _unslashed(c.links)
-    varying = la ^ lc
-    if len(varying) > LINKS_VARYING * max(len(la | lc), 1):
-        varying = set()  # most links change: nothing to tell noise from a fault
-    return words, varying
+def _stable(a, others: list) -> tuple:
+    """What the site does not vary across its loads (a and the others):
+    (its words, the links every load shows, the links some loads show, how
+    many of those each load shows at least), or None when a load is too far
+    from a to be the same page (a login wall, a challenge). Several loads: a
+    shop that shows four related products at random out of a few dozen
+    repeats one now and then between two loads, rarely across four."""
+    if any(_ratio(a.words, c.words) < SELF_FLOOR for c in others):
+        return None
+    words = a.words
+    for c in others:
+        m = difflib.SequenceMatcher(None, words, c.words, autojunk=False)
+        words = [w for blk in m.get_matching_blocks() for w in words[blk.a:blk.a + blk.size]]
+    sets = [_unslashed(a.links)] + [_unslashed(c.links) for c in others]
+    every, some = set.intersection(*sets), set.union(*sets)
+    return words, every, some, min(len(x - every) for x in sets)
+
+
+def _parent(path: str) -> str:
+    return path.rstrip("/").rsplit("/", 1)[0]
 
 
 def _kept(stable: list, words: list) -> float:
@@ -151,8 +158,9 @@ def _slash_redirect(direct) -> bool:
 
 def compare(direct, via, hosts: tuple = (), again=None) -> tuple:
     """(difference, detail) between the legacy answer and the gateway's, or
-    ("", "") when they are the same for a visitor. again, a second answer of
-    the site to the same request, excuses what the site varies by itself:
+    ("", "") when they are the same for a visitor. again, more answers of
+    the site to the same request (one or a list), excuses what the site
+    varies by itself:
     the gateway may differ from the first answer as much as the site
     differs from itself in text, and lose only links the site itself
     shows or hides from one load to the next."""
@@ -173,15 +181,32 @@ def compare(direct, via, hosts: tuple = (), again=None) -> tuple:
     a = _page(direct.body, direct.headers.get("content-type", ""), base)
     b = _page(resp.get("body") or b"", (resp.get("headers") or {}).get("Content-Type", ""), base)
     a.words, b.words = _same_site(a.words, hosts), _same_site(b.words, hosts)
-    stable, varying = None, set()
-    if again is not None:
-        c = _page(again.body, again.headers.get("content-type", ""), base)
-        c.words = _same_site(c.words, hosts)
-        stable, varying = _stable(a, c)
+    site = None
+    if again:
+        others = []
+        for r in again if isinstance(again, list) else [again]:
+            c = _page(r.body, r.headers.get("content-type", ""), base)
+            c.words = _same_site(c.words, hosts)
+            others.append(c)
+        site = _stable(a, others)
     ratio = _ratio(a.words, b.words)
-    if ratio < TEXT_SIMILAR and (stable is None or _kept(stable, b.words) < TEXT_SIMILAR):
+    if ratio < TEXT_SIMILAR and (site is None or _kept(site[0], b.words) < TEXT_SIMILAR):
         return "text", "%d%% of the visible text is the same%s" % (int(ratio * 100), _words_apart(a.words, b.words))
-    lost = sorted(_unslashed(a.links) - _unslashed(b.links) - varying)
+    la, lb = _unslashed(a.links), _unslashed(b.links)
+    lost = la - lb
+    if lost and site is not None and site[1] != site[2]:
+        _, every, some, shown = site
+        new = lb - la
+        # links the site shows or hides by itself are excused when the
+        # gateway's page shows as many of that kind as the site does: other
+        # random products, not a block that went missing. Either the lost
+        # links are among those the site varies, or each has a stand-in
+        # beside it (another /product/... where a /product/... went)
+        varied = lost <= some - every and len(lb - every) >= shown
+        swapped = len(new) >= len(lost) and all(any(_parent(n) == _parent(x) for n in new) for x in lost)
+        if varied or swapped:
+            lost = set()
+    lost = sorted(lost)
     if lost:
         return "links", "links missing: " + ", ".join(lost[:5])
     if len(a.forms) != len(b.forms):
@@ -300,7 +325,7 @@ class Run:
             diff, detail = compare(direct, via, self.hosts)
             if diff in ("text", "links"):
                 again = self._again(pq, direct)
-                if again is not None and compare(direct, _as_via(again), self.hosts)[0]:
+                if again and compare(direct, _as_via(again[0]), self.hosts)[0]:
                     # the site answers differently each time (random products):
                     # only what it varies by itself is excused
                     diff, detail = compare(direct, via, self.hosts, again)
@@ -318,17 +343,23 @@ class Run:
                                 dict(jar.cookies))
         return rendered
 
-    def _again(self, pq, direct):
-        """The site's second answer to the same request, or None when it is
-        not the same kind of answer (an error, a redirect to the login, a
-        rate limit): then nothing is excused."""
-        try:
-            again = self.f.get(pq)
-        except (ReachError, OSError, ValueError):
-            return None
-        if again.status != direct.status or again.content_type != direct.content_type:
-            return None
-        return again
+    def _again(self, pq, direct) -> list:
+        """More answers of the site to the same request (AGAIN of them), or
+        [] when one is not the same kind of answer (an error, a redirect to
+        the login, a rate limit): then nothing is excused. The first is
+        fetched alone: a site that answers the same twice needs no more."""
+        out = []
+        for n in range(AGAIN):
+            try:
+                again = self.f.get(pq)
+            except (ReachError, OSError, ValueError):
+                return []
+            if again.status != direct.status or again.content_type != direct.content_type:
+                return []
+            out.append(again)
+            if n == 0 and not compare(direct, _as_via(again), self.hosts)[0]:
+                return out  # the site does not vary: one load says so
+        return out
 
     # --- 2. attacks are refused ----------------------------------------------
     def _tried(self, m, target: str, send, base: str = "") -> None:

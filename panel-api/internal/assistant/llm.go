@@ -50,10 +50,12 @@ type Tool struct {
 	Schema      map[string]any
 }
 
-// Reply is the model's answer: text, or calls to make first.
+// Reply is the model's answer: text, or calls to make first. Cut: the
+// provider stopped it at its length limit.
 type Reply struct {
 	Text  string
 	Calls []Call
+	Cut   bool
 }
 
 // Model answers a conversation.

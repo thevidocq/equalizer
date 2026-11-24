@@ -64,6 +64,60 @@ it, 0.1.0 (`docs/releases/0.1.0.md`, tag on the merge of #39).
 
 ## Entries
 
+### 2026-11-24 — Every supported CMS in the source reader, map downloads, steadier verification and assistant (work in progress)
+
+- **Branch:** fix/stabilize-0.2.31
+- **What:**
+  - Source reader, applications as kinds (`extract/stacks.go`,
+    `cms_*.go`): WordPress, Drupal 8+ and 7, Joomla, Magento 2, PrestaShop,
+    OpenCart, TYPO3, MediaWiki, phpBB, Moodle. Each: markers (root or one
+    folder; `web`, `public`… are the web root), its core (only version
+    files read, the rest counted in `files.known`), the owner of a file
+    (`where.owner`), the routes its files declare (routing files,
+    components, controllers, web services, eID, special pages, AJAX
+    services; `route.query` holds the query that selects one), direct
+    files by each CMS's guard; Moodle `PARAM_*` and Joomla `getInt`… type
+    inputs. `vendor/` never copied or walked; copy limits (150 000 files,
+    1 GB) apart from study limits (20 000, 200 MB). Calibrated on the real
+    trees of all nine (shallow clones, extensions planted from their core),
+    `cms_test.go` per application.
+  - Review findings of #114: local path quoted in the install command,
+    `/` and system folders refused; readers from before 0.2.30 read
+    `/site`; `acts()` handles heredoc/nowdoc, `#[...]` attributes, closures
+    (not a scope), `Foo::class`/`->class`, request reads in double-quoted
+    strings; `library()` no longer takes `libraries/` (CodeIgniter's
+    code); verification progress erased on a stale failure; agent number
+    settings that are not numbers fall back to their default (logged);
+    the browser's progress line throttled.
+  - Agent verification: a page that varies by itself is loaded four times;
+    links are excused when the gateway shows as many varying links as the
+    site, or a stand-in in the same folder (WooCommerce's random related
+    products no longer break a page nor send it back to the area).
+  - Assistant: `narrow_field` proposals (route query key or form field,
+    free text only, to int, date, email, enum, bool, digits, slug, key or
+    shorter text; Equalizer's own anchored patterns); the prompt lists the
+    four things it can propose and forbids offering anything else;
+    answers cut by the provider (`stop_reason max_tokens`, `finish_reason
+    length`) are continued twice, else marked; `max_tokens` 4096.
+  - Map download menu (`shared/ui/Menu`, `DownloadMenu`): YAML, JSON,
+    OpenAPI 3, ModSecurity/Coraza (`GET
+    /apps/{app}/maps/{version}/export`, `internal/mapexport`). The rules
+    were loaded and run in Coraza 3.3.3 against the example map.
+  - Discovery report: the four figures above "Check on the site";
+    "From the source code" groups by the reader's owner and writes the
+    query of each entry point.
+  - Docs: tenant manual (source reader per CMS, assistant, download), agent,
+    architecture, map format, source-reader README; in-app help synced.
+- **Why:** the user asked for the CMS routes and the download menu, the
+  review of #114 found these bugs, and the attached assistant chat showed
+  an overpromise, a cut answer and a WooCommerce page reported broken.
+- **Status:** all Go and agent tests pass; panel-ui only syntax-checked
+  locally (npm blocked), CI runs tsc and vitest. A bug hunt on 0.2.27-0.2.30
+  is running; version, release notes and efficacy study not done yet.
+- **Next steps:** fix what the bug hunt finds; bump to 0.2.31 with release
+  notes; efficacy study; independent review; PR; screenshots of the
+  download menu and the report.
+
 ### 2026-11-24 — Cleaner discovery, honest source report, progress everywhere; 0.2.30
 
 - **Branch:** feat/cleaner-discovery

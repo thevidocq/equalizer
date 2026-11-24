@@ -13,3 +13,4 @@ export { BrandBanner } from "./BrandBanner";
 export { Spinner } from "./Spinner";
 export { Disclosure } from "./Disclosure";
 export { IntegrationCard, type IntegrationState } from "./IntegrationCard";
+export { Menu, type MenuItem } from "./Menu";

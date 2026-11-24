@@ -1571,6 +1571,50 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/apps/{app}/maps/{version}/export": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The version written for another tool: an OpenAPI 3 description of what the map accepts, or ModSecurity rules (ModSecurity v3 and Coraza) that refuse what the map does not hold. Neither rebuilds requests as the gateway does; the comments of each say what it keeps and what it loses. YAML and JSON are the document itself (GET /apps/{app}/maps/{version}) */
+        get: {
+            parameters: {
+                query: {
+                    format: "openapi" | "modsecurity";
+                };
+                header?: never;
+                path: {
+                    app: components["parameters"]["app"];
+                    version: components["parameters"]["version"];
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description The file, with its name in Content-Disposition */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": Record<string, never>;
+                        "text/plain": string;
+                    };
+                };
+                404: components["responses"]["Error"];
+                422: components["responses"]["Error"];
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/apps/{app}/maps/{version}/review": {
         parameters: {
             query?: never;
@@ -5450,20 +5494,29 @@ export interface components {
             status?: "used" | "failed" | "late";
             error?: string | null;
             stack?: string;
-            /** @description Code files read */
+            /** @description Code files studied */
             files?: number;
+            /** @description Files of the application's core and of libraries: known code, only their versions read */
+            known?: number;
             /** @description Entry points found in the code */
             routes?: number;
             /** @description Entry points in the code the exploration never opened: the site area serves them as they are, the map does not narrow them yet */
             unseen?: {
                 path: string;
-                /** @enum {unknown} */
-                origin: "rest_route" | "wp_ajax" | "wp_ajax_nopriv" | "admin_post" | "php_file";
+                /** @description rest_route, wp_ajax, wp_ajax_nopriv, admin_post, php_file, drupal_route, joomla_component, joomla_api, magento_route, magento_webapi, prestashop_controller, opencart_route, typo3_eid, typo3_backend, mediawiki_special, mediawiki_api, mediawiki_rest, phpbb_route, moodle_service */
+                origin: string;
                 action?: string | null;
-                /** @description Answers without a login */
+                /** @description The query values that select it in its script (option=com_x, route=x, action=x) */
+                query?: {
+                    [key: string]: string;
+                } | null;
+                methods?: string[];
+                /** @description Answers without a login, as the code says */
                 public?: boolean;
                 /** @description file:line */
                 where?: string;
+                /** @description The extension of the file: plugin x, module x, extension x */
+                owner?: string | null;
             }[];
             /** @description All of them, when the list holds only the first 200 */
             unseen_total?: number;
@@ -5477,6 +5530,7 @@ export interface components {
                 type: string;
                 /** @description file:line */
                 where?: string;
+                owner?: string | null;
             }[];
             /** @description Calls where a request value may do harm; the map narrows what reaches them */
             risks?: {
@@ -5486,6 +5540,7 @@ export interface components {
                 route?: string | null;
                 /** @description file:line */
                 where: string;
+                owner?: string | null;
             }[];
             components?: {
                 name?: string;

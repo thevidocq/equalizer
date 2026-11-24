@@ -114,7 +114,7 @@ func (s *Store) RunningVerification(ctx context.Context, id int64) (Verification
 func (s *Store) ClaimVerification(ctx context.Context) (Verification, error) {
 	if _, err := s.DB.ExecContext(ctx, `
 		UPDATE map_verifications SET status = 'failed', error = 'the agent stopped answering', finished_at = now(),
-			accounts_secret = NULL
+			accounts_secret = NULL, progress = NULL
 		WHERE status = 'running' AND started_at < now() - interval '1 hour'`); err != nil {
 		return Verification{}, err
 	}

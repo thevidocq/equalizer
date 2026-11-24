@@ -42,16 +42,24 @@ var (
 	safeShare = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9 ._$-]{0,79}$`)
 )
 
+// LegacySite is where readers installed before 0.2.30 mount the site.
+var LegacySite = "/site"
+
 // Fetch returns the folder to read and a function that cleans up after.
 func Fetch(ctx context.Context, s Spec, e Env) (string, func(), error) {
 	nothing := func() {}
 	switch s.Method {
 	case "local":
 		dir := filepath.Join(e.Site, filepath.Clean("/"+s.Path))
-		if st, err := os.Stat(dir); err != nil || !st.IsDir() {
-			return "", nothing, fmt.Errorf("the folder %s is not mounted in the reader", s.Path)
+		if isDir(dir) {
+			return dir, nothing, nil
 		}
-		return dir, nothing, nil
+		// A reader installed before 0.2.30 has no EQ_SOURCE_SITE and mounts
+		// the site's folder itself at /site, not at its own path.
+		if e.Site == LegacySite && isDir(e.Site) {
+			return e.Site, nothing, nil
+		}
+		return "", nothing, fmt.Errorf("the folder %s is not mounted in the reader", s.Path)
 	case "sftp", "smb":
 		if !safe.MatchString(s.Host) || s.Username != "" && !safe.MatchString(s.Username) {
 			return "", nothing, errors.New("host or username with characters a host or user name does not have")
@@ -112,7 +120,7 @@ func RsyncArgs(s Spec, e Env, dir string) []string {
 	for ext := range codeExt {
 		args = append(args, "--include=*"+ext)
 	}
-	for n := range codeNames {
+	for _, n := range codeNames {
 		args = append(args, "--include="+n)
 	}
 	args = append(args, "--exclude=*")
@@ -169,6 +177,9 @@ func smb(ctx context.Context, s Spec, e Env, dir string) error {
 	return Prune(files)
 }
 
+// the copy's limits, lowered by tests
+var copyFiles, copyBytes int64 = MaxCopyFiles, MaxCopyBytes
+
 // guarded runs a copy and stops it once the folder holds more than the
 // read's limits: a huge site never fills the reader's disk.
 func guarded(ctx context.Context, dir string, copy func(context.Context) error) error {
@@ -190,7 +201,7 @@ func guarded(ctx context.Context, dir string, copy func(context.Context) error) 
 					}
 					return nil
 				})
-				if n > MaxFiles || bytes > MaxBytes {
+				if n > copyFiles || bytes > copyBytes {
 					over <- true
 					cancel()
 					return
@@ -201,7 +212,7 @@ func guarded(ctx context.Context, dir string, copy func(context.Context) error) 
 	err := copy(ctx)
 	select {
 	case <-over:
-		return fmt.Errorf("the site has more than %d code files or %d MB of them: the read stopped", MaxFiles, MaxBytes>>20)
+		return fmt.Errorf("the site has more than %d code files or %d MB of them: the read stopped", MaxCopyFiles, MaxCopyBytes>>20)
 	default:
 		return err
 	}
@@ -243,7 +254,7 @@ func SMBWanted(listing, folder string) []string {
 		if strings.HasPrefix(rel, "/") || rel == ".." || strings.HasPrefix(rel, "../") || strings.Contains(rel, "/../") || m[1] == ".." {
 			continue // a listing that points out of the folder
 		}
-		if Wanted(rel, size) && len(out) < MaxFiles && total+size <= MaxBytes {
+		if Wanted(rel, size) && len(out) < MaxCopyFiles && total+size <= MaxCopyBytes {
 			out = append(out, rel)
 			total += size
 		}
@@ -294,4 +305,9 @@ func output(ctx context.Context, name string, args []string, secrets []string) (
 		msg = msg[len(msg)-400:]
 	}
 	return "", fmt.Errorf("%s failed: %v: %s", name, err, msg)
+}
+
+func isDir(p string) bool {
+	st, err := os.Stat(p)
+	return err == nil && st.IsDir()
 }

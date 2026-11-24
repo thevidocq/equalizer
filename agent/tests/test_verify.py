@@ -92,14 +92,40 @@ class CompareTest(unittest.TestCase):
         kept = load(b"z").body
         self.assertEqual(verify.compare(first, via(kept), (), again), ("", ""))
 
+    def test_random_related_products(self):
+        """WooCommerce shows four related products at random out of a few:
+        two loads share some by chance, the gateway's load shows others."""
+        import random
+        rnd = random.Random(7)
+        names = [b"hoodie", b"polo", b"beanie", b"belt", b"cap", b"tshirt", b"sunglasses", b"album"]
+        main = b"<h1>T-shirt with logo</h1><p>" + b" ".join(b"desc%d" % i for i in range(120)) + b"</p><a href='/cart'>Cart</a>"
+
+        def load():
+            rel = b"".join(b"<li><a href='/product/%s/'>%s</a> <span>%d.00</span> <a href='/?add-to-cart=%s'>Add to cart</a></li>"
+                           % (n, n, 10 + i * 3, n) for i, n in enumerate(rnd.sample(names, 4)))
+            return Response(200, {"content-type": "text/html"}, main + b"<ul>" + rel + b"</ul>", "http://legacy:8080/product/t-shirt-with-logo/")
+        broken = 0
+        for _ in range(40):
+            first, through = load(), load()
+            diff = verify.compare(first, via(through.body), (), [load() for _ in range(verify.AGAIN)])[0]
+            broken += 1 if diff else 0
+        self.assertEqual(broken, 0)
+        # a related block that went missing is not another random one
+        gone = load().body.split(b"<ul>")[0]
+        self.assertNotEqual(verify.compare(load(), via(gone), (), [load() for _ in range(verify.AGAIN)])[0], "")
+        # what the site always shows is still checked
+        lost = load().body.replace(b"<a href='/cart'>Cart</a>", b"")
+        self.assertEqual(verify.compare(load(), via(lost), (), [load() for _ in range(verify.AGAIN)])[0], "links")
+
     def test_a_second_answer_that_is_an_error_excuses_nothing(self):
         first = Response(200, {"content-type": "text/html"}, b"<a href='/a'>A</a>", "http://legacy:8080/x")
         run = verify.Run.__new__(verify.Run)
         for status in (429, 503, 302, 500):
             run.f = type("F", (), {"get": lambda self, pq, s=status: Response(s, {"content-type": "text/html"}, b"", "http://legacy:8080/x")})()
-            self.assertIsNone(run._again("/x", first), status)
+            self.assertEqual(run._again("/x", first), [], status)
+        run.hosts = ()
         run.f = type("F", (), {"get": lambda self, pq: first})()
-        self.assertIs(run._again("/x", first), first)
+        self.assertEqual(run._again("/x", first), [first], "the same answer: one load is enough")
 
     def test_long_numbers_are_not_attacks_on_text(self):
         from equalizer_agent import attacks

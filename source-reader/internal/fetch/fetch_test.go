@@ -77,6 +77,11 @@ func TestLocalAndPrune(t *testing.T) {
 	if _, _, err := Fetch(context.Background(), Spec{Method: "local", Path: "/missing"}, Env{Site: site}); err == nil {
 		t.Error("a missing folder")
 	}
+	LegacySite = filepath.Join(site, "www")
+	defer func() { LegacySite = "/site" }()
+	if d, _, err := Fetch(context.Background(), Spec{Method: "local", Path: "/var/www/html"}, Env{Site: LegacySite}); err != nil || d != LegacySite {
+		t.Errorf("a reader installed before 0.2.30 reads its /site: %s %v", d, err)
+	}
 	if err := Prune(dir); err != nil {
 		t.Fatal(err)
 	}
@@ -165,8 +170,10 @@ func TestSMBWantedStaysInside(t *testing.T) {
 
 func TestGuarded(t *testing.T) {
 	dir := t.TempDir()
+	copyFiles = 500
+	defer func() { copyFiles = MaxCopyFiles }()
 	err := guarded(context.Background(), dir, func(ctx context.Context) error {
-		for i := 0; i <= MaxFiles; i++ {
+		for i := 0; i <= 600; i++ {
 			if ctx.Err() != nil {
 				return ctx.Err()
 			}

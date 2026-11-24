@@ -95,7 +95,7 @@ func (r *Rewriter) Public(u *url.URL) (string, bool) {
 		if strings.HasPrefix(path, prefix) && len(path) > len(prefix) {
 			// Assets have the same public and legacy path.
 			out := (&url.URL{Path: path, RawQuery: u.RawQuery, Fragment: u.Fragment}).String()
-			return out, true
+			return r.keepEscaping(out, u), true
 		}
 	}
 	segs := split(path)
@@ -109,16 +109,48 @@ func (r *Rewriter) Public(u *url.URL) (string, bool) {
 			if u.Fragment != "" {
 				out += "#" + u.Fragment
 			}
-			return out, true
+			return r.keepEscaping(out, u), true
 		}
 	}
 	for _, prefix := range r.areas {
 		if strings.HasPrefix(path, prefix) || path+"/" == prefix {
 			// Areas are served as they are: the same path, the same query.
-			return (&url.URL{Path: path, RawQuery: u.RawQuery, Fragment: u.Fragment}).String(), true
+			return r.keepEscaping((&url.URL{Path: path, RawQuery: u.RawQuery, Fragment: u.Fragment}).String(), u), true
 		}
 	}
 	return "", false
+}
+
+// keepEscaping writes out's path as the page wrote it when it is the same
+// path: Go escapes %ce%b5 as %CE%B5, the same address for a browser but not
+// the same text, and the page must stay the site's own (the check compares
+// links too). A path the map changed keeps Go's escaping.
+func (r *Rewriter) keepEscaping(out string, u *url.URL) string {
+	end := strings.IndexAny(out, "?#")
+	if end < 0 {
+		end = len(out)
+	}
+	raw, decoded := u.EscapedPath(), u.Path
+	if r.basePath != "" {
+		prefix := (&url.URL{Path: r.basePath}).EscapedPath()
+		if !strings.HasPrefix(raw, prefix) {
+			return sameHost(out)
+		}
+		raw, decoded = strings.TrimPrefix(raw, prefix), strings.TrimPrefix(decoded, r.basePath)
+	}
+	if p, err := url.PathUnescape(out[:end]); err == nil && p == decoded && raw != out[:end] && raw != "" {
+		return sameHost(raw + out[end:])
+	}
+	return sameHost(out)
+}
+
+// sameHost keeps a path from reading as another host: "//evil.test/x" is
+// a protocol-relative URL for a browser, "/.//evil.test/x" the same path.
+func sameHost(out string) string {
+	if strings.HasPrefix(out, "//") || strings.HasPrefix(out, "/\\") {
+		return "/." + out
+	}
+	return out
 }
 
 // Fallback returns the relative path of an unmapped internal URL: the
@@ -134,7 +166,7 @@ func (r *Rewriter) Fallback(u *url.URL) string {
 	if u.Fragment != "" {
 		out += "#" + u.Fragment
 	}
-	return out
+	return sameHost(out)
 }
 
 func (p pattern) apply(segs []string, q url.Values) (string, bool) {

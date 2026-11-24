@@ -36,10 +36,12 @@ class _Page(HTMLParser):
         self.words, self.links, self.forms, self._skip, self._form = [], set(), [], 0, None
 
     def _path(self, href: str) -> str:
+        """The path a link leads to, decoded: %ce%b5 and %CE%B5 are the same
+        address for a browser and for the site."""
         u = urllib.parse.urlsplit(href)
         if u.netloc:  # the legacy host or the public one: the path is what counts
-            return u.path or "/"
-        return urllib.parse.urlsplit(urllib.parse.urljoin(self.base, href)).path or "/"
+            return urllib.parse.unquote(u.path or "/", errors="surrogateescape")
+        return urllib.parse.unquote(urllib.parse.urlsplit(urllib.parse.urljoin(self.base, href)).path or "/", errors="surrogateescape")
 
     def handle_starttag(self, tag, attrs):
         a = dict(attrs)

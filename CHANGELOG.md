@@ -19,7 +19,8 @@ Add a section at the top of "Entries" for every commit:
 
 ## Current project status
 
-Latest release: **0.2.24** (`docs/releases/0.2.24.md`); before it 0.2.23
+Latest release: **0.2.25** (`docs/releases/0.2.25.md`); before it 0.2.24
+(`docs/releases/0.2.24.md`), 0.2.23
 (`docs/releases/0.2.23.md`), 0.2.22
 (`docs/releases/0.2.22.md`), 0.2.21
 (`docs/releases/0.2.21.md`), 0.2.20
@@ -56,6 +57,28 @@ it, 0.1.0 (`docs/releases/0.1.0.md`, tag on the merge of #39).
 | tools (eqtool) | Map signing keys, form key, relay token, connector registration, map signing |
 
 ## Entries
+
+### 2026-11-24 — Keep links' escaping; compare decoded links; 0.2.25
+
+- **Branch:** fix/link-escaping
+- **What:** `gateway/internal/legacyurl/rewriter.go` keeps the page's own
+  percent-escaping when a rewritten URL's path is unchanged
+  (`keepEscaping`, test `TestKeepsTheSitesEscaping`);
+  `agent/equalizer_agent/verify.py` compares link paths decoded (test
+  `test_escaping_case_is_the_same_link`). Docs: `docs/agent.md`,
+  `docs/map-format.md`, `docs/releases/0.2.25.md`; version bumped. Also,
+  after review: escaping kept under a base path; a path starting with
+  `//` comes out as `/.//…` (never another host, pages and redirects);
+  `schemeLoop` compares decoded paths.
+- **Why:** on wp.thevidocq.com the check flagged 272 of 300 pages as
+  "links missing": the WordPress theme test data's Greek tag
+  (`/tag/greek/%ce%b5…`, in every page's tag cloud) came out of the
+  gateway as `%CE%B5…`, the same address but different text.
+- **Status:** gateway, agent tests pass; efficacy study rerun (see
+  `docs/efficacy.md`).
+- **Next steps:** rerun discovery on wp.thevidocq.com and read the real
+  broken pages; logs on narrow screens (path on a second row); "Show this
+  IP only" for an IPv6 /64.
 
 ### 2026-11-23 — Show what the discovery is doing; fix the schedule's hour; release 0.2.24
 

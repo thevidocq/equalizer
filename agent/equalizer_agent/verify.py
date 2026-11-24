@@ -25,6 +25,8 @@ from .gateway import Gateway, Jar, TryError
 WORDS = {"accepts_sql": "SQL", "accepts_markup": "HTML", "accepts_template": "template code", "accepts_path": "paths",
          "accepts_shell": "shell characters", "other": "out-of-type values"}
 TEXT_SIMILAR = 0.97  # dates, counters and tokens differ between two loads
+SELF_FLOOR = 0.8  # two loads less alike than this are not the same page
+LINKS_VARYING = 0.3  # at most this share of the links may change by itself
 
 
 class _Page(HTMLParser):
@@ -109,6 +111,33 @@ def _unslashed(links: set) -> set:
     return {p.rstrip("/") or "/" for p in links}
 
 
+def _stable(a, c) -> tuple:
+    """What the site does not vary between two loads a and c: (its words,
+    the links it shows or hides), or (None, set()) when the two loads are
+    too far apart to be the same page (a login wall, a challenge)."""
+    if _ratio(a.words, c.words) < SELF_FLOOR:
+        return None, set()
+    m = difflib.SequenceMatcher(None, a.words, c.words, autojunk=False)
+    words = [w for blk in m.get_matching_blocks() for w in a.words[blk.a:blk.a + blk.size]]
+    la, lc = _unslashed(a.links), _unslashed(c.links)
+    varying = la ^ lc
+    if len(varying) > LINKS_VARYING * max(len(la | lc), 1):
+        varying = set()  # most links change: nothing to tell noise from a fault
+    return words, varying
+
+
+def _kept(stable: list, words: list) -> float:
+    """Share of the site's stable words the gateway's page still has, in order."""
+    if not stable:
+        return 1.0
+    m = difflib.SequenceMatcher(None, stable, words, autojunk=False)
+    return sum(blk.size for blk in m.get_matching_blocks()) / len(stable)
+
+
+def _ratio(a: list, b: list) -> float:
+    return difflib.SequenceMatcher(None, a, b, autojunk=False).ratio() if a or b else 1
+
+
 def _slash_redirect(direct) -> bool:
     """The site's answer only sends to the same path with or without its
     final slash."""
@@ -119,9 +148,13 @@ def _slash_redirect(direct) -> bool:
     return there != here and there.rstrip("/") == here.rstrip("/")
 
 
-def compare(direct, via, hosts: tuple = ()) -> tuple:
+def compare(direct, via, hosts: tuple = (), again=None) -> tuple:
     """(difference, detail) between the legacy answer and the gateway's, or
-    ("", "") when they are the same for a visitor."""
+    ("", "") when they are the same for a visitor. again, a second answer of
+    the site to the same request, excuses what the site varies by itself:
+    the gateway may differ from the first answer as much as the site
+    differs from itself in text, and lose only links the site itself
+    shows or hides from one load to the next."""
     if via.get("refusal"):
         return "refused", via["refusal"].get("reason", "")
     resp = via.get("response") or {}
@@ -139,10 +172,15 @@ def compare(direct, via, hosts: tuple = ()) -> tuple:
     a = _page(direct.body, direct.headers.get("content-type", ""), base)
     b = _page(resp.get("body") or b"", (resp.get("headers") or {}).get("Content-Type", ""), base)
     a.words, b.words = _same_site(a.words, hosts), _same_site(b.words, hosts)
-    ratio = difflib.SequenceMatcher(None, a.words, b.words, autojunk=False).ratio() if a.words or b.words else 1
-    if ratio < TEXT_SIMILAR:
+    stable, varying = None, set()
+    if again is not None:
+        c = _page(again.body, again.headers.get("content-type", ""), base)
+        c.words = _same_site(c.words, hosts)
+        stable, varying = _stable(a, c)
+    ratio = _ratio(a.words, b.words)
+    if ratio < TEXT_SIMILAR and (stable is None or _kept(stable, b.words) < TEXT_SIMILAR):
         return "text", "%d%% of the visible text is the same%s" % (int(ratio * 100), _words_apart(a.words, b.words))
-    lost = sorted(_unslashed(a.links) - _unslashed(b.links))
+    lost = sorted(_unslashed(a.links) - _unslashed(b.links) - varying)
     if lost:
         return "links", "links missing: " + ", ".join(lost[:5])
     if len(a.forms) != len(b.forms):
@@ -157,6 +195,7 @@ class Measure:
     open: list = field(default_factory=list)
     refused_fields: dict = field(default_factory=dict)  # entry -> field the gateway refused on a studied page
     identical: int = 0
+    changing: int = 0  # identical once what the site varies by itself is set aside
     compared: int = 0
     area: int = 0
     inputs: int = 0
@@ -170,7 +209,8 @@ class Measure:
     def score(self) -> dict:
         return {"functions_total": self.compared, "functions_identical": self.identical,
                 "inputs_total": self.inputs, "inputs_protected": self.protected,
-                "area_percent": round(100.0 * self.area / self.compared, 1) if self.compared else 0}
+                "area_percent": round(100.0 * self.area / self.compared, 1) if self.compared else 0,
+                "functions_changing": self.changing}
 
 
 def _words_apart(a: list, b: list) -> str:
@@ -240,6 +280,13 @@ class Run:
             m.compared += 1
             m.area += 1 if via.get("area") else 0
             diff, detail = compare(direct, via, self.hosts)
+            if diff in ("text", "links"):
+                again = self._again(pq, direct)
+                if again is not None and compare(direct, _as_via(again), self.hosts)[0]:
+                    # the site answers differently each time (random products):
+                    # only what it varies by itself is excused
+                    diff, detail = compare(direct, via, self.hosts, again)
+                    m.changing += 0 if diff else 1
             if diff:
                 m.broken.append({"path": pq, "entry": via.get("entry"), "difference": diff, "detail": detail[:300]})
                 field_ = ((via.get("refusal") or {}).get("field"))
@@ -253,13 +300,26 @@ class Run:
                                 dict(jar.cookies))
         return rendered
 
+    def _again(self, pq, direct):
+        """The site's second answer to the same request, or None when it is
+        not the same kind of answer (an error, a redirect to the login, a
+        rate limit): then nothing is excused."""
+        try:
+            again = self.f.get(pq)
+        except (ReachError, OSError, ValueError):
+            return None
+        if again.status != direct.status or again.content_type != direct.content_type:
+            return None
+        return again
+
     # --- 2. attacks are refused ----------------------------------------------
-    def _tried(self, m, target: str, send) -> None:
-        """Sends every attack with send(value) -> verdict; counts the input."""
+    def _tried(self, m, target: str, send, base: str = "") -> None:
+        """Sends every attack on an input of that base type with
+        send(value) -> verdict; counts the input."""
         if target in m.tried:
             return  # already tried in another session
         let_through = []
-        for reason, value in attacks.values():
+        for reason, value in attacks.values(base):
             try:
                 if send(value).get("accepted"):
                     let_through.append(reason)
@@ -291,7 +351,7 @@ class Run:
 
                 def send(v, name=name, base=base, path=path):
                     return gw.dry_run("GET", path + "?" + urllib.parse.urlencode(dict(base, **{name: v})), jar.header())
-                self._tried(m, r["id"] + "." + name, send)
+                self._tried(m, r["id"] + "." + name, send, _base(doc, spec))
             segs = path.split("/")
             for i, pat in enumerate(r.get("path", "").split("/")):
                 if pat.startswith("{") and i < len(segs):
@@ -299,7 +359,8 @@ class Run:
                         s = list(segs)
                         s[i] = urllib.parse.quote(v, safe="")
                         return gw.dry_run("GET", "/".join(s) + ("?" + q if q else ""), jar.header())
-                    self._tried(m, r["id"] + "." + pat.strip("{}"), send)
+                    self._tried(m, r["id"] + "." + pat.strip("{}"), send,
+                                _base(doc, (r.get("params") or {}).get(pat.strip("{}"), {})))
 
     def _forms(self, gw, doc, m, rendered):
         for fm in doc.get("forms", []):
@@ -335,7 +396,23 @@ class Run:
                     m.refused_fields.setdefault(fm["id"], set()).add(ref.get("field") or "")
                 continue
             for name in fields:
-                self._tried(m, fm["id"] + "." + name, lambda v, name=name, good=good: send(dict(good, **{name: v})))
+                self._tried(m, fm["id"] + "." + name, lambda v, name=name, good=good: send(dict(good, **{name: v})),
+                            _base(doc, fields[name]))
+
+
+def _base(doc: dict, spec: dict) -> str:
+    """The base type of a field: its own, or that of the type it names."""
+    t = spec.get("type", "string")
+    return ((doc.get("types") or {}).get(t) or {}).get("base", t)
+
+
+def _as_via(r) -> dict:
+    """A direct answer shaped like the gateway's preview, to compare the site
+    with itself."""
+    h = {"Content-Type": r.headers.get("content-type", "")}
+    if r.location:
+        h["Location"] = r.location
+    return {"accepted": True, "refusal": None, "response": {"status": r.status, "headers": h, "body": r.body}}
 
 
 def _action_path(page_pq: str, action: str) -> str:

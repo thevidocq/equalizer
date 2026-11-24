@@ -672,9 +672,12 @@ Moodle, or a generic site): the first draft starts from a template with the
 for its pages, assets and forms. The page slugs refuse the admin names
 (`deny`), so `/wp-admin/` goes to the area instead of `/{slug}/`.
 
-The precise entries of templates are loose on purpose: slugs take any
-letter of any language, searches up to 200 characters, plain strings up to
-1000; they still refuse markup and template sequences. The largest upload
+The precise entries of templates are loose on purpose where they must be:
+searches up to 200 characters, plain strings up to 1000, which still refuse
+markup and template sequences. Slugs are not: letters and digits of any
+language, combining marks, `-` and `_`, with `no_lookalikes`; never quotes,
+spaces, dots or slashes (MediaWiki titles also take `( ) , : !`). A page
+whose address has other characters is served by the area. The largest upload
 is a parameter of the template (**Max upload (MB)**, default 50, at most
 1024): it sets `max_body_kb` of the areas and the size of files served from
 upload folders.
@@ -711,6 +714,11 @@ case): `slug: { base: string, pattern: "^[a-z0-9-]+$", deny: [wp-admin, admin] }
 | `no_html` | `<`, `>`, numeric entities `&#` |
 | `no_sql_meta` | `--`, `/*`, `*/`, `;`, `\`, `"`, `` ` ``, NUL; the apostrophe is allowed only between two letters (`O'Brien`) |
 | `no_template_meta` | `<?`, `?>`, `<%`, `%>`, `${`, `#{`, `{{`, `}}` |
+| `no_lookalikes` | characters that look like ASCII or fold to it under NFKC on a legacy stack: modifier letters (`ʼ`, `ⁱ`), fullwidth and halfwidth forms (`ａｄｍｉｎ`), mathematical and letterlike letters (`𝐚𝐝𝐦𝐢𝐧`, `ℌ`), ligatures (`ﬁ`, `ĳ`), `ſ`, enclosed alphanumerics (`⒈`), invisible Hangul fillers, variation selectors, the combining grapheme joiner and solidus overlays. Combining accents stay (`admiń` is a word): a `*_unicode_ci` collation may still match it to `admin` |
+
+A type can list `rules` too: every field of the type keeps them, and a
+field can add its own but never remove the type's. An unknown rule in a
+type makes the map impossible to load, even if no field uses the type.
 
 An unknown rule makes the map impossible to load. Undeclared query
 parameters are dropped (their names with the route's pattern, never their

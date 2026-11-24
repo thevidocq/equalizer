@@ -211,6 +211,11 @@ func rule(spec map[string]any, named map[string]map[string]any) string {
 				f[k] = v
 			}
 		}
+		for _, k := range []string{"rules", "deny"} { // these add up, as in the gateway
+			if _, own := spec[k]; own {
+				f[k] = append(append([]any{}, list(d[k])...), list(spec[k])...)
+			}
+		}
 	}
 	var parts []string
 	switch base {

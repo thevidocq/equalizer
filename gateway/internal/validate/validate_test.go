@@ -152,3 +152,38 @@ func TestDeny(t *testing.T) {
 		t.Error("a field's own deny list is ignored")
 	}
 }
+
+// The slug type the agent writes (agent/equalizer_agent/slugs.py): any
+// alphabet, never quotes, spaces or ASCII look-alikes.
+func TestUnicodeSlug(t *testing.T) {
+	v := New(map[string]mapmodel.TypeDef{"slug": {Base: "string",
+		Pattern: `^[\p{L}\p{Nd}][\p{L}\p{Nd}\p{Mn}\p{Mc}_-]{0,199}$`,
+		Rules:   []string{"no_lookalikes"}, Deny: []string{"admin"}}},
+		mapmodel.StringDefaults{MaxLength: 200})
+	if err := v.Check(map[string]mapmodel.FieldSpec{"slug": {Type: "slug"}}); err != nil {
+		t.Fatal(err)
+	}
+	spec := mapmodel.FieldSpec{Type: "slug"}
+	for _, ok := range []string{"επίπεδο-ένα", "ação", "中文", "தமிழ்", "hello-world_2", "コーヒー", "人々"} {
+		if _, _, err := v.Value("slug", spec, ok, true); err != nil {
+			t.Errorf("%q refused: %v", ok, err)
+		}
+	}
+	for _, bad := range []string{"1'OR'1'='1", "a b", "../etc", "<x>", "-x", "a;ls", "ａｄｍｉｎ", "abcʼd", "⒈x", "abc\n", "admin",
+		"𝐚𝐝𝐦𝐢𝐧", "ﬁle", "ſetup", "ᅟadmin", "ℌx", "aⁱb"} {
+		if _, _, err := v.Value("slug", spec, bad, true); err == nil {
+			t.Errorf("%q accepted", bad)
+		}
+	}
+	// a field adds rules to its type's, never drops them
+	if _, _, err := v.Value("slug", mapmodel.FieldSpec{Type: "slug", Rules: []string{"no_html"}}, "ａｂ", true); err == nil {
+		t.Error("the type's rule was dropped")
+	}
+}
+
+func TestUnknownTypeRule(t *testing.T) {
+	v := New(map[string]mapmodel.TypeDef{"slug": {Base: "string", Rules: []string{"no_such_rule"}}}, mapmodel.StringDefaults{MaxLength: 10})
+	if err := v.Check(nil); err == nil {
+		t.Error("an unknown type rule was accepted")
+	}
+}

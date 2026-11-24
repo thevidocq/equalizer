@@ -47,7 +47,10 @@ func TestTemplatesAreValidMaps(t *testing.T) {
 func TestSlugsAreNotFiles(t *testing.T) {
 	for _, tp := range List() {
 		var m struct {
-			Types map[string]struct{ Pattern string } `json:"types"`
+			Types map[string]struct {
+				Pattern string
+				Rules   []string
+			} `json:"types"`
 		}
 		doc, _ := Render(tp.ID, Fill{BaseURL: "https://x.example", Connector: "cn-1", Address: "127.0.0.1:80"})
 		_ = json.Unmarshal(doc, &m)
@@ -55,8 +58,12 @@ func TestSlugsAreNotFiles(t *testing.T) {
 		if !ok {
 			continue
 		}
+		if len(p.Rules) == 0 || p.Rules[0] != "no_lookalikes" {
+			t.Errorf("%s: slug without no_lookalikes", tp.ID)
+		}
 		re := regexp.MustCompile(p.Pattern)
-		for s, want := range map[string]bool{"chi-siamo": true, "città-nuova": true, "wp-login.php": false, "robots.txt": false, "a/b": false} {
+		for s, want := range map[string]bool{"chi-siamo": true, "città-nuova": true, "επίπεδο": true, "wp-login.php": false,
+			"robots.txt": false, "a/b": false, "1 OR 1=1": false, "a;id": false, "$(id)": false, "x'y": false, "a%27b": false} {
 			if re.MatchString(s) != want {
 				t.Errorf("%s: slug %q: %v", tp.ID, s, !want)
 			}

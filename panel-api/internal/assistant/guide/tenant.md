@@ -318,7 +318,9 @@ What you see, in **Check on the site** on each version:
 - **pages identical through Equalizer** (for example 34 / 34): the site
   works as before. Fewer means a page breaks; **Broken by this version**
   says which and how (a different answer, missing text, links or forms,
-  refused).
+  refused). A page the site itself changes on every load (a shop's random
+  related products) is compared on what the site does not vary: the hint
+  under the figure says how many there are.
 - **inputs that refuse every attack** (for example 0 / 2): the
   parameters and fields where every attack is stopped. The others are
   under **Still open**, each with its reason; usually a value that falls

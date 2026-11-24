@@ -4755,6 +4755,8 @@ export interface components {
             inputs_protected: number;
             /** @description Share of the studied requests that only the generic area serves */
             area_percent: number;
+            /** @description Of the identical ones, those the site itself answers differently each time (random products): compared on what the site does not vary */
+            functions_changing?: number;
         };
         StudyFunction: {
             /** @description What the pages do, e.g. Article search */

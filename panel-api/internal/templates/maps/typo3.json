@@ -38,7 +38,8 @@
  "types": {
   "slug": {
    "base": "string",
-   "pattern": "^[^/.<>{}\"'\\\\\\x00-\\x1f\\x7f]{1,200}$",
+   "pattern": "^[\\p{L}\\p{Nd}][\\p{L}\\p{Nd}\\p{Mn}\\p{Mc}_-]{0,199}$",
+   "rules": ["no_lookalikes"],
    "deny": [
     "_assets",
     "admin",

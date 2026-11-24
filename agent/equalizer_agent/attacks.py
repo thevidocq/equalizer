@@ -3,20 +3,28 @@ gateway only (dry-run: nothing reaches the legacy site). An input protects
 the site when the gateway refuses every value; the categories it lets
 through become its "still open" reason (docs/agent.md, step 5)."""
 
+OVERFLOW = "9" * 40  # past every integer column
+
 SET = {
     "accepts_sql": ["' OR '1'='1", "1; DROP TABLE users--", "\" OR 1=1 -- ", "1 UNION SELECT NULL--"],
     "accepts_markup": ["<script>alert(1)</script>", "\"><img src=x onerror=alert(1)>", "javascript:alert(1)"],
     "accepts_template": ["{{7*7}}", "${7*7}", "<?php system('id'); ?>"],
     "accepts_path": ["../../../../etc/passwd", "..\\..\\windows\\win.ini", "a\x00b"],
     "accepts_shell": ["; cat /etc/passwd", "| id", "$(id)", "`id`"],
-    "other": ["9" * 40, "A" * 5000, "x\r\nX-Injected: 1"],
+    "other": [OVERFLOW, "A" * 5000, "x\r\nX-Injected: 1"],
 }
 
+# Text types: a long number is a valid text (a slug may be all digits), not
+# an attack on them; it stays an attack on numbers, dates, enums.
+TEXT_BASES = ("string", "text", "password")
 
-def values():
-    """(reason, value) for every attack."""
+
+def values(base: str = ""):
+    """(reason, value) for every attack on an input of that base type."""
     for reason, vals in SET.items():
         for v in vals:
+            if v == OVERFLOW and base in TEXT_BASES:
+                continue
             yield reason, v
 
 

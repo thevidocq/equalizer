@@ -491,6 +491,7 @@ paths:
             schema:
               type: object
               properties:
+                name: { type: string, minLength: 1, maxLength: 200, description: "The name the site is shown with; its address, domain and map stay the same" }
                 discovery_schedule: { enum: [off, daily, weekly] }
                 discovery_hour: { type: integer, minimum: 0, maximum: 23, description: "Hour of the day of continuous discovery, in the time zone of the person who sets it (with discovery_schedule)" }
                 discovery_weekday: { type: integer, minimum: 0, maximum: 6, description: "Day of weekly discovery: 0 Sunday … 6 Saturday (with discovery_schedule)" }

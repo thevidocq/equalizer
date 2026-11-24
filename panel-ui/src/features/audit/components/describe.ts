@@ -32,6 +32,7 @@ const actions: Record<string, Say> = {
   "tenant.reinvite": (t) => `invited again the administrator of ${t}`,
   "app.create": (t) => `added the site ${t}`,
   "app.legacy_ip": (t) => `changed the address of the legacy server of ${t}`,
+  "app.rename": (t, d) => `renamed ${t} from "${String(d.from ?? "")}" to "${String(d.to ?? "")}"`,
   "app.aliases": (t) => `changed the other names of ${t}`,
   "app.certificate": (t) => `uploaded a certificate for ${t}`,
   "app.certificate_removed": (t) => `removed the certificate of ${t}`,

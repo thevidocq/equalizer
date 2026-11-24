@@ -33,8 +33,11 @@ var sanitizers = []struct {
 }
 
 var (
-	anyKey  = regexp.MustCompile(key)
-	inArray = regexp.MustCompile(`(?i)in_array\s*\(\s*(?:\w+\s*\(\s*)*` + key + `\s*\)*\s*,\s*(?:array\s*\(|\[)([^)\]]{0,1000})`)
+	anyKey = regexp.MustCompile(key)
+	// the whole list on the line, closed, of quoted values only
+	inArray = regexp.MustCompile(`(?i)(!\s*)?in_array\s*\(\s*(?:\w+\s*\(\s*)*` + key + `\s*\)*\s*,\s*(?:array\s*\(|\[)((?:\s*['"][A-Za-z0-9_\-.]{1,100}['"]\s*,?)+)\s*[)\]]`)
+	// a list that refuses its values: the code accepts everything else
+	refusal = regexp.MustCompile(`(?i)\b(die|exit|wp_die|throw|return|header|wp_redirect|wp_send_json_error)\b`)
 	quoted  = regexp.MustCompile(`['"]([A-Za-z0-9_\-.]{1,100})['"]`)
 	inQuery = regexp.MustCompile(`\$_(GET|POST|REQUEST)\s*\[`)
 )
@@ -72,13 +75,18 @@ func (s *Summary) phpFile(rel, src, route string) {
 			}
 		}
 		for _, m := range inArray.FindAllStringSubmatch(line, -1) {
+			if m[1] == "" && refusal.MatchString(line) {
+				// in_array(x, list) then die: a list the code refuses, not the
+				// values it accepts (!in_array … return is the list it accepts)
+				continue
+			}
 			var values []string
-			for _, q := range quoted.FindAllStringSubmatch(m[3], 50) {
+			for _, q := range quoted.FindAllStringSubmatch(m[4], 50) {
 				values = append(values, q[1])
 			}
 			if len(values) > 0 {
-				s.addInput(seen, Input{Name: m[2], Source: sourceOf(m[1]), Type: "enum", Values: values, Route: route, Where: at})
-				typed[m[2]] = true
+				s.addInput(seen, Input{Name: m[3], Source: sourceOf(m[2]), Type: "enum", Values: values, Route: route, Where: at})
+				typed[m[3]] = true
 			}
 		}
 		for _, m := range anyKey.FindAllStringSubmatch(line, -1) {

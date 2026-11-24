@@ -149,6 +149,14 @@ func TestSourceReader(t *testing.T) {
 		t.Fatalf("refused summary: %+v", v.LastRead)
 	}
 
+	// A long error in another alphabet, with a NUL, is stored cut between characters.
+	boss.must(202, "POST", "/v1/apps/blog/source/reads", nil, nil)
+	readerCall(t, e, tok.Token, "/v1/source/claim", nil, &job)
+	if c := readerCall(t, e, tok.Token, "/v1/source/reads/"+itoa(job.ID)+"/result",
+		map[string]any{"error": strings.Repeat("ошибка\x00", 200)}, nil); c != 204 {
+		t.Fatalf("long error: %d", c)
+	}
+
 	// Another site's reader cannot touch this site's reads.
 	var other struct{ Token string }
 	boss.must(201, "POST", "/v1/apps/shop/source/token", nil, &other)

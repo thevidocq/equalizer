@@ -4,6 +4,7 @@ import (
 	"context"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"testing"
 )
@@ -151,5 +152,30 @@ func TestSecrets(t *testing.T) {
 		if SecretContent(src) {
 			t.Errorf("code without a password dropped: %s", src)
 		}
+	}
+}
+
+func TestSMBWantedStaysInside(t *testing.T) {
+	listing := "\\Blog\\..\\..\\etc\r\n  passwd.php                          A      200  Mon Nov 24 10:00:00 2026\r\n" +
+		"  ..                                  A      200  Mon Nov 24 10:00:00 2026\r\n"
+	if got := SMBWanted(listing, "/blog"); len(got) != 0 {
+		t.Fatalf("%v", got)
+	}
+}
+
+func TestGuarded(t *testing.T) {
+	dir := t.TempDir()
+	err := guarded(context.Background(), dir, func(ctx context.Context) error {
+		for i := 0; i <= MaxFiles; i++ {
+			if ctx.Err() != nil {
+				return ctx.Err()
+			}
+			_ = os.WriteFile(filepath.Join(dir, strconv.Itoa(i)+".php"), nil, 0o600)
+		}
+		<-ctx.Done()
+		return ctx.Err()
+	})
+	if err == nil || !strings.Contains(err.Error(), "read stopped") {
+		t.Fatalf("%v", err)
 	}
 }

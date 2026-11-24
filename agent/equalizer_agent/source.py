@@ -9,7 +9,9 @@ values. The discovery uses it for:
   name the code always reads as an integer, an e-mail or one of a few
   values (in_array), gets that type instead. A key read raw anywhere, or
   with two different types, is left as it is: the code accepts anything
-  there. The values seen on the site must fit, or nothing changes. Only
+  there. The values seen on the site must fit, or nothing changes; a list
+  of values needs values seen on the site, so a form field gets a number
+  or an email only. Only
   entries the agent writes are touched; a person's never are.
 - the report: entry points the exploration never opened (REST routes,
   AJAX actions, PHP files that run when opened), the calls where a request
@@ -110,8 +112,10 @@ def apply(report: dict, doc: dict, job: dict, samples: dict, opened: set) -> Non
             t = code_type(legacy, "query", lr.get("path"))
             if q is None or t is None or not _narrowable(q):
                 continue
+            seen = samples.get((e["id"], m.group(1)), [])
             new = _spec(t[0], t[1])
-            if new is None or not _fits(t[0], t[1], samples.get((e["id"], m.group(1)), [])):
+            # a list of values only on the evidence of the site's own links
+            if new is None or (t[0] == "enum" and not seen) or not _fits(t[0], t[1], seen):
                 continue
             new.update({k: q[k] for k in ("required",) if k in q})
             e["query"][m.group(1)] = new
@@ -125,7 +129,9 @@ def apply(report: dict, doc: dict, job: dict, samples: dict, opened: set) -> Non
             m = re.fullmatch(r"\{\{fields\.([A-Za-z0-9_]+)\}\}", str(tmpl))
             spec = (f.get("fields") or {}).get(m.group(1)) if m else None
             t = code_type(legacy, "body", lr.get("path"))
-            if spec is None or t is None or not _narrowable(spec):
+            # no value of a form is ever seen (the agent submits none): a
+            # number or an email only, never a list
+            if spec is None or t is None or t[0] == "enum" or not _narrowable(spec):
                 continue
             new = _spec(t[0], t[1])
             if new is None:

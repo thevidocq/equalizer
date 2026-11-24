@@ -65,6 +65,7 @@ func Read(root string, now time.Time) (*Summary, error) {
 	if s.Stack == "unknown" && s.sawPHP {
 		s.Stack = "php"
 	}
+	s.fit()
 	s.sort()
 	return s, nil
 }
@@ -132,4 +133,43 @@ func (s *Summary) sort() {
 		return a.Where.File < b.Where.File || a.Where.File == b.Where.File && a.Where.Line < b.Where.Line
 	})
 	sort.SliceStable(s.Components, func(i, j int) bool { return s.Components[i].Name < s.Components[j].Name })
+}
+
+// fit keeps what the schema can hold: an entry whose path, name or place
+// is longer than its field is left out, a long version is dropped. One odd
+// file never fails the whole read.
+func (s *Summary) fit() {
+	short := func(v string, n int) bool { return len(v) <= n }
+	routes := s.Routes[:0]
+	for _, r := range s.Routes {
+		if short(r.Path, 300) && short(r.Action, 100) && short(r.Where.File, 300) {
+			routes = append(routes, r)
+		}
+	}
+	s.Routes = routes
+	inputs := s.Inputs[:0]
+	for _, in := range s.Inputs {
+		if short(in.Name, 100) && short(in.Route, 300) && short(in.Where.File, 300) {
+			inputs = append(inputs, in)
+		}
+	}
+	s.Inputs = inputs
+	risks := s.Risks[:0]
+	for _, r := range s.Risks {
+		if short(r.Input, 100) && short(r.Route, 300) && short(r.Where.File, 300) {
+			risks = append(risks, r)
+		}
+	}
+	s.Risks = risks
+	comps := s.Components[:0]
+	for _, c := range s.Components {
+		if !short(c.Name, 120) {
+			continue
+		}
+		if c.Version != nil && !short(*c.Version, 40) {
+			c.Version = nil
+		}
+		comps = append(comps, c)
+	}
+	s.Components = comps
 }

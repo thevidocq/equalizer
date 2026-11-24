@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
+	"unicode/utf8"
 
 	"github.com/thevidocq/equalizer/panel-api/internal/sourceschema"
 	"github.com/thevidocq/equalizer/panel-api/internal/store"
@@ -128,10 +129,7 @@ func (s *Server) sourceResult(w http.ResponseWriter, r *http.Request) {
 	var failure *string
 	switch {
 	case in.Error != nil:
-		msg := *in.Error
-		if len(msg) > 1000 {
-			msg = msg[:1000]
-		}
+		msg := clip(*in.Error)
 		failure = &msg
 	case len(in.Summary) == 0 || string(in.Summary) == "null":
 		fail(w, http.StatusUnprocessableEntity, "invalid", "a summary or an error")
@@ -139,10 +137,7 @@ func (s *Server) sourceResult(w http.ResponseWriter, r *http.Request) {
 	default:
 		if err := sourceschema.Validate(in.Summary); err != nil {
 			// The summary is refused, never stored: the read fails.
-			msg := "the summary does not follow its schema: " + err.Error()
-			if len(msg) > 1000 {
-				msg = msg[:1000]
-			}
+			msg := clip("the summary does not follow its schema: " + err.Error())
 			failure = &msg
 			s.Log.WarnContext(r.Context(), "source summary refused", slog.Int64("read", id))
 		}
@@ -189,4 +184,18 @@ func readView(read store.SourceRead) *sourceReadView {
 			Components: len(sum.Components), Stack: sum.Stack}
 	}
 	return v
+}
+
+// clip makes a reader's error storable: valid UTF-8, no NUL, 1000 bytes at
+// most, cut between characters.
+func clip(msg string) string {
+	msg = strings.ToValidUTF8(strings.ReplaceAll(msg, "\x00", ""), "?")
+	if len(msg) <= 1000 {
+		return msg
+	}
+	cut := 1000
+	for cut > 0 && !utf8.RuneStart(msg[cut]) {
+		cut--
+	}
+	return msg[:cut]
 }

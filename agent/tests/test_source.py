@@ -77,6 +77,16 @@ class SourceTest(unittest.TestCase):
         q = doc["routes"][0]["query"]
         self.assertEqual((q["id"]["type"], q["order"]["type"]), ("string", "string"))
 
+    def test_lists_need_values_seen(self):
+        s = summary()
+        s["inputs"].append({"name": "q", "source": "body", "type": "enum", "values": ["a", "b"],
+                            "where": {"file": "c.php", "line": 1}})
+        s["inputs"] = [i for i in s["inputs"] if not (i["name"] == "q" and i["type"] == "text")]
+        doc = draft()
+        source.apply({"open": []}, doc, {"source_status": "used", "source": s}, {}, set())
+        self.assertEqual(doc["routes"][0]["query"]["order"]["type"], "string", "no value seen")
+        self.assertEqual(doc["forms"][0]["fields"]["q"]["type"], "string", "a form field never becomes a list")
+
     def test_failed_or_late(self):
         doc, report = draft(), {}
         before = copy.deepcopy(doc)

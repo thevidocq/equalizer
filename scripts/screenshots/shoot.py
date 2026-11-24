@@ -51,6 +51,7 @@ failed = []
 
 def shoot(page, base, out, shots):
     for name, path, wait, action in shots:
+        page.set_viewport_size(SIZE)
         page.goto(base + path)
         try:
             page.get_by_text(wait).first.wait_for(timeout=15000)
@@ -64,7 +65,13 @@ def shoot(page, base, out, shots):
             except Exception as e:
                 print("warning: rename:", e)
         page.wait_for_timeout(600)  # fonts and the last request
-        page.screenshot(path=os.path.join(out, name + ".png"), full_page=True)
+        if not action:
+            # the window as tall as the page (at most 2400 px), so that the
+            # sidebar runs down the whole picture
+            height = page.evaluate("document.documentElement.scrollHeight")
+            page.set_viewport_size({"width": SIZE["width"], "height": max(SIZE["height"], min(height, 2400))})
+            page.wait_for_timeout(300)
+        page.screenshot(path=os.path.join(out, name + ".png"))
         print("took", name)
 
 

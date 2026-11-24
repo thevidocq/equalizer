@@ -206,7 +206,7 @@ func (p *Public) schemeLoop(w http.ResponseWriter, r *http.Request, st *site.Sit
 	}
 	t, err := url.Parse(target)
 	if err != nil || (t.Host != "" && !strings.EqualFold(t.Host, r.Host)) ||
-		t.EscapedPath() != r.URL.EscapedPath() || t.RawQuery != r.URL.RawQuery {
+		t.Path != r.URL.Path || t.RawQuery != r.URL.RawQuery {
 		return false
 	}
 	ev := p.event(r, st, "legacy.error", "scheme_mismatch", http.StatusBadGateway, telemetry.Ptr(routeID))

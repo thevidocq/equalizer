@@ -115,6 +115,9 @@ Faithful rendering rewrites every internal URL found in a page (`href`,
    counts as an unmapped URL.
 
 The legacy host never appears in the page. External URLs stay unchanged.
+A URL whose path stays the same keeps the page's own escaping (WordPress
+writes `%ce%b5`, not `%CE%B5`), so the page is byte for byte the site's. A path that starts with `//` is
+written `/.//…`, so it can never read as another host.
 Text the pipeline does not parse as links (inline scripts and styles, JSON,
 JavaScript, CSS, XML feeds) gets the same treatment for absolute addresses:
 the legacy origin, in either scheme and also with JSON's escaped slashes

@@ -280,7 +280,9 @@ For every page and every script request seen in step 1:
 1. the agent opens it directly through the connector, as in step 1;
 2. it asks the gateway to serve it with the **draft** map (preview, below);
 3. it compares the two: status, visible text, links and forms (after the
-   address rewrite), and a screenshot of both in the browser.
+   address rewrite), and a screenshot of both in the browser. Links are
+   compared by the address they lead to, decoded: `%ce%b5` and `%CE%B5`
+   are the same link.
 
 Forms are never submitted. For each form the agent builds the request the
 browser would send with the values it saw and asks the gateway, in dry-run,

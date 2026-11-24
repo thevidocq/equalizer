@@ -101,3 +101,57 @@ func TestTypesAndTrailingSlash(t *testing.T) {
 		}
 	}
 }
+
+// A page's own escaping stays: WordPress writes %ce%b5, Go would write
+// %CE%B5 (the same address, but not the page the site sent).
+func TestKeepsTheSitesEscaping(t *testing.T) {
+	base, _ := url.Parse("http://10.0.0.1:8080/")
+	m := &mapmodel.Model{
+		Routes: []mapmodel.Route{{ID: "tag", Path: "/tag/{slug}/", Params: map[string]mapmodel.FieldSpec{"slug": {Type: "string"}},
+			LegacyRequest: mapmodel.LegacyRequest{Method: "GET", Path: "/tag/{{params.slug}}/"}}},
+		Assets: []mapmodel.Asset{{Prefix: "/wp-content/uploads/", Types: []string{"image/jpeg"}}},
+		Areas:  []mapmodel.Area{{Prefix: "/"}},
+	}
+	r, err := New(base, m)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, c := range []string{
+		"/tag/%ce%b5%cf%80%ce%af/",             // a route
+		"/wp-content/uploads/%ce%b5%cf%80.jpg", // a file
+		"/category/%ce%b5%cf%80/?paged=2#top",  // the area
+		"/tag/%CE%B5%CF%80%CE%AF/",             // already upper case: unchanged too
+	} {
+		u, _ := url.Parse("http://10.0.0.1:8080" + c)
+		if got, ok := r.Public(u); !ok || got != c {
+			t.Errorf("%s → %q, %v", c, got, ok)
+		}
+	}
+}
+
+func TestEscapingUnderABasePathAndOtherHosts(t *testing.T) {
+	base, _ := url.Parse("http://10.0.0.1:8080/blog/")
+	m := &mapmodel.Model{
+		Assets: []mapmodel.Asset{{Prefix: "/wp-content/", Types: []string{"image/jpeg"}}},
+		Areas:  []mapmodel.Area{{Prefix: "/"}},
+	}
+	r, err := New(base, m)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for in, want := range map[string]string{
+		"/blog/tag/%ce%b5/":           "/tag/%ce%b5/",
+		"/blog/wp-content/%ce%b5.jpg": "/wp-content/%ce%b5.jpg",
+		"/blog//evil.test/x":          "/.//evil.test/x", // never another host
+		"/blog/%2Fevil.test":          "/%2Fevil.test",
+	} {
+		u, _ := url.Parse("http://10.0.0.1:8080" + in)
+		if got, ok := r.Public(u); !ok || got != want {
+			t.Errorf("%s → %q, %v; want %q", in, got, ok, want)
+		}
+	}
+	u, _ := url.Parse("http://10.0.0.1:8080//evil.test/x")
+	if got := r.Fallback(u); got != "/.//evil.test/x" {
+		t.Errorf("fallback %q", got)
+	}
+}

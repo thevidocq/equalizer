@@ -28,7 +28,7 @@ class FakeLLM:
         self.answer, self.seen = answer, ""
 
     def complete(self, system, user):
-        self.seen = user
+        self.seen += user  # every call: the review and the study
         return self.answer
 
 
@@ -110,6 +110,7 @@ class DiscoveryTest(unittest.TestCase):
         self.assertIn("wp-admin", doc["types"]["slug"]["deny"])
         self.assertGreater(rep["coverage"], 90)
         self.assertFalse(rep["ai"]["used"])
+        self.assertEqual(rep["security"], {"used": False, "reason": "no AI model configured for this tenant"})
         os.makedirs("/tmp/eq-agent-test", exist_ok=True)
         with open("/tmp/eq-agent-test/map.json", "w") as f:
             json.dump(doc, f)
@@ -138,7 +139,10 @@ class DiscoveryTest(unittest.TestCase):
         self.assertNotIn("risk", front)  # maps have no risk field: an AI sending one changes nothing
         self.assertTrue(rep["ai"]["used"])
         self.assertNotIn("/wp-admin/", {r["path"] for r in doc["routes"]})
-        self.assertNotIn("tester", llm.seen)  # no account, no values in clear
+        self.assertTrue(rep["security"]["used"])  # the study ran last, on everything found
+        self.assertEqual(rep["security"]["findings"], [])  # an answer without findings adds none
+        self.assertGreater(rep["security"]["surface"]["pages"], 0)
+        self.assertNotIn("tester", llm.seen)  # no account, no values in clear (review and study)
         self.assertNotIn("Permits", llm.seen)
 
     def test_known_cms_still_gets_its_version(self):

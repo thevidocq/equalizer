@@ -55,7 +55,7 @@ func Tools() []Tool {
 	return append([]Tool{
 		{Name: "get_map", Description: "The site's map: its routes with the checks on each value, forms, file folders and areas. Without version: the published map.",
 			Schema: obj(map[string]any{"version": map[string]any{"type": "integer", "description": "a map version; omit for the published one"}})},
-		{Name: "get_report", Description: "The latest discovery's report: pages found, coverage, what is still open and why, what was kept out, what was added from visitors' requests.",
+		{Name: "get_report", Description: "The latest discovery's report: pages found, coverage, what is still open and why, what was kept out, what was added from visitors' requests, and the AI's security study of the site (security: summary, findings ranked with what to do, first steps).",
 			Schema: obj(map[string]any{})},
 		{Name: "search_logs", Description: "The site's security events (requests served and refused, rejected fields, rate limits, legacy errors): totals by type, reason, entry and path, distinct visitors, and the latest matching events. Visitors appear as codes (V-…).",
 			Schema: obj(map[string]any{
@@ -242,6 +242,10 @@ func compactReport(raw json.RawMessage) string {
 			lists = append(lists, fmt.Sprintf("%s (%d): %s%s", k, len(v), clip(string(b), 3000), more))
 		case map[string]any:
 			b, _ := json.Marshal(v)
+			if k == "security" { // the AI's study: its findings are what a person asks about
+				objects = append([]string{k + ": " + clip(string(b), 14000)}, objects...)
+				continue
+			}
 			objects = append(objects, k+": "+clip(string(b), 2000))
 		default:
 			b, _ := json.Marshal(v)

@@ -2809,6 +2809,68 @@ components:
         entry: { type: [string, "null"] }
         difference: { enum: [status, text, links, forms, picture, refused] }
         detail: { type: string }
+    SecurityStudy:
+      type: object
+      description: >-
+        The AI's security study of the site, the discovery's last step: it reads everything the discovery found (the map
+        drafted with each field's type, the components and versions, what stayed open, visitors' requests, and the
+        source code's entry points and risky calls when the code was read), as a security engineer and a developer
+        would, and writes what an attacker would try, how far the map stops it, and what to do, ranked. It sees names,
+        types and places only; every finding cites items it was given, and it changes nothing in the draft
+      required: [used]
+      properties:
+        used: { type: boolean }
+        reason: { type: string, description: "Why it did not run: no AI configured, the AI was off" }
+        error: { type: string }
+        summary: { type: string, maxLength: 1200 }
+        partial: { type: boolean, description: "A part of the study got no answer from the AI" }
+        parts: { type: integer, description: "Calls on the evidence, before the conclusion" }
+        surface:
+          type: object
+          description: The attack surface, counted by the agent
+          properties:
+            pages: { type: integer }
+            forms: { type: integer }
+            api: { type: integer }
+            uploads: { type: integer, description: "File fields of the forms" }
+            free_text_fields: { type: integer }
+            areas: { type: array, items: { type: string } }
+            code_entries: { type: integer, description: "Entry points found in the code and never opened" }
+            code_entries_public: { type: integer }
+            risky_calls: { type: integer }
+        counts:
+          type: object
+          properties:
+            critical: { type: integer }
+            high: { type: integer }
+            medium: { type: integer }
+            low: { type: integer }
+        steps: { type: array, maxItems: 8, items: { type: string, maxLength: 200 } }
+        findings:
+          type: array
+          maxItems: 60
+          items:
+            type: object
+            required: [severity, category, title, refs, coverage, action]
+            properties:
+              severity: { enum: [critical, high, medium, low] }
+              category: { enum: [injection, access_control, authentication, exposure, file_upload, component, csrf, information_leak, business_logic, configuration] }
+              title: { type: string, maxLength: 120 }
+              refs:
+                type: array
+                description: "What it is about: entries, code places, components, as the report names them"
+                items:
+                  type: object
+                  required: [id, label]
+                  properties:
+                    id: { type: string, description: "E an entry, R a risky call, C a component, O still open, I an IDOR protection, V a visitors' request, X a page kept out" }
+                    label: { type: string }
+              why: { type: string, maxLength: 600 }
+              attack: { type: string, maxLength: 400 }
+              coverage: { enum: [blocked, partial, open], description: "What the map stops once published" }
+              coverage_why: { type: string, maxLength: 300 }
+              action: { enum: [narrow_field, exclude_entry, add_role, owner_check, update_component, review_code, close_area, none] }
+              action_detail: { type: string, maxLength: 300 }
     StudyReport:
       type: object
       additionalProperties: true
@@ -2827,6 +2889,7 @@ components:
           additionalProperties: { type: array, maxItems: 150, items: { type: string } }
           description: HTML pages studied with each test account and not anonymously
         source: { $ref: "#/components/schemas/StudySource" }
+        security: { $ref: "#/components/schemas/SecurityStudy" }
     StudySource:
       type: object
       description: >-

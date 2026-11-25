@@ -5463,6 +5463,63 @@ export interface components {
             difference: "status" | "text" | "links" | "forms" | "picture" | "refused";
             detail?: string;
         };
+        /** @description The AI's security study of the site, the discovery's last step: it reads everything the discovery found (the map drafted with each field's type, the components and versions, what stayed open, visitors' requests, and the source code's entry points and risky calls when the code was read), as a security engineer and a developer would, and writes what an attacker would try, how far the map stops it, and what to do, ranked. It sees names, types and places only; every finding cites items it was given, and it changes nothing in the draft */
+        SecurityStudy: {
+            used: boolean;
+            /** @description Why it did not run: no AI configured, the AI was off */
+            reason?: string;
+            error?: string;
+            summary?: string;
+            /** @description A part of the study got no answer from the AI */
+            partial?: boolean;
+            /** @description Calls on the evidence, before the conclusion */
+            parts?: number;
+            /** @description The attack surface, counted by the agent */
+            surface?: {
+                pages?: number;
+                forms?: number;
+                api?: number;
+                /** @description File fields of the forms */
+                uploads?: number;
+                free_text_fields?: number;
+                areas?: string[];
+                /** @description Entry points found in the code and never opened */
+                code_entries?: number;
+                code_entries_public?: number;
+                risky_calls?: number;
+            };
+            counts?: {
+                critical?: number;
+                high?: number;
+                medium?: number;
+                low?: number;
+            };
+            steps?: string[];
+            findings?: {
+                /** @enum {unknown} */
+                severity: "critical" | "high" | "medium" | "low";
+                /** @enum {unknown} */
+                category: "injection" | "access_control" | "authentication" | "exposure" | "file_upload" | "component" | "csrf" | "information_leak" | "business_logic" | "configuration";
+                title: string;
+                /** @description What it is about: entries, code places, components, as the report names them */
+                refs: {
+                    /** @description E an entry, R a risky call, C a component, O still open, I an IDOR protection, V a visitors' request, X a page kept out */
+                    id: string;
+                    label: string;
+                }[];
+                why?: string;
+                attack?: string;
+                /**
+                 * @description What the map stops once published
+                 * @enum {unknown}
+                 */
+                coverage: "blocked" | "partial" | "open";
+                coverage_why?: string;
+                /** @enum {unknown} */
+                action: "narrow_field" | "exclude_entry" | "add_role" | "owner_check" | "update_component" | "review_code" | "close_area" | "none";
+                action_detail?: string;
+            }[];
+        };
         /** @description Report of a discovery. Reports written before the study have only the older keys (cms, coverage, routes found and excluded, components with known issues, notes) */
         StudyReport: {
             score?: components["schemas"]["StudyScore"];
@@ -5482,6 +5539,7 @@ export interface components {
                 [key: string]: string[];
             };
             source?: components["schemas"]["StudySource"];
+            security?: components["schemas"]["SecurityStudy"];
         } & {
             [key: string]: unknown;
         };

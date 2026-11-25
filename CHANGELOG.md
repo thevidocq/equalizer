@@ -65,6 +65,36 @@ it, 0.1.0 (`docs/releases/0.1.0.md`, tag on the merge of #39).
 
 ## Entries
 
+### 2026-11-25 — The AI's security study, the discovery's conclusion
+
+- **Branch:** feat/ai-study
+- **What:** `agent/equalizer_agent/llm/study.py`, run last in
+  `discovery.run` (after the source code and visitors' requests):
+  - the evidence by id: map entries with each field's type in words, areas,
+    entry points only in the code with whether the map serves them
+    precisely or through an area, risky calls, components and versions
+    (with known issues), still open, IDOR proposals, visitors' requests,
+    pages kept out; never a value (an enum is how many values it has);
+  - up to 6 parts (map and state, then code by extension) and a
+    conclusion call (summary, order, duplicates, first steps); the system
+    prompt explains Equalizer's protection so coverage is judged right;
+  - every finding checked: fixed severity, category, coverage and action
+    lists, at least one id it was given, texts cut; the surface counted by
+    the agent; a part without answer marks the study partial.
+  - Contract `SecurityStudy` in `StudyReport.security`; panel-ui
+    `SecurityStudy.tsx` right under the draft notice (dot and word per
+    severity, findings closed by default); the assistant's `get_report`
+    puts the study first (14 000 characters).
+  - Tests `test_security_study.py`, the discovery test with an AI; docs:
+    tenant manual, agent.md, in-app help.
+- **Why:** the user wants the discovery to end with an expert study of the
+  legacy site, surface and code together, that a person would need weeks
+  for.
+- **Status:** agent tests pass; panel-ui syntax-checked only; two bug hunts
+  on the source reader are running.
+- **Next steps:** fix what the bug hunts find; version 0.2.32; efficacy;
+  review; PR.
+
 ### 2026-11-24 — Clean up between the Menu's tests
 
 - **Branch:** fix/stabilize-0.2.31

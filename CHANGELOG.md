@@ -19,7 +19,8 @@ Add a section at the top of "Entries" for every commit:
 
 ## Current project status
 
-Latest release: **0.2.31** (`docs/releases/0.2.31.md`); before it 0.2.30
+Latest release: **0.2.32** (`docs/releases/0.2.32.md`); before it 0.2.31
+(`docs/releases/0.2.31.md`), 0.2.30
 (`docs/releases/0.2.30.md`), 0.2.29
 (`docs/releases/0.2.29.md`), 0.2.28
 (`docs/releases/0.2.28.md`), 0.2.27
@@ -64,6 +65,33 @@ it, 0.1.0 (`docs/releases/0.1.0.md`, tag on the merge of #39).
 | tools (eqtool) | Map signing keys, form key, relay token, connector registration, map signing |
 
 ## Entries
+
+### 2026-11-25 — Source reader: SMB command injection, FIFOs, secret lists, taint and WordPress routes
+
+- **Branch:** feat/ai-study
+- **What:**
+  - `fetch.SMBWanted`: a folder whose name holds `"`, `;`, `\`, NUL or a
+    line break is left out: smbclient splits `-c` on `;` and `!` runs a
+    local shell, so a share folder `a;!cmd` ran `cmd` on the reader.
+  - `extract.Read`: regular files only (a FIFO blocked the read for good),
+    `readAtMost` stops at 1 MB if a file grew since it was listed.
+  - `addInput`: a key compared with a value that looks like a token (16+
+    characters, letters and digits) or, for a key named like a secret,
+    any value of 8+ characters, is sent as `unknown` without values.
+  - `wp_resolve.go`: REST namespaces and routes and AJAX hook names
+    resolved from the file's constants, properties and variables; unknown
+    parts as `{name}`; dynamic actions as `*`; methods of every endpoint
+    of a route. On WooCommerce and Contact Form 7: 341 REST routes (none
+    before), CF7's public feedback routes marked public.
+  - `php.go`: intra-file taint (`taint`, two passes) for risky calls
+    through variables; `filter_input` inputs; comment lines skipped; `exec`
+    only as a function; `->query( $args )` (WP_Query) is not SQL.
+  - Docs: tenant manual, release notes.
+- **Why:** the user asked for more bug-fix rounds on the reader; the two
+  review agents were stopped, so this round was done by hand on the real
+  plugins and the nine CMS trees.
+- **Status:** reader tests pass, examples unchanged and valid.
+- **Next steps:** version 0.2.32 with the security study; review; PR.
 
 ### 2026-11-25 — The AI's security study, the discovery's conclusion
 

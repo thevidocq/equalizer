@@ -1031,6 +1031,23 @@ Moodle sub-plugins inside a plugin Moodle ships, and OpenCart 3's own
 extensions, are read as the site's (OpenCart 3 keeps them in the same
 folders as the added ones).
 
+In WordPress code, a REST namespace or an AJAX action kept in a constant,
+a property or a variable of the same file (`self::route_namespace`,
+`$this->namespace . '/' . $this->rest_base`) is resolved; a part the file
+does not fix shows as `{name}`, and an action built at run time
+(`'wp_ajax_' . $action` in a loop) as `action=*`, so the entry point is
+still listed with its file and line.
+
+A risky call counts when a request value reaches it on the same line, or
+through a variable of the same file set from one
+(`$id = $_GET['id'];` … `$wpdb->query( "… $id" )`), unless the value
+was made a number, a yes or no, a key or an escaped SQL value first
+(`absint`, `(int)`, `sanitize_key`, `esc_sql`…). Comment lines never
+count. `filter_input()` types a field by its filter. A key compared with a
+value that looks like a token or a password (a backdoor key written in the
+code) is never sent as a list of values: the value stays on your network.
+Only regular files are read: a symlink, a FIFO or a device never is.
+
 Elsewhere, a PHP file counts as an entry point only when it does
 something as soon as it is opened: outside its named functions and
 classes it reads the request (also inside a double-quoted string or a

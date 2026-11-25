@@ -2,6 +2,8 @@ package extract
 
 import (
 	"encoding/json"
+	"errors"
+	"io"
 	"io/fs"
 	"os"
 	"path"
@@ -39,7 +41,9 @@ func Read(root string, now time.Time) (*Summary, error) {
 			return nil
 		}
 		info, err := d.Info()
-		if err != nil || !fetch.Wanted(rel, info.Size()) {
+		// a regular file only: a FIFO named x.php would block the read for
+		// good, a device would never end
+		if err != nil || !info.Mode().IsRegular() || !fetch.Wanted(rel, info.Size()) {
 			s.Files.Skipped++
 			return nil
 		}
@@ -51,7 +55,7 @@ func Read(root string, now time.Time) (*Summary, error) {
 			s.Files.Truncated = true
 			return filepath.SkipAll
 		}
-		data, err := os.ReadFile(p)
+		data, err := readAtMost(p, fetch.MaxFileSize)
 		if err != nil {
 			s.Files.Skipped++
 			return nil
@@ -226,4 +230,19 @@ func (s *Summary) fit() {
 		comps = append(comps, c)
 	}
 	s.Components = comps
+}
+
+// readAtMost reads a file, or fails when it holds more than n bytes (it
+// grew since it was listed).
+func readAtMost(p string, n int64) ([]byte, error) {
+	f, err := os.Open(p)
+	if err != nil {
+		return nil, err
+	}
+	defer f.Close()
+	b, err := io.ReadAll(io.LimitReader(f, n+1))
+	if err == nil && int64(len(b)) > n {
+		err = errors.New("larger than the limit")
+	}
+	return b, err
 }

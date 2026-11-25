@@ -2,6 +2,7 @@ package extract
 
 import (
 	"regexp"
+	"sort"
 	"strings"
 )
 
@@ -53,7 +54,8 @@ var risky = []struct {
 	{"include", regexp.MustCompile(`(?i)\b(include|include_once|require|require_once)\b[\s(]*[^;]*\$_(GET|POST|REQUEST)`)},
 	// a backtick runs a command only around a request value: in a query it
 	// quotes a table or column name
-	{"exec", regexp.MustCompile("(?i)(\\b(exec|system|shell_exec|passthru|popen|proc_open|pcntl_exec)\\s*\\(|`[^`]*\\$_(GET|POST|REQUEST|COOKIE)[^`]*`)")},
+	// a PHP function, not a method ($pdo->exec(), $db::exec())
+	{"exec", regexp.MustCompile("(?i)((^|[^>:$\\w])(exec|system|shell_exec|passthru|popen|proc_open|pcntl_exec)\\s*\\(|`[^`]*\\$_(GET|POST|REQUEST|COOKIE)[^`]*`)")},
 	{"unserialize", regexp.MustCompile(`(?i)\b(unserialize|maybe_unserialize)\s*\(`)},
 	{"file_write", regexp.MustCompile(`(?i)\b(file_put_contents|fwrite|move_uploaded_file|copy)\s*\(`)},
 }
@@ -64,7 +66,7 @@ func (s *Summary) phpFile(rel, src, route string) {
 	lines := strings.Split(src, "\n")
 	seen := map[string]bool{}
 	for i, line := range lines {
-		if !inQuery.MatchString(line) && !strings.Contains(strings.ToLower(line), "eval") {
+		if !inQuery.MatchString(line) && !strings.Contains(strings.ToLower(line), "eval") || comment(line) {
 			continue
 		}
 		at := s.at(i + 1)
@@ -96,28 +98,118 @@ func (s *Summary) phpFile(rel, src, route string) {
 				s.addInput(seen, Input{Name: m[2], Source: sourceOf(m[1]), Type: "unknown", Route: route, Where: at})
 			}
 		}
-		for _, r := range risky {
-			if !r.re.MatchString(line) {
-				continue
-			}
-			input := ""
-			if m := anyKey.FindStringSubmatch(line); m != nil {
-				input = m[2]
-			}
-			if input == "" && r.kind != "eval" && !inQuery.MatchString(line) {
-				continue
-			}
-			if r.kind == "sql" && strings.Contains(strings.ToLower(line), "prepare(") {
-				continue // a prepared query: the value is bound, not written into it
-			}
-			if len(s.Risks) < maxRisks {
-				s.Risks = append(s.Risks, Risk{Kind: r.kind, Input: input, Route: route, Where: at})
-			}
+		s.risksOn(line, route, at, "")
+	}
+	// filter_input reads the request with its own filter
+	for i, line := range lines {
+		if comment(line) || !strings.Contains(line, "filter_input") {
+			continue
+		}
+		for _, m := range filterInput.FindAllStringSubmatch(line, -1) {
+			s.addInput(seen, Input{Name: m[2], Source: sourceOf(m[1]), Type: filterType(m[3]), Route: route, Where: s.at(i + 1)})
+		}
+	}
+	// a request value kept in a variable first, then used in a risky call
+	// further down the file: $id = $_GET['id']; … $wpdb->query("… $id")
+	tainted := taint(lines)
+	if len(tainted) == 0 {
+		return
+	}
+	names := make([]string, 0, len(tainted))
+	for v := range tainted {
+		names = append(names, regexp.QuoteMeta(v))
+	}
+	sort.Strings(names)
+	use := regexp.MustCompile(`\$(` + strings.Join(names, "|") + `)\b`)
+	for i, line := range lines {
+		if comment(line) || inQuery.MatchString(line) || strings.Contains(strings.ToLower(line), "eval") {
+			continue // seen above
+		}
+		if m := use.FindStringSubmatch(line); m != nil && !assigns(line, m[1]) {
+			s.risksOn(line, route, s.at(i+1), tainted[m[1]])
 		}
 	}
 }
 
+// risksOn adds the risky calls of one line. input: the request key a
+// variable on the line holds, "" when the line reads the request itself.
+func (s *Summary) risksOn(line, route string, at Where, input string) {
+	for _, r := range risky {
+		if !r.re.MatchString(line) {
+			continue
+		}
+		in := input
+		if m := anyKey.FindStringSubmatch(line); m != nil {
+			in = m[2]
+		}
+		if in == "" && r.kind != "eval" && !inQuery.MatchString(line) {
+			continue
+		}
+		if r.kind == "sql" && (strings.Contains(strings.ToLower(line), "prepare(") || queryArgs.MatchString(line)) {
+			continue // a prepared query, or WP_Query's array of arguments: no SQL written
+		}
+		if len(s.Risks) < maxRisks {
+			s.Risks = append(s.Risks, Risk{Kind: r.kind, Input: in, Route: route, Where: at})
+		}
+	}
+}
+
+var (
+	assignment = regexp.MustCompile(`^\s*\$([A-Za-z_]\w*)\s*=[^=>](.*)$`)
+	// what reads the request, besides $_GET and the like
+	otherRead = regexp.MustCompile(`(?:->\s*get_param\s*\(|\$request\s*\[|filter_input\s*\(\s*INPUT_(?:GET|POST|REQUEST|COOKIE)\s*,)\s*['"]([A-Za-z0-9_\-]{1,100})['"]`)
+	// what leaves nothing harmful: a number, a yes or no, a key, an escaped
+	// SQL value
+	safeCast = regexp.MustCompile(`(?i)\b(absint|intval|floatval|boolval|sanitize_key|esc_sql|wp_validate_boolean|rest_sanitize_boolean|count|is_numeric|isset|empty)\s*\(|\(\s*(int|integer|float|bool|boolean)\s*\)|FILTER_VALIDATE_(INT|BOOL|FLOAT)`)
+)
+
+// taint: the variables a file sets from a request value it did not make
+// safe (a number, a key), each with the key it holds; a variable set again
+// from one of them inherits its key.
+func taint(lines []string) map[string]string {
+	out := map[string]string{}
+	uses := map[string]*regexp.Regexp{}
+	for pass := 0; pass < 2; pass++ {
+		for _, line := range lines {
+			m := assignment.FindStringSubmatch(line)
+			if m == nil || comment(line) || safeCast.MatchString(m[2]) {
+				continue
+			}
+			if k := anyKey.FindStringSubmatch(m[2]); k != nil {
+				out[m[1]] = k[2]
+				continue
+			}
+			if k := otherRead.FindStringSubmatch(m[2]); k != nil {
+				out[m[1]] = k[1]
+				continue
+			}
+			for v, key := range out {
+				if uses[v] == nil {
+					uses[v] = regexp.MustCompile(`\$` + regexp.QuoteMeta(v) + `\b`)
+				}
+				if v != m[1] && uses[v].MatchString(m[2]) {
+					out[m[1]] = key
+					break
+				}
+			}
+		}
+	}
+	return out
+}
+
+// assigns: the line only sets v (its own risky calls are seen through the
+// value it reads)
+func assigns(line, v string) bool {
+	m := assignment.FindStringSubmatch(line)
+	return m != nil && m[1] == v && !strings.Contains(m[2], "$"+v)
+}
+
 func (s *Summary) addInput(seen map[string]bool, in Input) {
+	if in.Type == "enum" && secretList(in.Name, in.Values) {
+		// a key compared with a token written in the code (a backdoor, a
+		// shared secret): the summary never carries the value
+		in.Type, in.Values = "unknown", nil
+	}
 	k := in.Name + "|" + in.Source + "|" + in.Type + "|" + in.Route
 	if seen[k] || len(s.Inputs) >= maxInputs {
 		return
@@ -134,4 +226,52 @@ func sourceOf(super string) string {
 		return "body"
 	}
 	return "request"
+}
+
+var (
+	secretKey   = regexp.MustCompile(`(?i)(pass|pwd|secret|token|key|auth|sig|hash|nonce|salt|otp|code|cred)`)
+	secretShape = regexp.MustCompile(`^[A-Za-z0-9+/=_.\-]{16,}$`)
+	hasDigit    = regexp.MustCompile(`[0-9]`)
+	hasLetter   = regexp.MustCompile(`[A-Za-z]`)
+)
+
+// secretList: values a key is compared with that may be a secret: a value
+// of 8 characters or more for a key named like a secret (token, pass, key…),
+// or a value that looks like a token (16 characters or more, letters and
+// digits, no space). A country_code of IT and FR stays a list.
+func secretList(name string, values []string) bool {
+	for _, v := range values {
+		if secretKey.MatchString(name) && len(v) >= 8 ||
+			secretShape.MatchString(v) && hasDigit.MatchString(v) && hasLetter.MatchString(v) {
+			return true
+		}
+	}
+	return false
+}
+
+// comment: a line that is only a comment (a docblock's "* @param …
+// `$_POST['x']`", a "// eval(…)" note): nothing it names runs.
+func comment(line string) bool {
+	t := strings.TrimSpace(line)
+	return strings.HasPrefix(t, "*") || strings.HasPrefix(t, "//") || strings.HasPrefix(t, "#") && !strings.HasPrefix(t, "#[") ||
+		strings.HasPrefix(t, "/*")
+}
+
+var queryArgs = regexp.MustCompile(`->\s*query\s*\(\s*\$\w*args\s*\)`)
+
+var filterInput = regexp.MustCompile(`filter_input\s*\(\s*INPUT_(GET|POST|REQUEST)\s*,\s*['"]([A-Za-z0-9_\-]{1,100})['"]\s*(?:,\s*FILTER_([A-Z_]+))?`)
+
+// filterType: what a PHP filter makes of a value.
+func filterType(f string) string {
+	switch f {
+	case "VALIDATE_INT", "SANITIZE_NUMBER_INT":
+		return "int"
+	case "VALIDATE_EMAIL", "SANITIZE_EMAIL":
+		return "email"
+	case "VALIDATE_URL", "SANITIZE_URL":
+		return "url"
+	case "VALIDATE_BOOLEAN", "VALIDATE_BOOL":
+		return "bool"
+	}
+	return "unknown"
 }

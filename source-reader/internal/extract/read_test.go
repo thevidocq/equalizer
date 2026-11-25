@@ -6,6 +6,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"syscall"
 	"testing"
 	"time"
 )
@@ -122,4 +123,23 @@ func keys(m map[string]Route) []string {
 		out = append(out, k)
 	}
 	return out
+}
+
+// A FIFO named like code never blocks the read.
+func TestFIFO(t *testing.T) {
+	dir := t.TempDir()
+	if err := syscall.Mkfifo(filepath.Join(dir, "x.php"), 0o600); err != nil {
+		t.Skip(err)
+	}
+	_ = os.WriteFile(filepath.Join(dir, "y.php"), []byte("<?php echo $_GET['q'];"), 0o600)
+	done := make(chan *Summary, 1)
+	go func() { s, _ := Read(dir, time.Now()); done <- s }()
+	select {
+	case s := <-done:
+		if s.Files.Read != 1 {
+			t.Fatalf("%+v", s.Files)
+		}
+	case <-time.After(5 * time.Second):
+		t.Fatal("the read blocked on a FIFO")
+	}
 }

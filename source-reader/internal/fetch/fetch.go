@@ -251,6 +251,12 @@ func SMBWanted(listing, folder string) []string {
 		}
 		size, _ := strconv.ParseInt(m[3], 10, 64)
 		rel := path.Join(cur, m[1])
+		// a folder's name goes in the get command too: smbclient splits its
+		// commands on ";" before quotes, and "!" runs a local shell, so a
+		// folder named a;!cmd on the share would run cmd on the reader
+		if strings.ContainsAny(rel, "\";\\\x00\r\n") {
+			continue
+		}
 		if strings.HasPrefix(rel, "/") || rel == ".." || strings.HasPrefix(rel, "../") || strings.Contains(rel, "/../") || m[1] == ".." {
 			continue // a listing that points out of the folder
 		}

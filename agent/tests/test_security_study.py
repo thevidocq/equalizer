@@ -98,6 +98,13 @@ class StudyTest(unittest.TestCase):
         self.assertEqual(len(out["findings"][0]["why"]), 600)
         self.assertEqual(out["summary"], "")
 
+    def test_an_answer_cut_keeps_its_whole_findings(self):
+        whole = json.dumps({"findings": [finding(), finding(title="Second", severity="high")]})
+        cut = whole[:-60]  # the provider stopped inside the second finding
+        n = len(study.parts(study.evidence(DOC, REPORT)))
+        out = study.study(FakeLLM([cut] + ['{"findings": []}'] * (n - 1) + ["{}"]), DOC, REPORT)
+        self.assertEqual([f["title"] for f in out["findings"]], ["Public upload through the file manager"])
+
     def test_parts(self):
         ev = study.evidence(DOC, REPORT)
         parts = study.parts(ev)

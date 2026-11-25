@@ -566,8 +566,16 @@ model has two jobs.
    samples), names entries, excludes what looks like a backup or an
    installer, and narrows a type when every observed value fits. It never
    opens anything, and its answer is checked field by field.
-2. **Security study** (`llm/study.py`), the discovery's last step and its
-   conclusion (`report.security`). The model reads everything the
+2. **Security study** (`llm/study.py`), the discovery's conclusion
+   (`report.security`). It runs **after the agent's check of the draft**,
+   on the version the check leaves (the corrected one, when it corrects):
+   the discovery ends with `security.pending`; the panel marks the study
+   `waiting` (`queued` when there is no draft), releases it when the
+   verification of that draft ends, and the agent claims it
+   (`/internal/studies/claim`: the report, the map, the tenant's model) and
+   hands it back (`/internal/studies/{id}/result`). A study waiting more than
+   3 hours after its discovery is released anyway; one running for more than
+   an hour is failed ("the agent stopped answering"). The model reads everything the
    discovery found, as a security engineer and a developer would: every
    entry of the map with the type of each field (`int 1-500`, `enum(3)`,
    `string<=200 no_html`, `file`), the areas, the entry points the code
@@ -578,7 +586,12 @@ model has two jobs.
    pages kept out. It is told how Equalizer protects a site (typed fields
    stop injection; free text without `no_sql_meta` does not; areas are
    served as the site serves them; access is the site's decision), so it
-   judges what is left once the map is published.
+   judges what is left once the map is published. It is also told
+   Equalizer's decisions: the whole site is served, administration
+   included, and access is the site's, so it never advises closing an area,
+   an admin path or HTTP methods at the gateway; a still-open field goes with
+   what its reason means (`accepts_sql`: the site needs those characters,
+   kept free on purpose), so it never advises `no_sql_meta` there.
    - The evidence goes in parts: the map and the site's state, then the
      code an extension at a time (its entry points with its risky calls),
      at most 6 parts of 70 items; then one call writes the conclusion:
@@ -586,9 +599,10 @@ model has two jobs.
    - Each finding has a severity (critical, high, medium, low), a
      category, a title, why, what an attacker would try (no working
      payload), the coverage once published (blocked, partial, open) and
-     why, and a next step among fixed actions (narrow a field, take an
-     entry out, restrict to a role, check the owner, update a component,
-     read the code at file:line, close an area). A finding must cite items
+     why, and a next step among fixed actions: in Equalizer (narrow a
+     field, map precisely with the source code, a rate limit, an owner
+     check) or outside it (update a component, read the code at file:line,
+     on the site itself). A finding must cite items
      it was given by their ids (E12, R3, C4…): one that cites nothing it
      was given, or with a value outside these lists, is dropped; texts are
      cut to their lengths.

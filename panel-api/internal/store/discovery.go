@@ -227,7 +227,9 @@ func (s *Store) RunningDiscovery(ctx context.Context, id int64) (app string, req
 }
 
 // FinishDiscovery closes a discovery and erases its test account secret.
-func (s *Store) FinishDiscovery(ctx context.Context, id int64, report json.RawMessage, draft *int, failure *string) error {
+// study: the status of its security study (StudyAfter), nil when none is
+// written; set with the draft, so the check of that draft always finds it.
+func (s *Store) FinishDiscovery(ctx context.Context, id int64, report json.RawMessage, draft *int, failure, study *string) error {
 	status := "done"
 	if failure != nil {
 		status = "failed"
@@ -238,8 +240,8 @@ func (s *Store) FinishDiscovery(ctx context.Context, id int64, report json.RawMe
 	}
 	res, err := s.DB.ExecContext(ctx, `
 		UPDATE discoveries SET status = $2, report = $3, draft_version = $4, error = $5, finished_at = now(),
-			account_secret = NULL, accounts_secret = NULL
-		WHERE id = $1 AND status = 'running'`, id, status, rep, draft, failure)
+			account_secret = NULL, accounts_secret = NULL, study_status = $6
+		WHERE id = $1 AND status = 'running'`, id, status, rep, draft, failure, study)
 	return affected(res, err)
 }
 

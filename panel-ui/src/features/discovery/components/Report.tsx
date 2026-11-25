@@ -64,7 +64,7 @@ export function Report({ d }: { d: Discovery }) {
         <Stat label="Built with" value={r.cms ? `${r.cms}${r.version ? " " + r.version : ""}` : "Not recognised"} />
         <Stat label="Coverage" value={`${r.coverage ?? 0}%`} />
         <Stat label="Pages found" value={r.pages_found ?? 0} />
-        <Stat label="Kept out" value={(r.excluded ?? []).length} />
+        <Stat label="Kept out" value={r.excluded_total ?? (r.excluded ?? []).length} />
       </div>
       {d.draft_version ? <DraftNotice app={app} draft={d.draft_version} />
         : <Notice tone="info">The map already covers what was found: no draft needed.</Notice>}

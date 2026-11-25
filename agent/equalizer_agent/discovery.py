@@ -7,7 +7,6 @@ from . import browser, crawler, fingerprint, mapbuild, rules, source, visitors
 from .fetch import Fetcher, ReachError
 from .llm import LLMError, provider
 from .llm.refine import refine
-from .llm.study import study
 
 
 def seeds(job: dict, cms: str | None) -> list:
@@ -115,13 +114,10 @@ def run(job: dict, cfg, panel, log) -> None:
         visitors.apply(report, doc, job.get("unmapped", []), result, f, fp.cms)
     except ReachError:
         pass  # the lists stay empty: the study itself is done
-    if llm is not None:  # last: on everything the discovery found
-        c.say("the AI is studying the site's security")
-        try:
-            report["security"] = study(llm, doc, report, say=c.say)
-        except Exception as e:  # the study never fails the discovery
-            log.warn("the security study failed", discovery=jid, error=type(e).__name__)
-            report["security"] = {"used": False, "error": "the study could not be completed"}
+    if llm is not None:
+        # written after the agent's check of the draft, on the map as the
+        # check leaves it: the panel hands it to the agent then (llm/study.run)
+        report["security"] = {"used": False, "pending": True}
     else:
         report["security"] = {"used": False, "reason": report["ai"].get("error") or report["ai"].get("reason") or "off"}
     log.info("discovery finished", discovery=jid, app=job["app"], pages=report["pages_found"],

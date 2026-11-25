@@ -33,7 +33,7 @@ type Event struct {
 	Connector  *string   `json:"connector"`
 }
 
-// Bucket is one interval of the refused chart.
+// Bucket is one interval of the chart.
 type Bucket struct {
 	TS    time.Time `json:"ts"`
 	Count int       `json:"count"`
@@ -158,8 +158,15 @@ func parse(raw, tenant string) (Event, bool) {
 	return ev, true
 }
 
-// Stats returns the events per type and the refused chart of the period.
-func (l *Loki) Stats(ctx context.Context, f Filter) (map[string]int, []Bucket, error) {
+// Stats is what the Logs page counts over the period.
+type Stats struct {
+	Counts  map[string]int // events per type
+	Refused []Bucket       // refused events per interval, oldest first
+	Served  []Bucket       // served requests, the same intervals
+}
+
+// Stats returns the events per type and the refused and served charts of the period.
+func (l *Loki) Stats(ctx context.Context, f Filter) (Stats, error) {
 	now := l.now()
 	var inst struct {
 		Data struct {
@@ -171,15 +178,28 @@ func (l *Loki) Stats(ctx context.Context, f Filter) (map[string]int, []Bucket, e
 	}
 	q := url.Values{"query": {f.Counts()}, "time": {strconv.FormatInt(now.UnixNano(), 10)}}
 	if err := l.get(ctx, "/loki/api/v1/query", q, &inst); err != nil {
-		return nil, nil, err
+		return Stats{}, err
 	}
-	counts := map[string]int{}
+	st := Stats{Counts: map[string]int{}}
 	for _, r := range inst.Data.Result {
 		if s, ok := r.Value[1].(string); ok && r.Metric["type"] != "" {
 			n, _ := strconv.Atoi(s)
-			counts[r.Metric["type"]] = n
+			st.Counts[r.Metric["type"]] = n
 		}
 	}
+	var err error
+	if st.Refused, err = l.series(ctx, f, f.Refused(), now); err != nil {
+		return Stats{}, err
+	}
+	if st.Served, err = l.series(ctx, f, f.Served(), now); err != nil {
+		return Stats{}, err
+	}
+	return st, nil
+}
+
+// series runs a range query and returns one bucket per interval of the
+// period, empty intervals included.
+func (l *Loki) series(ctx context.Context, f Filter, query string, now time.Time) ([]Bucket, error) {
 	span, step := f.Span()
 	end := now.Truncate(step).Add(step)
 	start := end.Add(-span)
@@ -190,10 +210,10 @@ func (l *Loki) Stats(ctx context.Context, f Filter) (map[string]int, []Bucket, e
 			} `json:"result"`
 		} `json:"data"`
 	}
-	q = url.Values{"query": {f.Refused()}, "step": {strconv.Itoa(int(step.Seconds()))},
+	q := url.Values{"query": {query}, "step": {strconv.Itoa(int(step.Seconds()))},
 		"start": {strconv.FormatInt(start.UnixNano(), 10)}, "end": {strconv.FormatInt(end.UnixNano(), 10)}}
 	if err := l.get(ctx, "/loki/api/v1/query_range", q, &rng); err != nil {
-		return nil, nil, err
+		return nil, err
 	}
 	got := map[int64]int{}
 	for _, r := range rng.Data.Result {
@@ -204,9 +224,9 @@ func (l *Loki) Stats(ctx context.Context, f Filter) (map[string]int, []Bucket, e
 			got[int64(sec)] = n
 		}
 	}
-	var buckets []Bucket
+	buckets := []Bucket{}
 	for t := start.Add(step); !t.After(end); t = t.Add(step) {
 		buckets = append(buckets, Bucket{TS: t.Add(-step).UTC(), Count: got[t.Unix()]}) // start of the interval
 	}
-	return counts, buckets, nil
+	return buckets, nil
 }

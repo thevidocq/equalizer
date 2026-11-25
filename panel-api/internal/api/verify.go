@@ -137,6 +137,9 @@ func (s *Server) claimVerification(w http.ResponseWriter, r *http.Request) {
 	}
 	failure := func(msg string) {
 		_ = s.Store.FinishVerification(r.Context(), c.ID, store.VerificationResult{Failure: &msg})
+		if c.RequestedBy == nil { // the discovery's study goes on without the check
+			_ = s.Store.ReleaseStudy(r.Context(), c.App, c.Version)
+		}
 		w.WriteHeader(http.StatusNoContent)
 	}
 	var doc struct {
@@ -307,6 +310,10 @@ func (s *Server) verificationResult(w http.ResponseWriter, r *http.Request) {
 		if res.CorrectedVersion != nil {
 			ready = *res.CorrectedVersion
 		}
+		// and its security study can be written, on that draft
+		if err := s.Store.ReleaseStudy(r.Context(), a.ID, v.Version, ready); err != nil {
+			s.Log.ErrorContext(r.Context(), "study not released", slog.String("app", a.ID), slog.String("error", err.Error()))
+		}
 		go s.draftReady(r.Context(), a, ready, in.Score, res.Failure) // the agent's call never waits for the mail server
 	}
 	w.WriteHeader(http.StatusNoContent)
@@ -318,4 +325,33 @@ func validList(raw json.RawMessage, max int) bool {
 	}
 	var items []json.RawMessage
 	return json.Unmarshal(raw, &items) == nil && len(items) <= max
+}
+
+func (s *Server) verificationProgress(w http.ResponseWriter, r *http.Request) {
+	id, err := strconv.ParseInt(r.PathValue("id"), 10, 64)
+	if err != nil {
+		fail(w, http.StatusNotFound, "not_found", "")
+		return
+	}
+	var p struct {
+		Step    string  `json:"step"`
+		Done    int     `json:"done"`
+		Total   int     `json:"total"`
+		Account *string `json:"account"`
+	}
+	if !decode(w, r, &p) {
+		return
+	}
+	switch {
+	case p.Step != "pages" && p.Step != "attacks" && p.Step != "files" && p.Step != "correcting",
+		p.Done < 0 || p.Total < 0 || p.Done > p.Total, p.Account != nil && len(*p.Account) > 60:
+		fail(w, http.StatusUnprocessableEntity, "invalid", "step, done and total")
+		return
+	}
+	b, _ := json.Marshal(p)
+	if err := s.Store.VerificationProgress(r.Context(), id, b); err != nil {
+		s.storeError(w, r, err)
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
 }

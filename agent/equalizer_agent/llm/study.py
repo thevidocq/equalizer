@@ -15,6 +15,7 @@ advises; the map's own checks and the agent's verification decide.
 """
 
 import json
+from time import sleep
 import re
 import urllib.parse
 
@@ -24,8 +25,22 @@ SEVERITY = ("critical", "high", "medium", "low")
 CATEGORY = ("injection", "access_control", "authentication", "exposure", "file_upload", "component", "csrf",
             "information_leak", "business_logic", "configuration")
 COVERAGE = ("blocked", "partial", "open")
-ACTION = ("narrow_field", "exclude_entry", "add_role", "owner_check", "update_component", "review_code",
-          "close_area", "none")
+ACTION = ("narrow_field", "map_precisely", "rate_limit", "owner_check", "update_component", "review_code",
+          "on_the_site", "none")
+
+# what each reason a thing stayed open means, for the AI
+OPEN_MEANS = {
+    "accepts_sql": "the site needs quotes or SQL characters in this field: kept free on purpose",
+    "accepts_markup": "the site takes markup in this field: kept free on purpose",
+    "accepts_template": "the site takes template syntax in this field: kept free on purpose",
+    "accepts_path": "the site takes a path in this field: kept free on purpose",
+    "accepts_shell": "the site takes shell characters in this field: kept free on purpose",
+    "cannot_narrow": "no narrower type fits every value the site uses",
+    "not_reached": "the agent could not open it: served by the site area",
+    "legacy_error": "the site answered with an error: served by the site area",
+    "action_not_performed": "a link that changes something: not opened, served by the site area",
+    "browser_skipped": "its scripts were not studied in the browser",
+}
 
 MAX_PARTS = 6          # calls on the evidence, before the synthesis
 PART_ITEMS = 70        # items per call
@@ -42,7 +57,22 @@ EQUALIZER = """How Equalizer protects the site (use it to judge coverage):
 - An entry point marked map "area" is reached through an area: open. Marked "precise", it goes through its entry's checks.
 - Equalizer never decides who may see what: the legacy site does. owned_by_user rules (proposed as I# items) make the gateway
   check that an id belongs to the logged-in user (against IDOR). Logins, sessions, roles and business logic stay the site's.
-- An outdated component keeps its own logic flaws (authentication bypass, privilege escalation) even behind typed fields."""
+- An outdated component keeps its own logic flaws (authentication bypass, privilege escalation) even behind typed fields.
+- The map can hold rate limits (defaults.rate_limit, and per page or form: N/s, N/min), on precise entries only.
+
+Decisions Equalizer made, that your advice must respect:
+- The whole site is served, administration included (the site area "/"). Equalizer never closes a path the site serves:
+  never advise restricting "/" to the public pages, denying wp-admin, a login page or xmlrpc at the gateway, or
+  refusing HTTP methods there. Who may reach the administration is the site's decision (its own login, a plugin,
+  its server's rules): say so with action on_the_site.
+- An input left open for its reason (O items: accepts_sql, accepts_markup, accepts_template, accepts_path,
+  accepts_shell) stays open on purpose: the site needs those characters there (a message with quotes, a search,
+  a rich-text field). Never advise adding no_sql_meta, no_html or a pattern to it: it would break the site. Say what
+  the site's own code must do with it (on_the_site or review_code).
+- What can be done in Equalizer, and nothing else: narrow a free-text field to a type (narrow_field), cover an entry
+  point precisely by running the discovery with the source code or the visitors' requests (map_precisely), a rate
+  limit on a page or form (rate_limit), an owner check against IDOR (owner_check). Outside it: update a component
+  (update_component), read the code at a file and line (review_code), anything else on the site itself (on_the_site)."""
 
 SYSTEM = """You are a senior application-security engineer and a senior PHP developer. You study a legacy website before
 it is protected by Equalizer, a gateway in front of it. You have days of expertise compressed into one careful pass:
@@ -68,7 +98,7 @@ Answer ONLY with one JSON object, no prose before or after:
                "attack": "what an attacker would send or do, at most 400 characters, no working exploit payload",
                "coverage": "blocked|partial|open",
                "coverage_why": "what Equalizer's map already stops and what it leaves, at most 300 characters",
-               "action": "narrow_field|exclude_entry|add_role|owner_check|update_component|review_code|close_area|none",
+               "action": "narrow_field|map_precisely|rate_limit|owner_check|update_component|review_code|on_the_site|none",
                "action_detail": "the concrete next step: which field to which type, which file:line to read, at most 300 characters"}]}
 
 Rules:
@@ -135,11 +165,12 @@ def evidence(doc: dict, report: dict) -> Evidence:
     ev = Evidence()
     for r in doc.get("routes", []):
         ev.add("E", {"kind": "page", "method": r.get("method", "GET"), "path": r.get("path"), "roles": r.get("roles"),
-                     "params": _fields(r.get("params")), "query": _fields(r.get("query"))},
+                     "params": _fields(r.get("params")), "query": _fields(r.get("query")), "rate_limit": r.get("rate_limit")},
                f"{r.get('method', 'GET')} {r.get('path')}")
     for f in doc.get("forms", []):
         fields = f.get("fields") or {}
         ev.add("E", {"kind": "form", "method": "POST", "path": f.get("route"), "roles": f.get("roles"), "fields": _fields(fields),
+                     "rate_limit": f.get("rate_limit"),
                      "uploads": sorted(k for k, v in fields.items() if isinstance(v, dict) and v.get("type") == "file")},
                f"form POST {f.get('route')}")
     for a in doc.get("api", []):
@@ -171,7 +202,8 @@ def evidence(doc: dict, report: dict) -> Evidence:
     for o in report.get("open") or []:
         # the reason only: a detail can quote a browser error with a page's
         # address and its values
-        ev.add("O", {"target": o.get("target"), "reason": o.get("reason")}, f"{o.get('target')} ({o.get('reason')})")
+        ev.add("O", {"target": o.get("target"), "reason": o.get("reason"), "means": OPEN_MEANS.get(o.get("reason"), "")},
+               f"{o.get('target')} ({o.get('reason')})")
     for i in report.get("issues_proposed") or []:
         ev.add("I", {"list": i.get("list"), "detail": i.get("detail"), "field": i.get("field")}, f"{i.get('detail')} ({i.get('field')})")
     for v in report.get("visitors_added") or []:
@@ -296,7 +328,8 @@ def study(llm, doc: dict, report: dict, say=lambda m: None) -> dict:
     if not chunks:
         return {"used": False, "reason": "nothing to study"}
     findings, failed = [], 0
-    context = {"cms": report.get("cms"), "version": report.get("version"), "surface": numbers}
+    context = {"cms": report.get("cms"), "version": report.get("version"), "surface": numbers,
+               "rate_limit_default": ((doc.get("defaults") or {}).get("rate_limit"))}
     for n, chunk in enumerate(chunks, 1):
         say(f"the AI security study: part {n} of {len(chunks)}")
         payload = {**context, "part": f"{n} of {len(chunks)}", "items": [ev.items[i] for i in chunk]}
@@ -342,3 +375,44 @@ def study(llm, doc: dict, report: dict, say=lambda m: None) -> dict:
     return {"used": True, "summary": summary, "surface": numbers, "findings": out, "steps": steps,
             "counts": {s: sum(1 for f in out if f["severity"] == s) for s in SEVERITY},
             "parts": len(chunks), "partial": failed > 0}
+
+
+def run(job: dict, cfg, panel, log) -> None:
+    """Writes the security study of a discovery once the check of its draft
+    is over: on the map as the check left it (job["document"]), with the
+    discovery's report. Never raises: a failure is the study's result."""
+    from . import LLMError, provider
+    jid = job.get("id")
+    try:
+        llm = provider(job.get("llm"), cfg.allow_private_llm)
+    except LLMError as e:
+        llm, out = None, {"used": False, "error": str(e)[:200]}
+    else:
+        out = {"used": False, "reason": "no AI model configured for this tenant"}
+    if llm is not None:
+        log.info("security study started", discovery=jid, app=job.get("app"), version=job.get("version"))
+        try:
+            out = study(llm, job.get("document") or {}, job.get("report") or {})
+        except Exception as e:  # never left running
+            log.error("security study failed", discovery=jid, error=type(e).__name__)
+            out = {"used": False, "error": "the study could not be completed"}
+    out["version"] = job.get("version")
+    # a paid study is not thrown away for a short outage of the panel: it is
+    # sent again for a few minutes (the panel fails it after an hour)
+    for attempt in range(RESULT_ATTEMPTS):
+        try:
+            if panel.study_result(jid, out):
+                log.info("security study finished", discovery=jid, used=out.get("used"),
+                         findings=len(out.get("findings") or []))
+            else:
+                log.warn("the panel refused the security study", discovery=jid)
+            return
+        except OSError as e:
+            log.warn("panel unreachable: the study is sent again", discovery=jid, error=type(e).__name__,
+                     attempt=attempt + 1)
+            if attempt + 1 < RESULT_ATTEMPTS:
+                sleep(RESULT_WAIT)
+    log.error("security study lost: the panel did not answer", discovery=jid)
+
+
+RESULT_ATTEMPTS, RESULT_WAIT = 6, 30.0

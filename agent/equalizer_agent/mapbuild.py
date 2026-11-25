@@ -360,6 +360,7 @@ def build(job: dict, crawl, fp) -> tuple:
         "issues_proposed": issues,
         "site_area": area,
         "excluded": [{"path": p.split("?")[0], "reason": r} for p, r in sorted(crawl.excluded.items())][:200],
+        "excluded_total": len(crawl.excluded),  # the list keeps the first 200
         "skipped_actions": len(crawl.skipped_actions), "not_supported": not_supported,
         "query_added": query_added,
         # filled by visitors.apply, which checks them on the site

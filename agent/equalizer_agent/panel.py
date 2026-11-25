@@ -51,6 +51,14 @@ class Panel:
         status, job = self._post("/v1/internal/verifications/claim")
         return job if status == 200 else None
 
+    def claim_study(self):
+        status, job = self._post("/v1/internal/studies/claim")
+        return job if status == 200 else None
+
+    def study_result(self, discovery_id: int, security: dict) -> bool:
+        status, _ = self._post(f"/v1/internal/studies/{discovery_id}/result", {"security": security})
+        return status == 204
+
     def try_map(self, job_id: int, document: dict):
         """The panel signs a corrected version for tries; None when it refuses it."""
         status, signed = self._post(f"/v1/internal/verifications/{job_id}/try-map", {"document": document})

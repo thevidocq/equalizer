@@ -18,7 +18,7 @@ var Types = []string{
 	"parse.failed", "legacy.error", "connector.down", "exposure.alert",
 }
 
-// Periods the panel offers, with the interval of the refused chart.
+// Periods the panel offers, with the interval of the chart.
 var periods = map[string]struct{ span, step time.Duration }{
 	"1h":  {time.Hour, 5 * time.Minute},
 	"24h": {24 * time.Hour, time.Hour},
@@ -107,9 +107,14 @@ func (f Filter) Counts() string {
 }
 
 // Refused is the range query of refused events per interval.
-func (f Filter) Refused() string {
+func (f Filter) Refused() string { return f.perInterval(`type!="request.served"`) }
+
+// Served is the range query of served requests per interval.
+func (f Filter) Served() string { return f.perInterval(`type="request.served"`) }
+
+func (f Filter) perInterval(match string) string {
 	_, step := f.Span()
-	return `sum(count_over_time(` + f.selector() + ` | type!="request.served" [` + strconv.Itoa(int(step.Seconds())) + `s]))`
+	return `sum(count_over_time(` + f.selector() + ` | ` + match + ` [` + strconv.Itoa(int(step.Seconds())) + `s]))`
 }
 
 // quote writes a LogQL double-quoted string.

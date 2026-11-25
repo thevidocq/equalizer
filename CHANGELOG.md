@@ -67,6 +67,14 @@ it, 0.1.0 (`docs/releases/0.1.0.md`, tag on the merge of #39).
 
 ## Entries
 
+### 2026-11-25 — Clean the chart test's DOM between tests
+
+- **Branch:** feat/study-after-check
+- **What:** `ActivityChart.test.tsx` cleans up after each test.
+- **Why:** CI's vitest found the first test's bars in the second one.
+- **Status:** the rest of CI was green.
+- **Next steps:** as in the entry below.
+
 ### 2026-11-25 — Write the security study after the check; served bars
 
 - **Branch:** feat/study-after-check

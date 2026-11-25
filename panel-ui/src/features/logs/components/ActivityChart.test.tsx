@@ -1,10 +1,12 @@
-import { fireEvent, render, screen } from "@testing-library/react";
-import { describe, expect, it, vi } from "vitest";
+import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { ActivityChart } from "./ActivityChart";
 
 const at = (h: number, count: number) => ({ ts: `2026-11-25T${String(h).padStart(2, "0")}:00:00Z`, count });
 
 describe("ActivityChart", () => {
+  afterEach(cleanup);
+
   it("draws served and refused bars on the same hours; a bar picks its interval and kind", () => {
     const onPick = vi.fn();
     render(<ActivityChart served={[at(10, 400), at(11, 0)]} refused={[at(10, 3), at(11, 7)]} step={3600} onPick={onPick} />);

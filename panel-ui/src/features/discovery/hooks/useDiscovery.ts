@@ -12,12 +12,21 @@ export function useDiscoveries(app: string) {
   });
 }
 
+/** How often to read a discovery again: every 4 s while it runs; every 15 s
+ * while its security study waits for the check of the draft; never after. */
+export function discoveryPoll(d?: Discovery): number | false {
+  if (!d) return false;
+  if (d.status === "queued" || d.status === "running") return 4000;
+  const sec = (d.report as { security?: { pending?: boolean } } | null)?.security;
+  return d.status === "done" && sec?.pending ? 15000 : false;
+}
+
 export function useDiscovery(app: string, id: number | null) {
   return useQuery({
     queryKey: ["discovery", app, id],
     queryFn: () => unwrap(api.GET("/apps/{app}/discoveries/{id}", { params: { path: { app, id: String(id) } } })),
     enabled: id != null,
-    refetchInterval: (q) => (q.state.data && (q.state.data.status === "queued" || q.state.data.status === "running") ? 4000 : false),
+    refetchInterval: (q) => discoveryPoll(q.state.data),
   });
 }
 

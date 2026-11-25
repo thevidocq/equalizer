@@ -109,6 +109,7 @@ class DiscoveryTest(unittest.TestCase):
         self.assertTrue({"/wp-content/themes/", "/wp-content/plugins/", "/wp-content/uploads/"} <= prefixes)
         self.assertIn("wp-admin", doc["types"]["slug"]["deny"])
         self.assertGreater(rep["coverage"], 90)
+        self.assertEqual(rep["excluded_total"], len(rep["excluded"]))  # fewer than 200 here: the whole list
         self.assertFalse(rep["ai"]["used"])
         self.assertEqual(rep["security"], {"used": False, "reason": "no AI model configured for this tenant"})
         os.makedirs("/tmp/eq-agent-test", exist_ok=True)
@@ -139,9 +140,8 @@ class DiscoveryTest(unittest.TestCase):
         self.assertNotIn("risk", front)  # maps have no risk field: an AI sending one changes nothing
         self.assertTrue(rep["ai"]["used"])
         self.assertNotIn("/wp-admin/", {r["path"] for r in doc["routes"]})
-        self.assertTrue(rep["security"]["used"])  # the study ran last, on everything found
-        self.assertEqual(rep["security"]["findings"], [])  # an answer without findings adds none
-        self.assertGreater(rep["security"]["surface"]["pages"], 0)
+        # the study is written after the check of the draft (llm/study.run)
+        self.assertEqual(rep["security"], {"used": False, "pending": True})
         self.assertNotIn("tester", llm.seen)  # no account, no values in clear (review and study)
         self.assertNotIn("Permits", llm.seen)
 

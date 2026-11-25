@@ -5,6 +5,7 @@ import signal
 import time
 
 from . import config, discovery, review, verify
+from .llm import study
 from .log import Logger
 from .panel import Panel
 
@@ -44,6 +45,13 @@ def main():
                 except Exception as e:  # never leave a verification running
                     log.error("verification failed", verification=vj["id"], error=type(e).__name__)
                     panel.verification_result(vj["id"], error="the agent failed: " + type(e).__name__)
+                continue
+            try:
+                sj = panel.claim_study()
+            except OSError:
+                sj = None
+            if sj is not None:
+                study.run(sj, cfg, panel, log)  # it never raises: a failure is its result
                 continue
             time.sleep(cfg.poll_seconds)
             continue

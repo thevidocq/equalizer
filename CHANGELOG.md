@@ -19,7 +19,8 @@ Add a section at the top of "Entries" for every commit:
 
 ## Current project status
 
-Latest release: **0.2.32** (`docs/releases/0.2.32.md`); before it 0.2.31
+Latest release: **0.2.33** (`docs/releases/0.2.33.md`); before it 0.2.32
+(`docs/releases/0.2.32.md`), 0.2.31
 (`docs/releases/0.2.31.md`), 0.2.30
 (`docs/releases/0.2.30.md`), 0.2.29
 (`docs/releases/0.2.29.md`), 0.2.28
@@ -65,6 +66,62 @@ it, 0.1.0 (`docs/releases/0.1.0.md`, tag on the merge of #39).
 | tools (eqtool) | Map signing keys, form key, relay token, connector registration, map signing |
 
 ## Entries
+
+### 2026-11-25 — Clean the chart test's DOM between tests
+
+- **Branch:** feat/study-after-check
+- **What:** `ActivityChart.test.tsx` cleans up after each test.
+- **Why:** CI's vitest found the first test's bars in the second one.
+- **Status:** the rest of CI was green.
+- **Next steps:** as in the entry below.
+
+### 2026-11-25 — Write the security study after the check; served bars
+
+- **Branch:** feat/study-after-check
+- **What:**
+  - Security study after the check of the draft: migration `0032`
+    (`discoveries.study_status`, `study_started_at`); `store/study.go`
+    (wait, release, claim, finish); `api/study.go` with
+    `/internal/studies/claim` and `/internal/studies/{id}/result`
+    (contract first: `StudyJob`, `SecurityStudy.pending` and `version`);
+    `discoveryResult` marks the study waiting (queued without a draft),
+    the verification of that draft releases it (failed claims too); the
+    agent ends the discovery with `security.pending` and writes the study
+    in `study.run` on the version the check left. A study waiting 3 h is
+    released anyway; one running 1 h is failed.
+  - Study prompt: Equalizer's decisions (whole site served, admin
+    included, access is the site's; open fields kept free on purpose),
+    still-open items carry what their reason means, rate limits in the
+    evidence; actions are now narrow_field, map_precisely, rate_limit,
+    owner_check, update_component, review_code, on_the_site, none (older
+    reports keep their labels in the panel).
+  - Logs: `LogStats.served` (contract, `logsearch.Stats` struct, a
+    `Served()` query); `ActivityChart` replaces `RefusedChart` with a served
+    and a refused row, each bar picks its interval and kind.
+  - Report: `excluded_total`; "Kept out" shows it.
+  - UI: `SecurityStudy` shows the pending notice and the version;
+    `useDiscovery` polls every 15 s while the study is pending.
+  - Docs: tenant manual (and in-app help), agent.md, release notes
+    0.2.33, efficacy, version 0.2.33.
+  - After the independent review: the study status is set in the same
+    update as the draft (`FinishDiscovery`), so a check that fails at once
+    always finds it; the agent sends a finished study again for a few
+    minutes when the panel does not answer; a study skipped on purpose
+    (no AI model) is `done`, not `failed`; routes carry their rate limit
+    in the evidence; the old actions stay in the contract's enum for older
+    reports; ✕ after a served bar goes back to the refused kinds;
+    `verificationProgress` moved to `verify.go` (agent.go under 400 lines).
+- **Why:** the first study on a real site was written while the agent
+  was still correcting the draft, and advised what Equalizer never does
+  (deny wp-admin, block methods, `no_sql_meta` on fields that must accept
+  quotes). The Logs chart showed only refused traffic.
+- **Status:** Go (dbtest included), agent (116) tests pass; efficacy: the
+  same numbers, all guarantees hold. panel-ui checked for syntax only
+  here (npm blocked): CI runs tsc and vitest.
+- **Next steps:**
+  1. The reader's "no code file found" error could say the folder is
+     empty for the reader (check the container), awaiting the owner.
+  2. Look at the repeated "Connector offline" alerts on the first server.
 
 ### 2026-11-25 — Fix the review of the security study branch; efficacy 0.2.32
 

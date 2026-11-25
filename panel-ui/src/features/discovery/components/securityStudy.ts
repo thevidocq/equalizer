@@ -17,15 +17,19 @@ export const COVERAGE: Record<Finding["coverage"], string> = {
   blocked: "stopped by the map",
 };
 
-export const ACTION: Record<Finding["action"], string> = {
-  narrow_field: "Narrow a field",
-  exclude_entry: "Take the entry out of the map",
-  add_role: "Restrict to a role",
+export const ACTION: Record<string, string> = {
+  narrow_field: "Narrow a field (the assistant can draft it)",
+  map_precisely: "Cover it precisely: run the discovery with the source code",
+  rate_limit: "Add a rate limit in the map",
   owner_check: "Check the owner (IDOR)",
   update_component: "Update the component",
   review_code: "Read the code",
+  on_the_site: "On the site itself",
+  none: "Nothing to do",
+  // reports written before 0.2.33
+  exclude_entry: "Take the entry out of the map",
+  add_role: "Restrict to a role",
   close_area: "Close the area",
-  none: "Nothing to do in the map",
 };
 
 /** The attack surface in one line. */

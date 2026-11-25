@@ -304,10 +304,14 @@ While it runs, the page shows how many pages it has found and, under it,
 what it is doing now: exploring (as which test account) with the page it
 is on, opening pages in the browser to see what their scripts load,
 reading the stylesheets, building the map, the AI studying the structure,
-checking what visitors asked for, the AI's security study (part 2 of 4…).
+checking what visitors asked for.
 
 **The security study** is the discovery's conclusion, first in the
-report. The AI reads everything the discovery found, on the surface and
+report. It is written **after the agent's check of the draft**, on the map
+as the check leaves it (corrections included): until then the report says
+so, and the study appears by itself when it is ready, with the version it
+was written on. If the discovery has no draft, it starts right away; if
+the check never ends, it starts three hours after the discovery. The AI reads everything the discovery found, on the surface and
 in the code: every page, form and API entry with the type of each field,
 the components and their versions, what stayed open, what visitors asked
 for, and, when the source code was read, the entry points only the code
@@ -322,10 +326,17 @@ together, as a security engineer and a developer would, and writes:
 - the **findings**, most urgent first, each with its severity (a dot and
   a word: critical, high, medium, low), why, what an attacker would try,
   how far the map stops it once published (stopped, partly stopped,
-  open), the next step (narrow a field, take an entry out, restrict to a
-  role, check the owner, update a component, read the code at a given
-  line, close an area), and the pages, code places and components it is
-  about.
+  open), the next step, and the pages, code places and components it is
+  about. A next step is either something Equalizer does (narrow a field,
+  cover an entry point precisely by running the discovery with the source
+  code, a rate limit, an owner check) or something outside it (update a
+  component, read the code at a given line, a task **on the site
+  itself**). The study respects Equalizer's choices: the whole site is
+  served, administration included, and who may reach it is the site's
+  decision, so it never advises closing an area or a login page at the
+  gateway; a field left free because the site needs those characters (a
+  message with quotes, a rich-text field) stays free, and the study says
+  what the site's own code must do with it.
 
 It works on names, types and places only: never a value, a page's text,
 a line of code or a secret. Every finding cites what the discovery found;
@@ -638,11 +649,15 @@ again to close it; alerts such as a connector going
 offline name the connector or the site); on a path that is not in the map,
 **Add to the map** opens a new version. **Live** refreshes every few
 seconds, and its green dot pulses while it does (**Paused**: grey, still); **Export CSV** downloads up to 10 000 events (recorded in
-Activity). **Refused per hour** (per 5 minutes, 6 hours or day, as the
-period): a bar is a button. It shows the refused events of that interval
-only, a new query to the log store, not a filter of the rows already
-loaded; the bar stays marked, the others fade, and **Refused, 20:00–21:00 ✕**
-above the list takes you back to the whole period. **Live** pauses (an
+Activity). **Requests per hour** (per 5 minutes, 6 hours or day, as the
+period) has two rows on the same hours: **Served**, in green, and
+**Refused**, in red, each scaled to its own highest bar (served requests
+are many more). A bar is a button. It shows the events of that interval
+and kind only (a served bar turns on Served alone, a refused bar the
+refused kinds), a new query to the log store, not a filter of the rows
+already loaded; the bar stays marked, the others fade, and **Served,
+20:00–21:00 ✕** (or **Refused, …**) above the list takes you back to the
+whole period. **Live** pauses (an
 interval of the past does not change) and **Export CSV** exports what you
 see. Field values are never stored, only the field name and the rule
 that refused it. The IP address is the visitor's real one, the same the

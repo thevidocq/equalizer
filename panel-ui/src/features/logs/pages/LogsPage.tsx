@@ -6,7 +6,7 @@ import { describeError } from "@/shared/api/errors";
 import { Button, EmptyState, Notice, PageHeader, formatTick } from "@/shared/ui";
 import { defaultKinds, kinds } from "../components/kinds";
 import { LogFilters } from "../components/LogFilters";
-import { RefusedChart } from "../components/RefusedChart";
+import { ActivityChart, type Series } from "../components/ActivityChart";
 import { EventTable } from "../components/EventTable";
 import { EventDetail } from "../components/EventDetail";
 import { useLogExport, useLogStats, useLogs, useRestartLogs, type LogFilter } from "../hooks/useLogs";
@@ -26,7 +26,7 @@ export function LogsPage() {
   const [live, setLive] = useState(true);
   const [selected, setSelected] = useState<string | null>(null);
   // a bar of the chart: its interval, until the ✕
-  const [win, setWin] = useState<{ ts: string; from: string; to: string } | null>(null);
+  const [win, setWin] = useState<{ ts: string; series: Series; from: string; to: string } | null>(null);
   const filter: LogFilter = useMemo(
     () => ({ ...base, types: kinds.filter((k) => on.includes(k.id)).flatMap((k) => k.types),
       ...(win ? { from: win.from, to: win.to } : {}) }), [base, on, win]);
@@ -44,10 +44,10 @@ export function LogsPage() {
     setBase({ app: f.app, q: f.q, since: f.since });
     setSelected(null);
   }
-  function pick(b: { ts: string }) {
+  function pick(b: { ts: string }, series: Series) {
     const from = new Date(b.ts);
-    setWin({ ts: b.ts, from: from.toISOString(), to: new Date(from.getTime() + step * 1000).toISOString() });
-    setOn(defaultKinds); // the refused kinds, as the chart counts them
+    setWin({ ts: b.ts, series, from: from.toISOString(), to: new Date(from.getTime() + step * 1000).toISOString() });
+    setOn(series === "served" ? ["served"] : defaultKinds); // the kinds the bar counts
     setLive(false); // an interval of the past does not change
     setSelected(null);
   }
@@ -73,12 +73,15 @@ export function LogsPage() {
         } />
       {error ? <Notice tone="error">{describeError(error)}</Notice> : null}
       <LogFilters apps={apps} filter={filter} onChange={change} on={on} onToggle={toggle} counts={stats.data?.counts} />
-      {stats.data ? <RefusedChart buckets={stats.data.refused} step={step} picked={win?.ts ?? null} onPick={pick} /> : null}
+      {stats.data ? (
+        <ActivityChart served={stats.data.served ?? []} refused={stats.data.refused} step={step}
+          picked={win ? { ts: win.ts, series: win.series } : null} onPick={pick} />
+      ) : null}
       {win ? (
         <div>
           <span className="inline-flex items-center gap-2 rounded-full border border-rule bg-surface px-3 py-1 text-[13px]">
-            Refused, {formatTick(new Date(win.from), step >= 86400)}–{formatTick(new Date(win.to), step >= 86400)}
-            <button type="button" aria-label="Show the whole period" className="text-ink-soft hover:text-ink" onClick={() => setWin(null)}>✕</button>
+            {win.series === "served" ? "Served" : "Refused"}, {formatTick(new Date(win.from), step >= 86400)}–{formatTick(new Date(win.to), step >= 86400)}
+            <button type="button" aria-label="Show the whole period" className="text-ink-soft hover:text-ink" onClick={() => { if (win.series === "served") setOn(defaultKinds); setWin(null); }}>✕</button>
           </span>
         </div>
       ) : null}

@@ -36,6 +36,14 @@ function FindingItem({ f }: { f: Finding }) {
 /** The AI's security study: the discovery's conclusion. */
 export function SecurityStudy({ study }: { study?: Study }) {
   if (!study) return null;
+  if (study.pending) {
+    return (
+      <Notice tone="info">
+        The security study is written after the agent's check of the draft, on the map as the check leaves it: it
+        appears here then.
+      </Notice>
+    );
+  }
   if (!study.used) {
     return study.error
       ? <Notice tone="error">The AI security study did not run: {study.error}.</Notice>
@@ -45,7 +53,7 @@ export function SecurityStudy({ study }: { study?: Study }) {
   const counts = (Object.keys(SEVERITY) as Finding["severity"][]).filter((s) => study.counts?.[s]);
   return (
     <section className="flex flex-col gap-3 rounded-[var(--radius-panel)] border border-rule bg-surface p-4">
-      <h3 className="text-base font-semibold">Security study</h3>
+      <h3 className="text-base font-semibold">Security study{study.version ? <span className="font-normal text-ink-soft"> · on version {study.version}</span> : null}</h3>
       {study.summary ? <p className="text-sm leading-relaxed">{study.summary}</p> : null}
       <p className="text-[13px] text-ink-soft">{surfaceLine(study.surface)}</p>
       {counts.length ? (

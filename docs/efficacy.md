@@ -56,6 +56,10 @@ guarantees hold.
 Run again for 0.2.32 (25 Nov 2026; the AI security study and the source
 reader's closer reading change neither the gateway nor the maps): the
 same numbers on every line, all guarantees hold.
+Run again for 0.2.33 (25 Nov 2026; the study after the check, the Logs'
+served bars and the report's kept-out total change neither the gateway nor
+the maps): every attack line the same, every page visited the same as on
+the site (174 of 174), all guarantees hold.
 
 Five sites: WordPress 6.9, Drupal 11.4, the custom intranet (generic
 profile), phpBB 3.3, MediaWiki 1.43. Joomla, OpenCart, PrestaShop, TYPO3

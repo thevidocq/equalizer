@@ -23,6 +23,9 @@ func TestQueries(t *testing.T) {
 	if !strings.HasPrefix(f.Counts(), `sum by (type) (count_over_time({stream="security"}`) || !strings.HasSuffix(f.Counts(), `[24h]))`) {
 		t.Errorf("counts: %s", f.Counts())
 	}
+	if !strings.Contains(f.Served(), `| type="request.served" [3600s]`) {
+		t.Errorf("served: %s", f.Served())
+	}
 	if !strings.Contains(f.Refused(), `type!="request.served" [3600s]`) {
 		t.Errorf("refused: %s", f.Refused())
 	}
@@ -54,8 +57,12 @@ func TestEvents(t *testing.T) {
 		case r.URL.Path == "/loki/api/v1/query":
 			_, _ = w.Write([]byte(`{"data":{"result":[{"metric":{"type":"request.blocked"},"value":[1,"12"]}]}}`))
 		case strings.HasPrefix(r.URL.Query().Get("query"), "sum("):
+			n := "5"
+			if strings.Contains(r.URL.Query().Get("query"), `type="request.served"`) {
+				n = "40"
+			}
 			ts := now.Truncate(time.Hour).Unix()
-			_, _ = w.Write([]byte(`{"data":{"result":[{"values":[[` + itoa(ts) + `,"5"]]}]}}`))
+			_, _ = w.Write([]byte(`{"data":{"result":[{"values":[[` + itoa(ts) + `,"` + n + `"]]}]}}`))
 		default:
 			t1, t2 := now.Add(-time.Minute), now.Add(-2*time.Minute)
 			res := map[string]any{"data": map[string]any{"result": []any{
@@ -84,9 +91,13 @@ func TestEvents(t *testing.T) {
 	if strings.Contains(string(b), "secret") || strings.Contains(string(b), "other") {
 		t.Errorf("leaked: %s", b)
 	}
-	counts, buckets, err := l.Stats(context.Background(), f)
-	if err != nil || counts["request.blocked"] != 12 || len(buckets) != 24 || buckets[len(buckets)-2].Count != 5 {
-		t.Fatalf("stats: %v %+v %v", counts, buckets, err)
+	st, err := l.Stats(context.Background(), f)
+	if err != nil || st.Counts["request.blocked"] != 12 || len(st.Refused) != 24 || st.Refused[len(st.Refused)-2].Count != 5 {
+		t.Fatalf("stats: %+v %v", st, err)
+	}
+	// the served bars: the same intervals, their own counts
+	if len(st.Served) != 24 || st.Served[len(st.Served)-2].Count != 40 || !st.Served[3].TS.Equal(st.Refused[3].TS) {
+		t.Fatalf("served: %+v", st.Served)
 	}
 
 	// a bar of the chart: the events of that hour only

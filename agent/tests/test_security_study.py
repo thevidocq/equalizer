@@ -56,6 +56,20 @@ class StudyTest(unittest.TestCase):
         self.assertEqual(page["query"], {"orderby": "enum(2)", "s": "string<=200 no_html"})
         self.assertTrue(next(it for it in ev.items.values() if it.get("name") == "plugin:wp-file-manager")["known_issue"])
 
+    def test_the_ai_knows_equalizer_decisions(self):
+        rep = dict(REPORT, open=[{"target": "contact.message", "reason": "accepts_sql", "detail": "a quote in /contact?x=1"}])
+        item = next(it for it in study.evidence(DOC, rep).items.values() if it.get("target") == "contact.message")
+        self.assertIn("kept free on purpose", item["means"])
+        self.assertNotIn("detail", item)  # the reason only
+        self.assertIn("administration included", study.EQUALIZER)
+        self.assertIn("no_sql_meta", study.EQUALIZER)
+        # the old actions against those decisions are gone
+        for gone in ("close_area", "add_role", "exclude_entry"):
+            self.assertNotIn(gone, study.ACTION)
+        self.assertIn("on_the_site", study.ACTION)
+        llm = FakeLLM([{"findings": [finding(action="close_area")]}, {"summary": "s"}])
+        self.assertEqual(study.study(llm, DOC, REPORT)["findings"][0]["action"], "none")  # kept, without that advice
+
     def test_only_names_and_types_reach_the_ai(self):
         llm = FakeLLM([{"findings": []}, {"summary": ""}])
         study.study(llm, DOC, REPORT)
@@ -122,6 +136,53 @@ class StudyTest(unittest.TestCase):
         self.assertNotIn("token", json.dumps(ev.items))
         maps = [it["map"] for it in ev.items.values() if it.get("kind") == "code_only"]
         self.assertEqual(maps, ["area", "precise"])  # a POST to a page the map serves for GET goes through the area
+
+    def test_run_hands_the_study_back(self):
+        class Panel:
+            def __init__(self):
+                self.got = None
+
+            def study_result(self, i, sec):
+                self.got = (i, sec)
+                return True
+
+        class Log:
+            def info(self, *a, **k): pass
+            def error(self, *a, **k): pass
+            def warn(self, *a, **k): pass
+
+        class Cfg:
+            allow_private_llm = False
+        p = Panel()
+        orig = study.study
+        study.study = lambda llm, doc, rep: (_ for _ in ()).throw(RuntimeError("x"))
+        import equalizer_agent.llm as llm_mod
+        orig_p = llm_mod.provider
+        llm_mod.provider = lambda cfg, allow: object()
+        try:
+            study.run({"id": 4, "app": "a", "version": 7, "document": DOC, "report": REPORT, "llm": {"provider": "x"}}, Cfg(), p, Log())
+        finally:
+            study.study, llm_mod.provider = orig, orig_p
+        self.assertEqual(p.got, (4, {"used": False, "error": "the study could not be completed", "version": 7}))
+        study.run({"id": 5, "version": 1, "llm": None}, Cfg(), p, Log())
+        self.assertEqual(p.got[1]["reason"], "no AI model configured for this tenant")
+
+        # the panel down for a moment: the study is sent again, not lost
+        class Flaky(Panel):
+            calls = 0
+
+            def study_result(self, i, sec):
+                Flaky.calls += 1
+                if Flaky.calls < 3:
+                    raise OSError("down")
+                return super().study_result(i, sec)
+        f, wait = Flaky(), study.RESULT_WAIT
+        study.RESULT_WAIT = 0
+        try:
+            study.run({"id": 6, "version": 2, "llm": None}, Cfg(), f, Log())
+        finally:
+            study.RESULT_WAIT = wait
+        self.assertEqual((Flaky.calls, f.got[0]), (3, 6))
 
     def test_parts(self):
         ev = study.evidence(DOC, REPORT)

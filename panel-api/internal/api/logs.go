@@ -94,13 +94,14 @@ func (s *Server) logStats(w http.ResponseWriter, r *http.Request, u *auth.User) 
 		return
 	}
 	f.Types = nil
-	counts, refused, err := s.Logs.Stats(r.Context(), f)
+	st, err := s.Logs.Stats(r.Context(), f)
 	if err != nil {
 		s.logError(w, r, err)
 		return
 	}
 	_, step := f.Span()
-	writeJSON(w, http.StatusOK, map[string]any{"counts": counts, "refused": refused, "step_seconds": int(step.Seconds())})
+	writeJSON(w, http.StatusOK, map[string]any{"counts": st.Counts, "refused": st.Refused, "served": st.Served,
+		"step_seconds": int(step.Seconds())})
 }
 
 func (s *Server) exportLogs(w http.ResponseWriter, r *http.Request, u *auth.User) {

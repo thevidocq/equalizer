@@ -3281,6 +3281,92 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/internal/studies/claim": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** The agent takes the next security study of a discovery, written after the check of its draft (or at once when the discovery proposed no draft): the discovery's report, the map it studies (the draft as the check left it, or the published map) and the tenant's AI model */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Job */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["StudyJob"];
+                    };
+                };
+                /** @description Nothing queued */
+                204: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/internal/studies/{id}/result": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** The security study of discovery id; it becomes the report's security section */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: components["parameters"]["id"];
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": {
+                        security: components["schemas"]["SecurityStudy"];
+                    };
+                };
+            };
+            responses: {
+                /** @description Saved */
+                204: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                404: components["responses"]["Error"];
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/internal/verifications/claim": {
         parameters: {
             query?: never;
@@ -5205,12 +5291,18 @@ export interface components {
                 [key: string]: number;
             };
             /** @description Refused events (every type but request.served) per interval, oldest first */
-            refused: {
-                /** Format: date-time */
-                ts: string;
-                count: number;
-            }[];
+            refused: components["schemas"]["LogBucket"][];
+            /** @description Served requests (request.served) per interval, the same intervals as refused */
+            served: components["schemas"]["LogBucket"][];
             step_seconds: number;
+        };
+        LogBucket: {
+            /**
+             * Format: date-time
+             * @description Start of the interval
+             */
+            ts: string;
+            count: number;
         };
         /**
          * @description unknown: no data yet (e.g. no traffic); not_used: the site does not need it
@@ -5463,9 +5555,29 @@ export interface components {
             difference: "status" | "text" | "links" | "forms" | "picture" | "refused";
             detail?: string;
         };
-        /** @description The AI's security study of the site, the discovery's last step: it reads everything the discovery found (the map drafted with each field's type, the components and versions, what stayed open, visitors' requests, and the source code's entry points and risky calls when the code was read), as a security engineer and a developer would, and writes what an attacker would try, how far the map stops it, and what to do, ranked. It sees names, types and places only; every finding cites items it was given, and it changes nothing in the draft */
+        StudyJob: {
+            /** @description The discovery */
+            id: number;
+            tenant: string;
+            app: string;
+            /** @description The map version studied */
+            version: number;
+            report: components["schemas"]["StudyReport"];
+            document: {
+                [key: string]: unknown;
+            };
+            /** @description The tenant's AI model, as in DiscoveryJob */
+            llm?: {
+                [key: string]: unknown;
+            } | null;
+        };
+        /** @description The AI's security study of the site, the discovery's conclusion, written after the agent's check of the draft (pending until then): it reads everything the discovery found (the map drafted with each field's type, the components and versions, what stayed open, visitors' requests, and the source code's entry points and risky calls when the code was read), as a security engineer and a developer would, and writes what an attacker would try, how far the map stops it, and what to do, ranked. It sees names, types and places only; every finding cites items it was given, and it changes nothing in the draft */
         SecurityStudy: {
             used: boolean;
+            /** @description Written after the agent's check of the draft, on the map as the check left it */
+            pending?: boolean;
+            /** @description The map version it studied */
+            version?: number;
             /** @description Why it did not run: no AI configured, the AI was off */
             reason?: string;
             error?: string;
@@ -5515,8 +5627,11 @@ export interface components {
                  */
                 coverage: "blocked" | "partial" | "open";
                 coverage_why?: string;
-                /** @enum {unknown} */
-                action: "narrow_field" | "exclude_entry" | "add_role" | "owner_check" | "update_component" | "review_code" | "close_area" | "none";
+                /**
+                 * @description In Equalizer: narrow a field, cover an entry point precisely (a discovery with the source code or the visitors' requests), a rate limit, an owner check. Outside: update a component, read the code, a task on the site itself (who may reach its administration is the site's decision). exclude_entry, add_role and close_area are only in reports written before 0.2.33: the study no longer proposes them
+                 * @enum {unknown}
+                 */
+                action: "narrow_field" | "map_precisely" | "rate_limit" | "owner_check" | "update_component" | "review_code" | "on_the_site" | "none" | "exclude_entry" | "add_role" | "close_area";
                 action_detail?: string;
             }[];
         };
@@ -5532,6 +5647,8 @@ export interface components {
             }[];
             /** @description Links never opened because they change something */
             skipped_actions?: string[];
+            /** @description Pages the crawler kept out; excluded lists the first 200 */
+            excluded_total?: number;
             /** @description HTML pages studied anonymously (path and query): what a verification compares */
             pages?: string[];
             /** @description HTML pages studied with each test account and not anonymously */

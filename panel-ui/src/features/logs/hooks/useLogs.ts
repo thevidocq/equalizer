@@ -2,7 +2,7 @@ import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from "@tansta
 import { api, unwrap } from "@/shared/api/client";
 import type { EventType, Since } from "../components/kinds";
 
-/** from/to: one bar of the refused chart; absent: the whole period. */
+/** from/to: one bar of the chart; absent: the whole period. */
 export type LogFilter = { app: string; types: EventType[]; q: string; since: Since; from?: string; to?: string };
 
 function query(f: LogFilter, withTypes: boolean) {
@@ -38,7 +38,7 @@ export function useRestartLogs(tenant: string) {
   return () => void qc.resetQueries({ queryKey: ["logs", tenant] });
 }
 
-/** Counts per type and the refused chart, for the same filters. */
+/** Counts per type and the served and refused charts, for the same filters. */
 export function useLogStats(tenant: string, f: LogFilter, isLive: boolean) {
   return useQuery({
     queryKey: ["log-stats", tenant, f.app, f.q, f.since],

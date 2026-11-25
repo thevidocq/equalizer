@@ -68,6 +68,27 @@ it, 0.1.0 (`docs/releases/0.1.0.md`, tag on the merge of #39).
 
 ## Entries
 
+### 2026-11-25 — Let the viewer choose the Logs chart style
+
+- **Branch:** feat/logs-chart-styles
+- **What:** `LogStats.by_type` (contract first): events per type per
+  interval, from one `sum by (type)` range query (`logsearch.PerType`);
+  `refused` and `served` are now sums of it (one Loki range query instead
+  of two). `ActivityChart` draws the kinds selected in three styles,
+  overlaid (default, as before), side by side (own scales) and stacked
+  (per kind, chip colours); `ChartColumn` draws one interval;
+  `chartData.ts` builds the layers and keeps the style in localStorage.
+  Tenant manual, in-app help, release notes 0.2.34 (not tagged yet).
+- **Why:** the owner wants the user to pick the style, keeping today's as
+  the default.
+- **Status:** Go tests pass; panel-ui syntax checked here, CI runs tsc and
+  vitest; rendered with esbuild and Tailwind's compiler to check the
+  three styles. Gateway and maps unchanged (efficacy of 0.2.34 stands).
+- **Next steps:**
+  1. The reader's "no code file found" error could say the folder is
+     empty for the reader (check the container), awaiting the owner.
+  2. Look at the repeated "Connector offline" alerts on the first server.
+
 ### 2026-11-25 — Show served and refused in one Logs chart
 
 - **Branch:** fix/logs-one-chart

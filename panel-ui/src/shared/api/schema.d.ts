@@ -5294,6 +5294,10 @@ export interface components {
             refused: components["schemas"]["LogBucket"][];
             /** @description Served requests (request.served) per interval, the same intervals as refused */
             served: components["schemas"]["LogBucket"][];
+            /** @description Events per type per interval, the same intervals as refused (the stacked chart); a type with no event in the period is absent */
+            by_type: {
+                [key: string]: components["schemas"]["LogBucket"][];
+            };
             step_seconds: number;
         };
         LogBucket: {

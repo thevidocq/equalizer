@@ -23,11 +23,8 @@ func TestQueries(t *testing.T) {
 	if !strings.HasPrefix(f.Counts(), `sum by (type) (count_over_time({stream="security"}`) || !strings.HasSuffix(f.Counts(), `[24h]))`) {
 		t.Errorf("counts: %s", f.Counts())
 	}
-	if !strings.Contains(f.Served(), `| type="request.served" [3600s]`) {
-		t.Errorf("served: %s", f.Served())
-	}
-	if !strings.Contains(f.Refused(), `type!="request.served" [3600s]`) {
-		t.Errorf("refused: %s", f.Refused())
+	if !strings.Contains(f.PerType(), `sum by (type) (count_over_time({stream="security"}`) || !strings.HasSuffix(f.PerType(), `[3600s]))`) {
+		t.Errorf("per type: %s", f.PerType())
 	}
 	for name, bad := range map[string]Filter{
 		"type":   {Tenant: "acme", Types: []string{"anything"}},
@@ -56,13 +53,12 @@ func TestEvents(t *testing.T) {
 		switch {
 		case r.URL.Path == "/loki/api/v1/query":
 			_, _ = w.Write([]byte(`{"data":{"result":[{"metric":{"type":"request.blocked"},"value":[1,"12"]}]}}`))
-		case strings.HasPrefix(r.URL.Query().Get("query"), "sum("):
-			n := "5"
-			if strings.Contains(r.URL.Query().Get("query"), `type="request.served"`) {
-				n = "40"
-			}
-			ts := now.Truncate(time.Hour).Unix()
-			_, _ = w.Write([]byte(`{"data":{"result":[{"values":[[` + itoa(ts) + `,"` + n + `"]]}]}}`))
+		case strings.HasPrefix(r.URL.Query().Get("query"), "sum by (type) (count_over_time") && r.URL.Path == "/loki/api/v1/query_range":
+			ts := itoa(now.Truncate(time.Hour).Unix())
+			_, _ = w.Write([]byte(`{"data":{"result":[` +
+				`{"metric":{"type":"request.blocked"},"values":[[` + ts + `,"3"]]},` +
+				`{"metric":{"type":"field.rejected"},"values":[[` + ts + `,"2"]]},` +
+				`{"metric":{"type":"request.served"},"values":[[` + ts + `,"40"]]}]}}`))
 		default:
 			t1, t2 := now.Add(-time.Minute), now.Add(-2*time.Minute)
 			res := map[string]any{"data": map[string]any{"result": []any{
@@ -95,9 +91,12 @@ func TestEvents(t *testing.T) {
 	if err != nil || st.Counts["request.blocked"] != 12 || len(st.Refused) != 24 || st.Refused[len(st.Refused)-2].Count != 5 {
 		t.Fatalf("stats: %+v %v", st, err)
 	}
-	// the served bars: the same intervals, their own counts
+	// served apart, every type on the same intervals (the stacked chart)
 	if len(st.Served) != 24 || st.Served[len(st.Served)-2].Count != 40 || !st.Served[3].TS.Equal(st.Refused[3].TS) {
 		t.Fatalf("served: %+v", st.Served)
+	}
+	if len(st.ByType) != 3 || st.ByType["field.rejected"][22].Count != 2 || !st.ByType["request.blocked"][0].TS.Equal(st.Refused[0].TS) {
+		t.Fatalf("by type: %+v", st.ByType)
 	}
 
 	// a bar of the chart: the events of that hour only

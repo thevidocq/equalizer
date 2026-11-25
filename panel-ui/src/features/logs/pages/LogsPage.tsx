@@ -7,6 +7,7 @@ import { Button, EmptyState, Notice, PageHeader, formatTick } from "@/shared/ui"
 import { defaultKinds, kinds } from "../components/kinds";
 import { LogFilters } from "../components/LogFilters";
 import { ActivityChart } from "../components/ActivityChart";
+import { chartLayers, saveStyle, savedStyle, type ChartStyle } from "../components/chartData";
 import { EventTable } from "../components/EventTable";
 import { EventDetail } from "../components/EventDetail";
 import { useLogExport, useLogStats, useLogs, useRestartLogs, type LogFilter } from "../hooks/useLogs";
@@ -24,6 +25,7 @@ export function LogsPage() {
     app: params.get("app") ?? "", q: params.get("q") ?? "", since: periodOf(params.get("since")),
   }));
   const [live, setLive] = useState(true);
+  const [chart, setChart] = useState<ChartStyle>(savedStyle);
   const [selected, setSelected] = useState<string | null>(null);
   // a bar of the chart: its interval, until the ✕
   const [win, setWin] = useState<{ ts: string; from: string; to: string } | null>(null);
@@ -44,9 +46,12 @@ export function LogsPage() {
     setBase({ app: f.app, q: f.q, since: f.since });
     setSelected(null);
   }
-  function pick(b: { ts: string }) {
-    const from = new Date(b.ts);
-    setWin({ ts: b.ts, from: from.toISOString(), to: new Date(from.getTime() + step * 1000).toISOString() });
+  const slots = stats.data?.refused.map((b) => b.ts) ?? [];
+  const layers = chartLayers(stats.data?.by_type ?? {}, slots, on);
+
+  function pick(ts: string) {
+    const from = new Date(ts);
+    setWin({ ts, from: from.toISOString(), to: new Date(from.getTime() + step * 1000).toISOString() });
     if (!on.length) setOn(defaultKinds); // the kinds selected; none: the refused ones
     setLive(false); // an interval of the past does not change
     setSelected(null);
@@ -74,8 +79,8 @@ export function LogsPage() {
       {error ? <Notice tone="error">{describeError(error)}</Notice> : null}
       <LogFilters apps={apps} filter={filter} onChange={change} on={on} onToggle={toggle} counts={stats.data?.counts} />
       {stats.data ? (
-        <ActivityChart refused={stats.data.refused} served={on.includes("served") ? (stats.data.served ?? []) : null}
-          step={step} picked={win?.ts ?? null} onPick={pick} />
+        <ActivityChart slots={slots} refused={layers.refused} served={layers.served} step={step}
+          style={chart} onStyle={(c) => { setChart(c); saveStyle(c); }} picked={win?.ts ?? null} onPick={pick} />
       ) : null}
       {win ? (
         <div>

@@ -100,7 +100,7 @@ func (s *Server) logStats(w http.ResponseWriter, r *http.Request, u *auth.User) 
 		return
 	}
 	_, step := f.Span()
-	writeJSON(w, http.StatusOK, map[string]any{"counts": st.Counts, "refused": st.Refused, "served": st.Served,
+	writeJSON(w, http.StatusOK, map[string]any{"counts": st.Counts, "refused": st.Refused, "served": st.Served, "by_type": st.ByType,
 		"step_seconds": int(step.Seconds())})
 }
 

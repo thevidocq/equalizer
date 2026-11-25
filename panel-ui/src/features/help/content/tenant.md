@@ -650,13 +650,17 @@ offline name the connector or the site); on a path that is not in the map,
 **Add to the map** opens a new version. **Live** refreshes every few
 seconds, and its green dot pulses while it does (**Paused**: grey, still); **Export CSV** downloads up to 10 000 events (recorded in
 Activity). **Requests per hour** (per 5 minutes, 6 hours or day, as the
-period) is one chart: the refused requests in red and, when **Served** is
-selected among the kinds (it is not by default), the served ones behind
-them in faded green, on the same scale. A bar is a button. It shows the
-events of that interval only, for the kinds selected, a new query to the
-log store, not a filter of the rows already loaded; the bar stays marked,
-the others fade, and **20:00–21:00 ✕** above the list takes you back to
-the whole period. **Live** pauses (an
+period) is one chart of the kinds selected. **Served** is not selected by
+default; select it to see the served requests in faded green. Three
+styles, chosen at the chart's top right and kept in your browser:
+**Overlaid** (the default: refused in red over the served, on the same
+scale), **Side by side** (a red and a green bar per interval, each on its
+own scale, since served requests are many more) and **Stacked** (a stack
+of the kinds selected, each in its chip's colour, served at the base). A
+bar is a button. It shows the events of that interval only, for the kinds
+selected, a new query to the log store, not a filter of the rows already
+loaded; the bar stays marked, the others fade, and **20:00–21:00 ✕**
+above the list takes you back to the whole period. **Live** pauses (an
 interval of the past does not change) and **Export CSV** exports what you
 see. Field values are never stored, only the field name and the rule
 that refused it. The IP address is the visitor's real one, the same the

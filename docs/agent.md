@@ -559,10 +559,55 @@ a second safety belt. Per CMS:
 ## AI
 
 The study above is deterministic: it does not need an AI model. The tenant's
-model keeps its current job: it reviews the structure (paths, parameter
-names, masked samples), names entries, excludes what looks like a backup or
-an installer, and narrows a type when every observed value fits. It never
-opens anything, and its answer is checked field by field.
+model has two jobs.
+
+1. **Review of the draft** (`llm/refine.py`), right after the map is
+   written: it reviews the structure (paths, parameter names, masked
+   samples), names entries, excludes what looks like a backup or an
+   installer, and narrows a type when every observed value fits. It never
+   opens anything, and its answer is checked field by field.
+2. **Security study** (`llm/study.py`), the discovery's last step and its
+   conclusion (`report.security`). The model reads everything the
+   discovery found, as a security engineer and a developer would: every
+   entry of the map with the type of each field (`int 1-500`, `enum(3)`,
+   `string<=200 no_html`, `file`), the areas, the entry points the code
+   shows and whether the map serves them precisely or through an area, the
+   risky calls with the request key that reaches them and file:line, the
+   components and versions (and the ones with known issues), what stayed
+   open, the protection against IDOR proposed, visitors' requests, the
+   pages kept out. It is told how Equalizer protects a site (typed fields
+   stop injection; free text without `no_sql_meta` does not; areas are
+   served as the site serves them; access is the site's decision), so it
+   judges what is left once the map is published.
+   - The evidence goes in parts: the map and the site's state, then the
+     code an extension at a time (its entry points with its risky calls),
+     at most 6 parts of 70 items; then one call writes the conclusion:
+     summary, order, duplicates, first steps.
+   - Each finding has a severity (critical, high, medium, low), a
+     category, a title, why, what an attacker would try (no working
+     payload), the coverage once published (blocked, partial, open) and
+     why, and a next step among fixed actions (narrow a field, take an
+     entry out, restrict to a role, check the owner, update a component,
+     read the code at file:line, close an area). A finding must cite items
+     it was given by their ids (E12, R3, C4…): one that cites nothing it
+     was given, or with a value outside these lists, is dropped; texts are
+     cut to their lengths.
+   - It sees names, types and places only: no value (an enum is sent as
+     how many values it has), no page, no code, no secret. It changes
+     nothing in the draft. About a component's version it says what it
+     recalls "to verify", never a CVE number.
+   - The attack surface is counted by the agent, not asked: pages, forms,
+     API entries, file uploads, free-text fields, entry points only in the
+     code (and those without login), risky calls.
+   - "precise" for an entry point only the code shows means an entry of
+     the map takes its path, its query and one of its methods (a POST to a
+     page the map serves for GET goes through the area; a file folder is
+     never precise). Still-open items go with their reason only (a detail
+     can quote an address with its values).
+   - A part without answer leaves the others (`partial`); an answer cut at
+     the provider's limit keeps its whole findings; a malformed answer is
+     ignored; and the study can never fail the discovery: without any
+     answer the report says the study did not run, and why.
 
 **Planned, not decided**: letting the model read page contents (text, forms,
 scripts) so it understands what each page does and what each field holds,

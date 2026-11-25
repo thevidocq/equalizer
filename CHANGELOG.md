@@ -19,7 +19,8 @@ Add a section at the top of "Entries" for every commit:
 
 ## Current project status
 
-Latest release: **0.2.31** (`docs/releases/0.2.31.md`); before it 0.2.30
+Latest release: **0.2.32** (`docs/releases/0.2.32.md`); before it 0.2.31
+(`docs/releases/0.2.31.md`), 0.2.30
 (`docs/releases/0.2.30.md`), 0.2.29
 (`docs/releases/0.2.29.md`), 0.2.28
 (`docs/releases/0.2.28.md`), 0.2.27
@@ -64,6 +65,85 @@ it, 0.1.0 (`docs/releases/0.1.0.md`, tag on the merge of #39).
 | tools (eqtool) | Map signing keys, form key, relay token, connector registration, map signing |
 
 ## Entries
+
+### 2026-11-25 — Fix the review of the security study branch; efficacy 0.2.32
+
+- **Branch:** feat/ai-study
+- **What:**
+  - Study: a malformed answer (`refs` not a list, odd order, summary or
+    duplicates) never raises, and `discovery.py` catches any study error;
+    contradictory duplicates keep one; findings cut at the provider's
+    length limit are salvaged (`_salvage`), at most 12 asked per part;
+    `_served` judges "precise" by path, query and method (POST-only, file
+    folders → area); visitors' keys sent as route?key; still-open details
+    no longer sent.
+  - Reader: `taint` linear (one map lookup per variable of a line; 0.7 s on
+    a 1 MB file, was 2.5 minutes) and deterministic; resolved values that
+    look like secrets or hold other characters stay `{name}`, actions only
+    `[A-Za-z0-9_-]`; `FILTER_SANITIZE_*` no longer types a field; a line
+    starting with a closed `/* … */` comment still counts.
+  - Efficacy study run for 0.2.32: same numbers, all guarantees hold.
+  - Docs: tenant manual, agent.md, efficacy.
+- **Why:** independent review of the branch.
+- **Status:** reader, agent, panel-api tests pass; panel-ui syntax-checked.
+- **Next steps:** PR; screenshots of the study in the report.
+
+### 2026-11-25 — Source reader: SMB command injection, FIFOs, secret lists, taint and WordPress routes
+
+- **Branch:** feat/ai-study
+- **What:**
+  - `fetch.SMBWanted`: a folder whose name holds `"`, `;`, `\`, NUL or a
+    line break is left out: smbclient splits `-c` on `;` and `!` runs a
+    local shell, so a share folder `a;!cmd` ran `cmd` on the reader.
+  - `extract.Read`: regular files only (a FIFO blocked the read for good),
+    `readAtMost` stops at 1 MB if a file grew since it was listed.
+  - `addInput`: a key compared with a value that looks like a token (16+
+    characters, letters and digits) or, for a key named like a secret,
+    any value of 8+ characters, is sent as `unknown` without values.
+  - `wp_resolve.go`: REST namespaces and routes and AJAX hook names
+    resolved from the file's constants, properties and variables; unknown
+    parts as `{name}`; dynamic actions as `*`; methods of every endpoint
+    of a route. On WooCommerce and Contact Form 7: 341 REST routes (none
+    before), CF7's public feedback routes marked public.
+  - `php.go`: intra-file taint (`taint`, two passes) for risky calls
+    through variables; `filter_input` inputs; comment lines skipped; `exec`
+    only as a function; `->query( $args )` (WP_Query) is not SQL.
+  - Docs: tenant manual, release notes.
+- **Why:** the user asked for more bug-fix rounds on the reader; the two
+  review agents were stopped, so this round was done by hand on the real
+  plugins and the nine CMS trees.
+- **Status:** reader tests pass, examples unchanged and valid.
+- **Next steps:** version 0.2.32 with the security study; review; PR.
+
+### 2026-11-25 — The AI's security study, the discovery's conclusion
+
+- **Branch:** feat/ai-study
+- **What:** `agent/equalizer_agent/llm/study.py`, run last in
+  `discovery.run` (after the source code and visitors' requests):
+  - the evidence by id: map entries with each field's type in words, areas,
+    entry points only in the code with whether the map serves them
+    precisely or through an area, risky calls, components and versions
+    (with known issues), still open, IDOR proposals, visitors' requests,
+    pages kept out; never a value (an enum is how many values it has);
+  - up to 6 parts (map and state, then code by extension) and a
+    conclusion call (summary, order, duplicates, first steps); the system
+    prompt explains Equalizer's protection so coverage is judged right;
+  - every finding checked: fixed severity, category, coverage and action
+    lists, at least one id it was given, texts cut; the surface counted by
+    the agent; a part without answer marks the study partial.
+  - Contract `SecurityStudy` in `StudyReport.security`; panel-ui
+    `SecurityStudy.tsx` right under the draft notice (dot and word per
+    severity, findings closed by default); the assistant's `get_report`
+    puts the study first (14 000 characters).
+  - Tests `test_security_study.py`, the discovery test with an AI; docs:
+    tenant manual, agent.md, in-app help.
+- **Why:** the user wants the discovery to end with an expert study of the
+  legacy site, surface and code together, that a person would need weeks
+  for.
+- **Status:** agent tests pass; panel-ui syntax-checked only; two bug hunts
+  on the source reader are running.
+- **Next steps:** fix what the bug hunts find; version 0.2.32; efficacy;
+  review; PR.
 
 ### 2026-11-24 — Clean up between the Menu's tests
 

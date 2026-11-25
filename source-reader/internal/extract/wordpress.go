@@ -10,14 +10,17 @@ import (
 // opened directly.
 
 var (
-	restRoute  = regexp.MustCompile(`register_rest_route\s*\(\s*['"]([^'"]{1,100})['"]\s*,\s*['"]([^'"]{1,200})['"]`)
-	restMethod = regexp.MustCompile(`['"]methods['"]\s*=>\s*(?:['"]([A-Za-z, |]{1,40})['"]|(?:\\?WP_REST_Server::|)(READABLE|CREATABLE|EDITABLE|DELETABLE|ALLMETHODS))`)
-	openPerm   = regexp.MustCompile(`['"]permission_callback['"]\s*=>\s*['"]__return_true['"]`)
-	ajax       = regexp.MustCompile(`add_action\s*\(\s*['"](wp_ajax_nopriv_|wp_ajax_|admin_post_nopriv_|admin_post_)([A-Za-z0-9_\-]{1,100})['"]`)
-	coreVer    = regexp.MustCompile(`\$wp_version\s*=\s*['"]([0-9][0-9A-Za-z.\-]{0,30})['"]`)
-	header     = regexp.MustCompile(`(?m)^[ \t/*#@]*(Plugin Name|Theme Name|Version):\s*(.{1,120})$`)
-	guard      = regexp.MustCompile(`(?i)defined\s*\(\s*['"](ABSPATH|WPINC)['"]\s*\)|if\s*\(\s*!\s*defined`)
-	regexParam = regexp.MustCompile(`\(\?P<([A-Za-z0-9_]{1,40})>([^)]*)\)`)
+	restCall    = regexp.MustCompile(`\bregister_rest_route\s*\(`)
+	hookCall    = regexp.MustCompile(`\badd_action\s*\(`)
+	ajaxHook    = regexp.MustCompile(`^(wp_ajax_nopriv_|wp_ajax_|admin_post_nopriv_|admin_post_)(.{0,100})$`)
+	actionChars = regexp.MustCompile(`^[A-Za-z0-9_\-]{1,100}$`)
+	placeholder = regexp.MustCompile(`\{([A-Za-z_]\w*)\}`)
+	restMethod  = regexp.MustCompile(`['"]methods['"]\s*=>\s*(?:['"]([A-Za-z, |]{1,40})['"]|(?:\\?WP_REST_Server::|)(READABLE|CREATABLE|EDITABLE|DELETABLE|ALLMETHODS))`)
+	openPerm    = regexp.MustCompile(`['"]permission_callback['"]\s*=>\s*['"]__return_true['"]`)
+	coreVer     = regexp.MustCompile(`\$wp_version\s*=\s*['"]([0-9][0-9A-Za-z.\-]{0,30})['"]`)
+	header      = regexp.MustCompile(`(?m)^[ \t/*#@]*(Plugin Name|Theme Name|Version):\s*(.{1,120})$`)
+	guard       = regexp.MustCompile(`(?i)defined\s*\(\s*['"](ABSPATH|WPINC)['"]\s*\)|if\s*\(\s*!\s*defined`)
+	regexParam  = regexp.MustCompile(`\(\?P<([A-Za-z0-9_]{1,40})>([^)]*)\)`)
 )
 
 var wordpressKind = &kind{
@@ -57,40 +60,70 @@ var restMethods = map[string][]string{
 	"DELETABLE": {"DELETE"}, "ALLMETHODS": {"GET", "POST", "PUT", "PATCH", "DELETE"},
 }
 
-// wordpressFile reads what WordPress declares in one file.
+// wordpressFile reads what WordPress declares in one file: REST routes and
+// AJAX and admin-post actions, their names resolved from the file's own
+// constants, properties and variables where they are not plain strings.
 func (s *Summary) wordpressFile(a *app, src string) {
-	lines := strings.Split(src, "\n")
-	for i, line := range lines {
-		at := s.at(i + 1)
-		if m := restRoute.FindStringSubmatch(line); m != nil && len(s.Routes) < maxRoutes {
-			// the route's options follow: up to 30 lines
-			block := strings.Join(lines[i:min(len(lines), i+30)], "\n")
-			if end := strings.Index(block[len(m[0]):], "register_rest_route"); end >= 0 {
-				block = block[:len(m[0])+end]
-			}
-			p, params := restPath(m[1], m[2])
-			p = a.path(p)
-			s.Routes = append(s.Routes, Route{Path: p, Methods: methodsOf(block), Origin: "rest_route",
-				Public: openPerm.MatchString(block), Params: params, Where: at})
+	lit := fileLiterals(src)
+	lineAt := func(i int) Where { return s.at(1 + strings.Count(src[:i], "\n")) }
+	calls := restCall.FindAllStringIndex(src, -1)
+	for k, m := range calls {
+		in := args(src, m[1], 3)
+		if len(in) < 2 {
+			continue
 		}
-		for _, m := range ajax.FindAllStringSubmatch(line, -1) {
-			if len(s.Routes) >= maxRoutes {
-				break
-			}
-			r := Route{Methods: []string{"GET", "POST"}, Action: m[2], Where: at}
-			switch m[1] {
-			case "wp_ajax_nopriv_":
-				r.Path, r.Origin, r.Public = a.path("wp-admin/admin-ajax.php"), "wp_ajax_nopriv", true
-			case "wp_ajax_":
-				r.Path, r.Origin = a.path("wp-admin/admin-ajax.php"), "wp_ajax"
-			case "admin_post_nopriv_":
-				r.Path, r.Origin, r.Public = a.path("wp-admin/admin-post.php"), "admin_post", true
-			default:
-				r.Path, r.Origin = a.path("wp-admin/admin-post.php"), "admin_post"
-			}
-			r.Query = map[string]string{"action": m[2]}
-			s.Routes = append(s.Routes, r)
+		ns, okNS := lit.text(in[0])
+		route, okRoute := lit.text(in[1])
+		if !okNS && !okRoute {
+			continue
 		}
+		// the route's options: up to the next route
+		end := len(src)
+		if k+1 < len(calls) {
+			end = calls[k+1][0]
+		}
+		block := src[m[0]:min(end, m[0]+3000)]
+		p, params := restPath(ns, route)
+		for _, ph := range placeholder.FindAllStringSubmatch(p, -1) {
+			if params == nil {
+				params = map[string]string{}
+			}
+			if _, typed := params[ph[1]]; !typed {
+				params[ph[1]] = "unknown"
+			}
+		}
+		s.declared(Route{Path: a.path(p), Methods: methodsOf(block), Origin: "rest_route",
+			Public: openPerm.MatchString(block), Params: params, Where: lineAt(m[0])})
+	}
+	for _, m := range hookCall.FindAllStringIndex(src, -1) {
+		in := args(src, m[1], 1)
+		if len(in) == 0 {
+			continue
+		}
+		hook, ok := lit.text(in[0])
+		if !ok {
+			continue
+		}
+		hm := ajaxHook.FindStringSubmatch(hook)
+		if hm == nil {
+			continue
+		}
+		action := hm[2]
+		if !actionChars.MatchString(action) {
+			action = "*" // built at run time (a loop over a list): see the file
+		}
+		r := Route{Methods: []string{"GET", "POST"}, Action: action, Query: map[string]string{"action": action}, Where: lineAt(m[0])}
+		switch hm[1] {
+		case "wp_ajax_nopriv_":
+			r.Path, r.Origin, r.Public = a.path("wp-admin/admin-ajax.php"), "wp_ajax_nopriv", true
+		case "wp_ajax_":
+			r.Path, r.Origin = a.path("wp-admin/admin-ajax.php"), "wp_ajax"
+		case "admin_post_nopriv_":
+			r.Path, r.Origin, r.Public = a.path("wp-admin/admin-post.php"), "admin_post", true
+		default:
+			r.Path, r.Origin = a.path("wp-admin/admin-post.php"), "admin_post"
+		}
+		s.declared(r)
 	}
 }
 
@@ -118,23 +151,32 @@ func restPath(ns, route string) (string, map[string]string) {
 	return strings.TrimRight(p, "/"), params
 }
 
+// methodsOf: every method a route's endpoints declare (a route often has
+// one endpoint to read and one to change), in a fixed order.
 func methodsOf(block string) []string {
-	m := restMethod.FindStringSubmatch(block)
-	if m == nil {
-		return []string{"GET"} // WordPress's default
-	}
-	if m[2] != "" {
-		return restMethods[m[2]]
+	seen := map[string]bool{}
+	for _, m := range restMethod.FindAllStringSubmatch(block, -1) {
+		if m[2] != "" {
+			for _, v := range restMethods[m[2]] {
+				seen[v] = true
+			}
+			continue
+		}
+		for _, v := range strings.FieldsFunc(strings.ToUpper(m[1]), func(r rune) bool { return r == ',' || r == '|' || r == ' ' }) {
+			switch v {
+			case "GET", "POST", "PUT", "PATCH", "DELETE":
+				seen[v] = true
+			}
+		}
 	}
 	var out []string
-	for _, v := range strings.FieldsFunc(strings.ToUpper(m[1]), func(r rune) bool { return r == ',' || r == '|' || r == ' ' }) {
-		switch v {
-		case "GET", "POST", "PUT", "PATCH", "DELETE":
+	for _, v := range []string{"GET", "POST", "PUT", "PATCH", "DELETE"} {
+		if seen[v] {
 			out = append(out, v)
 		}
 	}
 	if len(out) == 0 {
-		return []string{"GET"}
+		return []string{"GET"} // WordPress's default
 	}
 	return out
 }

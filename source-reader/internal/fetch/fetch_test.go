@@ -186,3 +186,13 @@ func TestGuarded(t *testing.T) {
 		t.Fatalf("%v", err)
 	}
 }
+
+// A folder on the share whose name is smbclient syntax never reaches a get
+// command: ";" ends a command there and "!" runs a local shell.
+func TestSMBWantedFolderNames(t *testing.T) {
+	line := "  index.php                           A      200  Mon Nov 24 10:00:00 2026\r\n"
+	listing := "\\Blog\\a;!touch pwn;b\r\n" + line + "\\Blog\\q\"x\r\n" + line + "\\Blog\\ok\r\n" + line
+	if got := SMBWanted(listing, "/blog"); len(got) != 1 || got[0] != "ok/index.php" {
+		t.Fatalf("%v", got)
+	}
+}

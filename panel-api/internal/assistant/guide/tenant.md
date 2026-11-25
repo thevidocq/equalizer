@@ -304,7 +304,36 @@ While it runs, the page shows how many pages it has found and, under it,
 what it is doing now: exploring (as which test account) with the page it
 is on, opening pages in the browser to see what their scripts load,
 reading the stylesheets, building the map, the AI studying the structure,
-checking what visitors asked for.
+checking what visitors asked for, the AI's security study (part 2 of 4…).
+
+**The security study** is the discovery's conclusion, first in the
+report. The AI reads everything the discovery found, on the surface and
+in the code: every page, form and API entry with the type of each field,
+the components and their versions, what stayed open, what visitors asked
+for, and, when the source code was read, the entry points only the code
+shows and the risky calls (an SQL query, a file written, a command run)
+with the field that reaches them and their file and line. It studies them
+together, as a security engineer and a developer would, and writes:
+
+- a **summary**: what the site is, how it is exposed, what matters most;
+- the **attack surface** in numbers (counted by the agent, not by the
+  AI);
+- the **first steps**, in order;
+- the **findings**, most urgent first, each with its severity (a dot and
+  a word: critical, high, medium, low), why, what an attacker would try,
+  how far the map stops it once published (stopped, partly stopped,
+  open), the next step (narrow a field, take an entry out, restrict to a
+  role, check the owner, update a component, read the code at a given
+  line, close an area), and the pages, code places and components it is
+  about.
+
+It works on names, types and places only: never a value, a page's text,
+a line of code or a secret. Every finding cites what the discovery found;
+Equalizer drops any that cites something else. It changes nothing in the
+draft: the assistant can turn a "narrow a field" into a draft for you. What
+it recalls about a version is to be verified. It needs an AI model
+(**Settings → AI**); without one, or if the model does not answer, the
+report says so. Without the source code it studies the surface only.
 
 **Pages in the browser.** The agent opens up to 40 pages per pass in a
 real browser, to see the requests their scripts make; the panel says which
@@ -1001,6 +1030,27 @@ Magento's modules sometimes) counts as a library: only its version.
 Moodle sub-plugins inside a plugin Moodle ships, and OpenCart 3's own
 extensions, are read as the site's (OpenCart 3 keeps them in the same
 folders as the added ones).
+
+In WordPress code, a REST namespace or an AJAX action kept in a constant,
+a property or a variable of the same file (`self::route_namespace`,
+`$this->namespace . '/' . $this->rest_base`) is resolved; a part the file
+does not fix shows as `{name}`, and an action built at run time
+(`'wp_ajax_' . $action` in a loop) as `action=*`, so the entry point is
+still listed with its file and line.
+
+A risky call counts when a request value reaches it on the same line, or
+through a variable of the same file set from one
+(`$id = $_GET['id'];` … `$wpdb->query( "… $id" )`), unless the value
+was made a number, a yes or no, a key or an escaped SQL value first
+(`absint`, `(int)`, `sanitize_key`, `esc_sql`…). Comment lines never
+count. `filter_input()` types a field when its filter validates
+(`FILTER_VALIDATE_INT`, `_EMAIL`, `_URL`, `_BOOL`); a `FILTER_SANITIZE_`
+filter only strips characters, so the field stays untyped. A constant or
+variable resolved into a route or an action that looks like a secret
+stays a `{name}`. A key compared with a
+value that looks like a token or a password (a backdoor key written in the
+code) is never sent as a list of values: the value stays on your network.
+Only regular files are read: a symlink, a FIFO or a device never is.
 
 Elsewhere, a PHP file counts as an entry point only when it does
 something as soon as it is opened: outside its named functions and

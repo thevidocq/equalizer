@@ -4,6 +4,7 @@ import { STILL_OPEN } from "@/features/maps";
 import { DraftNotice } from "./DraftNotice";
 import { VisitorRequests } from "./VisitorRequests";
 import { FromSource } from "./FromSource";
+import { SecurityStudy } from "./SecurityStudy";
 import { mergeComponents } from "./components";
 import type { Discovery } from "../hooks/useDiscovery";
 
@@ -67,6 +68,7 @@ export function Report({ d }: { d: Discovery }) {
       </div>
       {d.draft_version ? <DraftNotice app={app} draft={d.draft_version} />
         : <Notice tone="info">The map already covers what was found: no draft needed.</Notice>}
+      <SecurityStudy study={r.security} />
       {r.known_issues?.length ? (
         <Notice tone="error">{r.known_issues.length} component(s) with known issues: their paths stay closed. Update them.</Notice>
       ) : null}

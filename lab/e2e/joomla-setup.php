@@ -23,6 +23,27 @@ if (!$db->query("select count(*) from {$p}content")->fetchColumn()) {
     $id = $st->fetchColumn();
     $db->prepare("insert into {$p}content_frontpage (content_id, ordering) values (?, 1)")->execute([$id]);
 }
+// A news site has many articles, on the home page page by page; each in
+// its own place (Prev and Next follow it) and without a hit counter, so two
+// visits of a page show the same text.
+if ($db->query("select count(*) from {$p}content")->fetchColumn() < 2) {
+    $cat = $db->query("select id from {$p}categories where extension = 'com_content' and alias = 'uncategorised'")->fetchColumn();
+    $user = $db->query("select id from {$p}users order by id limit 1")->fetchColumn();
+    $st = $db->prepare("insert into {$p}content (title, alias, introtext, \"fulltext\", state, catid, created, created_by,
+        modified, modified_by, publish_up, images, urls, attribs, metadesc, metadata, access, featured, language, ordering)
+        values (?, ?, ?, ?, 1, ?, ?, ?, ?, ?, ?, '{}', '{}', '{\"show_hits\":\"0\"}', '', '{}', 1, 1, '*', ?) returning id");
+    $front = $db->prepare("insert into {$p}content_frontpage (content_id, ordering) values (?, ?)");
+    $titles = ['Quarterly results', 'New office opens', 'Product launch', 'Security update', 'Team news',
+        'Customer stories', 'Summer event', 'Partner program', 'Hiring now', 'Open source day', 'Holiday hours',
+        'Award won', 'Interview with the CEO', 'Roadmap', 'Year in review'];
+    foreach ($titles as $i => $t) {
+        $when = gmdate('Y-m-d H:i:s', time() - 7200 - $i * 86400);
+        $alias = strtolower(preg_replace('/[^A-Za-z0-9]+/', '-', $t));
+        $st->execute([$t, $alias, "<p>$t: the news in short.</p>", "<p>$t: the whole story, number $i.</p>",
+            $cat, $when, $user, $when, $user, $when, $i + 2]);
+        $front->execute([$st->fetchColumn(), $i + 2]);
+    }
+}
 // The lab has no Internet: no update or statistics checks, which would
 // make admin pages wait for joomla.org; no guided tour, which starts by
 // itself on a new site and leaves the page the tests open.

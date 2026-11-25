@@ -15,6 +15,14 @@ import (
 // against the schema): -update rewrites them.
 func tree(t *testing.T, files map[string]string) *Summary {
 	t.Helper()
+	s := read(t, files)
+	example(t, s)
+	return s
+}
+
+// read: the summary of a tree, without a reference example to compare.
+func read(t *testing.T, files map[string]string) *Summary {
+	t.Helper()
 	dir := t.TempDir()
 	for name, body := range files {
 		p := filepath.Join(dir, filepath.FromSlash(name))
@@ -29,7 +37,6 @@ func tree(t *testing.T, files map[string]string) *Summary {
 	if err != nil {
 		t.Fatal(err)
 	}
-	example(t, s)
 	return s
 }
 

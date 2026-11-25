@@ -30,7 +30,7 @@ SITES = {
     "typo3": {"host": "site.acme.test", "legacy": 18198, "gateway": 18298, "root": RUN / "site",
               "router": LAB / "router.php", "account": None},
     "magento": {"host": "store.acme.test", "legacy": 18199, "gateway": 18299, "root": RUN / "store" / "pub",
-                "router": RUN / "store" / "phpserver" / "router.php", "cwd": RUN / "store" / "pub",
+                "router": RUN / "store" / "phpserver" / "router.php", "cwd": RUN / "store" / "pub", "source_root": RUN / "store",
                 "account": "editor@acme.test"},
 }
 MARKERS = {"wordpress": "wp-config.php", "joomla": "configuration.php", "drupal": "sites/default/settings.php",

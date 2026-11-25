@@ -1032,15 +1032,15 @@ browser opens them).
 | Application | Its core, version only | Entry points it reads in the extensions |
 | --- | --- | --- |
 | WordPress | `wp-admin`, `wp-includes`, the `wp-*.php` files | REST routes, AJAX and admin-post actions (`action=`), PHP files without the `ABSPATH` guard |
-| Drupal 8 and later | `core/` | the routes of each module's `*.routing.yml` (`_access: 'TRUE'` is public; a parameter's requirement types it) |
+| Drupal 8 and later | `core/` | the routes of each module's `*.routing.yml` (`_access: 'TRUE'` is public; a parameter's requirement types it); the request's `query->getInt()`, `getAlnum()`… type the fields (in `.module`, `.theme` and `.install` files too) |
 | Drupal 7 | `includes`, `misc`, the root `modules` and `themes` | `hook_menu` paths of the modules under `sites/` |
 | Joomla | its own extensions, as its `ExtensionHelper` lists them | each component at `index.php?option=com_…` (the administrator's too), the web services its plugins add to `api/index.php`, PHP files without the `_JEXEC` guard; `$input->getInt()`, `getCmd()`… type the fields |
-| Magento 2 | `app/code/Magento`, `vendor/magento`, `lib`, `pub`… | a module's controllers at `/frontName/folder/action` (`etc/frontend/routes.xml`, the administration's under `/admin/`), its REST routes (`etc/webapi.xml`, `anonymous` is public) |
-| PrestaShop | the core folders, the modules its `composer.json` ships, the administration folder (found by its content) | each module's front controllers at `index.php?fc=module&module=…&controller=…`, PHP files without the `_PS_VERSION_` guard |
-| OpenCart | everything but the extensions (`extension/<name>`, OpenCart 3's `extension/` subfolders) | each extension's controller methods at `index.php?route=…` (`admin/index.php` for the administration's) |
-| TYPO3 | `typo3/sysext`, `vendor/typo3` | eID scripts (`index.php?eID=…`), backend and AJAX routes under `/typo3/` |
-| MediaWiki | everything but `extensions/` and `skins/` | special pages (`title=Special:…`), API modules (`api.php?action=…`, `list=`, `prop=`, `meta=`), REST routes (`rest.php/…`) |
-| phpBB | everything but `ext/` (and `ext/phpbb`) | the pages of each extension's `config/routing.yml`, under `app.php/` |
+| Magento 2 | `app/code/Magento`, `vendor/magento`, `lib`, `pub`… | a module's controllers at `/frontName/folder/action` (`etc/frontend/routes.xml`, the administration's under `/admin/`), its REST routes (`etc/webapi.xml`, `anonymous` is public); `getParam()`, `getPost()` read the fields (`(int)` types them) |
+| PrestaShop | the core folders, the modules its `composer.json` ships, the administration folder (found by its content) | each module's front controllers at `index.php?fc=module&module=…&controller=…`, PHP files without the `_PS_VERSION_` guard; `Tools::getValue()` reads the fields (`(int)` types them) |
+| OpenCart | everything but the extensions (`extension/<name>`, OpenCart 3's `extension/` subfolders) | each extension's controller methods at `index.php?route=…` (`admin/index.php` for the administration's); `$this->request->get[…]`, `post[…]` read the fields |
+| TYPO3 | `typo3/sysext`, `vendor/typo3` | eID scripts (`index.php?eID=…`), backend and AJAX routes under `/typo3/`; Extbase's `getArgument()`, `getQueryParams()`, `GeneralUtility::_GP()` read the fields |
+| MediaWiki | everything but `extensions/` and `skins/` | special pages (`title=Special:…`), API modules (`api.php?action=…`, `list=`, `prop=`, `meta=`), REST routes (`rest.php/…`); the request's `getInt()`, `getBool()`, `getText()`… type the fields |
+| phpBB | everything but `ext/` (and `ext/phpbb/viglink`, the one extension phpBB ships) | the pages of each extension's `config/routing.yml`, under `app.php/`; `$request->variable('x', 0)` types a field by its default value (a number, a yes or no, text) |
 | Moodle | the plugins its `lib/plugins.json` lists | the pages of the added plugins (files that load `config.php`), their AJAX services (`db/services.php`, `loginrequired => false` is public); `optional_param(…, PARAM_INT)` and the like type the fields |
 
 A plugin installed with Composer into `vendor/` (TYPO3's extensions often,
@@ -1057,7 +1057,8 @@ does not fix shows as `{name}`, and an action built at run time
 still listed with its file and line.
 
 A risky call counts when a request value reaches it on the same line, or
-through a variable of the same file set from one
+through a variable of the same file set from one (by `$_GET` and the like or
+by the application's own request reader)
 (`$id = $_GET['id'];` … `$wpdb->query( "… $id" )`), unless the value
 was made a number, a yes or no, a key or an escaped SQL value first
 (`absint`, `(int)`, `sanitize_key`, `esc_sql`…). Comment lines never

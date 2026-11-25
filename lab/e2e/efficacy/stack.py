@@ -72,6 +72,9 @@ def discover(name: str, s: dict) -> tuple:
     job = {"id": 1, "app": name, "tenant": "lab", "domain": s["host"], "kind": kind, "base_url": f"http://{s['host']}",
            "reach": tpl["legacy"]["reach"], "max_pages": 300, "template": tpl, "unmapped": [],
            "accounts": [{"label": "test", "username": s["account"], "password": PASSWORD}] if s["account"] else []}
+    summary = source(name, s)
+    if summary is not None:
+        job.update(source=summary, source_status="used")
     cfg = config.Config(direct={address}, rate=50, browser="off")
     discovery.run(job, cfg, _Panel(out), _Log())
     return json.loads((out / "draft.json").read_text()), json.loads((out / "report.json").read_text())
@@ -103,3 +106,18 @@ def build() -> None:
     OUT.mkdir(parents=True, exist_ok=True)
     subprocess.run(["go", "build", "-o", str(OUT / "gateway"), "./cmd/gateway"], cwd=ROOT / "gateway", check=True)
     subprocess.run(["go", "build", "-o", str(OUT / "eqtool"), "./cmd/eqtool"], cwd=ROOT / "tools", check=True)
+    subprocess.run(["go", "build", "-o", str(OUT / "source-summary"), "./cmd/source-summary"], cwd=ROOT / "source-reader",
+                   check=True)
+
+
+def source(name: str, s: dict):
+    """The source reader's summary of the site's code, as the panel hands it
+    to the discovery (STUDY_SOURCE=off: the surface only)."""
+    if os.environ.get("STUDY_SOURCE") == "off":
+        return None
+    root = s.get("source_root", s["root"])
+    r = subprocess.run([str(OUT / "source-summary"), str(root)], capture_output=True, text=True, timeout=600)
+    if r.returncode:
+        raise RuntimeError(f"{name}: the source reader failed: {r.stderr.strip()[:200]}")
+    (OUT / name / "source.json").write_text(r.stdout)
+    return json.loads(r.stdout)

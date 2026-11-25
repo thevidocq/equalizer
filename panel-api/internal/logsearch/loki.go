@@ -160,12 +160,16 @@ func parse(raw, tenant string) (Event, bool) {
 
 // Stats is what the Logs page counts over the period.
 type Stats struct {
-	Counts  map[string]int // events per type
-	Refused []Bucket       // refused events per interval, oldest first
-	Served  []Bucket       // served requests, the same intervals
+	Counts  map[string]int      // events per type
+	Refused []Bucket            // refused events per interval, oldest first
+	Served  []Bucket            // served requests, the same intervals
+	ByType  map[string][]Bucket // every type with events, the same intervals
 }
 
-// Stats returns the events per type and the refused and served charts of the period.
+// served is the one type that is not refused.
+const served = "request.served"
+
+// Stats returns the events per type and the charts of the period.
 func (l *Loki) Stats(ctx context.Context, f Filter) (Stats, error) {
 	now := l.now()
 	var inst struct {
@@ -187,46 +191,73 @@ func (l *Loki) Stats(ctx context.Context, f Filter) (Stats, error) {
 			st.Counts[r.Metric["type"]] = n
 		}
 	}
-	var err error
-	if st.Refused, err = l.series(ctx, f, f.Refused(), now); err != nil {
+	by, slots, err := l.perType(ctx, f, now)
+	if err != nil {
 		return Stats{}, err
 	}
-	if st.Served, err = l.series(ctx, f, f.Served(), now); err != nil {
-		return Stats{}, err
+	st.ByType = by
+	st.Refused, st.Served = make([]Bucket, len(slots)), make([]Bucket, len(slots))
+	for i, ts := range slots {
+		st.Refused[i], st.Served[i] = Bucket{TS: ts}, Bucket{TS: ts}
+	}
+	for t, bs := range by {
+		into := st.Refused
+		if t == served {
+			into = st.Served
+		}
+		for i, b := range bs {
+			into[i].Count += b.Count
+		}
 	}
 	return st, nil
 }
 
-// series runs a range query and returns one bucket per interval of the
-// period, empty intervals included.
-func (l *Loki) series(ctx context.Context, f Filter, query string, now time.Time) ([]Bucket, error) {
+// perType runs the range query per type and returns, for every type with
+// events, one bucket per interval of the period (empty ones included), and
+// the start of each interval.
+func (l *Loki) perType(ctx context.Context, f Filter, now time.Time) (map[string][]Bucket, []time.Time, error) {
 	span, step := f.Span()
 	end := now.Truncate(step).Add(step)
 	start := end.Add(-span)
 	var rng struct {
 		Data struct {
 			Result []struct {
-				Values [][2]any `json:"values"`
+				Metric map[string]string `json:"metric"`
+				Values [][2]any          `json:"values"`
 			} `json:"result"`
 		} `json:"data"`
 	}
-	q := url.Values{"query": {query}, "step": {strconv.Itoa(int(step.Seconds()))},
+	q := url.Values{"query": {f.PerType()}, "step": {strconv.Itoa(int(step.Seconds()))},
 		"start": {strconv.FormatInt(start.UnixNano(), 10)}, "end": {strconv.FormatInt(end.UnixNano(), 10)}}
 	if err := l.get(ctx, "/loki/api/v1/query_range", q, &rng); err != nil {
-		return nil, err
+		return nil, nil, err
 	}
-	got := map[int64]int{}
+	var slots []time.Time
+	for t := start.Add(step); !t.After(end); t = t.Add(step) {
+		slots = append(slots, t) // Loki stamps an interval with its end
+	}
+	by := map[string][]Bucket{}
 	for _, r := range rng.Data.Result {
+		t := r.Metric["type"]
+		if t == "" {
+			continue
+		}
+		got := map[int64]int{}
 		for _, v := range r.Values {
 			sec, _ := v[0].(float64)
 			s, _ := v[1].(string)
 			n, _ := strconv.Atoi(s)
 			got[int64(sec)] = n
 		}
+		bs := make([]Bucket, len(slots))
+		for i, e := range slots {
+			bs[i] = Bucket{TS: e.Add(-step).UTC(), Count: got[e.Unix()]} // start of the interval
+		}
+		by[t] = bs
 	}
-	buckets := []Bucket{}
-	for t := start.Add(step); !t.After(end); t = t.Add(step) {
-		buckets = append(buckets, Bucket{TS: t.Add(-step).UTC(), Count: got[t.Unix()]}) // start of the interval
+	starts := make([]time.Time, len(slots))
+	for i, e := range slots {
+		starts[i] = e.Add(-step).UTC()
 	}
-	return buckets, nil
+	return by, starts, nil
 }

@@ -106,15 +106,11 @@ func (f Filter) Counts() string {
 	return `sum by (type) (count_over_time(` + f.selector() + ` [` + f.Since + `]))`
 }
 
-// Refused is the range query of refused events per interval.
-func (f Filter) Refused() string { return f.perInterval(`type!="request.served"`) }
-
-// Served is the range query of served requests per interval.
-func (f Filter) Served() string { return f.perInterval(`type="request.served"`) }
-
-func (f Filter) perInterval(match string) string {
+// PerType is the range query of events per type per interval; the chart's
+// refused and served series are sums of it.
+func (f Filter) PerType() string {
 	_, step := f.Span()
-	return `sum(count_over_time(` + f.selector() + ` | ` + match + ` [` + strconv.Itoa(int(step.Seconds())) + `s]))`
+	return `sum by (type) (count_over_time(` + f.selector() + ` [` + strconv.Itoa(int(step.Seconds())) + `s]))`
 }
 
 // quote writes a LogQL double-quoted string.

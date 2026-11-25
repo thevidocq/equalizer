@@ -2586,7 +2586,7 @@ components:
         connector: { type: [string, "null"], description: "Connector concerned (connector.down)" }
     LogStats:
       type: object
-      required: [counts, refused, served, step_seconds]
+      required: [counts, refused, served, by_type, step_seconds]
       properties:
         counts:
           type: object
@@ -2600,6 +2600,14 @@ components:
           type: array
           description: Served requests (request.served) per interval, the same intervals as refused
           items: { $ref: "#/components/schemas/LogBucket" }
+        by_type:
+          type: object
+          description: >-
+            Events per type per interval, the same intervals as refused (the stacked chart); a type with no event
+            in the period is absent
+          additionalProperties:
+            type: array
+            items: { $ref: "#/components/schemas/LogBucket" }
         step_seconds: { type: integer }
     LogBucket:
       type: object

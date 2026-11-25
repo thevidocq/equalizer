@@ -110,29 +110,35 @@ func (l literals) text(arg string) (string, bool) {
 }
 
 func (l literals) value(part string) (string, bool) {
-	if m := thisProp.FindStringSubmatch(part); m != nil {
-		if v, ok := l.props[m[1]]; ok {
-			return v, true
+	name, v, ok := "", "", false
+	switch {
+	case thisProp.MatchString(part):
+		name = thisProp.FindStringSubmatch(part)[1]
+		v, ok = l.props[name]
+	case staticC.MatchString(part):
+		name = staticC.FindStringSubmatch(part)[1]
+		if v, ok = l.consts[name]; !ok {
+			v, ok = l.props[name]
 		}
-		return "{" + m[1] + "}", false
+		name = strings.ToLower(name)
+	case plainVar.MatchString(part):
+		name = plainVar.FindStringSubmatch(part)[1]
+		v, ok = l.vars[name]
+		ok = ok && v != "\x00"
+	default:
+		return "{value}", false
 	}
-	if m := staticC.FindStringSubmatch(part); m != nil {
-		if v, ok := l.consts[m[1]]; ok {
-			return v, true
-		}
-		if v, ok := l.props[m[1]]; ok {
-			return v, true
-		}
-		return "{" + strings.ToLower(m[1]) + "}", false
+	// a value that may be a secret (a key named like one, a token's shape)
+	// never leaves the code: the summary keeps its name
+	if !ok || secretList(name, []string{v}) || !nameChars.MatchString(v) {
+		return "{" + name + "}", false
 	}
-	if m := plainVar.FindStringSubmatch(part); m != nil {
-		if v, ok := l.vars[m[1]]; ok && v != "\x00" {
-			return v, true
-		}
-		return "{" + m[1] + "}", false
-	}
-	return "{value}", false
+	return v, true
 }
+
+// nameChars: what a namespace, a route (its regex groups included) or an
+// action is written with; no space, no quote.
+var nameChars = regexp.MustCompile(`^[A-Za-z0-9_./\-()?<>\[\]\\+*^$|{}:=,]{0,200}$`)
 
 // concatParts splits on "." outside strings.
 func concatParts(arg string) []string {

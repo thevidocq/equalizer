@@ -599,7 +599,14 @@ model has two jobs.
    - The attack surface is counted by the agent, not asked: pages, forms,
      API entries, file uploads, free-text fields, entry points only in the
      code (and those without login), risky calls.
-   - A part without answer leaves the others (`partial`); without any
+   - "precise" for an entry point only the code shows means an entry of
+     the map takes its path, its query and one of its methods (a POST to a
+     page the map serves for GET goes through the area; a file folder is
+     never precise). Still-open items go with their reason only (a detail
+     can quote an address with its values).
+   - A part without answer leaves the others (`partial`); an answer cut at
+     the provider's limit keeps its whole findings; a malformed answer is
+     ignored; and the study can never fail the discovery: without any
      answer the report says the study did not run, and why.
 
 **Planned, not decided**: letting the model read page contents (text, forms,

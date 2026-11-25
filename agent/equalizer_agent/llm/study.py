@@ -16,6 +16,7 @@ advises; the map's own checks and the agent's verification decide.
 
 import json
 import re
+import urllib.parse
 
 from .. import mapbuild
 
@@ -153,7 +154,7 @@ def evidence(doc: dict, report: dict) -> Evidence:
         path = u.get("path", "")
         ev.add("E", {"kind": "code_only", "origin": u.get("origin"), "path": path, "query": q, "methods": u.get("methods"),
                      "public": u.get("public"), "owner": u.get("owner"), "where": u.get("where"),
-                     "map": "precise" if "{" not in path and mapbuild.covered(doc, path) else "area"},
+                     "map": _served(doc, path, q, u.get("methods") or ["GET", "POST"])},
                path + ("?" + "&".join(f"{k}={v}" for k, v in q.items()) if q else ""))
     for r in src.get("risks") or []:
         ev.add("R", {"kind": r.get("kind"), "input": r.get("input"), "route": r.get("route"), "where": r.get("where"),
@@ -168,16 +169,37 @@ def evidence(doc: dict, report: dict) -> Evidence:
         ev.add("C", {"name": name, "version": ver, "known_issue": (name, ver) in flagged or None},
                f"{name} {ver or ''}".strip())
     for o in report.get("open") or []:
-        ev.add("O", {"target": o.get("target"), "reason": o.get("reason"), "detail": o.get("detail")},
-               f"{o.get('target')} ({o.get('reason')})")
+        # the reason only: a detail can quote a browser error with a page's
+        # address and its values
+        ev.add("O", {"target": o.get("target"), "reason": o.get("reason")}, f"{o.get('target')} ({o.get('reason')})")
     for i in report.get("issues_proposed") or []:
         ev.add("I", {"list": i.get("list"), "detail": i.get("detail"), "field": i.get("field")}, f"{i.get('detail')} ({i.get('field')})")
     for v in report.get("visitors_added") or []:
-        p = v.get("path") if isinstance(v, dict) else v
-        ev.add("V", {"path": p}, str(p))
+        if not isinstance(v, dict):
+            continue
+        p = v.get("path") or (f"{v.get('route')}?{v.get('key')}" if v.get("key") else None)
+        if p:
+            ev.add("V", {"path": p, "kind": v.get("kind")}, str(p))
     for x in (report.get("excluded") or [])[:80]:
         ev.add("X", {"path": x.get("path"), "reason": x.get("reason")}, f"{x.get('path')} ({x.get('reason')})")
     return ev
+
+
+def _served(doc: dict, path: str, query: dict, methods: list) -> str:
+    """How the map serves an entry point the code shows: "precise" only
+    when an entry of the map takes its path, its query and one of its
+    methods (a file folder is not a precise entry); else "area"."""
+    if "{" in path or not query and any(path.startswith(a.get("prefix", "\0")) for a in doc.get("assets", [])):
+        return "area"
+    if "GET" in methods:
+        pq = path + ("?" + urllib.parse.urlencode(query) if query else "")
+        if mapbuild.covered(doc, pq) and mapbuild.gateway_route(doc, path) is not None:
+            return "precise"
+    if "POST" in methods and not query and any(f.get("route") == path for f in doc.get("forms", [])):
+        return "precise"
+    if any(a.get("path") == path and a.get("method") in methods for a in doc.get("api", [])):
+        return "precise"
+    return "area"
 
 
 def surface(doc: dict, report: dict) -> dict:
@@ -252,7 +274,8 @@ def checked(raw, ev: Evidence) -> dict | None:
     coverage or action, or no reference to an item it was given."""
     if not isinstance(raw, dict):
         return None
-    refs = [r for r in raw.get("refs") or [] if isinstance(r, str) and r in ev.items][:12]
+    refs = raw.get("refs") if isinstance(raw.get("refs"), list) else []
+    refs = [r for r in refs if isinstance(r, str) and r in ev.items][:12]
     sev, cat, cov = raw.get("severity"), raw.get("category"), raw.get("coverage")
     act = raw.get("action") if raw.get("action") in ACTION else "none"
     title = _text(raw.get("title"), 120)
@@ -295,13 +318,20 @@ def study(llm, doc: dict, report: dict, say=lambda m: None) -> dict:
               "refs": [r["id"] for r in f["refs"]]} for k, f in enumerate(findings)]
     try:
         end = _json(llm.complete(SYNTHESIS, json.dumps({**context, "findings": brief}, ensure_ascii=False)))
-        summary = _text(end.get("summary"), 1200)
+        summary = _text(end.get("summary"), 1200) if isinstance(end.get("summary"), str) else ""
         steps = [_text(s, 200) for s in (end.get("steps") or [])[:8] if _text(s, 200)] if isinstance(end.get("steps"), list) else []
-        order = [k for k in (end.get("order") or []) if isinstance(k, int) and 0 <= k < len(findings)]
-        for pair in end.get("duplicates") or []:
-            if isinstance(pair, list) and len(pair) == 2 and all(isinstance(k, int) for k in pair) and pair[0] != pair[1] \
-                    and 0 <= pair[1] < len(findings):
-                dropped.add(pair[1])
+        order = [k for k in (end.get("order") or [] if isinstance(end.get("order"), list) else [])
+                 if isinstance(k, int) and 0 <= k < len(findings)]
+        kept_ = set()
+        for pair in end.get("duplicates") or [] if isinstance(end.get("duplicates"), list) else []:
+            if not (isinstance(pair, list) and len(pair) == 2 and all(isinstance(k, int) for k in pair)):
+                continue
+            keep, drop = pair
+            # a pair that contradicts an earlier one is ignored: never both gone
+            if keep == drop or not (0 <= keep < len(findings) and 0 <= drop < len(findings)) or keep in dropped or drop in kept_:
+                continue
+            kept_.add(keep)
+            dropped.add(drop)
     except Exception:
         failed += 1
     rank = {k: n for n, k in enumerate(dict.fromkeys(order))}

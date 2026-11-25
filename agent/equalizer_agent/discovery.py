@@ -117,7 +117,11 @@ def run(job: dict, cfg, panel, log) -> None:
         pass  # the lists stay empty: the study itself is done
     if llm is not None:  # last: on everything the discovery found
         c.say("the AI is studying the site's security")
-        report["security"] = study(llm, doc, report, say=c.say)
+        try:
+            report["security"] = study(llm, doc, report, say=c.say)
+        except Exception as e:  # the study never fails the discovery
+            log.warn("the security study failed", discovery=jid, error=type(e).__name__)
+            report["security"] = {"used": False, "error": "the study could not be completed"}
     else:
         report["security"] = {"used": False, "reason": report["ai"].get("error") or report["ai"].get("reason") or "off"}
     log.info("discovery finished", discovery=jid, app=job["app"], pages=report["pages_found"],

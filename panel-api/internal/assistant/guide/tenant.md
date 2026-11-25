@@ -1043,7 +1043,11 @@ through a variable of the same file set from one
 (`$id = $_GET['id'];` … `$wpdb->query( "… $id" )`), unless the value
 was made a number, a yes or no, a key or an escaped SQL value first
 (`absint`, `(int)`, `sanitize_key`, `esc_sql`…). Comment lines never
-count. `filter_input()` types a field by its filter. A key compared with a
+count. `filter_input()` types a field when its filter validates
+(`FILTER_VALIDATE_INT`, `_EMAIL`, `_URL`, `_BOOL`); a `FILTER_SANITIZE_`
+filter only strips characters, so the field stays untyped. A constant or
+variable resolved into a route or an action that looks like a secret
+stays a `{name}`. A key compared with a
 value that looks like a token or a password (a backdoor key written in the
 code) is never sent as a list of values: the value stays on your network.
 Only regular files are read: a symlink, a FIFO or a device never is.

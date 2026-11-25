@@ -1,6 +1,13 @@
 package extract
 
-import "testing"
+import (
+	"encoding/json"
+	"os"
+	"path/filepath"
+	"strings"
+	"testing"
+	"time"
+)
 
 // Only a closed list of literals the code accepts becomes an enum.
 func TestInArray(t *testing.T) {
@@ -67,6 +74,7 @@ file_put_contents( '/tmp/' . $name, 'x' );
 $safe = esc_sql( $_POST['s'] );
 $wpdb->get_results( "SELECT * FROM t WHERE s = '$safe'" );
 // $wpdb->query( $id );
+/* x */ $wpdb->query( "SELECT " . $_GET['a'] );
 `
 	s := &Summary{Inputs: []Input{}, Risks: []Risk{}}
 	s.phpFile("x.php", src, "/x.php")
@@ -74,19 +82,41 @@ $wpdb->get_results( "SELECT * FROM t WHERE s = '$safe'" );
 	for _, r := range s.Risks {
 		got[r.Kind+":"+r.Input] = r.Where.Line
 	}
-	if len(got) != 2 || got["sql:id"] != 4 || got["file_write:name"] != 8 {
+	if len(got) != 3 || got["sql:id"] != 4 || got["file_write:name"] != 8 || got["sql:a"] != 12 {
 		t.Fatalf("%v", got)
 	}
 }
 
 func TestFilterInput(t *testing.T) {
 	s := &Summary{Inputs: []Input{}, Risks: []Risk{}}
-	s.phpFile("x.php", "<?php $p = filter_input( INPUT_GET, 'page', FILTER_VALIDATE_INT );\n$m = filter_input(INPUT_POST, 'mail', FILTER_SANITIZE_EMAIL);\n$x = filter_input(INPUT_GET, 'raw');", "/x.php")
+	s.phpFile("x.php", "<?php $p = filter_input( INPUT_GET, 'page', FILTER_VALIDATE_INT );\n$m = filter_input(INPUT_POST, 'mail', FILTER_SANITIZE_EMAIL);\n$x = filter_input(INPUT_GET, 'raw');\n$t = filter_input(INPUT_POST, 'tel', FILTER_SANITIZE_NUMBER_INT);", "/x.php")
 	got := map[string]string{}
 	for _, in := range s.Inputs {
 		got[in.Name] = in.Source + " " + in.Type
 	}
-	if got["page"] != "query int" || got["mail"] != "body email" || got["raw"] != "query unknown" {
+	if got["page"] != "query int" || got["mail"] != "body unknown" || got["raw"] != "query unknown" || got["tel"] != "body unknown" {
 		t.Fatalf("%v", got)
+	}
+}
+
+// A value of the code that may be a secret never becomes part of a route
+// or an action name.
+func TestResolvedSecrets(t *testing.T) {
+	dir := t.TempDir()
+	for name, body := range map[string]string{
+		"wp-includes/version.php": "<?php $wp_version = '6.7.1';",
+		"wp-content/plugins/p/p.php": "<?php\n$pw = 'Sup3rS3cretPassw0rd';\n$ns = 'shop/v1';\nadd_action( 'wp_ajax_' . $pw, 'f' );\n" +
+			"register_rest_route( $ns, '/x/' . $pw, array() );\nclass A { const API_KEY = 'abcdefgh12'; function r() { register_rest_route( 'a/v1', '/k/' . self::API_KEY ); } }",
+	} {
+		_ = os.MkdirAll(filepath.Dir(filepath.Join(dir, name)), 0o755)
+		_ = os.WriteFile(filepath.Join(dir, name), []byte(body), 0o644)
+	}
+	s, _ := Read(dir, time.Now())
+	b, _ := json.Marshal(s)
+	if strings.Contains(string(b), "Sup3r") || strings.Contains(string(b), "abcdefgh12") {
+		t.Fatalf("%s", b)
+	}
+	if !strings.Contains(string(b), "/wp-json/shop/v1/x/{pw}") || !strings.Contains(string(b), `"action":"*"`) {
+		t.Fatalf("%s", b)
 	}
 }

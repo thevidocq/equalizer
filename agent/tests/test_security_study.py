@@ -105,6 +105,24 @@ class StudyTest(unittest.TestCase):
         out = study.study(FakeLLM([cut] + ['{"findings": []}'] * (n - 1) + ["{}"]), DOC, REPORT)
         self.assertEqual([f["title"] for f in out["findings"]], ["Public upload through the file manager"])
 
+    def test_odd_answers_never_raise(self):
+        n = len(study.parts(study.evidence(DOC, REPORT)))
+        odd = [finding(refs=3), finding(refs=True), finding(refs=None), "x", None, 7]
+        out = study.study(FakeLLM([{"findings": odd}] + [{"findings": [finding(), finding(title="B")]}] * (n - 1)
+                                  + [{"duplicates": [[0, 1], [1, 0]], "order": "x", "summary": 5, "steps": "x"}]), DOC, REPORT)
+        self.assertEqual(len(out["findings"]), 1 + (n - 2) * 2 if n > 2 else 1)  # one of the pair stays
+
+    def test_visitor_keys_and_post_only_entries(self):
+        report = {**REPORT, "visitors_added": [{"kind": "key", "route": "/shop/", "route_id": "shop", "key": "color"}],
+                  "open": [{"target": "/x", "reason": "browser_skipped", "detail": "net::ERR at https://x/?token=abc"}],
+                  "source": {"unseen": [{"path": "/shop/", "origin": "rest_route", "methods": ["POST"]},
+                                        {"path": "/shop/", "origin": "php_file", "methods": ["GET"]}]}}
+        ev = study.evidence(DOC, report)
+        self.assertIn("/shop/?color", ev.labels.values())
+        self.assertNotIn("token", json.dumps(ev.items))
+        maps = [it["map"] for it in ev.items.values() if it.get("kind") == "code_only"]
+        self.assertEqual(maps, ["area", "precise"])  # a POST to a page the map serves for GET goes through the area
+
     def test_parts(self):
         ev = study.evidence(DOC, REPORT)
         parts = study.parts(ev)

@@ -2,7 +2,6 @@ package extract
 
 import (
 	"regexp"
-	"sort"
 	"strings"
 )
 
@@ -115,18 +114,12 @@ func (s *Summary) phpFile(rel, src, route string) {
 	if len(tainted) == 0 {
 		return
 	}
-	names := make([]string, 0, len(tainted))
-	for v := range tainted {
-		names = append(names, regexp.QuoteMeta(v))
-	}
-	sort.Strings(names)
-	use := regexp.MustCompile(`\$(` + strings.Join(names, "|") + `)\b`)
 	for i, line := range lines {
 		if comment(line) || inQuery.MatchString(line) || strings.Contains(strings.ToLower(line), "eval") {
 			continue // seen above
 		}
-		if m := use.FindStringSubmatch(line); m != nil && !assigns(line, m[1]) {
-			s.risksOn(line, route, s.at(i+1), tainted[m[1]])
+		if v, ok := taintedOn(line, tainted); ok && !assigns(line, v) {
+			s.risksOn(line, route, s.at(i+1), tainted[v])
 		}
 	}
 }
@@ -164,11 +157,11 @@ var (
 )
 
 // taint: the variables a file sets from a request value it did not make
-// safe (a number, a key), each with the key it holds; a variable set again
-// from one of them inherits its key.
+// safe (a number, a key), each with the key it holds; a variable set from
+// one of them inherits its key (the first such variable in the line). Each
+// line's variables are looked up in a map: linear in the file.
 func taint(lines []string) map[string]string {
 	out := map[string]string{}
-	uses := map[string]*regexp.Regexp{}
 	for pass := 0; pass < 2; pass++ {
 		for _, line := range lines {
 			m := assignment.FindStringSubmatch(line)
@@ -183,11 +176,8 @@ func taint(lines []string) map[string]string {
 				out[m[1]] = k[1]
 				continue
 			}
-			for v, key := range out {
-				if uses[v] == nil {
-					uses[v] = regexp.MustCompile(`\$` + regexp.QuoteMeta(v) + `\b`)
-				}
-				if v != m[1] && uses[v].MatchString(m[2]) {
+			for _, v := range varName.FindAllStringSubmatch(m[2], -1) {
+				if key, ok := out[v[1]]; ok && v[1] != m[1] {
 					out[m[1]] = key
 					break
 				}
@@ -195,6 +185,18 @@ func taint(lines []string) map[string]string {
 		}
 	}
 	return out
+}
+
+var varName = regexp.MustCompile(`\$([A-Za-z_]\w*)`)
+
+// taintedOn: the first variable of the line that holds a request value.
+func taintedOn(line string, tainted map[string]string) (string, bool) {
+	for _, v := range varName.FindAllStringSubmatch(line, -1) {
+		if _, ok := tainted[v[1]]; ok {
+			return v[1], true
+		}
+	}
+	return "", false
 }
 
 // assigns: the line only sets v (its own risky calls are seen through the
@@ -253,8 +255,13 @@ func secretList(name string, values []string) bool {
 // `$_POST['x']`", a "// eval(…)" note): nothing it names runs.
 func comment(line string) bool {
 	t := strings.TrimSpace(line)
-	return strings.HasPrefix(t, "*") || strings.HasPrefix(t, "//") || strings.HasPrefix(t, "#") && !strings.HasPrefix(t, "#[") ||
-		strings.HasPrefix(t, "/*")
+	if strings.HasPrefix(t, "/*") {
+		// code after a comment closed on the same line still runs
+		end := strings.Index(t, "*/")
+		return end < 0 || strings.TrimSpace(t[end+2:]) == ""
+	}
+	return strings.HasPrefix(t, "*") && !strings.HasPrefix(t, "*/") || strings.HasPrefix(t, "//") ||
+		strings.HasPrefix(t, "#") && !strings.HasPrefix(t, "#[")
 }
 
 var queryArgs = regexp.MustCompile(`->\s*query\s*\(\s*\$\w*args\s*\)`)
@@ -264,11 +271,13 @@ var filterInput = regexp.MustCompile(`filter_input\s*\(\s*INPUT_(GET|POST|REQUES
 // filterType: what a PHP filter makes of a value.
 func filterType(f string) string {
 	switch f {
-	case "VALIDATE_INT", "SANITIZE_NUMBER_INT":
+	// a FILTER_SANITIZE_ strips characters and refuses nothing: a phone
+	// number read as SANITIZE_NUMBER_INT is not an int to the site
+	case "VALIDATE_INT":
 		return "int"
-	case "VALIDATE_EMAIL", "SANITIZE_EMAIL":
+	case "VALIDATE_EMAIL":
 		return "email"
-	case "VALIDATE_URL", "SANITIZE_URL":
+	case "VALIDATE_URL":
 		return "url"
 	case "VALIDATE_BOOLEAN", "VALIDATE_BOOL":
 		return "bool"

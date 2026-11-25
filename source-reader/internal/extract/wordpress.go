@@ -13,6 +13,7 @@ var (
 	restCall    = regexp.MustCompile(`\bregister_rest_route\s*\(`)
 	hookCall    = regexp.MustCompile(`\badd_action\s*\(`)
 	ajaxHook    = regexp.MustCompile(`^(wp_ajax_nopriv_|wp_ajax_|admin_post_nopriv_|admin_post_)(.{0,100})$`)
+	actionChars = regexp.MustCompile(`^[A-Za-z0-9_\-]{1,100}$`)
 	placeholder = regexp.MustCompile(`\{([A-Za-z_]\w*)\}`)
 	restMethod  = regexp.MustCompile(`['"]methods['"]\s*=>\s*(?:['"]([A-Za-z, |]{1,40})['"]|(?:\\?WP_REST_Server::|)(READABLE|CREATABLE|EDITABLE|DELETABLE|ALLMETHODS))`)
 	openPerm    = regexp.MustCompile(`['"]permission_callback['"]\s*=>\s*['"]__return_true['"]`)
@@ -108,7 +109,7 @@ func (s *Summary) wordpressFile(a *app, src string) {
 			continue
 		}
 		action := hm[2]
-		if strings.Contains(action, "{") || action == "" {
+		if !actionChars.MatchString(action) {
 			action = "*" // built at run time (a loop over a list): see the file
 		}
 		r := Route{Methods: []string{"GET", "POST"}, Action: action, Query: map[string]string{"action": action}, Where: lineAt(m[0])}

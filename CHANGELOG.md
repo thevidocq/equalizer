@@ -66,6 +66,28 @@ it, 0.1.0 (`docs/releases/0.1.0.md`, tag on the merge of #39).
 
 ## Entries
 
+### 2026-11-25 — Fix the review of the security study branch; efficacy 0.2.32
+
+- **Branch:** feat/ai-study
+- **What:**
+  - Study: a malformed answer (`refs` not a list, odd order, summary or
+    duplicates) never raises, and `discovery.py` catches any study error;
+    contradictory duplicates keep one; findings cut at the provider's
+    length limit are salvaged (`_salvage`), at most 12 asked per part;
+    `_served` judges "precise" by path, query and method (POST-only, file
+    folders → area); visitors' keys sent as route?key; still-open details
+    no longer sent.
+  - Reader: `taint` linear (one map lookup per variable of a line; 0.7 s on
+    a 1 MB file, was 2.5 minutes) and deterministic; resolved values that
+    look like secrets or hold other characters stay `{name}`, actions only
+    `[A-Za-z0-9_-]`; `FILTER_SANITIZE_*` no longer types a field; a line
+    starting with a closed `/* … */` comment still counts.
+  - Efficacy study run for 0.2.32: same numbers, all guarantees hold.
+  - Docs: tenant manual, agent.md, efficacy.
+- **Why:** independent review of the branch.
+- **Status:** reader, agent, panel-api tests pass; panel-ui syntax-checked.
+- **Next steps:** PR; screenshots of the study in the report.
+
 ### 2026-11-25 — Source reader: SMB command injection, FIFOs, secret lists, taint and WordPress routes
 
 - **Branch:** feat/ai-study

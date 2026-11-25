@@ -7,23 +7,22 @@ const at = (h: number, count: number) => ({ ts: `2026-11-25T${String(h).padStart
 describe("ActivityChart", () => {
   afterEach(cleanup);
 
-  it("draws served and refused bars on the same hours; a bar picks its interval and kind", () => {
-    const onPick = vi.fn();
-    render(<ActivityChart served={[at(10, 400), at(11, 0)]} refused={[at(10, 3), at(11, 7)]} step={3600} onPick={onPick} />);
-    expect(screen.getByText("400 in the period")).toBeTruthy();
-    expect(screen.getByText("10 in the period")).toBeTruthy();
-    const served = screen.getAllByRole("button", { name: /served$/ });
-    expect(served).toHaveLength(2);
-    expect((served[1] as HTMLButtonElement).disabled).toBe(true); // nothing to show
-    fireEvent.click(served[0] as HTMLElement);
-    expect(onPick).toHaveBeenCalledWith(at(10, 400), "served");
-    fireEvent.click(screen.getAllByRole("button", { name: /refused$/ })[1] as HTMLElement);
-    expect(onPick).toHaveBeenLastCalledWith(at(11, 7), "refused");
+  it("is one chart: refused only while Served is not selected", () => {
+    render(<ActivityChart refused={[at(10, 3), at(11, 0)]} served={null} step={3600} />);
+    expect(screen.getByText("3 refused")).toBeTruthy();
+    expect(screen.queryByText(/served/)).toBeNull();
+    expect(screen.getAllByRole("button")).toHaveLength(2);
   });
 
-  it("marks the picked bar of its own row only", () => {
-    render(<ActivityChart served={[at(10, 4)]} refused={[at(10, 3)]} step={3600} picked={{ ts: at(10, 0).ts, series: "served" }} />);
-    expect(screen.getByRole("button", { name: /served$/ }).getAttribute("aria-pressed")).toBe("true");
-    expect(screen.getByRole("button", { name: /refused$/ }).getAttribute("aria-pressed")).toBe("false");
+  it("adds the served behind the refused, in the same bars; a bar picks its interval", () => {
+    const onPick = vi.fn();
+    render(<ActivityChart refused={[at(10, 3), at(11, 0)]} served={[at(10, 400), at(11, 50)]} step={3600} onPick={onPick} />);
+    expect(screen.getByText("450 served")).toBeTruthy();
+    const bars = screen.getAllByRole("button");
+    expect(bars).toHaveLength(2);
+    expect((bars[1] as HTMLButtonElement).disabled).toBe(false); // served only: still something to show
+    fireEvent.click(bars[1] as HTMLElement);
+    expect(onPick).toHaveBeenCalledWith(at(11, 0));
+    expect(bars[0]?.getAttribute("aria-label")).toMatch(/3 refused, 400 served$/);
   });
 });

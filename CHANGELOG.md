@@ -19,7 +19,8 @@ Add a section at the top of "Entries" for every commit:
 
 ## Current project status
 
-Latest release: **0.2.33** (`docs/releases/0.2.33.md`); before it 0.2.32
+Latest release: **0.2.34** (`docs/releases/0.2.34.md`); before it 0.2.33
+(`docs/releases/0.2.33.md`), 0.2.32
 (`docs/releases/0.2.32.md`), 0.2.31
 (`docs/releases/0.2.31.md`), 0.2.30
 (`docs/releases/0.2.30.md`), 0.2.29
@@ -66,6 +67,23 @@ it, 0.1.0 (`docs/releases/0.1.0.md`, tag on the merge of #39).
 | tools (eqtool) | Map signing keys, form key, relay token, connector registration, map signing |
 
 ## Entries
+
+### 2026-11-25 — Show served and refused in one Logs chart
+
+- **Branch:** fix/logs-one-chart
+- **What:** `ActivityChart` is one chart: refused bars in red, and served
+  bars behind them in faded green, on the same scale, only while the
+  Served kind is selected (it is not by default). A bar shows its interval
+  for the kinds selected (`LogsPage` no longer switches kinds on a click).
+  Tenant manual and in-app help, release notes 0.2.34, efficacy, version.
+- **Why:** the owner wants one chart, not two rows, with served faded and
+  off by default.
+- **Status:** syntax checked here (npm blocked); CI runs tsc and vitest.
+  Efficacy: the same numbers, all guarantees hold.
+- **Next steps:**
+  1. The reader's "no code file found" error could say the folder is
+     empty for the reader (check the container), awaiting the owner.
+  2. Look at the repeated "Connector offline" alerts on the first server.
 
 ### 2026-11-25 — Clean the chart test's DOM between tests
 

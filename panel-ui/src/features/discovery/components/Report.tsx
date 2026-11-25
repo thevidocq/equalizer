@@ -59,14 +59,14 @@ export function Report({ d }: { d: Discovery }) {
   const ai = (r.ai ?? {}) as R;
   return (
     <div className="flex flex-col gap-5">
-      {d.draft_version ? <DraftNotice app={app} draft={d.draft_version} />
-        : <Notice tone="info">The map already covers what was found: no draft needed.</Notice>}
       <div className="grid gap-3 sm:grid-cols-4">
         <Stat label="Built with" value={r.cms ? `${r.cms}${r.version ? " " + r.version : ""}` : "Not recognised"} />
         <Stat label="Coverage" value={`${r.coverage ?? 0}%`} />
         <Stat label="Pages found" value={r.pages_found ?? 0} />
         <Stat label="Kept out" value={(r.excluded ?? []).length} />
       </div>
+      {d.draft_version ? <DraftNotice app={app} draft={d.draft_version} />
+        : <Notice tone="info">The map already covers what was found: no draft needed.</Notice>}
       {r.known_issues?.length ? (
         <Notice tone="error">{r.known_issues.length} component(s) with known issues: their paths stay closed. Update them.</Notice>
       ) : null}

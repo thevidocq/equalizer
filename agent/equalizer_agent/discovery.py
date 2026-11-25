@@ -108,7 +108,7 @@ def run(job: dict, cfg, panel, log) -> None:
     elif "ai" not in report:
         report["ai"] = {"used": False, "reason": "no AI model configured for this tenant" if not job.get("llm") else "off"}
     # the code's types after the AI review: they are evidence, its guesses are not
-    source.apply(report, doc, job, samples, {pq.split("?")[0] for pq in result.pages})
+    source.apply(report, doc, job, samples, set(result.pages) | {pq.split("?")[0] for pq in result.pages})
     try:  # after the AI review, on the draft's final routes
         c.say("checking what visitors asked for")
         visitors.apply(report, doc, job.get("unmapped", []), result, f, fp.cms)

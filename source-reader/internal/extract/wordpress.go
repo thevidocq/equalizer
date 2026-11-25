@@ -1,7 +1,6 @@
 package extract
 
 import (
-	"path"
 	"regexp"
 	"strings"
 )
@@ -21,16 +20,48 @@ var (
 	regexParam = regexp.MustCompile(`\(\?P<([A-Za-z0-9_]{1,40})>([^)]*)\)`)
 )
 
+var wordpressKind = &kind{
+	name:     "wordpress",
+	markers:  [][]string{{"wp-includes/version.php"}},
+	versions: []string{"wp-includes/version.php"},
+	core: func(_ *app, rel string) bool {
+		// a custom file next to them stays the site's own
+		return under(rel, "wp-admin", "wp-includes") || rel == "index.php" || rel == "xmlrpc.php" ||
+			!strings.Contains(rel, "/") && strings.HasPrefix(rel, "wp-")
+	},
+	owner: func(_ *app, rel string) (string, string) {
+		if p := segment(rel, 2); segment(rel, 0) == "wp-content" && p != "" {
+			switch segment(rel, 1) {
+			case "plugins":
+				return "plugin", p
+			case "themes":
+				return "theme", p
+			}
+		}
+		return "", ""
+	},
+	meta: func(s *Summary, _ *app, rel, src string) { s.component(rel, src) },
+	file: func(s *Summary, a *app, rel, src string) {
+		if isPHP(rel) {
+			s.wordpressFile(a, src)
+		}
+	},
+	// a file outside the core without the ABSPATH guard: a plugin's, a
+	// theme's or the site's own; the core's entry points are the CMS's, the
+	// agent knows them
+	direct: func(_ *app, _, src string) bool { return !guarded(guard, src) && acts(src) },
+}
+
 var restMethods = map[string][]string{
 	"READABLE": {"GET"}, "CREATABLE": {"POST"}, "EDITABLE": {"POST", "PUT", "PATCH"},
 	"DELETABLE": {"DELETE"}, "ALLMETHODS": {"GET", "POST", "PUT", "PATCH", "DELETE"},
 }
 
 // wordpressFile reads what WordPress declares in one file.
-func (s *Summary) wordpressFile(rel, src string) {
+func (s *Summary) wordpressFile(a *app, src string) {
 	lines := strings.Split(src, "\n")
 	for i, line := range lines {
-		at := Where{File: rel, Line: i + 1}
+		at := s.at(i + 1)
 		if m := restRoute.FindStringSubmatch(line); m != nil && len(s.Routes) < maxRoutes {
 			// the route's options follow: up to 30 lines
 			block := strings.Join(lines[i:min(len(lines), i+30)], "\n")
@@ -38,6 +69,7 @@ func (s *Summary) wordpressFile(rel, src string) {
 				block = block[:len(m[0])+end]
 			}
 			p, params := restPath(m[1], m[2])
+			p = a.path(p)
 			s.Routes = append(s.Routes, Route{Path: p, Methods: methodsOf(block), Origin: "rest_route",
 				Public: openPerm.MatchString(block), Params: params, Where: at})
 		}
@@ -48,14 +80,15 @@ func (s *Summary) wordpressFile(rel, src string) {
 			r := Route{Methods: []string{"GET", "POST"}, Action: m[2], Where: at}
 			switch m[1] {
 			case "wp_ajax_nopriv_":
-				r.Path, r.Origin, r.Public = "/wp-admin/admin-ajax.php", "wp_ajax_nopriv", true
+				r.Path, r.Origin, r.Public = a.path("wp-admin/admin-ajax.php"), "wp_ajax_nopriv", true
 			case "wp_ajax_":
-				r.Path, r.Origin = "/wp-admin/admin-ajax.php", "wp_ajax"
+				r.Path, r.Origin = a.path("wp-admin/admin-ajax.php"), "wp_ajax"
 			case "admin_post_nopriv_":
-				r.Path, r.Origin, r.Public = "/wp-admin/admin-post.php", "admin_post", true
+				r.Path, r.Origin, r.Public = a.path("wp-admin/admin-post.php"), "admin_post", true
 			default:
-				r.Path, r.Origin = "/wp-admin/admin-post.php", "admin_post"
+				r.Path, r.Origin = a.path("wp-admin/admin-post.php"), "admin_post"
 			}
+			r.Query = map[string]string{"action": m[2]}
 			s.Routes = append(s.Routes, r)
 		}
 	}
@@ -142,34 +175,4 @@ func (s *Summary) component(rel, src string) {
 		c.Version = &version
 	}
 	s.addComponent(c)
-}
-
-func (s *Summary) addComponent(c Component) {
-	for _, have := range s.Components {
-		if have.Name == c.Name {
-			return
-		}
-	}
-	if len(s.Components) < maxComponents {
-		s.Components = append(s.Components, c)
-	}
-}
-
-// directRoute is the path of a PHP file a browser can open and that runs
-// by itself: any file of a plain PHP site; in WordPress, a file of a plugin
-// or theme without the ABSPATH guard (the core's own entry points are
-// the CMS's, the agent knows them).
-func directRoute(stack, rel, src string) string {
-	if stack == "wordpress" {
-		if !strings.HasPrefix(rel, "wp-content/plugins/") && !strings.HasPrefix(rel, "wp-content/themes/") {
-			return ""
-		}
-		if guard.MatchString(src[:min(len(src), 4096)]) {
-			return ""
-		}
-	}
-	if strings.ToLower(path.Ext(rel)) != ".php" {
-		return ""
-	}
-	return "/" + rel
 }

@@ -1,0 +1,69 @@
+{
+  "schema": "source-summary/1.0",
+  "read_at": "2026-11-24T00:00:00Z",
+  "stack": "typo3",
+  "files": {
+    "read": 4,
+    "skipped": 0,
+    "known": 1
+  },
+  "routes": [
+    {
+      "path": "/index.php",
+      "methods": [
+        "GET",
+        "POST"
+      ],
+      "origin": "typo3_eid",
+      "query": {
+        "eID": "news_feed"
+      },
+      "public": true,
+      "where": {
+        "file": "typo3conf/ext/news/ext_localconf.php",
+        "line": 2,
+        "owner": "extension news"
+      }
+    },
+    {
+      "path": "/typo3/ajax/news/import",
+      "methods": [
+        "POST"
+      ],
+      "origin": "typo3_backend",
+      "where": {
+        "file": "typo3conf/ext/news/Configuration/Backend/AjaxRoutes.php",
+        "line": 3,
+        "owner": "extension news"
+      }
+    },
+    {
+      "path": "/typo3/ajax/news/ping",
+      "methods": [
+        "GET",
+        "POST"
+      ],
+      "origin": "typo3_backend",
+      "public": true,
+      "where": {
+        "file": "typo3conf/ext/news/Configuration/Backend/AjaxRoutes.php",
+        "line": 7,
+        "owner": "extension news"
+      }
+    }
+  ],
+  "inputs": [],
+  "risks": [],
+  "components": [
+    {
+      "name": "extension:news",
+      "kind": "plugin",
+      "version": "11.4.1"
+    },
+    {
+      "name": "typo3",
+      "kind": "core",
+      "version": "12.4.20"
+    }
+  ]
+}

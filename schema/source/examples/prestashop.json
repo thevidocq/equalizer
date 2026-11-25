@@ -1,0 +1,89 @@
+{
+  "schema": "source-summary/1.0",
+  "read_at": "2026-11-24T00:00:00Z",
+  "stack": "prestashop",
+  "files": {
+    "read": 5,
+    "skipped": 0,
+    "known": 6
+  },
+  "routes": [
+    {
+      "path": "/index.php",
+      "methods": [
+        "GET",
+        "POST"
+      ],
+      "origin": "prestashop_controller",
+      "query": {
+        "controller": "points",
+        "fc": "module",
+        "module": "loyalty"
+      },
+      "where": {
+        "file": "modules/loyalty/controllers/front/points.php",
+        "line": 1,
+        "owner": "module loyalty"
+      }
+    },
+    {
+      "path": "/index.php",
+      "methods": [
+        "GET",
+        "POST"
+      ],
+      "origin": "prestashop_controller",
+      "query": {
+        "controller": "rules",
+        "fc": "module",
+        "module": "loyalty"
+      },
+      "public": true,
+      "where": {
+        "file": "modules/loyalty/controllers/front/rules.php",
+        "line": 1,
+        "owner": "module loyalty"
+      }
+    },
+    {
+      "path": "/modules/loyalty/ajax.php",
+      "methods": [
+        "GET",
+        "POST"
+      ],
+      "origin": "php_file",
+      "public": true,
+      "where": {
+        "file": "modules/loyalty/ajax.php",
+        "line": 1,
+        "owner": "module loyalty"
+      }
+    }
+  ],
+  "inputs": [
+    {
+      "name": "q",
+      "source": "query",
+      "type": "unknown",
+      "route": "/modules/loyalty/ajax.php",
+      "where": {
+        "file": "modules/loyalty/ajax.php",
+        "line": 1,
+        "owner": "module loyalty"
+      }
+    }
+  ],
+  "risks": [],
+  "components": [
+    {
+      "name": "module:loyalty",
+      "kind": "plugin",
+      "version": "3.2.1"
+    },
+    {
+      "name": "prestashop",
+      "kind": "core",
+      "version": "8.1.7"
+    }
+  ]
+}

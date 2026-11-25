@@ -9,7 +9,7 @@
   "properties": {
     "schema": { "const": "source-summary/1.0" },
     "read_at": { "type": "string", "format": "date-time" },
-    "stack": { "type": "string", "enum": ["wordpress", "php", "unknown"], "description": "What the reader recognised" },
+    "stack": { "type": "string", "enum": ["wordpress", "drupal", "joomla", "magento", "prestashop", "opencart", "typo3", "mediawiki", "phpbb", "moodle", "php", "unknown"], "description": "What the reader recognised: an application it knows (at the site's root or in one of its folders), a custom PHP site, or nothing" },
     "files": {
       "type": "object",
       "additionalProperties": false,
@@ -17,6 +17,7 @@
       "properties": {
         "read": { "type": "integer", "minimum": 0 },
         "skipped": { "type": "integer", "minimum": 0, "description": "Too large, secrets, uploads, caches, not code" },
+        "known": { "type": "integer", "minimum": 0, "description": "Files of the application's core and of libraries: known code, not read (only the core's version files are)" },
         "truncated": { "type": "boolean", "description": "The reader stopped at its limits" }
       }
     },
@@ -28,11 +29,17 @@
         "additionalProperties": false,
         "required": ["path", "methods", "origin", "where"],
         "properties": {
-          "path": { "type": "string", "maxLength": 300, "description": "Public path as the map writes it ({name} for a parameter), or the AJAX endpoint with its action" },
+          "path": { "type": "string", "maxLength": 300, "description": "Public path as the map writes it ({name} for a parameter); with query, the entry script the query selects in" },
           "methods": { "type": "array", "items": { "enum": ["GET", "POST", "PUT", "PATCH", "DELETE"] } },
-          "origin": { "enum": ["rest_route", "wp_ajax", "wp_ajax_nopriv", "admin_post", "php_file"] },
-          "action": { "type": "string", "maxLength": 100, "description": "wp_ajax and admin_post: the action value" },
-          "public": { "type": "boolean", "description": "Reachable without logging in (wp_ajax_nopriv, a REST route whose permission callback is __return_true)" },
+          "origin": { "$ref": "#/$defs/origin" },
+          "action": { "type": "string", "maxLength": 100, "description": "wp_ajax and admin_post: the action value (also in query)" },
+          "query": {
+            "type": "object",
+            "maxProperties": 5,
+            "additionalProperties": { "type": "string", "maxLength": 100 },
+            "description": "The fixed query values that select the entry point in its script: action=x (WordPress AJAX, MediaWiki API), option=com_x (Joomla), route=x (OpenCart), fc, module and controller (PrestaShop), eID (TYPO3), title=Special:X (MediaWiki), info (Moodle)"
+          },
+          "public": { "type": "boolean", "description": "Reachable without logging in, as the code says (wp_ajax_nopriv, a REST permission callback __return_true, Drupal's _access TRUE, Magento's anonymous resource, Moodle's loginrequired false, a PHP file opened directly); false when the code does not say" },
           "params": { "type": "object", "additionalProperties": { "$ref": "#/$defs/codeType" }, "description": "Path parameters and their type" },
           "where": { "$ref": "#/$defs/where" }
         }
@@ -47,7 +54,7 @@
         "required": ["name", "source", "type", "where"],
         "properties": {
           "name": { "type": "string", "maxLength": 100, "description": "The query or form key" },
-          "source": { "enum": ["query", "body", "request"], "description": "$_GET, $_POST, $_REQUEST" },
+          "source": { "enum": ["query", "body", "request"], "description": "$_GET, $_POST, $_REQUEST (and the frameworks' readers of either: Moodle's optional_param, Joomla's input)" },
           "type": { "$ref": "#/$defs/codeType" },
           "values": { "type": "array", "maxItems": 50, "items": { "type": "string", "maxLength": 100 }, "description": "enum: the values the code compares it with" },
           "route": { "type": "string", "maxLength": 300, "description": "The route of the file or handler that reads it, when known" },
@@ -86,9 +93,15 @@
     }
   },
   "$defs": {
+    "origin": {
+      "enum": ["rest_route", "wp_ajax", "wp_ajax_nopriv", "admin_post", "php_file", "drupal_route", "joomla_component", "joomla_api",
+        "magento_route", "magento_webapi", "prestashop_controller", "opencart_route", "typo3_eid", "typo3_backend",
+        "mediawiki_special", "mediawiki_api", "mediawiki_rest", "phpbb_route", "moodle_service"],
+      "description": "Where the entry point comes from: WordPress (rest_route, wp_ajax, wp_ajax_nopriv, admin_post), a PHP file a browser opens (php_file), or the application's own declaration"
+    },
     "codeType": {
       "enum": ["int", "bool", "email", "url", "key", "slug", "enum", "text", "html", "unknown"],
-      "description": "What the code makes of the input: int (absint, intval, (int)), bool, email (sanitize_email, is_email), url (esc_url_raw), key (sanitize_key: a-z, 0-9, _ and -), slug (sanitize_title), enum (compared with fixed values), text (sanitize_text_field), html (wp_kses), unknown (used raw)"
+      "description": "What the code makes of the input: int (absint, intval, (int), PARAM_INT, getInt), bool, email (sanitize_email, is_email), url (esc_url_raw), key (sanitize_key, getCmd, PARAM_ALPHANUMEXT: letters, digits, _ and -), slug (sanitize_title), enum (compared with fixed values), text (sanitize_text_field, PARAM_TEXT), html (wp_kses, PARAM_CLEANHTML), unknown (used raw)"
     },
     "where": {
       "type": "object",
@@ -96,7 +109,8 @@
       "required": ["file", "line"],
       "properties": {
         "file": { "type": "string", "maxLength": 300, "description": "Relative to the site's folder" },
-        "line": { "type": "integer", "minimum": 1 }
+        "line": { "type": "integer", "minimum": 1 },
+        "owner": { "type": "string", "maxLength": 140, "description": "The extension the file belongs to (\"plugin akismet\", \"module webform\", \"extension vendor/name\"); absent for the site's own code" }
       }
     }
   }

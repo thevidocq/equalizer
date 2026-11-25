@@ -1,0 +1,42 @@
+{
+  "schema": "source-summary/1.0",
+  "read_at": "2026-11-24T00:00:00Z",
+  "stack": "phpbb",
+  "files": {
+    "read": 3,
+    "skipped": 0,
+    "known": 2
+  },
+  "routes": [
+    {
+      "path": "/forum/app.php/gallery/album/{album_id}",
+      "methods": [
+        "GET",
+        "POST"
+      ],
+      "origin": "phpbb_route",
+      "params": {
+        "album_id": "int"
+      },
+      "where": {
+        "file": "forum/ext/acme/gallery/config/routing.yml",
+        "line": 1,
+        "owner": "extension acme/gallery"
+      }
+    }
+  ],
+  "inputs": [],
+  "risks": [],
+  "components": [
+    {
+      "name": "extension:acme/gallery",
+      "kind": "plugin",
+      "version": "1.1.0"
+    },
+    {
+      "name": "phpbb",
+      "kind": "core",
+      "version": "3.3.14"
+    }
+  ]
+}

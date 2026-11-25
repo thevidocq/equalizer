@@ -6,7 +6,7 @@ import (
 	"strings"
 )
 
-const maxTokens = 2000
+const maxTokens = 4096
 
 // anthropic speaks the Messages API, with tool use.
 type anthropic struct{ c Config }
@@ -55,6 +55,7 @@ func (a *anthropic) Chat(ctx context.Context, system string, turns []Turn, tools
 			Name  string          `json:"name"`
 			Input json.RawMessage `json:"input"`
 		} `json:"content"`
+		StopReason string `json:"stop_reason"`
 	}
 	err := post(ctx, a.c.Client, strings.TrimSuffix(or(a.c.AnthropicURL, "https://api.anthropic.com"), "/")+"/v1/messages",
 		map[string]string{"x-api-key": a.c.Key, "anthropic-version": "2023-06-01"},
@@ -62,7 +63,7 @@ func (a *anthropic) Chat(ctx context.Context, system string, turns []Turn, tools
 	if err != nil {
 		return Reply{}, err
 	}
-	var r Reply
+	r := Reply{Cut: out.StopReason == "max_tokens"}
 	for _, b := range out.Content {
 		switch b.Type {
 		case "text":
@@ -124,6 +125,7 @@ func (o *openai) Chat(ctx context.Context, system string, turns []Turn, tools []
 					} `json:"function"`
 				} `json:"tool_calls"`
 			} `json:"message"`
+			FinishReason string `json:"finish_reason"`
 		} `json:"choices"`
 	}
 	body := map[string]any{"model": o.c.Model, "messages": msgs, "max_tokens": maxTokens}
@@ -138,7 +140,7 @@ func (o *openai) Chat(ctx context.Context, system string, turns []Turn, tools []
 		return Reply{}, &ErrProvider{"unexpected answer from the AI provider"}
 	}
 	m := out.Choices[0].Message
-	r := Reply{Text: m.Content}
+	r := Reply{Text: m.Content, Cut: out.Choices[0].FinishReason == "length"}
 	for _, c := range m.ToolCalls {
 		r.Calls = append(r.Calls, Call{ID: c.ID, Name: c.Function.Name, Input: json.RawMessage(orJSON([]byte(c.Function.Arguments)))})
 	}

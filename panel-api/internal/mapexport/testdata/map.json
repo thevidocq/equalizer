@@ -1,0 +1,477 @@
+{
+ "meta": {
+  "schema": "gateway-map/1.0",
+  "tenant": "example-city",
+  "app": "permits-portal",
+  "version": 14,
+  "parent_version": 13,
+  "status": "published",
+  "created_by": "agent:crawl-2026-11-18",
+  "approved_by": "user:j.smith",
+  "published_at": "2026-11-18T10:30:00Z"
+ },
+ "legacy": {
+  "base_url": "http://10.20.0.15:8080",
+  "reach": {
+   "mode": "connector",
+   "connector_id": "cn-example-city-01",
+   "allow": [
+    "10.20.0.15:8080"
+   ]
+  },
+  "user_agent": "equalizer-gateway/0.1",
+  "timeout_ms": 8000,
+  "login": {
+   "request": {
+    "method": "POST",
+    "path": "/login.do",
+    "form": {
+     "j_username": "{{account.user}}",
+     "j_password": "{{account.password}}"
+    }
+   },
+   "success": {
+    "cookie": "JSESSIONID",
+    "not_contains": "Invalid credentials"
+   }
+  },
+  "session_expired": {
+   "redirect_to": "/login.do"
+  },
+  "error_detect": [
+   {
+    "status": [
+     500,
+     502,
+     503
+    ]
+   },
+   {
+    "body_contains": "java.lang."
+   }
+  ]
+ },
+ "roles": {
+  "auth": {
+   "provider": "passthrough"
+  },
+  "anonymous": "guest",
+  "list": {
+   "guest": {
+    "legacy_account": {
+     "mode": "shared",
+     "secret_ref": "vault://example-city/legacy/guest"
+    }
+   },
+   "citizen": {
+    "legacy_account": {
+     "mode": "per_user",
+     "secret_ref": "vault://example-city/legacy/users/{{user.id}}"
+    }
+   }
+  }
+ },
+ "defaults": {
+  "rate_limit": {
+   "per_ip": "60/min",
+   "per_session": "120/min"
+  },
+  "legacy_budget": {
+   "max_concurrency": 10,
+   "max_rps": 20
+  },
+  "cache": {
+   "mode": "none"
+  },
+  "string": {
+   "max_length": 100,
+   "charset": "[\\p{L}\\p{N} .,'-]"
+  },
+  "error_template": "generic_error",
+  "session": {
+   "idle_minutes": 30,
+   "absolute_hours": 12
+  }
+ },
+ "types": {
+  "permit_id": {
+   "base": "int",
+   "min": 1,
+   "max": 99999999
+  },
+  "permit_status": {
+   "base": "enum",
+   "values": [
+    "open",
+    "in_progress",
+    "closed"
+   ]
+  }
+ },
+ "routes": [
+  {
+   "id": "home",
+   "path": "/",
+   "method": "GET",
+   "roles": [
+    "guest",
+    "citizen"
+   ],
+   "legacy_request": {
+    "method": "GET",
+    "path": "/index.jsp"
+   },
+   "render": "faithful",
+   "cache": {
+    "mode": "public",
+    "ttl_s": 60
+   },
+   "origin": "agent",
+   "confidence": 0.98
+  },
+  {
+   "id": "permits_list",
+   "path": "/permits",
+   "method": "GET",
+   "roles": [
+    "citizen"
+   ],
+   "query": {
+    "status": {
+     "type": "permit_status",
+     "required": false
+    },
+    "page": {
+     "type": "int",
+     "min": 1,
+     "max": 500,
+     "default": 1
+    }
+   },
+   "legacy_request": {
+    "method": "GET",
+    "path": "/permits/list.jsp",
+    "query": {
+     "st": "{{query.status}}",
+     "p": "{{query.page}}"
+    }
+   },
+   "render": "faithful",
+   "links": [
+    {
+     "legacy": "/permits/detail.jsp?id={id}",
+     "route": "permit_detail"
+    }
+   ],
+   "origin": "agent",
+   "confidence": 0.94
+  },
+  {
+   "id": "logout",
+   "path": "/logout",
+   "method": "GET",
+   "roles": [
+    "citizen"
+   ],
+   "legacy_request": {
+    "method": "GET",
+    "path": "/logout.do"
+   },
+   "render": "faithful",
+   "session": {
+    "end": true
+   },
+   "origin": "agent",
+   "confidence": 0.97
+  },
+  {
+   "id": "permit_detail",
+   "path": "/permits/{id}",
+   "method": "GET",
+   "roles": [
+    "citizen"
+   ],
+   "params": {
+    "id": {
+     "type": "permit_id"
+    }
+   },
+   "authz": {
+    "citizen": {
+     "check": "owned_by_user",
+     "target": "params.id"
+    }
+   },
+   "legacy_request": {
+    "method": "GET",
+    "path": "/permits/detail.jsp",
+    "query": {
+     "id": "{{params.id}}"
+    }
+   },
+   "render": "faithful",
+   "forms": [
+    "permit_supplement"
+   ],
+   "origin": "agent",
+   "confidence": 0.91
+  },
+  {
+   "id": "search",
+   "path": "/search",
+   "method": "GET",
+   "roles": [
+    "guest"
+   ],
+   "query": {
+    "q": {
+     "type": "string",
+     "max_length": 80,
+     "rules": [
+      "no_html",
+      "no_template_meta"
+     ],
+     "required": false
+    },
+    "lang": {
+     "type": "enum",
+     "values": [
+      "en",
+      "it"
+     ],
+     "required": false
+    }
+   },
+   "legacy_request": {
+    "method": "GET",
+    "path": "/search.jsp",
+    "query": {
+     "q": "{{query.q}}"
+    }
+   },
+   "render": "faithful",
+   "origin": "agent"
+  }
+ ],
+ "forms": [
+  {
+   "id": "login",
+   "route": "/login",
+   "roles": [
+    "guest",
+    "citizen"
+   ],
+   "fields": {
+    "username": {
+     "type": "string",
+     "max_length": 64,
+     "charset": "[A-Za-z0-9._@-]"
+    },
+    "password": {
+     "type": "password",
+     "max_length": 128,
+     "rules": [
+      "no_template_meta"
+     ]
+    }
+   },
+   "legacy_request": {
+    "method": "POST",
+    "path": "/login.do",
+    "form": {
+     "j_username": "{{fields.username}}",
+     "j_password": "{{fields.password}}"
+    }
+   },
+   "success": {
+    "cookie": "JSESSIONID",
+    "not_contains": "Invalid credentials"
+   },
+   "session": {
+    "start": "citizen"
+   },
+   "on_success": {
+    "redirect": "permits_list"
+   },
+   "rate_limit": {
+    "per_ip": "10/min"
+   },
+   "origin": "agent",
+   "confidence": 0.96
+  },
+  {
+   "id": "permit_supplement",
+   "route": "/permits/{id}/supplement",
+   "roles": [
+    "citizen"
+   ],
+   "params": {
+    "id": {
+     "type": "permit_id"
+    }
+   },
+   "fields": {
+    "message": {
+     "type": "text",
+     "max_length": 1000,
+     "charset": "[\\p{L}\\p{N}\\s.,;:!?()'-]",
+     "rules": [
+      "no_sql_meta",
+      "no_html"
+     ]
+    },
+    "attachment": {
+     "type": "file",
+     "mime": [
+      "application/pdf"
+     ],
+     "max_size_kb": 5120
+    }
+   },
+   "legacy_request": {
+    "method": "POST",
+    "path": "/permits/supplement.do",
+    "form": {
+     "permitId": "{{params.id}}",
+     "text": "{{fields.message}}",
+     "kind": "SUP"
+    },
+    "files": {
+     "doc": "{{fields.attachment}}"
+    }
+   },
+   "success": {
+    "body_contains": "Supplement recorded"
+   },
+   "on_success": {
+    "redirect": "permit_detail"
+   },
+   "rate_limit": {
+    "per_user": "5/hour"
+   },
+   "origin": "human",
+   "approved_by": "user:j.smith"
+  }
+ ],
+ "compat": [
+  {
+   "legacy": "/permits/detail.jsp?id={id}",
+   "params": {
+    "id": {
+     "type": "permit_id"
+    }
+   },
+   "action": "redirect",
+   "route": "permit_detail"
+  }
+ ],
+ "assets": [
+  {
+   "prefix": "/css/",
+   "types": [
+    "text/css"
+   ]
+  },
+  {
+   "prefix": "/img/",
+   "types": [
+    "image/png",
+    "image/jpeg",
+    "image/gif",
+    "image/svg+xml",
+    "image/x-icon"
+   ]
+  },
+  {
+   "prefix": "/js/",
+   "types": [
+    "application/javascript",
+    "text/javascript"
+   ]
+  }
+ ],
+ "external_links": {
+  "allow": [
+   "payments.example.gov"
+  ],
+  "default": "exit_page"
+ },
+ "behavior": [
+  {
+   "id": "login_bruteforce",
+   "route": "login",
+   "signal": "failed_logins",
+   "threshold": {
+    "count": 5,
+    "window": "15m",
+    "per": "ip"
+   },
+   "action": [
+    "block",
+    "alert"
+   ]
+  },
+  {
+   "id": "permit_enumeration",
+   "route": "permit_detail",
+   "signal": "distinct_param_values",
+   "param": "id",
+   "threshold": {
+    "count": 30,
+    "window": "10m",
+    "per": "user"
+   },
+   "action": [
+    "throttle",
+    "alert"
+   ]
+  }
+ ],
+ "api": [
+  {
+   "id": "permit_status",
+   "path": "/api/permits/{id}/status",
+   "method": "PUT",
+   "roles": [
+    "citizen"
+   ],
+   "params": {
+    "id": {
+     "type": "permit_id"
+    }
+   },
+   "body": {
+    "status": {
+     "type": "permit_status"
+    },
+    "note": {
+     "type": "string",
+     "max_length": 200,
+     "rules": [
+      "no_html"
+     ],
+     "required": false
+    }
+   },
+   "legacy_request": {
+    "method": "POST",
+    "path": "/permits/status.do",
+    "form": {
+     "id": "{{params.id}}",
+     "st": "{{body.status}}"
+    }
+   }
+  }
+ ],
+ "areas": [
+  {
+   "id": "legacy_admin",
+   "prefix": "/admin/",
+   "methods": [
+    "GET",
+    "POST"
+   ],
+   "origin": "agent"
+  }
+ ]
+}

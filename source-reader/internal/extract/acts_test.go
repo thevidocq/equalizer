@@ -9,7 +9,15 @@ func TestActs(t *testing.T) {
 		`<?php class A { function b() { return $_GET['x']; } }`:                                              false,
 		`<?php function helper( $a ) { if ( $a ) { echo $_REQUEST['z']; } return 1; }`:                       false,
 		`<div><?php echo $title; ?></div><?php // $_GET['ignored'] in a comment`:                             false,
-		`<?php $sql = "SELECT * FROM t WHERE a = '$_GET[a]'"; $x = 1;`:                                       false, // the string is blanked: no request read outside it
+		`<?php $sql = "SELECT * FROM t WHERE a = '$_GET[a]'"; $x = 1;`:                                       true, // PHP reads the request inside the string
+		`<?php $s = 'no $_GET[a] here'; $x = 1;`:                                                             false,
+		"<?php $h = <<<EOT\n { function a() { \nEOT;\necho $_GET['q'];":                                      true, // a brace in a heredoc opens nothing
+		"<?php $h = <<<'EOT'\n $_GET['q'] }\n  EOT;\nfunction f() { return 1; }":                             false,
+		`<?php add_action( 'init', function () { if ( isset( $_GET['x'] ) ) { go(); } } );`:                  true, // a closure on a hook runs on every request
+		`<?php if ( Foo::class === $c ) { echo $_GET['x']; }`:                                                true,
+		`<?php if ( $o->class ) { exec( $cmd ); }`:                                                           true,
+		"<?php #[Pure] function f() { return $_GET['x']; }":                                                  false,
+		"<?php #[Attr(\n  'a',\n  ['b' => 'c']\n)]\nfunction f() { return $_GET['x']; }":                     false,
 		`<?php namespace A; use B; /** $_POST['doc'] */ final class C { public function d() { exec($x); } }`: false,
 		`<?php $r = $wpdb->get_results( "SELECT 1" ); exec( 'ls' );`:                                         true,
 	} {
@@ -21,14 +29,12 @@ func TestActs(t *testing.T) {
 
 func TestLibrary(t *testing.T) {
 	for rel, want := range map[string]bool{
-		"wp-includes/class-wpdb.php":                        true,
-		"wp-admin/admin-ajax.php":                           true,
-		"wp-login.php":                                      true,
 		"wp-content/plugins/a/vendor/guzzle/src/Client.php": true,
+		"vendor/symfony/console/Application.php":            true,
 		"wp-content/plugins/a/includes/ajax.php":            false,
-		"wp-content/themes/t/functions.php":                 false,
+		"application/libraries/Auth.php":                    false, // CodeIgniter: the site's own
 	} {
-		if got := library("wordpress", rel); got != want {
+		if got := library(rel); got != want {
 			t.Errorf("%s: %v", rel, got)
 		}
 	}

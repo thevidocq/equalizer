@@ -13,23 +13,25 @@ import (
 // into a draft; nothing else of the model's words ever reaches a map, and
 // only these kinds, checked here, can.
 type Change struct {
-	Kind    string   `json:"kind"` // add_file_type, add_query_key, add_enum_values
+	Kind    string   `json:"kind"` // add_file_type, add_query_key, add_enum_values, narrow_field
 	Prefix  string   `json:"prefix,omitempty"`
 	Type    string   `json:"type,omitempty"`
 	RouteID string   `json:"route_id,omitempty"`
+	FormID  string   `json:"form_id,omitempty"`
 	Key     string   `json:"key,omitempty"`
 	Spec    *Spec    `json:"spec,omitempty"`
 	Values  []string `json:"values,omitempty"`
 	Reason  string   `json:"reason,omitempty"`
 }
 
-// Spec is the check of a new query key: a number, a date, one of a few
-// values, or text without markup.
+// Spec is the check of a new query key (a number, a date, one of a few
+// values, or text without markup) or of a narrowed field (NarrowKinds).
 type Spec struct {
-	Type   string   `json:"type"` // int, date, enum, string
-	Min    *float64 `json:"min,omitempty"`
-	Max    *float64 `json:"max,omitempty"`
-	Values []string `json:"values,omitempty"`
+	Type      string   `json:"type"`
+	Min       *float64 `json:"min,omitempty"`
+	Max       *float64 `json:"max,omitempty"`
+	Values    []string `json:"values,omitempty"`
+	MaxLength int      `json:"max_length,omitempty"`
 }
 
 var (
@@ -54,8 +56,10 @@ func (c Change) Apply(doc map[string]any) (string, error) {
 		return c.queryKey(doc)
 	case "add_enum_values":
 		return c.enumValues(doc)
+	case "narrow_field":
+		return c.narrow(doc)
 	}
-	return "", fmt.Errorf("unknown kind %q: add_file_type, add_query_key or add_enum_values", c.Kind)
+	return "", fmt.Errorf("unknown kind %q: add_file_type, add_query_key, add_enum_values or narrow_field", c.Kind)
 }
 
 func (c Change) fileType(doc map[string]any) (string, error) {

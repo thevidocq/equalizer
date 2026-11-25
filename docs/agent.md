@@ -307,15 +307,21 @@ reader](../source-reader/README.md) after the AI review:
   rewrites (`sanitize_title`, `sanitize_key`) are not narrowed: the code
   accepts anything there and fixes it;
 - the report's `source` (`StudySource`) lists the fields typed, the entry
-  points never opened (REST routes, AJAX and admin-post actions, PHP files
-  that run when opened; first 200, `unseen_total` counts them all), the
-  risky calls with file and line (`risks_total`), and the components, which
-  the panel merges with the crawl's. The reader leaves out WordPress's core
-  and the libraries plugins ship (only their versions count), and counts a
-  PHP file as an entry point only when it acts at its top level (reads the
-  request or makes a risky call outside functions and classes). Nothing found only in the code is opened: a file no link
-  points to may act when opened, and `/wp-json/` stays closed like the
-  rest of WordPress's administration.
+  points never opened (the routes the application declares, with the
+  query that selects them, and PHP files that run when opened; first 200,
+  `unseen_total` counts them all), the risky calls with file and line
+  (`risks_total`), each with the extension it belongs to (`owner`), the
+  files of the core and libraries known and not read (`known`), and the
+  components, which the panel merges with the crawl's. An entry point
+  selected by a query (`index.php?option=com_shop`) counts as opened when
+  a studied page carried that query. Moodle's `PARAM_INT` and Joomla's
+  `getInt` type a field as an integer like `absint` does. The reader
+  leaves out each application's core and the libraries (only their
+  versions count), and counts a PHP file as an entry point only when it
+  acts at its top level (reads the request or makes a risky call outside
+  named functions and classes). Nothing found only in the code is opened:
+  a file no link points to may act when opened, and the administration
+  paths stay closed.
 
 A failed or late read (`failed`, `late`: not ended within 10 minutes)
 changes nothing and is reported with its reason.
@@ -338,15 +344,22 @@ For every page and every script request seen in step 1:
    address rewrite), and a screenshot of both in the browser. Links are
    compared by the address they lead to, decoded: `%ce%b5` and `%CE%B5`
    are the same link. A page that differs only in text or links is
-   opened on the site a second time. When the site differs from its own
-   first answer (random related products), only that is set aside: the
-   gateway's page must keep 97% of the words the two loads share, and may
-   lose only links the site itself shows or hides from one load to the
-   next. Nothing is set aside when the second answer is of another kind
-   (an error, a redirect to the login, a rate limit), when the two loads
-   are less than 80% alike (a login wall, a challenge), or when more than
-   30% of the links change by themselves. Such pages are counted as
-   identical and as "changing by themselves".
+   opened on the site again. When the second answer is the same as the
+   first, nothing is set aside. When the site differs from its own first
+   answer (random related products), it is opened twice more, and only
+   what the site varies is set aside: the gateway's page must keep 97% of
+   the words all four loads share, and may lose only links that are not
+   on every load, provided it shows at least as many such links as the
+   site does (other random products, not a block that went missing); or
+   each lost link is in a folder (never the root) where the site itself
+   varies its links and has a stand-in there (another `/product/…` where a
+   `/product/…` went), as many as were lost. Four
+   loads matter: a shop that shows four related products out of a few
+   repeats one between two loads more often than not. Nothing is set
+   aside when another answer is of another kind (an error, a redirect to
+   the login, a rate limit), or when a load is less than 80% like the
+   first (a login wall, a challenge). Such pages are counted as identical
+   and as "changing by themselves".
 
 Forms are never submitted. For each form the agent builds the request the
 browser would send with the values it saw and asks the gateway, in dry-run,

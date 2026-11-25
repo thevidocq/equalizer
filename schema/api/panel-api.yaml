@@ -737,6 +737,31 @@ paths:
           content:
             application/json:
               schema: { $ref: "#/components/schemas/MapVersion" }
+  /apps/{app}/maps/{version}/export:
+    get:
+      tags: [maps]
+      summary: >-
+        The version written for another tool: an OpenAPI 3 description of what the map accepts, or ModSecurity
+        rules (ModSecurity v3 and Coraza) that refuse what the map does not hold. Neither rebuilds requests as the
+        gateway does; the comments of each say what it keeps and what it loses. YAML and JSON are the document
+        itself (GET /apps/{app}/maps/{version})
+      parameters:
+        - { $ref: "#/components/parameters/app" }
+        - { $ref: "#/components/parameters/version" }
+        - name: format
+          in: query
+          required: true
+          schema: { enum: [openapi, modsecurity] }
+      responses:
+        "200":
+          description: The file, with its name in Content-Disposition
+          content:
+            application/json:
+              schema: { type: object, description: OpenAPI 3.0.3 document }
+            text/plain:
+              schema: { type: string, description: ModSecurity rules }
+        "404": { $ref: "#/components/responses/Error" }
+        "422": { $ref: "#/components/responses/Error" }
   /apps/{app}/maps/{version}/review:
     get:
       tags: [maps]
@@ -2811,7 +2836,8 @@ components:
         status: { enum: [used, failed, late], description: "late: the read did not end within 10 minutes" }
         error: { type: [string, "null"] }
         stack: { type: string }
-        files: { type: integer, description: "Code files read" }
+        files: { type: integer, description: "Code files studied" }
+        known: { type: integer, description: "Files of the application's core and of libraries: known code, only their versions read" }
         routes: { type: integer, description: "Entry points found in the code" }
         unseen:
           type: array
@@ -2821,10 +2847,21 @@ components:
             required: [path, origin]
             properties:
               path: { type: string }
-              origin: { enum: [rest_route, wp_ajax, wp_ajax_nopriv, admin_post, php_file] }
+              origin:
+                type: string
+                description: >-
+                  rest_route, wp_ajax, wp_ajax_nopriv, admin_post, php_file, drupal_route, joomla_component, joomla_api,
+                  magento_route, magento_webapi, prestashop_controller, opencart_route, typo3_eid, typo3_backend,
+                  mediawiki_special, mediawiki_api, mediawiki_rest, phpbb_route, moodle_service
               action: { type: [string, "null"] }
-              public: { type: boolean, description: "Answers without a login" }
+              query:
+                type: [object, "null"]
+                additionalProperties: { type: string }
+                description: The query values that select it in its script (option=com_x, route=x, action=x)
+              methods: { type: array, items: { type: string } }
+              public: { type: boolean, description: "Answers without a login, as the code says" }
               where: { type: string, description: "file:line" }
+              owner: { type: [string, "null"], description: "The extension of the file: plugin x, module x, extension x" }
           description: >-
             Entry points in the code the exploration never opened: the site area serves them as they are, the
             map does not narrow them yet
@@ -2841,6 +2878,7 @@ components:
               field: { type: string }
               type: { type: string, description: "The type the code gives the field: int, email, slug, enum…" }
               where: { type: string, description: "file:line" }
+              owner: { type: [string, "null"] }
           description: Fields whose type comes from the code instead of the values seen
         risks:
           type: array
@@ -2853,6 +2891,7 @@ components:
               input: { type: [string, "null"] }
               route: { type: [string, "null"] }
               where: { type: string, description: "file:line" }
+              owner: { type: [string, "null"] }
           description: Calls where a request value may do harm; the map narrows what reaches them
         components:
           type: array

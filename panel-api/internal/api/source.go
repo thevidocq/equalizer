@@ -3,6 +3,7 @@ package api
 import (
 	"errors"
 	"net/http"
+	"path"
 	"regexp"
 	"strings"
 	"time"
@@ -130,6 +131,9 @@ func (in *sourceUpdate) check() string {
 		in.Container = strings.TrimSpace(in.Container)
 		if in.Container != "" && !containerRe.MatchString(in.Container) {
 			return "container: the name of the site's Docker container"
+		}
+		if in.Container == "" && systemFolder(in.Path) {
+			return "path: the site's folder, not the whole disk or a system folder"
 		}
 		return ""
 	case "sftp":
@@ -260,7 +264,8 @@ func (s *Server) sourceInstall(token string, c store.SourceReader) string {
 		case c.Container != nil:
 			lines = append(lines, "  --volumes-from "+*c.Container+":ro \\")
 		case c.Path != nil:
-			lines = append(lines, "  -v "+*c.Path+":"+*c.Path+":ro \\")
+			// Quoted: the path may hold spaces, and has no single quote.
+			lines = append(lines, "  -v '"+*c.Path+":"+*c.Path+":ro' \\")
 		}
 		lines = append(lines, "  -e EQ_SOURCE_SITE=/ \\")
 	}
@@ -273,6 +278,21 @@ func (s *Server) sourceInstall(token string, c store.SourceReader) string {
 }
 
 var releaseRe = regexp.MustCompile(`^\d+\.\d+\.\d+$`)
+
+// systemFolder is the whole disk or a folder of the system: mounting it in
+// the reader would show it far more than the site.
+func systemFolder(p string) bool {
+	p = path.Clean(p)
+	if p == "/" {
+		return true
+	}
+	top := strings.SplitN(strings.TrimPrefix(p, "/"), "/", 2)[0]
+	switch top {
+	case "bin", "boot", "dev", "etc", "lib", "lib32", "lib64", "proc", "root", "run", "sbin", "sys", "usr":
+		return true
+	}
+	return p == "/var" || p == "/home" || p == "/var/lib" || p == "/var/lib/docker" || p == "/opt"
+}
 
 func (s *Server) startSourceRead(w http.ResponseWriter, r *http.Request, u *auth.User) {
 	a, ok := s.app(w, r, u)

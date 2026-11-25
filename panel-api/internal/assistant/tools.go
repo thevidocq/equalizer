@@ -67,15 +67,20 @@ func Tools() []Tool {
 		{Name: "get_activity", Description: "The site's history: discoveries, drafts, publications, alerts, who did what and when.",
 			Schema: obj(map[string]any{"limit": map[string]any{"type": "integer", "description": "1 to 30, default 15"}})},
 		cardTool(),
-		{Name: "propose_change", Description: "Proposes ONE change to the map, which an administrator may turn into a draft with a click; it changes nothing by itself. Kinds: add_file_type (prefix, type: the media type the site sends), add_query_key (route_id, key, spec: {type: int|date|enum|string, values for enum, min/max for int}; prefer enum with the values the site offers), add_enum_values (route_id, key, values).",
+		{Name: "propose_change", Description: "Proposes ONE change to the map, which an administrator may turn into a draft with a click; the agent then checks the draft on the site. It changes nothing by itself, and these four kinds are ALL it can do: " +
+			"add_file_type (prefix, type: the media type the site sends); " +
+			"add_query_key (route_id, key, spec: {type: int|date|enum|string, values for enum, min/max for int}; prefer enum with the values the site offers); " +
+			"add_enum_values (route_id, key, values); " +
+			"narrow_field (route_id or form_id, key, spec: {type: " + strings.Join(NarrowKinds, "|") + ", values for enum, min/max for int, max_length for text, digits, slug, key}): a field that takes free text gets a narrower check; take the type from the values the site uses (get_report, get_map) and the code when the report has it.",
 			Schema: obj(map[string]any{
-				"kind":   map[string]any{"type": "string", "enum": []string{"add_file_type", "add_query_key", "add_enum_values"}},
+				"kind":   map[string]any{"type": "string", "enum": []string{"add_file_type", "add_query_key", "add_enum_values", "narrow_field"}},
 				"prefix": str("a file folder of the map"), "type": str("a media type, e.g. application/pdf"),
-				"route_id": str("a route's id"), "key": str("a query key"),
+				"route_id": str("a route's id"), "form_id": str("a form's id (narrow_field)"), "key": str("a query key, or a form's field"),
 				"spec": map[string]any{"type": "object", "properties": map[string]any{
-					"type": map[string]any{"type": "string", "enum": []string{"int", "date", "enum", "string"}},
+					"type": map[string]any{"type": "string", "enum": append([]string{"string"}, NarrowKinds...)},
 					"min":  map[string]any{"type": "number"}, "max": map[string]any{"type": "number"},
-					"values": map[string]any{"type": "array", "items": map[string]any{"type": "string"}}}},
+					"values":     map[string]any{"type": "array", "items": map[string]any{"type": "string"}},
+					"max_length": map[string]any{"type": "integer"}}},
 				"values": map[string]any{"type": "array", "items": map[string]any{"type": "string"}},
 				"reason": str("why, in one sentence, for the person"),
 			}, "kind", "reason")},

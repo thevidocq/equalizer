@@ -1,0 +1,51 @@
+{
+  "schema": "source-summary/1.0",
+  "read_at": "2026-11-24T00:00:00Z",
+  "stack": "drupal",
+  "files": {
+    "read": 2,
+    "skipped": 0,
+    "known": 2
+  },
+  "routes": [
+    {
+      "path": "/admin/mymod",
+      "methods": [
+        "GET",
+        "POST"
+      ],
+      "origin": "drupal_route",
+      "where": {
+        "file": "sites/all/modules/mymod/mymod.module",
+        "line": 5,
+        "owner": "module mymod"
+      }
+    },
+    {
+      "path": "/mymod/{node}/view",
+      "methods": [
+        "GET",
+        "POST"
+      ],
+      "origin": "drupal_route",
+      "public": true,
+      "params": {
+        "node": "unknown"
+      },
+      "where": {
+        "file": "sites/all/modules/mymod/mymod.module",
+        "line": 2,
+        "owner": "module mymod"
+      }
+    }
+  ],
+  "inputs": [],
+  "risks": [],
+  "components": [
+    {
+      "name": "drupal",
+      "kind": "core",
+      "version": "7.101"
+    }
+  ]
+}

@@ -132,9 +132,12 @@ func TestSourceReader(t *testing.T) {
 	if !strings.Contains(dock.Install, "--volumes-from wp:ro") || !strings.Contains(dock.Install, "EQ_SOURCE_SITE=/ ") {
 		t.Fatalf("docker install: %s", dock.Install)
 	}
-	boss.must(200, "PUT", "/v1/apps/blog/source", map[string]any{"method": "local", "path": "/srv/blog"}, nil)
+	for _, p := range []string{"/", "/etc", "/root/site", "/var", "/proc/1"} {
+		boss.must(422, "PUT", "/v1/apps/blog/source", map[string]any{"method": "local", "path": p}, nil)
+	}
+	boss.must(200, "PUT", "/v1/apps/blog/source", map[string]any{"method": "local", "path": "/srv/my blog"}, nil)
 	boss.must(201, "POST", "/v1/apps/blog/source/token", nil, &dock)
-	if !strings.Contains(dock.Install, "-v /srv/blog:/srv/blog:ro") || strings.Contains(dock.Install, "volumes-from") {
+	if !strings.Contains(dock.Install, "-v '/srv/my blog:/srv/my blog:ro'") || strings.Contains(dock.Install, "volumes-from") {
 		t.Fatalf("folder install: %s", dock.Install)
 	}
 	tok.Token = dock.Token
@@ -176,6 +179,28 @@ func TestSourceReader(t *testing.T) {
 	if c := readerCall(t, e, tok.Token, "/v1/source/reads/"+itoa(job.ID)+"/result",
 		map[string]any{"error": strings.Repeat("ошибка\x00", 200)}, nil); c != 204 {
 		t.Fatalf("long error: %d", c)
+	}
+
+	// A read no reader takes does not hold the site's read slot for good.
+	boss.must(202, "POST", "/v1/apps/blog/source/reads", nil, nil)
+	if _, err := e.st.DB.Exec(`UPDATE source_reads SET created_at = now() - interval '20 minutes' WHERE status = 'queued'`); err != nil {
+		t.Fatal(err)
+	}
+	boss.must(200, "GET", "/v1/apps/blog/source", nil, &v)
+	if v.LastRead == nil || v.LastRead.Status != "failed" {
+		t.Fatalf("a read nobody took: %+v", v.LastRead)
+	}
+	// A new token ends the reads of the old one.
+	boss.must(202, "POST", "/v1/apps/blog/source/reads", nil, nil)
+	var renewed struct{ Token string }
+	boss.must(201, "POST", "/v1/apps/blog/source/token", nil, &renewed)
+	boss.must(200, "GET", "/v1/apps/blog/source", nil, &v)
+	if v.LastRead == nil || v.LastRead.Status != "failed" {
+		t.Fatalf("a read of the old token: %+v", v.LastRead)
+	}
+	tok.Token = renewed.Token
+	if readerCall(t, e, tok.Token, "/v1/source/hello", map[string]any{"version": "0.2.31", "public_key": key}, nil) != 204 {
+		t.Fatal("hello with the renewed token")
 	}
 
 	// Another site's reader cannot touch this site's reads.

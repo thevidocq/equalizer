@@ -64,12 +64,26 @@ class SourceTest(unittest.TestCase):
         self.assertEqual((s["status"], s["stack"]), ("used", "wordpress"))
         self.assertEqual({(t["field"], t["type"]) for t in s["typed"]}, {("id", "int"), ("order", "enum"), ("email", "email")})
         self.assertIn({"kind": "include", "input": "page", "route": "/wp-content/plugins/demo/direct.php",
-                       "where": "wp-content/plugins/demo/direct.php:3"}, s["risks"])
-        self.assertIn({"path": "/wp-content/plugins/demo/direct.php", "origin": "php_file", "action": None, "public": True,
-                       "where": "wp-content/plugins/demo/direct.php:1"}, s["unseen"])
+                       "where": "wp-content/plugins/demo/direct.php:3", "owner": "plugin demo"}, s["risks"])
+        self.assertIn({"path": "/wp-content/plugins/demo/direct.php", "origin": "php_file", "action": None, "query": None,
+                       "methods": ["GET", "POST"], "public": True, "where": "wp-content/plugins/demo/direct.php:1",
+                       "owner": "plugin demo"}, s["unseen"])
         self.assertEqual((s["unseen_total"], s["risks_total"]), (len(s["unseen"]), len(s["risks"])))
-        self.assertIn({"path": "/wp-json/demo/v1/status", "origin": "rest_route", "action": None, "public": True,
-                       "where": "wp-content/plugins/demo/demo.php:40"}, s["unseen"])
+        self.assertIn({"path": "/wp-json/demo/v1/status", "origin": "rest_route", "action": None, "query": None,
+                       "methods": ["GET"], "public": True, "where": "wp-content/plugins/demo/demo.php:40",
+                       "owner": None}, s["unseen"])
+        ajax = [u for u in s["unseen"] if u["origin"] == "wp_ajax_nopriv"]
+        self.assertTrue(ajax and ajax[0]["query"] == {"action": ajax[0]["action"]})
+
+    def test_unseen_with_a_query(self):
+        """An entry point selected by its query is seen when a studied page
+        carries that query, whatever else it carries."""
+        summ = {"routes": [{"path": "/index.php", "origin": "joomla_component", "methods": ["GET", "POST"],
+                            "query": {"option": "com_shop"}, "where": {"file": "components/com_shop/shop.php", "line": 1}},
+                           {"path": "/index.php", "origin": "joomla_component", "methods": ["GET", "POST"],
+                            "query": {"option": "com_blog"}, "where": {"file": "components/com_blog/blog.php", "line": 1}}]}
+        unseen, total = source._unseen(summ, {"/index.php", "/index.php?option=com_shop&view=cart&id=3"})
+        self.assertEqual(([u["query"] for u in unseen], total), ([{"option": "com_blog"}], 1))
 
     def test_values_seen_must_fit(self):
         doc = draft()

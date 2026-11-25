@@ -19,7 +19,8 @@ Add a section at the top of "Entries" for every commit:
 
 ## Current project status
 
-Latest release: **0.2.30** (`docs/releases/0.2.30.md`); before it 0.2.29
+Latest release: **0.2.31** (`docs/releases/0.2.31.md`); before it 0.2.30
+(`docs/releases/0.2.30.md`), 0.2.29
 (`docs/releases/0.2.29.md`), 0.2.28
 (`docs/releases/0.2.28.md`), 0.2.27
 (`docs/releases/0.2.27.md`), 0.2.26
@@ -63,6 +64,129 @@ it, 0.1.0 (`docs/releases/0.1.0.md`, tag on the merge of #39).
 | tools (eqtool) | Map signing keys, form key, relay token, connector registration, map signing |
 
 ## Entries
+
+### 2026-11-24 — Clean up between the Menu's tests
+
+- **Branch:** fix/stabilize-0.2.31
+- **What:** `Menu.test.tsx` unmounts after each test (`afterEach(cleanup)`):
+  the second test found the first one's button too.
+- **Why:** CI's vitest failed on #115; tsc passed.
+- **Status:** the rest of CI was green or running.
+- **Next steps:** CI green; screenshots.
+
+### 2026-11-24 — Fix the independent review of the 0.2.31 branch; efficacy study
+
+- **Branch:** fix/stabilize-0.2.31
+- **What:**
+  - `files.known` was missing from `summary.schema.json` (both copies):
+    every summary of a recognised CMS would have been refused. Now each
+    `cms_test` tree writes `schema/source/examples/<test>.json` (`-update`)
+    and `sourceschema` validates every example.
+  - ModSecurity export: every value inside an argument goes through
+    `quote` (`"` → `\x22`, line breaks as `\n`/`\r`), prefixes are
+    matched with `@rx`, ids and field names must be identifiers; a test
+    shows a hostile `deny` value cannot add a directive, and the rules
+    still load and behave in Coraza.
+  - `narrow_field` never widens: a field with its own charset is not
+    free text; the length is at most what it takes now (field, map
+    default, 1000); required as it was (no key stays no key); `deny` and
+    the map's default charset carried over.
+  - Verification: a lost link is excused as swapped only in a folder
+    (never the root) where the site varies its links.
+  - `acts()` keeps a count of open function/class scopes: linear on a
+    file of nested braces (was quadratic: a minute for 1 MB).
+  - Reader copy timeout 40 minutes (`fetch.CopyTimeout`), a running read
+    expires after an hour; Moodle 5.1's lists are read outside the
+    application folder only when it is inside the site.
+  - Assistant continuations send each part once and never an empty one;
+    the download menu shows the panel's reason for a failed export.
+  - Efficacy study run for 0.2.31 (WordPress, Drupal, generic, phpBB,
+    MediaWiki): the same numbers, all guarantees hold.
+- **Why:** findings of the independent review before the PR.
+- **Status:** Go, agent and schema-example tests pass; panel-ui
+  syntax-checked only.
+- **Next steps:** PR; screenshots of the download menu and the report.
+
+### 2026-11-24 — Fix the bug hunt's findings on 0.2.27-0.2.30; version 0.2.31
+
+- **Branch:** fix/stabilize-0.2.31
+- **What:**
+  - Source reads no reader ends: `store.expireSourceReads` fails a read
+    queued for 15 minutes or running for an hour (the copy now gives up after
+    40 minutes, `fetch.CopyTimeout`), on claim, queue and read of
+    the latest; a discovery fails a stale queued read before joining one;
+    `SetSourceToken` fails the old token's reads. Test in
+    `source_test.go`.
+  - Scan reservations never started (`remote_scan = ''`) fail after 5
+    minutes (`expireReservations`, on reserve and on claim); a failed
+    `DropSecurityScan` is logged. Test in `security_test.go`.
+  - `patchApp` checks every field before changing any: a refused field no
+    longer leaves the site renamed. Test in `rename_test.go`.
+  - Agent `browser.py`: `_first_line` of an error without a message.
+  - Security tab: `pollEvery` reads every minute while a scan's draft
+    waits for the map, up to a day.
+  - Version 0.2.31 (VERSION, INSTALL.md, `.env.example`, agent),
+    `docs/releases/0.2.31.md`; manual and in-app help for the fixes.
+- **Why:** an independent bug hunt on 0.2.27-0.2.30 found two dead ends
+  that only deleting the configuration could clear, and three smaller
+  bugs.
+- **Status:** Go and agent tests pass; panel-ui syntax-checked only.
+- **Next steps:** efficacy study; independent review of the branch; PR;
+  screenshots.
+
+### 2026-11-24 — Every supported CMS in the source reader, map downloads, steadier verification and assistant (work in progress)
+
+- **Branch:** fix/stabilize-0.2.31
+- **What:**
+  - Source reader, applications as kinds (`extract/stacks.go`,
+    `cms_*.go`): WordPress, Drupal 8+ and 7, Joomla, Magento 2, PrestaShop,
+    OpenCart, TYPO3, MediaWiki, phpBB, Moodle. Each: markers (root or one
+    folder; `web`, `public`… are the web root), its core (only version
+    files read, the rest counted in `files.known`), the owner of a file
+    (`where.owner`), the routes its files declare (routing files,
+    components, controllers, web services, eID, special pages, AJAX
+    services; `route.query` holds the query that selects one), direct
+    files by each CMS's guard; Moodle `PARAM_*` and Joomla `getInt`… type
+    inputs. `vendor/` never copied or walked; copy limits (150 000 files,
+    1 GB) apart from study limits (20 000, 200 MB). Calibrated on the real
+    trees of all nine (shallow clones, extensions planted from their core),
+    `cms_test.go` per application.
+  - Review findings of #114: local path quoted in the install command,
+    `/` and system folders refused; readers from before 0.2.30 read
+    `/site`; `acts()` handles heredoc/nowdoc, `#[...]` attributes, closures
+    (not a scope), `Foo::class`/`->class`, request reads in double-quoted
+    strings; `library()` no longer takes `libraries/` (CodeIgniter's
+    code); verification progress erased on a stale failure; agent number
+    settings that are not numbers fall back to their default (logged);
+    the browser's progress line throttled.
+  - Agent verification: a page that varies by itself is loaded four times;
+    links are excused when the gateway shows as many varying links as the
+    site, or a stand-in in the same folder (WooCommerce's random related
+    products no longer break a page nor send it back to the area).
+  - Assistant: `narrow_field` proposals (route query key or form field,
+    free text only, to int, date, email, enum, bool, digits, slug, key or
+    shorter text; Equalizer's own anchored patterns); the prompt lists the
+    four things it can propose and forbids offering anything else;
+    answers cut by the provider (`stop_reason max_tokens`, `finish_reason
+    length`) are continued twice, else marked; `max_tokens` 4096.
+  - Map download menu (`shared/ui/Menu`, `DownloadMenu`): YAML, JSON,
+    OpenAPI 3, ModSecurity/Coraza (`GET
+    /apps/{app}/maps/{version}/export`, `internal/mapexport`). The rules
+    were loaded and run in Coraza 3.3.3 against the example map.
+  - Discovery report: the four figures above "Check on the site";
+    "From the source code" groups by the reader's owner and writes the
+    query of each entry point.
+  - Docs: tenant manual (source reader per CMS, assistant, download), agent,
+    architecture, map format, source-reader README; in-app help synced.
+- **Why:** the user asked for the CMS routes and the download menu, the
+  review of #114 found these bugs, and the attached assistant chat showed
+  an overpromise, a cut answer and a WooCommerce page reported broken.
+- **Status:** all Go and agent tests pass; panel-ui only syntax-checked
+  locally (npm blocked), CI runs tsc and vitest. A bug hunt on 0.2.27-0.2.30
+  is running; version, release notes and efficacy study not done yet.
+- **Next steps:** fix what the bug hunt finds; bump to 0.2.31 with release
+  notes; efficacy study; independent review; PR; screenshots of the
+  download menu and the report.
 
 ### 2026-11-24 — Cleaner discovery, honest source report, progress everywhere; 0.2.30
 

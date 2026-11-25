@@ -1,0 +1,73 @@
+{
+  "schema": "source-summary/1.0",
+  "read_at": "2026-11-24T00:00:00Z",
+  "stack": "drupal",
+  "files": {
+    "read": 5,
+    "skipped": 0,
+    "known": 3
+  },
+  "routes": [
+    {
+      "path": "/admin/structure/webform/{id}",
+      "methods": [
+        "GET",
+        "POST"
+      ],
+      "origin": "drupal_route",
+      "params": {
+        "id": "int"
+      },
+      "where": {
+        "file": "web/modules/contrib/webform/webform.routing.yml",
+        "line": 10,
+        "owner": "module webform"
+      }
+    },
+    {
+      "path": "/webform/{webform}/share",
+      "methods": [
+        "GET"
+      ],
+      "origin": "drupal_route",
+      "public": true,
+      "params": {
+        "webform": "slug"
+      },
+      "where": {
+        "file": "web/modules/contrib/webform/webform.routing.yml",
+        "line": 1,
+        "owner": "module webform"
+      }
+    }
+  ],
+  "inputs": [
+    {
+      "name": "q",
+      "source": "query",
+      "type": "unknown",
+      "where": {
+        "file": "scripts/tool.php",
+        "line": 1
+      }
+    }
+  ],
+  "risks": [],
+  "components": [
+    {
+      "name": "drupal",
+      "kind": "core",
+      "version": "10.3.1"
+    },
+    {
+      "name": "library:drupal/core",
+      "kind": "library",
+      "version": "10.3.1"
+    },
+    {
+      "name": "module:webform",
+      "kind": "plugin",
+      "version": "6.2.3"
+    }
+  ]
+}

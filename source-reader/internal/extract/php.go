@@ -67,7 +67,7 @@ func (s *Summary) phpFile(rel, src, route string) {
 		if !inQuery.MatchString(line) && !strings.Contains(strings.ToLower(line), "eval") {
 			continue
 		}
-		at := Where{File: rel, Line: i + 1}
+		at := s.at(i + 1)
 		typed := map[string]bool{}
 		for _, sz := range sanitizers {
 			for _, m := range sz.re.FindAllStringSubmatch(line, -1) {

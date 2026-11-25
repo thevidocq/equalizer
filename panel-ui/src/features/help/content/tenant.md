@@ -519,7 +519,8 @@ stricter checks where you know the pages well.
 ### Versions and rollback
 
 Every change is a new version: draft, then published (or discarded).
-**Site → Map** lists them; each can be downloaded with **Download as YAML**.
+**Site → Map** lists them; each can be downloaded with **Download** (see
+[Import and export](#import-and-export)).
 
 ![Versions](/help-img/maps.png)
 
@@ -528,10 +529,29 @@ to this version**: it is live again within 15 seconds.
 
 ### Import and export
 
-**Download as YAML** exports a version; **Import a map file** (in **New
-version**) opens a YAML or JSON map in the editor. Tenant, site and domain
-are set from the site you import into, and the draft gets the usual checks
-before you publish it.
+**Download**, on each version, offers four files:
+
+| File | What it is |
+| --- | --- |
+| YAML | The map itself: **Import a map file** reads it back |
+| JSON | The same map, as JSON: it imports too |
+| OpenAPI 3 | What the map accepts, for API tools: every page, form and API entry with its parameters, their types, lengths, lists of values and patterns; the file folders; the areas in `x-equalizer-areas`; the roles and rules as `x-equalizer-` extensions |
+| ModSecurity / Coraza | Rules for a WAF (ModSecurity v3, Coraza): a request that matches no entry of the map is refused (404), and on each entry a query key, field or file it does not take is refused (403), as is a value outside its type, length, list, pattern or rules |
+
+A WAF checks a request and then forwards it as it came; Equalizer
+rebuilds it from the map and never forwards a client's bytes. So the
+ModSecurity file keeps the paths, methods, names, types, lengths, lists
+of values, patterns, the rules `no_html`, `no_template_meta` and
+`no_sql_meta` (approximated), the file types of the folders and the size
+of uploads; it loses the rebuilding, the roles and sessions, the checks
+of ownership, the rate limits, the ranges of numbers (only digits are
+checked), `no_lookalikes`, the rebuilding of images and the rewriting of
+the pages. Lengths are counted in bytes there (characters in Equalizer).
+Its comments say so; try it with `SecRuleEngine DetectionOnly` first.
+
+**Import a map file** (in **New version**) opens a YAML or JSON map in the
+editor. Tenant, site and domain are set from the site you import into, and
+the draft gets the usual checks before you publish it.
 
 ## Login with your identity provider
 
@@ -751,9 +771,9 @@ reaches visitors until an administrator reviews and publishes the draft
 (see [Review and publication](#review-and-publication)). A viewer sees the
 card and cannot make it a draft.
 
-It can propose three kinds of change, each checked by the panel before the
-card is shown and again when the draft is made (the new map must be
-valid and accepted by the gateway):
+It can propose four kinds of change, and only these, each checked by the
+panel before the card is shown and again when the draft is made (the new
+map must be valid and accepted by the gateway):
 
 - **A file type for a file folder** (`application/pdf` for
   `/wp-content/uploads/`). Types that can run code or hide what they are
@@ -763,10 +783,22 @@ valid and accepted by the gateway):
   short text without markup.
 - **More values for a key that takes a list** (`date` for the shop's
   `?orderby=`).
+- **A narrower check for a free-text field** of a page or a form
+  (`?attribute_pa_color=` of a product becomes a slug of 40 characters, a
+  review's `rating` a number from 1 to 5): a whole number, a date, an
+  email address, one of a few values, yes or no, digits only, a slug, a
+  key (letters, digits, `_ . -`), or shorter text. The patterns are
+  Equalizer's own, never written by the AI; only a field that takes free
+  text (no pattern, list or set of characters of its own) is narrowed,
+  never widened: never longer than it takes now, still held to the map's
+  default characters and to the values it refused, and required or
+  optional as it was. The agent's check of the draft shows any page the narrower
+  field would break, before you publish.
 
 At most three proposals per answer. It does not propose new pages, forms,
-logins or other settings: those come from a discovery or from editing the
-map.
+logins, rules, rate limits or other settings, and does not offer to: it
+says where in the panel they are changed by hand (a discovery, or
+editing the map).
 
 ### What stays private
 
@@ -789,6 +821,9 @@ map.
 
 - 20 questions every 10 minutes per person; the AI is given the last 20
   messages of the conversation.
+- A long answer the AI provider cuts at its length limit is completed:
+  the assistant asks it to go on, up to twice. If it is still cut, it
+  says so at the end; ask for the rest.
 - It reads up to 500 events per question: on a busy site it says when it
   only saw the latest ones; the **Logs** page shows everything.
 - It does not open pages of the site and does not see the legacy server.
@@ -825,7 +860,10 @@ offers a **quick** scan (seconds: headers, HTTPS, cookies, email DNS,
 technologies, exposed files), a **standard** one (a few minutes) or a
 **deep** one (longer, more requests). One scan per target at a time; each counts against your CVE
 Radar limits (20 scans a day). The tab follows the scan and shows the
-findings when it ends; a scan that does not end within two hours fails.
+findings when it ends; a scan that does not end within two hours fails,
+and one the scanner never started (the panel stopped while asking it)
+fails after five minutes. While its draft waits for the map to be free (a
+version in review), the tab keeps checking, every minute, for a day.
 The scanner creates its own record of the domain the first time, without
 asking for its DNS check.
 
@@ -903,9 +941,16 @@ code instead of guessing.
 
 It runs next to the connector, never on the web server, and only calls
 the panel: no port is opened. It reads only code files (`.php`, `.phtml`,
-`.inc`, a theme's `style.css`, `composer.lock`), up to 1 MB each, 20 000
-files and 200 MB. It never reads uploads, caches, version control,
-dependencies, and never the files with credentials, by name, on any site:
+`.inc`, `.module`) and the few files that say where an application's entry
+points are or what a component is: a theme's `style.css`, `composer.json`
+and `composer.lock`, routing files (`*.routing.yml`, `routing.yml`,
+`routes.xml`, `webapi.xml`), manifests (`extension.json`, `skin.json`,
+`*.info.yml`, `*.info`, `install.json`). Up to 1 MB each; it studies up to
+20 000 files and 200 MB of the site's own code, and copies at most
+150 000 files and 1 GB over SFTP or SMB. It never reads uploads, caches,
+version control, dependencies (`vendor/`, `node_modules/`: their versions
+come from `composer.lock`), and never the files with credentials, by
+name, on any site:
 
 | Application | Never read |
 | --- | --- |
@@ -924,23 +969,56 @@ A file with another name that holds a password written in the code (a
 database connection with its password) is dropped as soon as it is
 opened and nothing from it is used. Over SFTP and SMB the reader first
 lists the folder and copies only the files it reads: the others never
-cross the network. It studies only the code that is the site's own: plugins, themes and
-custom files. WordPress's core (`wp-admin`, `wp-includes`, the `wp-*.php`
-files) and the libraries plugins ship (`vendor/` and the like) give only
-their versions: they are known code, and counting them buried the site's
-own entry points under thousands of lines. A PHP file counts as an entry
-point only when it does something as soon as it is opened: outside its
-functions and classes it reads the request or makes a risky call. A file
-that only declares functions or classes, or a template that prints what it
-is given, does not. This is read from the code's structure (braces,
-strings, comments), not with a PHP parser: an approximation that can miss
-an unusual file. A backtick counts as running a command only around a
-request value: in a query it quotes a table or column name. It sends a summary: entry points, the type the code gives
-each request key, the calls where a request value may do harm (file and
-line), the components and their versions. Names, types and places only:
-**the code, the values and the secrets never leave your network**. Files
-copied over SFTP or SMB are read in a temporary folder deleted after each
-read.
+cross the network.
+
+It studies only the code that is the site's own: its extensions (plugins,
+modules, components, themes) and its custom files. The application's core
+and the libraries it ships give only their versions, and are not even
+read: they are known code, and counting them buried the site's own entry
+points under thousands of lines. It finds the application at the site's
+root or in one of its folders (WordPress in `/blog`, Drupal in `/web`,
+Moodle 5 in `/public`); when that folder is the web server's root (`web`,
+`public`, `public_html`, `docroot`, `htdocs`, `html`, `www`), its name is
+not in the addresses, and files outside it are not entry points (no
+browser opens them).
+
+| Application | Its core, version only | Entry points it reads in the extensions |
+| --- | --- | --- |
+| WordPress | `wp-admin`, `wp-includes`, the `wp-*.php` files | REST routes, AJAX and admin-post actions (`action=`), PHP files without the `ABSPATH` guard |
+| Drupal 8 and later | `core/` | the routes of each module's `*.routing.yml` (`_access: 'TRUE'` is public; a parameter's requirement types it) |
+| Drupal 7 | `includes`, `misc`, the root `modules` and `themes` | `hook_menu` paths of the modules under `sites/` |
+| Joomla | its own extensions, as its `ExtensionHelper` lists them | each component at `index.php?option=com_…` (the administrator's too), the web services its plugins add to `api/index.php`, PHP files without the `_JEXEC` guard; `$input->getInt()`, `getCmd()`… type the fields |
+| Magento 2 | `app/code/Magento`, `vendor/magento`, `lib`, `pub`… | a module's controllers at `/frontName/folder/action` (`etc/frontend/routes.xml`, the administration's under `/admin/`), its REST routes (`etc/webapi.xml`, `anonymous` is public) |
+| PrestaShop | the core folders, the modules its `composer.json` ships, the administration folder (found by its content) | each module's front controllers at `index.php?fc=module&module=…&controller=…`, PHP files without the `_PS_VERSION_` guard |
+| OpenCart | everything but the extensions (`extension/<name>`, OpenCart 3's `extension/` subfolders) | each extension's controller methods at `index.php?route=…` (`admin/index.php` for the administration's) |
+| TYPO3 | `typo3/sysext`, `vendor/typo3` | eID scripts (`index.php?eID=…`), backend and AJAX routes under `/typo3/` |
+| MediaWiki | everything but `extensions/` and `skins/` | special pages (`title=Special:…`), API modules (`api.php?action=…`, `list=`, `prop=`, `meta=`), REST routes (`rest.php/…`) |
+| phpBB | everything but `ext/` (and `ext/phpbb`) | the pages of each extension's `config/routing.yml`, under `app.php/` |
+| Moodle | the plugins its `lib/plugins.json` lists | the pages of the added plugins (files that load `config.php`), their AJAX services (`db/services.php`, `loginrequired => false` is public); `optional_param(…, PARAM_INT)` and the like type the fields |
+
+A plugin installed with Composer into `vendor/` (TYPO3's extensions often,
+Magento's modules sometimes) counts as a library: only its version.
+Moodle sub-plugins inside a plugin Moodle ships, and OpenCart 3's own
+extensions, are read as the site's (OpenCart 3 keeps them in the same
+folders as the added ones).
+
+Elsewhere, a PHP file counts as an entry point only when it does
+something as soon as it is opened: outside its named functions and
+classes it reads the request (also inside a double-quoted string or a
+heredoc) or makes a risky call. A closure handed to a hook
+(`add_action('init', function () { … })`) counts: it runs on every
+request. A file that only declares functions or classes, or a template
+that prints what it is given, does not. This is read from the code's
+structure (braces, strings, heredocs, comments, attributes), not with a
+PHP parser: an approximation that can miss an unusual file. A backtick
+counts as running a command only around a request value on the same line:
+in a query it quotes a table or column name. It sends a summary: entry
+points (with the query that selects them, as `option=com_shop`), the type
+the code gives each request key, the calls where a request value may do
+harm (file, line and the extension they belong to), the components and
+their versions. Names, types and places only: **the code, the values and
+the secrets never leave your network**. Files copied over SFTP or SMB are
+read in a temporary folder deleted after each read.
 
 ### Set it up
 
@@ -956,7 +1034,10 @@ read.
      server and user.
    - **Folder on the same server (Docker too)**: the reader runs on the
      site's own server. Give the site's folder (for example
-     `/var/www/html`). If the site runs in Docker, also give its
+     `/var/www/html`): not the whole disk (`/`) nor a folder of the
+     system (`/etc`, `/root`, `/usr`…), which the panel refuses. A path
+     with spaces is fine: the command quotes it. A reader installed
+     before 0.2.30 keeps reading the folder it mounted at `/site`. If the site runs in Docker, also give its
      **container** as `docker ps` names it (for example `wp`): the reader
      takes the container's volumes, read only (`--volumes-from wp:ro`).
      Without a container, the folder of the server is mounted read only at
@@ -968,7 +1049,11 @@ read.
    command follows the settings above: change them, make a new token. The token is shown once; a new one stops the old one.
 3. The tab says **Ready** once the reader answers (it calls every minute).
    **Read now** reads the files and shows what was found, or why it failed:
-   it is also the test of the settings.
+   it is also the test of the settings. A read no reader takes within 15
+   minutes, or that runs for more than an hour (a copy gives up after 40
+   minutes), fails with the reason, and a
+   new token ends the reads of the old one: one read never holds the site
+   for good.
 
 **Remove the reader** forgets the settings, the token and the reads.
 Viewers see the tab, not the settings form.

@@ -2,16 +2,25 @@ package sourceschema
 
 import (
 	"os"
+	"path/filepath"
 	"testing"
 )
 
+// Every summary the reader wrote from its test sites (one per application)
+// is one the panel accepts.
 func TestExample(t *testing.T) {
-	doc, err := os.ReadFile("../../../schema/source/examples/wordpress.json")
-	if err != nil {
-		t.Fatal(err)
+	files, _ := filepath.Glob("../../../schema/source/examples/*.json")
+	if len(files) < 10 {
+		t.Fatalf("%d examples", len(files))
 	}
-	if err := Validate(doc); err != nil {
-		t.Fatal(err)
+	for _, f := range files {
+		doc, err := os.ReadFile(f)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err := Validate(doc); err != nil {
+			t.Fatalf("%s: %v", filepath.Base(f), err)
+		}
 	}
 	if Validate([]byte(`{"schema":"source-summary/1.0"}`)) == nil {
 		t.Fatal("an incomplete summary passed")

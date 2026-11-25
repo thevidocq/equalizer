@@ -93,6 +93,11 @@ func (s *Store) StartDiscovery(ctx context.Context, n NewDiscovery) (Discovery, 
 		return Discovery{}, translate(err)
 	}
 	if n.Source {
+		if _, err := tx.ExecContext(ctx, `UPDATE source_reads SET status = 'failed', finished_at = now(),
+			error = 'no source reader took the read within 15 minutes: is it running?'
+			WHERE app_id = $1 AND status = 'queued' AND created_at < now() - interval '15 minutes'`, n.App); err != nil {
+			return Discovery{}, err
+		}
 		// A read already going serves this discovery too: locked, so that it
 		// cannot end between finding it and linking it.
 		var read *int64

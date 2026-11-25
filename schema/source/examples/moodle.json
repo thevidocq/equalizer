@@ -1,0 +1,94 @@
+{
+  "schema": "source-summary/1.0",
+  "read_at": "2026-11-24T00:00:00Z",
+  "stack": "moodle",
+  "files": {
+    "read": 5,
+    "skipped": 2,
+    "known": 3
+  },
+  "routes": [
+    {
+      "path": "/lib/ajax/service-nologin.php",
+      "methods": [
+        "POST"
+      ],
+      "origin": "moodle_service",
+      "query": {
+        "info": "local_reports_public"
+      },
+      "public": true,
+      "where": {
+        "file": "public/local/reports/db/services.php",
+        "line": 7,
+        "owner": "plugin local_reports"
+      }
+    },
+    {
+      "path": "/lib/ajax/service.php",
+      "methods": [
+        "POST"
+      ],
+      "origin": "moodle_service",
+      "query": {
+        "info": "local_reports_get"
+      },
+      "where": {
+        "file": "public/local/reports/db/services.php",
+        "line": 3,
+        "owner": "plugin local_reports"
+      }
+    },
+    {
+      "path": "/local/reports/index.php",
+      "methods": [
+        "GET",
+        "POST"
+      ],
+      "origin": "php_file",
+      "public": true,
+      "where": {
+        "file": "public/local/reports/index.php",
+        "line": 1,
+        "owner": "plugin local_reports"
+      }
+    }
+  ],
+  "inputs": [
+    {
+      "name": "courseid",
+      "source": "request",
+      "type": "int",
+      "route": "/local/reports/index.php",
+      "where": {
+        "file": "public/local/reports/index.php",
+        "line": 3,
+        "owner": "plugin local_reports"
+      }
+    },
+    {
+      "name": "q",
+      "source": "request",
+      "type": "text",
+      "route": "/local/reports/index.php",
+      "where": {
+        "file": "public/local/reports/index.php",
+        "line": 4,
+        "owner": "plugin local_reports"
+      }
+    }
+  ],
+  "risks": [],
+  "components": [
+    {
+      "name": "moodle",
+      "kind": "core",
+      "version": "5.1.1"
+    },
+    {
+      "name": "plugin:local_reports",
+      "kind": "plugin",
+      "version": "2.3"
+    }
+  ]
+}

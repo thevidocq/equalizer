@@ -15,9 +15,13 @@
       ],
       "origin": "wp_ajax",
       "action": "demo_save",
+      "query": {
+        "action": "demo_save"
+      },
       "where": {
         "file": "wp-content/plugins/demo/demo.php",
-        "line": 9
+        "line": 9,
+        "owner": "plugin demo"
       }
     },
     {
@@ -28,10 +32,14 @@
       ],
       "origin": "wp_ajax_nopriv",
       "action": "demo_search",
+      "query": {
+        "action": "demo_search"
+      },
       "public": true,
       "where": {
         "file": "wp-content/plugins/demo/demo.php",
-        "line": 8
+        "line": 8,
+        "owner": "plugin demo"
       }
     },
     {
@@ -42,9 +50,13 @@
       ],
       "origin": "admin_post",
       "action": "demo_export",
+      "query": {
+        "action": "demo_export"
+      },
       "where": {
         "file": "wp-content/plugins/demo/demo.php",
-        "line": 10
+        "line": 10,
+        "owner": "plugin demo"
       }
     },
     {
@@ -57,7 +69,20 @@
       "public": true,
       "where": {
         "file": "wp-content/plugins/demo/direct.php",
-        "line": 1
+        "line": 1,
+        "owner": "plugin demo"
+      }
+    },
+    {
+      "path": "/wp-json/demo/v1/items",
+      "methods": [
+        "POST"
+      ],
+      "origin": "rest_route",
+      "where": {
+        "file": "wp-content/plugins/demo/demo.php",
+        "line": 18,
+        "owner": "plugin demo"
       }
     },
     {
@@ -72,18 +97,8 @@
       },
       "where": {
         "file": "wp-content/plugins/demo/demo.php",
-        "line": 13
-      }
-    },
-    {
-      "path": "/wp-json/demo/v1/items",
-      "methods": [
-        "POST"
-      ],
-      "origin": "rest_route",
-      "where": {
-        "file": "wp-content/plugins/demo/demo.php",
-        "line": 18
+        "line": 13,
+        "owner": "plugin demo"
       }
     }
   ],
@@ -94,7 +109,8 @@
       "type": "email",
       "where": {
         "file": "wp-content/plugins/demo/demo.php",
-        "line": 28
+        "line": 28,
+        "owner": "plugin demo"
       }
     },
     {
@@ -103,7 +119,8 @@
       "type": "int",
       "where": {
         "file": "wp-content/plugins/demo/demo.php",
-        "line": 26
+        "line": 26,
+        "owner": "plugin demo"
       }
     },
     {
@@ -112,7 +129,8 @@
       "type": "unknown",
       "where": {
         "file": "wp-content/plugins/demo/guarded.php",
-        "line": 3
+        "line": 3,
+        "owner": "plugin demo"
       }
     },
     {
@@ -122,7 +140,8 @@
       "route": "/wp-content/plugins/demo/direct.php",
       "where": {
         "file": "wp-content/plugins/demo/direct.php",
-        "line": 2
+        "line": 2,
+        "owner": "plugin demo"
       }
     },
     {
@@ -135,7 +154,8 @@
       ],
       "where": {
         "file": "wp-content/plugins/demo/demo.php",
-        "line": 29
+        "line": 29,
+        "owner": "plugin demo"
       }
     },
     {
@@ -145,7 +165,8 @@
       "route": "/wp-content/plugins/demo/direct.php",
       "where": {
         "file": "wp-content/plugins/demo/direct.php",
-        "line": 3
+        "line": 3,
+        "owner": "plugin demo"
       }
     },
     {
@@ -154,7 +175,8 @@
       "type": "text",
       "where": {
         "file": "wp-content/plugins/demo/demo.php",
-        "line": 27
+        "line": 27,
+        "owner": "plugin demo"
       }
     },
     {
@@ -163,7 +185,8 @@
       "type": "unknown",
       "where": {
         "file": "wp-content/plugins/demo/demo.php",
-        "line": 30
+        "line": 30,
+        "owner": "plugin demo"
       }
     }
   ],
@@ -173,7 +196,8 @@
       "input": "raw",
       "where": {
         "file": "wp-content/plugins/demo/demo.php",
-        "line": 30
+        "line": 30,
+        "owner": "plugin demo"
       }
     },
     {
@@ -182,7 +206,8 @@
       "route": "/wp-content/plugins/demo/direct.php",
       "where": {
         "file": "wp-content/plugins/demo/direct.php",
-        "line": 3
+        "line": 3,
+        "owner": "plugin demo"
       }
     }
   ],

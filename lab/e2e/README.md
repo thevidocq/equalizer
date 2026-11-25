@@ -20,27 +20,30 @@ protected sites, each a real application served by PHP's own server:
 | Site | Application | Legacy address |
 | --- | --- | --- |
 | `www.acme.test` (aliases `acme.test`, `old.acme.test`) | WordPress 6.9 on SQLite | 127.0.0.1:18090 |
-| `news.acme.test` | Joomla 5.4 on PostgreSQL | 127.0.0.1:18091 |
-| `docs.acme.test` | Drupal 11.4 on SQLite | 127.0.0.1:18092 |
-| `intranet.acme.test` | Acme Intranet, an old-style PHP app in `apps/intranet` (sessions, ISO-8859-1 pages, attachments), published in plain http with no certificate | 127.0.0.1:18093 |
+| `news.acme.test` | Joomla 5.4 on PostgreSQL, sixteen articles on the home page | 127.0.0.1:18091 |
+| `docs.acme.test` | Drupal 11.4 on SQLite, twenty articles with tags and comments, a contact form | 127.0.0.1:18092 |
+| `intranet.acme.test` | Acme Intranet, an old-style PHP app in `apps/intranet` (sessions, ISO-8859-1 pages, attachments, a staff directory, a calendar, a feedback form, a small JSON API), published in plain http with no certificate | 127.0.0.1:18093 |
 | `cart.acme.test` | OpenCart 4.0 on MariaDB, with its demo products | 127.0.0.1:18101 |
 | `shop.acme.test` | PrestaShop 8.2 on MariaDB, with its demo products | 127.0.0.1:18102 |
 | `forum.acme.test` | phpBB 3.3 on SQLite | 127.0.0.1:18103 |
-| `wiki.acme.test` | MediaWiki 1.43 on SQLite | 127.0.0.1:18104 |
-| `site.acme.test` | TYPO3 13.4 on MariaDB, three pages | 127.0.0.1:18105 |
+| `wiki.acme.test` | MediaWiki 1.43 on SQLite, a handbook of twelve pages | 127.0.0.1:18104 |
+| `site.acme.test` | TYPO3 13.4 on PostgreSQL, eleven pages | 127.0.0.1:18105 |
 | `store.acme.test` | Magento 2.4.7 on MariaDB, without its search modules (no OpenSearch here) and without products | 127.0.0.1:18106 |
 
 Joomla and Drupal come from GitHub only: their dependencies are installed
 from each project's `composer.lock` (`cms.sh`). The first `up.sh` builds
 them in `.run/src` (a few minutes); later runs reuse the build. In the lab
 Joomla has no update checks or guided tour (no Internet), and Drupal is
-installed from its recipes one by one.
+installed from its recipes one by one. Joomla's media are built with npm;
+without the npm registry, `cms.sh` takes them from the release's full
+package (a GitHub release asset).
 
 The six sites after it prove the agent's other profiles (test 6 below) and
 are prepared by `webapps.sh`, from GitHub too: release archives (OpenCart,
 PrestaShop) or clones with dependencies from their lock files (phpBB,
 MediaWiki, TYPO3, Magento; Magento without Composer plugins, one of them
-asks Packagist). The first run takes about 20 minutes more, Magento most of
+asks Packagist). `webapps.sh phpbb mediawiki typo3` builds only the sites
+named: those three need no MariaDB. The first run takes about 20 minutes more, Magento most of
 it. MariaDB keeps its data in `/var/tmp/equalizer-lab-mysql` and listens on
 127.0.0.1:33061. Their test accounts: a customer `editor@acme.test` on the
 three shops, `editor` on the forum and the wiki (all with the password
@@ -113,7 +116,10 @@ to a visit on a lab after test 1 (results in `docs/performance.md`).
 is meant to stop it stops (`docs/efficacy.md`): for each site the lab has
 built, the real agent makes the map, the gateway of this checkout serves
 it, and the legacy site, served again behind `efficacy/record.php`, logs
-what it receives. It needs only the sites (`wordpress.sh`, `cms.sh`,
+what it receives. The discovery reads each site's code as the source
+reader would (`source-reader/cmd/source-summary`; `STUDY_SOURCE=off` for
+the surface only), and a parity table puts the same measures of every
+site side by side. It needs only the sites (`wordpress.sh`, `cms.sh`,
 `webapps.sh`), not the platform, and exits 1 when a guarantee breaks.
 Results in `.run/efficacy/`. Run it before every release. Like the rest
 of the lab, the sites listen on 127.0.0.1 only and the attacks go to them

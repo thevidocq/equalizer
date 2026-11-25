@@ -110,7 +110,7 @@ func (s *Summary) phpFile(rel, src, route string) {
 	}
 	// a request value kept in a variable first, then used in a risky call
 	// further down the file: $id = $_GET['id']; … $wpdb->query("… $id")
-	tainted := taint(lines)
+	tainted := taint(lines, s.Stack)
 	if len(tainted) == 0 {
 		return
 	}
@@ -160,7 +160,7 @@ var (
 // safe (a number, a key), each with the key it holds; a variable set from
 // one of them inherits its key (the first such variable in the line). Each
 // line's variables are looked up in a map: linear in the file.
-func taint(lines []string) map[string]string {
+func taint(lines []string, stack string) map[string]string {
 	out := map[string]string{}
 	for pass := 0; pass < 2; pass++ {
 		for _, line := range lines {
@@ -174,6 +174,10 @@ func taint(lines []string) map[string]string {
 			}
 			if k := otherRead.FindStringSubmatch(m[2]); k != nil {
 				out[m[1]] = k[1]
+				continue
+			}
+			if k := readerKeys(stack, m[2]); len(k) > 0 { // a cast is seen above (safeCast)
+				out[m[1]] = k[0]
 				continue
 			}
 			for _, v := range varName.FindAllStringSubmatch(m[2], -1) {

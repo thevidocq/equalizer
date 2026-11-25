@@ -83,9 +83,9 @@ def sqlite_digest(path, queries):
         db.close()
 
 
-def joomla_digest():
-    return {q: subprocess.run(["psql", "-h", "127.0.0.1", "-p", "55441", "-U", "postgres", "-d", "joomla", "-At", "-c", q],
-                              capture_output=True, text=True, check=True).stdout.splitlines() for q in JOOMLA}
+def pg_digest(db, queries):
+    return {q: subprocess.run(["psql", "-h", "127.0.0.1", "-p", "55441", "-U", "postgres", "-d", db, "-At", "-c", q],
+                              capture_output=True, text=True, check=True).stdout.splitlines() for q in queries}
 
 
 def mariadb_digest(db, queries):
@@ -105,14 +105,14 @@ def changes(before, after):
 
 DIGESTS = {
     "blog": lambda: sqlite_digest(RUN / "wp-db" / "wordpress.sqlite", WORDPRESS),
-    "news": joomla_digest,
+    "news": lambda: pg_digest("joomla", JOOMLA),
     "docs": lambda: sqlite_digest(RUN / "drupal" / "sites" / "default" / "files" / ".sqlite", DRUPAL),
     "intranet": lambda: sqlite_digest(RUN / "intranet-db" / "intranet.sqlite", INTRANET),
     "cart": lambda: mariadb_digest("opencart", OPENCART),
     "shop": lambda: mariadb_digest("prestashop", PRESTASHOP),
     "forum": lambda: sqlite_digest(RUN / "forum-db" / "forum.sqlite", PHPBB),
     "wiki": lambda: sqlite_digest(RUN / "wiki-db" / "wiki.sqlite", MEDIAWIKI),
-    "site": lambda: mariadb_digest("typo3", TYPO3),
+    "site": lambda: pg_digest("typo3", TYPO3),
     "store": lambda: mariadb_digest("magento", MAGENTO),
 }
 

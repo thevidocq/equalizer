@@ -37,7 +37,15 @@ if [ ! -f "$J/libraries/vendor/autoload.php" ]; then
   sed -i 's#git@github.com:joomla-framework/security-filter.git#https://github.com/joomla-framework/filter.git#' "$J/composer.lock"
   (cd "$J" && composer install -q --no-dev --prefer-source --no-progress --ignore-platform-req=ext-ldap)
 fi
-[ -d "$J/media/system/js" ] || (cd "$J" && npm ci --no-audit --no-fund > "$RUN/logs/joomla-build.log" 2>&1)
+if [ -z "$(find "$J/media/system/js" -type f -print -quit 2>/dev/null)" ]; then
+  # The media are built with npm; without the npm registry, the release's
+  # full package (a GitHub release asset) carries them built.
+  if ! (cd "$J" && npm ci --no-audit --no-fund > "$RUN/logs/joomla-build.log" 2>&1); then
+    curl -fsSL -o "$SRC/joomla-full.zip" \
+      "https://github.com/joomla/joomla-cms/releases/download/$JOOMLA_TAG/Joomla_$JOOMLA_TAG-Stable-Full_Package.zip"
+    (cd "$J" && unzip -qo "$SRC/joomla-full.zip" 'media/*')
+  fi
+fi
 if [ ! -f "$RUN/joomla/configuration.php" ]; then
   copy "$J" "$RUN/joomla" node_modules .git build/media_source tests
   "${PSQL[@]}" -c "drop database if exists joomla" -c "create database joomla"
@@ -49,8 +57,8 @@ if [ ! -f "$RUN/joomla/configuration.php" ]; then
   # shellcheck disable=SC2016 # PHP, not shell
   sed -i -e 's/public $sef_rewrite = false;/public $sef_rewrite = true;/' \
     -e "s#public \$live_site = '';#public \$live_site = 'http://news.acme.test';#" "$RUN/joomla/configuration.php"
-  php "$LAB/joomla-setup.php" "$RUN/joomla"
 fi
+php "$LAB/joomla-setup.php" "$RUN/joomla" # content too: on an existing lab, what is missing
 
 # --- Drupal ---------------------------------------------------------------
 D="$SRC/drupal"
@@ -62,15 +70,15 @@ if [ ! -f "$RUN/drupal/sites/default/settings.php" ]; then
   (cd "$RUN/drupal" && "${dr[@]}" install minimal --site-name="Acme Docs" --password="Lab-editor-pass-1" > "$RUN/logs/drupal-install.log" 2>&1)
   # The standard recipe stops halfway in this version: its parts, one by one.
   for r in core_recommended_front_end_theme core_recommended_admin_theme basic_html_format_editor \
-    page_content_type article_content_type; do
+    page_content_type article_content_type article_tags article_comment; do
     (cd "$RUN/drupal" && "${dr[@]}" recipe "core/recipes/$r" >> "$RUN/logs/drupal-install.log" 2>&1)
   done
   # The database path is relative to the working directory: make it absolute.
   chmod u+w "$RUN/drupal/sites/default/settings.php"
   sed -i "s#'database' => 'sites/default/files/.sqlite'#'database' => '$RUN/drupal/sites/default/files/.sqlite'#" \
     "$RUN/drupal/sites/default/settings.php"
-  php -d error_reporting=24575 "$LAB/drupal-setup.php" "$RUN/drupal" >> "$RUN/logs/drupal-install.log" 2>&1
 fi
+php -d error_reporting=24575 "$LAB/drupal-setup.php" "$RUN/drupal" >> "$RUN/logs/drupal-install.log" 2>&1
 
 # --- Acme Intranet --------------------------------------------------------
 copy "$LAB/apps/intranet" "$RUN/intranet"

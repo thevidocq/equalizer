@@ -5,14 +5,15 @@
 #   PrestaShop on 127.0.0.1:18102 as http://shop.acme.test  (MariaDB)
 #   phpBB      on 127.0.0.1:18103 as http://forum.acme.test (SQLite)
 #   MediaWiki  on 127.0.0.1:18104 as http://wiki.acme.test  (SQLite)
-#   TYPO3      on 127.0.0.1:18105 as http://site.acme.test  (MariaDB)
+#   TYPO3      on 127.0.0.1:18105 as http://site.acme.test  (PostgreSQL)
 #   Magento    on 127.0.0.1:18106 as http://store.acme.test (MariaDB), with
 #              its search modules off: OpenSearch is not reachable here
 # Each has a test account "editor" / "Lab-editor-pass-1" where its visitors
 # log in: a customer on the shops (by e-mail, editor@acme.test), the
 # administrator on the forum and the wiki. TYPO3 has no visitor login.
 # Sources come from GitHub only (no Packagist) and are kept in .run/src.
-# MariaDB must be running on 127.0.0.1:33061 (up.sh starts it).
+# MariaDB must be running on 127.0.0.1:33061 for the shops, PostgreSQL on
+# 127.0.0.1:55441 for TYPO3 (up.sh starts both).
 set -euo pipefail
 cd "$(dirname "$0")"
 LAB="$PWD"
@@ -26,6 +27,7 @@ TYPO3_TAG="${TYPO3_TAG:-v13.4.40}"
 MAGENTO_TAG="${MAGENTO_TAG:-2.4.7-p9}"
 PASS="Lab-editor-pass-1"
 DB=(mariadb -h 127.0.0.1 -P 33061 -u root)
+PSQL=(psql -q -h 127.0.0.1 -p 55441 -U postgres)
 export COMPOSER_ALLOW_SUPERUSER=1 COMPOSER_NO_INTERACTION=1
 mkdir -p "$SRC" "$RUN/logs"
 
@@ -38,10 +40,18 @@ copy() { # from, to, excluded paths...
   rm -rf "$to" && mkdir -p "$to"
   (cd "$from" && tar "${ex[@]}" -cf - .) | tar -xf - -C "$to"
 }
+# webapps.sh [site...]: only the sites named (opencart prestashop phpbb
+# mediawiki typo3 magento); all of them by default.
+want() { [ "${#ONLY[@]}" -eq 0 ] || [[ " ${ONLY[*]} " == *" $1 "* ]]; }
+ONLY=("$@")
+for o in "${ONLY[@]}"; do
+  case "$o" in opencart|prestashop|phpbb|mediawiki|typo3|magento) ;; *) echo "unknown site: $o" >&2; exit 2 ;; esac
+done
 fresh_db() { "${DB[@]}" -e "drop database if exists $1; create database $1 character set utf8mb4"; }
 pwhash() { php -r 'echo password_hash($argv[1], PASSWORD_DEFAULT);' "$1"; }
 
 # --- OpenCart -------------------------------------------------------------
+if want opencart; then
 O="$SRC/opencart-$OPENCART_TAG"
 if [ ! -d "$O" ]; then
   curl -fsSL -o "$SRC/opencart.zip" "https://github.com/opencart/opencart/releases/download/$OPENCART_TAG/opencart-$OPENCART_TAG.zip"
@@ -61,8 +71,10 @@ if [ ! -f "$RUN/cart/config.php" ] || ! "${DB[@]}" -e "use opencart" 2>/dev/null
       custom_field, newsletter, ip, status, safe, token, code, date_added)
     values (1, 0, 1, 'Lab', 'Editor', 'editor@acme.test', '', '$(pwhash "$PASS")', '', 0, '', 1, 0, '', '', now());"
 fi
+fi
 
 # --- PrestaShop -----------------------------------------------------------
+if want prestashop; then
 P="$SRC/prestashop-$PRESTASHOP_TAG"
 if [ ! -d "$P" ]; then
   curl -fsSL -o "$SRC/prestashop.zip" "https://github.com/PrestaShop/PrestaShop/releases/download/$PRESTASHOP_TAG/prestashop_$PRESTASHOP_TAG.zip"
@@ -82,8 +94,10 @@ if [ ! -f "$RUN/shop/app/config/parameters.php" ] || ! "${DB[@]}" -e "use presta
   rm -rf "$RUN/shop/install"
   php "$LAB/prestashop-setup.php" "$RUN/shop" "$PASS"
 fi
+fi
 
 # --- phpBB ----------------------------------------------------------------
+if want phpbb; then
 B="$SRC/phpbb"
 clone https://github.com/phpbb/phpbb "$PHPBB_TAG" "$B"
 [ -f "$B/phpBB/vendor/autoload.php" ] || (cd "$B/phpBB" && composer install -q --no-dev --prefer-source --no-progress)
@@ -94,8 +108,10 @@ if [ ! -f "$RUN/forum-db/forum.sqlite" ]; then
   (cd "$RUN/forum" && php install/phpbbcli.php install "$RUN/forum-db/install.yml" > "$RUN/logs/phpbb-install.log")
   rm -rf "$RUN/forum/install" "$RUN/forum-db/install.yml" # the board stays closed while it is there
 fi
+fi
 
 # --- MediaWiki ------------------------------------------------------------
+if want mediawiki; then
 W="$SRC/mediawiki"
 clone https://github.com/wikimedia/mediawiki "$MEDIAWIKI_TAG" "$W"
 clone https://github.com/wikimedia/mediawiki-vendor "$MEDIAWIKI_TAG" "$W/vendor"
@@ -106,33 +122,45 @@ if [ ! -f "$RUN/wiki/LocalSettings.php" ]; then
   (cd "$RUN/wiki" && php maintenance/run.php install --dbtype=sqlite --dbpath="$RUN/wiki-db" --dbname=wiki \
     --server="http://wiki.acme.test" --scriptpath="" --lang=en --pass="$PASS" --skins=Vector "Acme Wiki" "Editor" \
     > "$RUN/logs/mediawiki-install.log")
-  for page in "Acme handbook" "Office hours"; do
-    echo "The '''$page''' page of the Acme Wiki. See also [[Main Page]]." |
-      (cd "$RUN/wiki" && php maintenance/run.php edit --user Editor --summary lab "$page" >> "$RUN/logs/mediawiki-install.log")
+fi
+# A wiki whose pages link to each other, in a category, from the main page.
+if [ ! -f "$RUN/wiki/.lab-content" ]; then
+  edit() { (cd "$RUN/wiki" && php maintenance/run.php edit --user Editor --summary lab "$1" >> "$RUN/logs/mediawiki-install.log"); }
+  main="Welcome to the '''Acme Wiki'''."$'\n'
+  for page in "Acme handbook" "Office hours" "Travel policy" "Onboarding" "IT help" "Security rules" "Meeting rooms" \
+    "Expenses" "Holidays" "Glossary" "Release process" "Code review"; do
+    main+="* [[$page]]"$'\n'
+    printf "The '''%s''' page of the Acme Wiki. See also [[Main Page]] and [[Glossary]].\n\n[[Category:Handbook]]\n" "$page" |
+      edit "$page"
   done
+  printf '%s\nAll of them: [[:Category:Handbook]].\n' "$main" | edit "Main Page"
+  echo "The handbook of the Acme Wiki." | edit "Category:Handbook"
+  touch "$RUN/wiki/.lab-content"
+fi
 fi
 
 # --- TYPO3 ----------------------------------------------------------------
+if want typo3; then
 T="$SRC/typo3"
 clone https://github.com/TYPO3/typo3 "$TYPO3_TAG" "$T"
 [ -f "$T/vendor/autoload.php" ] && [ -f "$T/bin/typo3" ] || (cd "$T" && composer install -q --no-dev --prefer-source --no-progress)
-if [ ! -f "$RUN/site/typo3conf/system/settings.php" ] || ! "${DB[@]}" -e "use typo3" 2>/dev/null; then
+if [ ! -f "$RUN/site/typo3conf/system/settings.php" ] || ! "${PSQL[@]}" -d typo3 -c "select 1 from pages limit 1" > /dev/null 2>&1; then
   copy "$T" "$RUN/site" .git Build
-  fresh_db typo3
-  "${DB[@]}" -e "create user if not exists 'lab'@'127.0.0.1' identified by 'Lab-db-pass-1';
-    grant all on typo3.* to 'lab'@'127.0.0.1'"
+  "${PSQL[@]}" -c "drop database if exists typo3" -c "create database typo3"
   # TYPO3's own password policy wants a special character: the backend
   # account gets one more; the visitors' side has no login anyway.
-  (cd "$RUN/site" && php bin/typo3 setup --driver=mysqli --host=127.0.0.1 --port=33061 --dbname=typo3 --username=lab \
-    --password=Lab-db-pass-1 --admin-username=editor --admin-user-password="$PASS!" --admin-email=editor@acme.test \
+  (cd "$RUN/site" && php bin/typo3 setup --driver=postgres --host=127.0.0.1 --port=55441 --dbname=typo3 \
+    --username=postgres --password= --admin-username=editor --admin-user-password="$PASS!" --admin-email=editor@acme.test \
     --project-name="Acme Site" --create-site="http://site.acme.test/" --server-type=other --force -n \
     > "$RUN/logs/typo3-install.log")
   php "$LAB/typo3-setup.php" "$RUN/site"
-  "${DB[@]}" typo3 < "$LAB/typo3-content.sql"
+  "${PSQL[@]}" -v ON_ERROR_STOP=1 -d typo3 -f "$LAB/typo3-content.sql"
   (cd "$RUN/site" && php bin/typo3 cache:flush -q)
+fi
 fi
 
 # --- Magento --------------------------------------------------------------
+if want magento; then
 M="$SRC/magento"
 clone https://github.com/magento/magento2 "$MAGENTO_TAG" "$M"
 # Without plugins: one of them asks Packagist about every package.
@@ -149,4 +177,5 @@ if [ ! -f "$RUN/store/app/etc/env.php" ] || ! "${DB[@]}" -e "use magento" 2>/dev
   (cd "$RUN/store" && php bin/magento config:set -q system/smtp/disable 1)
   php -d memory_limit=2G "$LAB/magento-setup.php" "$RUN/store" "$PASS"
   (cd "$RUN/store" && php bin/magento cache:flush -q)
+fi
 fi

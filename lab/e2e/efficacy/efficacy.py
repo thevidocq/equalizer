@@ -15,6 +15,7 @@ import sys
 
 import measure
 import stack
+from equalizer_agent.llm import study as ai_study
 from sites import OUT, SITES, available
 
 GUARANTEES = {
@@ -41,7 +42,8 @@ def study(name):
         draft, report = stack.discover(name, s)
         procs.append(stack.gateway(name, s, draft))
         site = measure.Site(name, s, out)
-        res = {"visits": measure.visits(site, report), "attacks": measure.attacks(site, draft, report),
+        res = {"parity": parity(draft, report),
+               "visits": measure.visits(site, report), "attacks": measure.attacks(site, draft, report),
                "protocol": measure.protocol(site), "map": {"routes": len(draft.get("routes", [])),
                                                           "forms": len(draft.get("forms", [])), "pages": report.get("pages_found")}}
         (out / "results.json").write_text(json.dumps(res, indent=1))
@@ -49,6 +51,39 @@ def study(name):
     finally:
         for p in procs:
             p.terminate()
+
+
+def parity(draft, report):
+    """What the agent made of the site, the same measures on every kind: the
+    inputs of the map and how many are typed, what the code added, what the
+    AI security study would be given (no model needed to count it)."""
+    fields = [spec for r in draft.get("routes", []) for part in ("params", "query") for spec in (r.get(part) or {}).values()]
+    fields += [spec for f in draft.get("forms", []) for spec in (f.get("fields") or {}).values()]
+    kinds = collections.Counter(measure.kind_of(draft, spec) for spec in fields)
+    src = report.get("source") or {}
+    ev = ai_study.evidence(draft, report)
+    items = collections.Counter(i[0] for i in ev.items)
+    return {"pages": report.get("pages_found"), "routes": len(draft.get("routes", [])), "forms": len(draft.get("forms", [])),
+            "inputs": len(fields), "typed": kinds["typed"], "patterned": kinds["patterned"], "free": kinds["free"],
+            "code": {"stack": src.get("stack"), "files": src.get("files", 0), "typed": len(src.get("typed") or []),
+                     "unseen": src.get("unseen_total", len(src.get("unseen") or [])),
+                     "risks": src.get("risks_total", len(src.get("risks") or [])),
+                     "components": len(report.get("components") or [])},
+            "study": dict(sorted(items.items()))}
+
+
+def parity_table(results):
+    """One line per site: the same measures side by side."""
+    lines = ["## Parity", "", "| Site | Pages | Precise | Inputs | Typed | Pattern | Free | Code files | Typed by code | "
+             "Code-only entries | Risky calls | Components | Study evidence |", "| --- " * 13 + "|"]
+    for name, res in results.items():
+        p, c = res["parity"], res["parity"]["code"]
+        v = [r for r in res["visits"] if r["direct"] is not None]
+        precise = [r for r in v if r["entry"] and not r["entry"].startswith("site")]
+        ev = ", ".join(f"{k} {n}" for k, n in p["study"].items())
+        lines.append(f"| {name} | {p['pages']} | {len(precise)}/{len(v)} | {p['inputs']} | {p['typed']} | {p['patterned']} | "
+                     f"{p['free']} | {c['files']} | {c['typed']} | {c['unseen']} | {c['risks']} | {c['components']} | {ev} |")
+    return lines + [""]
 
 
 def summary(results, missing=()):
@@ -78,6 +113,7 @@ def summary(results, missing=()):
                   f"{p['passed']} passed.", ""]
         if p["passed"]:
             failed.append((name, "protocol", [r["test"] for r in res["protocol"] if r["verdict"] == "passed"]))
+    lines += parity_table(results)
     lines += ["## Guarantees", ""] + ([f"- FAILED {n}: {GUARANTEES[g]} ({', '.join(map(str, x))})" for n, g, x in failed]
                                      or ["- all hold"])
     (OUT / "summary.md").write_text("\n".join(lines) + "\n")

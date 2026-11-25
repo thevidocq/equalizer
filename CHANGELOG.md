@@ -19,7 +19,8 @@ Add a section at the top of "Entries" for every commit:
 
 ## Current project status
 
-Latest release: **0.2.34** (`docs/releases/0.2.34.md`); before it 0.2.33
+Latest release: **0.2.35** (`docs/releases/0.2.35.md`); before it 0.2.34
+(`docs/releases/0.2.34.md`), 0.2.33
 (`docs/releases/0.2.33.md`), 0.2.32
 (`docs/releases/0.2.32.md`), 0.2.31
 (`docs/releases/0.2.31.md`), 0.2.30
@@ -67,6 +68,60 @@ it, 0.1.0 (`docs/releases/0.1.0.md`, tag on the merge of #39).
 | tools (eqtool) | Map signing keys, form key, relay token, connector registration, map signing |
 
 ## Entries
+
+### 2026-11-25 — Read every application's request reader; parity study
+
+- **Branch:** feat/cms-parity
+- **What:**
+  - Source reader: `extract/frameworks.go` reads each application's own
+    request reader (Symfony's query/request for Drupal, phpBB and
+    PrestaShop's controllers, MediaWiki's WebRequest, phpBB's
+    `variable()`, TYPO3's Extbase/PSR-7/`_GP`, OpenCart's
+    `request->get[]`, `Tools::getValue()`, Magento's `getParam()`), typed
+    by the method or an `(int)` in front, and taint follows them into
+    risky calls; Drupal's `.module`/`.theme`/`.install` are PHP; phpBB's
+    core is only `ext/phpbb/viglink` (the team's other extensions were
+    skipped). `cmd/source-summary` prints a folder's summary (lab use).
+    Schema text updated (and its panel copy).
+  - Lab: Joomla builds without npm (media from the release's full
+    package); TYPO3 on PostgreSQL; `webapps.sh [site…]`; richer sites
+    (Joomla 16 articles with fixed ordering and no hit counter, Drupal 20
+    articles with tags, comments, contact form and a home page that links
+    them, intranet directory, calendar, feedback form and JSON API,
+    MediaWiki handbook of 12 linked pages, TYPO3 11 pages); test 6 reads
+    TYPO3's digest from PostgreSQL.
+  - Efficacy: discovery with the source code read, a parity table per
+    site, `readers.py` (one real extension per application).
+  - Docs: efficacy results 0.2.35, tenant manual's reader table (and
+    in-app help), lab README, release notes 0.2.35, version.
+  - After the independent review (no field must be typed int wrongly): an
+    `(int)` types a reader's value only across an object chain, never
+    across a call with arguments (`(int) strlen(…)`) or an operator;
+    phpBB's float defaults (`0.0`) and Symfony's `getDigits` (phone
+    numbers, postcodes) stay untyped; `request->get()` is the request
+    (query or body); readers that make a number or a yes or no do not
+    taint; `.module`/`.theme`/`.install` are PHP on Drupal only;
+    `webapps.sh` refuses an unknown name; TYPO3's content SQL stops on
+    error; `readers.py` never writes into the hard-linked site; the
+    Joomla and Drupal setups run on every build (content added to an
+    existing lab).
+- **Why:** the owner asked that the agent be as effective on every CMS and
+  generic site as on WordPress; the reader typed fields only from `$_GET`,
+  Joomla and Moodle, and the efficacy study measured five kinds on small
+  sites.
+- **Status:** source-reader and agent tests pass; efficacy on seven sites:
+  every guarantee holds (394/394 pages the same, 940/940 typed, 880/880
+  with an extra key, protocol 0 through). OpenCart, PrestaShop, Magento
+  not measured here (no MariaDB; running a MySQL-compatible binary was
+  not allowed in this session): their readers are covered by unit tests.
+  Lab test suite (`tests/`) not run here (needs the whole lab).
+- **Next steps:**
+  1. Run the efficacy study and `readers.py` on the full lab (with
+     MariaDB) for OpenCart, PrestaShop and Magento.
+  2. TYPO3 Extbase plugins: map their query namespace
+     (`tx_news_pi1[...]`) on the pages that host them.
+  3. The reader's "no code file found" error could say the folder is
+     empty for the reader (check the container), awaiting the owner.
 
 ### 2026-11-25 — Let the viewer choose the Logs chart style
 

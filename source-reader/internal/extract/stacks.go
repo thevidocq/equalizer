@@ -174,6 +174,15 @@ func segment(rel string, n int) string {
 	return parts[n]
 }
 
+// drupalPHP: Drupal's modules and themes keep PHP in these files too.
+func drupalPHP(rel string) bool {
+	switch strings.ToLower(path.Ext(rel)) {
+	case ".module", ".theme", ".install":
+		return true
+	}
+	return false
+}
+
 func isPHP(rel string) bool {
 	switch strings.ToLower(path.Ext(rel)) {
 	case ".php", ".phtml", ".inc":

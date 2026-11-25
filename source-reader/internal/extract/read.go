@@ -107,7 +107,7 @@ func (s *Summary) file(rel, src string) {
 	if ok && !core && !library(rel) && a.file != nil {
 		a.file(s, a, in, src)
 	}
-	if !isPHP(rel) {
+	if !isPHP(rel) && !(ok && a.name == "drupal" && drupalPHP(rel)) {
 		return
 	}
 	s.sawPHP = true
@@ -133,6 +133,9 @@ func (s *Summary) file(rel, src string) {
 		s.declared(Route{Path: route, Methods: []string{"GET", "POST"}, Origin: "php_file", Public: true, Where: s.at(1)})
 	}
 	s.phpFile(rel, src, route)
+	if ok {
+		s.frameworkInputs(src, route)
+	}
 }
 
 // at is a line of the file being read.

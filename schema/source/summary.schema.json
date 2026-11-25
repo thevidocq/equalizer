@@ -54,7 +54,7 @@
         "required": ["name", "source", "type", "where"],
         "properties": {
           "name": { "type": "string", "maxLength": 100, "description": "The query or form key" },
-          "source": { "enum": ["query", "body", "request"], "description": "$_GET, $_POST, $_REQUEST (and the frameworks' readers of either: Moodle's optional_param, Joomla's input)" },
+          "source": { "enum": ["query", "body", "request"], "description": "$_GET, $_POST, $_REQUEST (and each application's own reader of either: Moodle's optional_param, Joomla's input, Symfony's query and request (Drupal, phpBB), MediaWiki's WebRequest, phpBB's variable, TYPO3's Extbase arguments, OpenCart's request, PrestaShop's Tools::getValue, Magento's getParam)" },
           "type": { "$ref": "#/$defs/codeType" },
           "values": { "type": "array", "maxItems": 50, "items": { "type": "string", "maxLength": 100 }, "description": "enum: the values the code compares it with" },
           "route": { "type": "string", "maxLength": 300, "description": "The route of the file or handler that reads it, when known" },
